@@ -1,0 +1,42 @@
+[project]
+name = "genai-pocs"
+version = "0.1.0"
+description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
+requires-python = ">=3.12"
+dependencies = ["headache-core"]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+headache-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "faker>=30.0",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["headache_core"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["packages/headache_core/src", "packages/headache_core/tests", "scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]
+asyncio_mode = "auto"
+addopts = "--import-mode=importlib"
