@@ -33,7 +33,7 @@ class BedrockSettings(BaseModel):
 
 
 class PostgresSettings(BaseModel):
-    host: str = "localhost"
+    host: str = "127.0.0.1"
     port: int = 5432
     user: str = "headache"
     password: SecretStr = SecretStr("")

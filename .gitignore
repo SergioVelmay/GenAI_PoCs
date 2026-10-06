@@ -17,6 +17,7 @@ build/
 # Datos generados (se regeneran con scripts/generate_synthetic_data.py)
 data/synthetic/*
 !data/synthetic/.gitkeep
+data/benchmarks/
 
 # IaC
 .terraform/

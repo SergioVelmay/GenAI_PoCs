@@ -14,7 +14,7 @@ def test_settings_read_nested_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert settings.llm_provider is LLMProvider.AWS
     assert settings.bedrock.region == "us-east-1"
-    assert settings.postgres.dsn().endswith("headache:p%40ss%2Fword@localhost:5432/headache")
+    assert settings.postgres.dsn().endswith("headache:p%40ss%2Fword@127.0.0.1:5432/headache")
 
 
 def test_secrets_are_masked_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -39,3 +39,49 @@ jobs:
 
       - name: Generador de datos sintéticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: headache
+          POSTGRES_PASSWORD: headache-ci
+          POSTGRES_DB: headache
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U headache -d headache"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES__PASSWORD: headache-ci
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias (lockfile obligatorio)
+        run: uv sync --all-packages --locked
+
+      - name: Migraciones (subida, bajada y subida)
+        run: |
+          uv run alembic -c packages/headache_core/alembic.ini upgrade head
+          uv run alembic -c packages/headache_core/alembic.ini downgrade base
+          uv run alembic -c packages/headache_core/alembic.ini upgrade head
+
+      - name: El modelo ORM coincide con las migraciones
+        run: uv run alembic -c packages/headache_core/alembic.ini check
+
+      - name: Tests de integración (concurrencia, bloqueos, idempotencia)
+        run: uv run pytest -m integration
+
+      - name: Carga masiva y benchmark (smoke test)
+        run: |
+          uv run python scripts/generate_synthetic_data.py --scale small
+          uv run python scripts/load_seed.py --truncate
+          uv run python scripts/sql_benchmark.py --repeat 1

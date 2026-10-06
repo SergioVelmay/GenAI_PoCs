@@ -5,16 +5,29 @@ from decimal import Decimal
 
 import pytest
 
-from headache_core.domain import Event, EventCategory, Money, Order, OrderStatus, Session
+from headache_core.domain import (
+    Customer,
+    Event,
+    EventCategory,
+    Money,
+    Order,
+    OrderStatus,
+    Session,
+)
 
 SESSION_START = datetime(2026, 11, 20, 20, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def customer() -> Customer:
+    return Customer("cus_1", "Ana Pérez", "ana@example.com", "ES", "es")
 
 
 @pytest.fixture
 def event() -> Event:
     return Event(
         id="evt_1",
-        title="Candlelit Strings: Tribute to Coldplay",
+        title="Candlelit Strings: Vivaldi's Four Seasons",
         category=EventCategory.CANDLELIT,
         city="Madrid",
         venue_id="ven_1",

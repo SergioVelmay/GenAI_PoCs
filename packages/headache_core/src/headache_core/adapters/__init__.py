@@ -1,1 +1,1 @@
-"""Implementaciones de los puertos. Fase 0: solo en memoria; Azure/AWS llegan en Fase 2+."""
+"""Implementaciones de los puertos: `memory` (tests) y `postgres` (Fase 1). Azure/AWS en Fase 2+."""

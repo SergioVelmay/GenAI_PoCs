@@ -42,6 +42,9 @@
 - Calidad (debe pasar antes de cada commit; lo mismo ejecuta la CI):
   `uv run ruff check .` · `uv run ruff format --check .` · `uv run mypy` (strict) · `uv run pytest`.
 - Tests con adaptadores en memoria: deterministas y sin red ni coste. `pytest-asyncio` en modo `auto`.
+- Tests de integración (marcador `integration`, excluidos por defecto): `uv run pytest -m integration`. Requieren PostgreSQL migrado.
+- Migraciones: `uv run alembic -c packages/headache_core/alembic.ini upgrade head` (0001 esquema, 0002 índices `CONCURRENTLY`). Carga masiva: `scripts/load_seed.py --truncate`; benchmark de índices: `scripts/sql_benchmark.py`.
+- En Windows usa `127.0.0.1` y no `localhost` para PostgreSQL (el intento IPv6 añade ~2 s por conexión).
 - Datos sintéticos: `uv run python scripts/generate_synthetic_data.py --scale small|medium|large`. Son deterministas por semilla y se generan en `data/synthetic/`, que no se versiona.
 - Entorno local: `docker compose up -d` (PostgreSQL + pgvector, RabbitMQ). Añade `--profile observability` para Langfuse v3. Todos los puertos están ligados a `127.0.0.1`.
 - IaC con **Terraform** como hilo principal (más ejemplos puntuales de CDK/CloudFormation y Bicep). CI/CD con **GitHub Actions**.
@@ -52,8 +55,8 @@
 | Fase | Tema | Estado |
 |---|---|---|
 | 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha |
-| 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ⏭️ Siguiente |
-| 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | |
+| 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ✅ Hecha |
+| 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ⏭️ Siguiente |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | |

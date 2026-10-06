@@ -1,0 +1,176 @@
+"""Modelo relacional (SQLAlchemy 2.0). Es un detalle de persistencia: el dominio no lo conoce.
+
+Los índices secundarios se declaran aquí para que `alembic check` detecte desvíos, pero se
+crean en la migración 0002 (así se puede medir el antes y el después).
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from enum import StrEnum
+
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Text,
+    func,
+    text,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from headache_core.domain import EventCategory, OrderStatus, RefundStatus
+
+NAMING_CONVENTION = {
+    "ix": "ix_%(table_name)s_%(column_0_N_name)s",
+    "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+
+class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+def _str_enum(enum_cls: type[StrEnum], name: str) -> Enum:
+    # VARCHAR + CHECK en lugar de ENUM nativo: añadir valores no exige ALTER TYPE.
+    return Enum(
+        enum_cls,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        length=20,
+        values_callable=lambda members: [m.value for m in members],
+    )
+
+
+MONEY = Numeric(12, 2)
+
+
+class VenueRow(Base):
+    __tablename__ = "venues"
+    __table_args__ = (CheckConstraint("capacity > 0", name="capacity_positive"),)
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    city: Mapped[str] = mapped_column(Text)
+    country: Mapped[str] = mapped_column(String(2))
+    address: Mapped[str] = mapped_column(Text)
+    capacity: Mapped[int] = mapped_column(Integer)
+
+
+class EventRow(Base):
+    __tablename__ = "events"
+    __table_args__ = (
+        CheckConstraint("price_amount >= 0", name="price_non_negative"),
+        CheckConstraint("refund_window_hours >= 0", name="refund_window_non_negative"),
+        Index("ix_events_city_category", "city", "category"),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    title: Mapped[str] = mapped_column(Text)
+    category: Mapped[EventCategory] = mapped_column(_str_enum(EventCategory, "event_category"))
+    city: Mapped[str] = mapped_column(Text)
+    venue_id: Mapped[str] = mapped_column(ForeignKey("venues.id"))
+    description: Mapped[str] = mapped_column(Text)
+    price_amount: Mapped[Decimal] = mapped_column(MONEY)
+    currency: Mapped[str] = mapped_column(String(3))
+    refundable: Mapped[bool]
+    refund_window_hours: Mapped[int] = mapped_column(Integer)
+
+
+class SessionRow(Base):
+    __tablename__ = "sessions"
+    __table_args__ = (
+        # Última línea de defensa contra la sobreventa: la BD rechaza un inventario imposible.
+        CheckConstraint("available BETWEEN 0 AND capacity", name="available_within_capacity"),
+        Index("ix_sessions_event_id_starts_at", "event_id", "starts_at"),
+        Index(
+            "ix_sessions_starts_at_with_availability",
+            "starts_at",
+            postgresql_where=text("available > 0"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    event_id: Mapped[str] = mapped_column(ForeignKey("events.id"))
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    capacity: Mapped[int] = mapped_column(Integer)
+    available: Mapped[int] = mapped_column(Integer)
+
+
+class CustomerRow(Base):
+    __tablename__ = "customers"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    full_name: Mapped[str] = mapped_column(Text)
+    email: Mapped[str] = mapped_column(Text)
+    country: Mapped[str] = mapped_column(String(2))
+    language: Mapped[str] = mapped_column(String(5))
+
+
+# Índice de expresión: sirve a `WHERE lower(email) = ...` y garantiza unicidad sin mayúsculas.
+Index("uq_customers_lower_email", func.lower(CustomerRow.email), unique=True)
+
+
+class OrderRow(Base):
+    __tablename__ = "orders"
+    __table_args__ = (
+        CheckConstraint("quantity BETWEEN 1 AND 10", name="quantity_range"),
+        CheckConstraint("total_amount >= 0", name="total_non_negative"),
+        # Índice único parcial: los NULL (pedidos sin clave) no ocupan espacio en el índice.
+        Index(
+            "uq_orders_idempotency_key",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
+        Index("ix_orders_customer_id_created_at", "customer_id", "created_at"),
+        Index("ix_orders_session_id", "session_id"),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"))
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"))
+    quantity: Mapped[int] = mapped_column(Integer)
+    total_amount: Mapped[Decimal] = mapped_column(MONEY)
+    currency: Mapped[str] = mapped_column(String(3))
+    status: Mapped[OrderStatus] = mapped_column(_str_enum(OrderStatus, "order_status"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    idempotency_key: Mapped[str | None] = mapped_column(Text)
+
+
+class RefundRow(Base):
+    __tablename__ = "refunds"
+    __table_args__ = (
+        CheckConstraint("amount >= 0", name="amount_non_negative"),
+        # Regla de negocio en la BD: como mucho un reembolso abierto o aprobado por pedido.
+        Index(
+            "uq_refunds_order_id_open",
+            "order_id",
+            unique=True,
+            postgresql_where=text("status IN ('requested', 'approved')"),
+        ),
+        Index(
+            "ix_refunds_requested_at_pending",
+            "requested_at",
+            postgresql_where=text("status = 'requested'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"))
+    amount: Mapped[Decimal] = mapped_column(MONEY)
+    currency: Mapped[str] = mapped_column(String(3))
+    reason: Mapped[str] = mapped_column(Text)
+    status: Mapped[RefundStatus] = mapped_column(_str_enum(RefundStatus, "refund_status"))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -7,11 +7,24 @@ import math
 import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from typing import Any
+from dataclasses import replace
+from datetime import datetime
+from types import TracebackType
+from typing import Any, Self
 
-from headache_core.domain import Event, EventCategory, Order, Session
+from headache_core.domain import (
+    Customer,
+    Event,
+    EventCategory,
+    Order,
+    OrderStatus,
+    Refund,
+    RefundStatus,
+    Session,
+)
 from headache_core.ports import (
     ChatMessage,
+    ConflictError,
     LLMResponse,
     Message,
     MessageHandler,
@@ -117,6 +130,14 @@ class InMemoryMessageBus:
         self._handlers[topic].append(handler)
 
 
+class InMemoryCustomerRepository:
+    def __init__(self, customers: Sequence[Customer] = ()) -> None:
+        self._items = {c.id: c for c in customers}
+
+    async def get(self, customer_id: str) -> Customer | None:
+        return self._items.get(customer_id)
+
+
 class InMemoryEventRepository:
     def __init__(self, events: Sequence[Event] = ()) -> None:
         self._items = {e.id: e for e in events}
@@ -146,22 +167,108 @@ class InMemorySessionRepository:
     async def get(self, session_id: str) -> Session | None:
         return self._items.get(session_id)
 
-    async def list_for_event(self, event_id: str) -> list[Session]:
-        return [s for s in self._items.values() if s.event_id == event_id]
+    async def list_for_event(
+        self,
+        event_id: str,
+        *,
+        starts_after: datetime | None = None,
+        only_available: bool = False,
+    ) -> list[Session]:
+        return sorted(
+            (
+                s
+                for s in self._items.values()
+                if s.event_id == event_id
+                and (starts_after is None or s.starts_at > starts_after)
+                and (not only_available or s.available > 0)
+            ),
+            key=lambda s: s.starts_at,
+        )
+
+    async def try_reserve(self, session_id: str, quantity: int) -> bool:
+        session = self._items.get(session_id)
+        if session is None or session.available < quantity:
+            return False
+        self._items[session_id] = replace(session, available=session.available - quantity)
+        return True
+
+    async def release(self, session_id: str, quantity: int) -> None:
+        session = self._items[session_id]
+        self._items[session_id] = replace(session, available=session.available + quantity)
 
 
 class InMemoryOrderRepository:
     def __init__(self, orders: Sequence[Order] = ()) -> None:
         self._items = {o.id: o for o in orders}
+        self._by_key: dict[str, str] = {}
 
-    async def get(self, order_id: str) -> Order | None:
+    async def get(self, order_id: str, *, for_update: bool = False) -> Order | None:
         return self._items.get(order_id)
 
-    async def save(self, order: Order) -> None:
-        self._items[order.id] = order
+    async def get_by_idempotency_key(self, key: str) -> Order | None:
+        order_id = self._by_key.get(key)
+        return self._items[order_id] if order_id else None
 
-    async def list_for_customer(self, customer_id: str) -> list[Order]:
-        return [o for o in self._items.values() if o.customer_id == customer_id]
+    async def add(self, order: Order, *, idempotency_key: str | None = None) -> None:
+        if order.id in self._items or (idempotency_key and idempotency_key in self._by_key):
+            raise ConflictError("Pedido duplicado.")
+        self._items[order.id] = order
+        if idempotency_key:
+            self._by_key[idempotency_key] = order.id
+
+    async def update_status(self, order_id: str, status: OrderStatus) -> None:
+        self._items[order_id] = replace(self._items[order_id], status=status)
+
+    async def list_for_customer(self, customer_id: str, *, limit: int = 20) -> list[Order]:
+        orders = [o for o in self._items.values() if o.customer_id == customer_id]
+        return sorted(orders, key=lambda o: o.created_at, reverse=True)[:limit]
+
+
+class InMemoryRefundRepository:
+    def __init__(self, refunds: Sequence[Refund] = ()) -> None:
+        self.items = list(refunds)
+
+    async def add(self, refund: Refund) -> None:
+        open_statuses = (RefundStatus.REQUESTED, RefundStatus.APPROVED)
+        if refund.status in open_statuses and any(
+            r.order_id == refund.order_id and r.status in open_statuses for r in self.items
+        ):
+            raise ConflictError(f"El pedido {refund.order_id} ya tiene un reembolso abierto.")
+        self.items.append(refund)
+
+
+class InMemoryUnitOfWork:
+    """Sin rollback real: los cambios se aplican al momento. Basta para tests de casos de uso."""
+
+    def __init__(
+        self,
+        *,
+        customers: Sequence[Customer] = (),
+        events: Sequence[Event] = (),
+        sessions: Sequence[Session] = (),
+        orders: Sequence[Order] = (),
+        refunds: Sequence[Refund] = (),
+    ) -> None:
+        self.customers = InMemoryCustomerRepository(customers)
+        self.events = InMemoryEventRepository(events)
+        self.sessions = InMemorySessionRepository(sessions)
+        self.orders = InMemoryOrderRepository(orders)
+        self.refunds = InMemoryRefundRepository(refunds)
+        self.commits = 0
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        return None
+
+    async def commit(self) -> None:
+        self.commits += 1
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:

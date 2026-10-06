@@ -8,6 +8,23 @@ from decimal import Decimal
 
 from headache_core.domain.models import Event, Money, Order, OrderStatus, Session
 
+MAX_TICKETS_PER_ORDER = 10
+
+
+class PurchaseNotAllowedError(Exception):
+    """Una regla de negocio impide la compra (no es un fallo técnico)."""
+
+
+def check_purchase(*, session: Session, quantity: int, now: datetime) -> None:
+    if not 1 <= quantity <= MAX_TICKETS_PER_ORDER:
+        raise PurchaseNotAllowedError(
+            f"La cantidad debe estar entre 1 y {MAX_TICKETS_PER_ORDER} entradas."
+        )
+    if session.starts_at <= now:
+        raise PurchaseNotAllowedError("La sesión ya ha comenzado.")
+    if session.available < quantity:
+        raise PurchaseNotAllowedError(f"Solo quedan {session.available} plazas.")
+
 
 @dataclass(frozen=True, slots=True)
 class RefundDecision:

@@ -13,9 +13,16 @@ from headache_core.domain.models import (
     SupportEmail,
     Venue,
 )
-from headache_core.domain.policies import RefundDecision, evaluate_refund
+from headache_core.domain.policies import (
+    MAX_TICKETS_PER_ORDER,
+    PurchaseNotAllowedError,
+    RefundDecision,
+    check_purchase,
+    evaluate_refund,
+)
 
 __all__ = [
+    "MAX_TICKETS_PER_ORDER",
     "Customer",
     "DocumentType",
     "Event",
@@ -24,11 +31,13 @@ __all__ = [
     "Money",
     "Order",
     "OrderStatus",
+    "PurchaseNotAllowedError",
     "Refund",
     "RefundDecision",
     "RefundStatus",
     "Session",
     "SupportEmail",
     "Venue",
+    "check_purchase",
     "evaluate_refund",
 ]

@@ -94,11 +94,11 @@ CATEGORY_RULES = {
         "Conciertos a la luz de las velas",
         "Candlelit concerts",
         (
-            "Candlelit Strings: Tribute to Coldplay",
+            "Candlelit Strings: 90s Pop Anthems",
             "Candlelit Strings: Vivaldi's Four Seasons",
-            "Candlelit Strings: Best of Hans Zimmer",
-            "Candlelit Strings: Queen vs ABBA",
-            "Candlelit Strings: Ludovico Einaudi",
+            "Candlelit Strings: Epic Film Scores",
+            "Candlelit Strings: Rock Legends vs Disco Classics",
+            "Candlelit Strings: Minimalist Piano",
         ),
     ),
     EventCategory.EXHIBITION: CategoryRules(
@@ -331,7 +331,9 @@ class HeadacheDataGenerator:
                 quantity=quantity,
                 total=event.price * quantity,
                 status=status,
-                created_at=session.starts_at - timedelta(hours=self.rng.randint(72, 60 * 24)),
+                # Un pedido nunca se crea en el futuro respecto a la fecha de referencia.
+                created_at=min(session.starts_at, self.now)
+                - timedelta(hours=self.rng.randint(72, 60 * 24)),
             )
             _write_row(orders_fh, order)
             if status is OrderStatus.REFUNDED or (status is OrderStatus.PAID and roll > 0.98):
