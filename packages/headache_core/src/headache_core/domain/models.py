@@ -36,6 +36,15 @@ class DocumentType(StrEnum):
     VENUE_GUIDE = "venue_guide"
 
 
+class SupportIntent(StrEnum):
+    REFUND_REQUEST = "refund_request"
+    DATE_CHANGE = "date_change"
+    EVENT_INFO = "event_info"
+    LOST_TICKETS = "lost_tickets"
+    COMPLAINT = "complaint"
+    PARTNERSHIP = "partnership"
+
+
 @dataclass(frozen=True, slots=True)
 class Money:
     amount: Decimal

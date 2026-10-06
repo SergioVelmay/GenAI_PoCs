@@ -7,8 +7,9 @@ import math
 import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
+from decimal import Decimal
 from types import TracebackType
 from typing import Any, Self
 
@@ -29,6 +30,7 @@ from headache_core.ports import (
     Message,
     MessageHandler,
     MetadataValue,
+    ResponseSchema,
     SearchResult,
     TokenUsage,
     VectorRecord,
@@ -36,12 +38,16 @@ from headache_core.ports import (
 
 
 class FakeLLM:
-    """Devuelve respuestas guionizadas (o hace eco) y registra cada llamada."""
+    """Devuelve respuestas guionizadas (o hace eco) y registra cada llamada.
 
-    def __init__(self, responses: Sequence[str] = (), model: str = "fake-llm") -> None:
+    Un elemento del guion que sea una excepción se lanza en vez de responder.
+    """
+
+    def __init__(self, responses: Sequence[str | Exception] = (), model: str = "fake-llm") -> None:
         self._responses = list(responses)
         self._model = model
         self.calls: list[list[ChatMessage]] = []
+        self.schemas: list[ResponseSchema | None] = []
 
     async def complete(
         self,
@@ -49,14 +55,53 @@ class FakeLLM:
         *,
         temperature: float = 0.0,
         max_tokens: int | None = None,
+        response_schema: ResponseSchema | None = None,
     ) -> LLMResponse:
         self.calls.append(list(messages))
-        content = self._responses.pop(0) if self._responses else messages[-1].content
+        self.schemas.append(response_schema)
+        scripted = self._responses.pop(0) if self._responses else messages[-1].content
+        if isinstance(scripted, Exception):
+            raise scripted
         usage = TokenUsage(
             input_tokens=sum(len(m.content.split()) for m in messages),
-            output_tokens=len(content.split()),
+            output_tokens=len(scripted.split()),
         )
-        return LLMResponse(content=content, model=self._model, usage=usage)
+        return LLMResponse(content=scripted, model=self._model, usage=usage, provider="fake")
+
+
+class RecordingTracer:
+    """Tracer en memoria: guarda cada *generation* para inspeccionarla en tests."""
+
+    def __init__(self) -> None:
+        self.records: list[TraceRecord] = []
+
+    def start_generation(
+        self,
+        *,
+        name: str,
+        messages: Sequence[ChatMessage],
+        metadata: Mapping[str, str],
+    ) -> TraceRecord:
+        record = TraceRecord(name=name, messages=list(messages), metadata=dict(metadata))
+        self.records.append(record)
+        return record
+
+
+@dataclass(slots=True)
+class TraceRecord:
+    name: str
+    messages: list[ChatMessage]
+    metadata: dict[str, str]
+    response: LLMResponse | None = None
+    cost_usd: Decimal | None = None
+    error: BaseException | None = None
+
+    def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
+        self.response = response
+        self.cost_usd = cost_usd
+
+    def fail(self, error: BaseException) -> None:
+        self.error = error
 
 
 class HashingEmbedding:

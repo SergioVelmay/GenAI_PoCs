@@ -23,3 +23,20 @@ def test_secrets_are_masked_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(_env_file=None)
 
     assert "supersecret" not in repr(settings)
+
+
+def test_empty_values_fall_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AZURE_OPENAI__API_KEY", "")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.azure_openai.api_key is None
+    assert settings.llm_gateway.fallback_provider is None
+
+
+def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "azure")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
+
+    assert Settings(_env_file=None).provider_chain() == [LLMProvider.AZURE, LLMProvider.AWS]

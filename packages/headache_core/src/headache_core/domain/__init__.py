@@ -11,6 +11,7 @@ from headache_core.domain.models import (
     RefundStatus,
     Session,
     SupportEmail,
+    SupportIntent,
     Venue,
 )
 from headache_core.domain.policies import (
@@ -37,6 +38,7 @@ __all__ = [
     "RefundStatus",
     "Session",
     "SupportEmail",
+    "SupportIntent",
     "Venue",
     "check_purchase",
     "evaluate_refund",

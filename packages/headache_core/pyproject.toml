@@ -14,6 +14,19 @@ postgres = [
     "asyncpg>=0.30",
     "sqlalchemy[asyncio]>=2.0.36",
 ]
+azure = [
+    "azure-identity>=1.19",
+    "openai>=1.68",
+]
+aws = [
+    "boto3>=1.38",
+]
+gateway = [
+    "litellm>=1.70",
+]
+observability = [
+    "langfuse>=3.0",
+]
 
 [build-system]
 requires = ["hatchling"]

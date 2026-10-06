@@ -46,6 +46,7 @@
 - Migraciones: `uv run alembic -c packages/headache_core/alembic.ini upgrade head` (0001 esquema, 0002 índices `CONCURRENTLY`). Carga masiva: `scripts/load_seed.py --truncate`; benchmark de índices: `scripts/sql_benchmark.py`.
 - En Windows usa `127.0.0.1` y no `localhost` para PostgreSQL (el intento IPv6 añade ~2 s por conexión).
 - Datos sintéticos: `uv run python scripts/generate_synthetic_data.py --scale small|medium|large`. Son deterministas por semilla y se generan en `data/synthetic/`, que no se versiona.
+- LLM: todo pasa por `LLMPort`. El gateway se monta en `adapters/llm_factory.build_gateway` (routing → fallback → trazas/coste → rate limit → adaptador). `LLM_GATEWAY__ENGINE=native|litellm`. Scripts con coste: `scripts/llm_cache_benchmark.py` y `scripts/llm_gateway_demo.py`.
 - Entorno local: `docker compose up -d` (PostgreSQL + pgvector, RabbitMQ). Añade `--profile observability` para Langfuse v3. Todos los puertos están ligados a `127.0.0.1`.
 - IaC con **Terraform** como hilo principal (más ejemplos puntuales de CDK/CloudFormation y Bicep). CI/CD con **GitHub Actions**.
 - Commits con Conventional Commits en español, p. ej. `feat: fase 1 - esquema SQL de ticketing`.
@@ -56,7 +57,7 @@
 |---|---|---|
 | 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha |
 | 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ✅ Hecha |
-| 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ⏭️ Siguiente |
+| 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | 🔄 Código listo; falta validar en cloud |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | |
@@ -74,6 +75,16 @@
 Requisitos de las ofertas que deben quedar cubiertos: orquestación multi-agente con grafos, tool calling avanzado, harness y guardrails, RAG con búsqueda híbrida, context engineering + prompt caching + model routing, evals con métricas, Clean Architecture/DDD, patrones asíncronos y colas, SQL avanzado, CI/CD + observabilidad y equivalencias Azure ↔ AWS.
 
 Actualiza la tabla de estado al cerrar cada fase.
+
+## Pendientes "para más adelante" (Sergio los aplazó; recuérdaselos)
+
+Desde la **fase 2** (no se puede cerrar la fase hasta completarlos):
+
+- [ ] Instalar y autenticar **Azure CLI** (`az login`) y **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
+- [ ] **Azure AI Foundry**: desplegar `gpt-4.1-mini` (potente) y `gpt-4.1-nano` (barato); rellenar `AZURE_OPENAI__ENDPOINT` y dar el rol *Cognitive Services OpenAI User* a su usuario (Entra ID, sin clave).
+- [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
+- [ ] Ejecutar con coste (pedir confirmación): `scripts/llm_cache_benchmark.py --provider azure|aws` y `scripts/llm_gateway_demo.py` (motores `native` y `litellm`), y revisar las trazas en Langfuse.
+- [ ] Langfuse local sigue en la imagen `langfuse:3` (OSS v3, parches de seguridad hasta 31-01-2027). El SDK Python v4 es compatible (requiere servidor ≥ 3.63.0). Valorar migrar a la imagen v4 en la fase 11.
 
 ## Entorno del usuario
 
