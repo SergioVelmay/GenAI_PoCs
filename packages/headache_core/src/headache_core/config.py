@@ -60,7 +60,7 @@ class PostgresSettings(BaseModel):
 
 
 class RabbitMQSettings(BaseModel):
-    host: str = "localhost"
+    host: str = "127.0.0.1"
     port: int = 5672
     user: str = "headache"
     password: SecretStr = SecretStr("")
@@ -71,7 +71,7 @@ class RabbitMQSettings(BaseModel):
 
 
 class LangfuseSettings(BaseModel):
-    host: str = "http://localhost:3000"
+    host: str = "http://127.0.0.1:3000"
     public_key: str = ""
     secret_key: SecretStr = SecretStr("")
 
