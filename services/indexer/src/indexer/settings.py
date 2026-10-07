@@ -23,6 +23,10 @@ class IndexerSettings(BaseSettings):
     engine: Literal["native", "llamaindex"] = "native"
     # rabbitmq en local; sqs (ElasticMQ/AWS) y servicebus (emulador/Azure) para la nube.
     broker: Literal["rabbitmq", "sqs", "servicebus"] = "rabbitmq"
+    # hashing = local sin coste; azure (text-embedding-3-small) y bedrock (Titan v2) cuestan.
+    embeddings: Literal["hashing", "azure", "bedrock"] = "hashing"
+    # Carril B en la nube: azure_search o s3_vectors. El ledger sigue en PostgreSQL.
+    vector_store: Literal["pgvector", "azure_search", "s3_vectors"] = "pgvector"
     index_name: str = "knowledge"
     topic: str = "knowledge.documents"
     chunk_strategy: Literal["sentence", "fixed", "semantic", "hierarchical"] = "sentence"
@@ -44,6 +48,8 @@ class IndexerSettings(BaseSettings):
             raise ValueError(
                 f"La estrategia '{self.chunk_strategy}' solo existe en INDEXER__ENGINE=llamaindex."
             )
+        if self.engine == "llamaindex" and self.vector_store != "pgvector":
+            raise ValueError("El carril LlamaIndex usa su propio PGVectorStore (pgvector).")
         return self
 
     @property

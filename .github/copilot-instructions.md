@@ -52,6 +52,8 @@
 - Entorno local: `docker compose up -d` (PostgreSQL + pgvector, RabbitMQ). Añade `--profile observability` para Langfuse v3, `--profile sqs` para ElasticMQ (SQS, puerto 9324) y `--profile servicebus` para el emulador de Service Bus (AMQP en 5673, requiere `SERVICEBUS_ACCEPT_EULA=Y`). Todos los puertos están ligados a `127.0.0.1`.
 - Brokers del indexer: `INDEXER__BROKER=rabbitmq|sqs|servicebus` (mismo `MessageBusPort`). Garantías comunes verificadas en `tests/integration/test_message_bus_contract.py` (cada broker se salta si su emulador no está arrancado). En SQS y Service Bus las colas y DLQ las declara la infraestructura (`infra/local/elasticmq/elasticmq.conf`, `infra/local/servicebus/config.json`; Terraform/Bicep en la nube).
 - IaC con **Terraform** como hilo principal (más ejemplos puntuales de CDK/CloudFormation y Bicep). CI/CD con **GitHub Actions**.
+- Terraform en `infra/terraform/{aws,azure}` (estado local, `terraform.tfvars` sin versionar). Validación sin coste: `terraform fmt -check`, `init -backend=false`, `validate` (también en CI). `plan`/`apply` requieren credenciales y confirmación. El índice de AI Search no lo gestiona azurerm: `scripts/provision_search_index.py [--apply]`.
+- Carril B en la nube del indexer: `INDEXER__EMBEDDINGS=hashing|azure|bedrock` (1024 dims) y `INDEXER__VECTOR_STORE=pgvector|azure_search|s3_vectors`; el ledger sigue en PostgreSQL con `index_name@store`.
 - Commits con Conventional Commits en español, p. ej. `feat: fase 1 - esquema SQL de ticketing`.
 
 ## Plan de fases (estado)

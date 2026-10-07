@@ -43,6 +43,22 @@ jobs:
       - name: Informe de chunking (smoke test)
         run: uv run python scripts/chunking_report.py --source /tmp/synthetic/knowledge/documents.jsonl
 
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [aws, azure]
+    defaults:
+      run:
+        working-directory: infra/terraform/${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+      # Sin credenciales ni backend: solo sintaxis, tipos y referencias. El plan llega con OIDC.
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
   integration:
     runs-on: ubuntu-latest
     services:

@@ -17,6 +17,7 @@ postgres = [
 ]
 azure = [
     "azure-identity>=1.19",
+    "azure-search-documents>=11.6",
     "azure-servicebus>=7.14",
     "openai>=1.68",
 ]

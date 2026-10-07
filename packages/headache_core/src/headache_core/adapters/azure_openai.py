@@ -65,6 +65,29 @@ def _response_format(schema: ResponseSchema) -> ResponseFormatJSONSchema:
     }
 
 
+def create_client(settings: AzureOpenAISettings) -> AsyncOpenAI:
+    if not settings.endpoint:
+        raise LLMError("Falta AZURE_OPENAI__ENDPOINT.")
+    # max_retries=0: los reintentos y el fallback son responsabilidad del gateway.
+    if settings.api_key is not None and settings.api_key.get_secret_value():
+        return AsyncAzureOpenAI(
+            azure_endpoint=settings.endpoint,
+            api_key=settings.api_key.get_secret_value(),
+            api_version=settings.api_version,
+            max_retries=0,
+        )
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+    return AsyncAzureOpenAI(
+        azure_endpoint=settings.endpoint,
+        azure_ad_token_provider=get_bearer_token_provider(
+            DefaultAzureCredential(), COGNITIVE_SERVICES_SCOPE
+        ),
+        api_version=settings.api_version,
+        max_retries=0,
+    )
+
+
 class AzureOpenAILLM:
     def __init__(self, client: AsyncOpenAI, deployment: str) -> None:
         self._client = client
@@ -72,28 +95,7 @@ class AzureOpenAILLM:
 
     @classmethod
     def from_settings(cls, settings: AzureOpenAISettings, *, deployment: str) -> Self:
-        if not settings.endpoint:
-            raise LLMError("Falta AZURE_OPENAI__ENDPOINT.")
-        # max_retries=0: los reintentos y el fallback son responsabilidad del gateway.
-        if settings.api_key is not None and settings.api_key.get_secret_value():
-            client = AsyncAzureOpenAI(
-                azure_endpoint=settings.endpoint,
-                api_key=settings.api_key.get_secret_value(),
-                api_version=settings.api_version,
-                max_retries=0,
-            )
-        else:
-            from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-
-            client = AsyncAzureOpenAI(
-                azure_endpoint=settings.endpoint,
-                azure_ad_token_provider=get_bearer_token_provider(
-                    DefaultAzureCredential(), COGNITIVE_SERVICES_SCOPE
-                ),
-                api_version=settings.api_version,
-                max_retries=0,
-            )
-        return cls(client, deployment)
+        return cls(create_client(settings), deployment)
 
     async def complete(
         self,

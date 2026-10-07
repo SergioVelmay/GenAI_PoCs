@@ -92,6 +92,20 @@ class ServiceBusSettings(BaseModel):
     max_wait_s: int = 5
 
 
+class AzureSearchSettings(BaseModel):
+    endpoint: str = ""  # https://<servicio>.search.windows.net
+    index_name: str = "knowledge"
+    # None => Entra ID (rol "Search Index Data Contributor"), sin claves.
+    api_key: SecretStr | None = None
+
+
+class S3VectorsSettings(BaseModel):
+    region: str = "eu-west-1"
+    profile: str | None = None
+    bucket_name: str = "headache-knowledge-vectors"
+    index_name: str = "knowledge"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -111,6 +125,8 @@ class Settings(BaseSettings):
     rabbitmq: RabbitMQSettings = RabbitMQSettings()
     sqs: SqsSettings = SqsSettings()
     service_bus: ServiceBusSettings = ServiceBusSettings()
+    azure_search: AzureSearchSettings = AzureSearchSettings()
+    s3_vectors: S3VectorsSettings = S3VectorsSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:
