@@ -185,6 +185,9 @@ class InMemoryMessageBus:
     async def subscribe(self, topic: str, handler: MessageHandler) -> None:
         self._handlers[topic].append(handler)
 
+    async def close(self) -> None:
+        return None
+
     async def _deliver(self, handler: MessageHandler, message: Message) -> None:
         for attempt in range(1, self._max_deliveries + 1):
             try:

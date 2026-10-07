@@ -49,7 +49,8 @@
 - En Windows usa `127.0.0.1` y no `localhost` para conectar desde el código (PostgreSQL, RabbitMQ, Langfuse): el intento IPv6 añade ~2 s por conexión.
 - Datos sintéticos: `uv run python scripts/generate_synthetic_data.py --scale small|medium|large`. Son deterministas por semilla y se generan en `data/synthetic/`, que no se versiona.
 - LLM: todo pasa por `LLMPort`. El gateway se monta en `adapters/llm_factory.build_gateway` (routing → fallback → trazas/coste → rate limit → adaptador). `LLM_GATEWAY__ENGINE=native|litellm`. Scripts con coste: `scripts/llm_cache_benchmark.py` y `scripts/llm_gateway_demo.py`.
-- Entorno local: `docker compose up -d` (PostgreSQL + pgvector, RabbitMQ). Añade `--profile observability` para Langfuse v3. Todos los puertos están ligados a `127.0.0.1`.
+- Entorno local: `docker compose up -d` (PostgreSQL + pgvector, RabbitMQ). Añade `--profile observability` para Langfuse v3, `--profile sqs` para ElasticMQ (SQS, puerto 9324) y `--profile servicebus` para el emulador de Service Bus (AMQP en 5673, requiere `SERVICEBUS_ACCEPT_EULA=Y`). Todos los puertos están ligados a `127.0.0.1`.
+- Brokers del indexer: `INDEXER__BROKER=rabbitmq|sqs|servicebus` (mismo `MessageBusPort`). Garantías comunes verificadas en `tests/integration/test_message_bus_contract.py` (cada broker se salta si su emulador no está arrancado). En SQS y Service Bus las colas y DLQ las declara la infraestructura (`infra/local/elasticmq/elasticmq.conf`, `infra/local/servicebus/config.json`; Terraform/Bicep en la nube).
 - IaC con **Terraform** como hilo principal (más ejemplos puntuales de CDK/CloudFormation y Bicep). CI/CD con **GitHub Actions**.
 - Commits con Conventional Commits en español, p. ej. `feat: fase 1 - esquema SQL de ticketing`.
 

@@ -1,5 +1,6 @@
 # Entorno local. Núcleo:            docker compose up -d
 #                Con observabilidad: docker compose --profile observability up -d
+#                Emuladores de colas: --profile sqs (ElasticMQ) | --profile servicebus
 name: genai-pocs
 
 x-langfuse-env: &langfuse-env
@@ -66,6 +67,42 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
+
+  # ---------- Emuladores de colas cloud (fase 3) ----------
+  # SQS: ElasticMQ (Apache-2.0, sin cuenta). Colas + DLQ declaradas en elasticmq.conf.
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.7.1
+    profiles: [sqs]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9324:9324"
+      - "127.0.0.1:9325:9325"
+    volumes:
+      - ./infra/local/elasticmq/elasticmq.conf:/opt/elasticmq.conf:ro
+
+  # Service Bus: emulador oficial (EULA propia) + SQL Server como almacenamiento.
+  # Pon SERVICEBUS_ACCEPT_EULA=Y en .env solo si aceptas ambas licencias.
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    profiles: [servicebus]
+    depends_on: [mssql]
+    environment:
+      SQL_SERVER: mssql
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      ACCEPT_EULA: ${SERVICEBUS_ACCEPT_EULA:-N}
+    ports:
+      # 5673 en el host: el 5672 ya lo usa RabbitMQ.
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:5300:5300"
+    volumes:
+      - ./infra/local/servicebus/config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: [servicebus]
+    environment:
+      ACCEPT_EULA: ${SERVICEBUS_ACCEPT_EULA:-N}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
 
   # ---------- Observabilidad (Langfuse v3) ----------
   langfuse-web:

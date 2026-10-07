@@ -21,6 +21,8 @@ class IndexerSettings(BaseSettings):
 
     # native = carril B (código propio); llamaindex = carril C (framework).
     engine: Literal["native", "llamaindex"] = "native"
+    # rabbitmq en local; sqs (ElasticMQ/AWS) y servicebus (emulador/Azure) para la nube.
+    broker: Literal["rabbitmq", "sqs", "servicebus"] = "rabbitmq"
     index_name: str = "knowledge"
     topic: str = "knowledge.documents"
     chunk_strategy: Literal["sentence", "fixed", "semantic", "hierarchical"] = "sentence"
@@ -30,7 +32,8 @@ class IndexerSettings(BaseSettings):
     # Carril LlamaIndex: en tokens (tiktoken).
     chunk_size_tokens: int = 128
     chunk_overlap_tokens: int = 20
-    # Productor y workers deben coincidir: forman parte de la declaración de la cola.
+    # RabbitMQ: forman parte de la declaración de la cola (productor y workers deben coincidir).
+    # SQS y Service Bus: el máximo de entregas lo fija la infraestructura, no la app.
     max_deliveries: int = 5
     retry_delay_ms: int = 1_000
     prefetch: int = 8

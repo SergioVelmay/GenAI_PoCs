@@ -14,9 +14,9 @@ import asyncio
 from collections.abc import Iterator
 from pathlib import Path
 
-from headache_core.adapters.rabbitmq import RabbitMQMessageBus
 from headache_core.config import get_settings
 from indexer.messages import DocumentPayload, IndexingCommand
+from indexer.messaging import open_bus
 from indexer.settings import IndexerSettings
 
 DEFAULT_SOURCE = Path("data/synthetic/knowledge/documents.jsonl")
@@ -38,23 +38,16 @@ def build_commands(args: argparse.Namespace) -> list[IndexingCommand]:
 
 async def publish(args: argparse.Namespace) -> None:
     config = IndexerSettings()
-    bus = await RabbitMQMessageBus.connect(
-        get_settings().rabbitmq,
-        max_deliveries=config.max_deliveries,
-        retry_delay_ms=config.retry_delay_ms,
-    )
-    try:
+    async with open_bus(get_settings(), config) as bus:
         if args.poison:
             # JSON válido pero contrato inválido (upsert sin documento): error permanente.
             await bus.publish(config.topic, {"action": "upsert", "document_id": "poison"})
-            print(f"Mensaje venenoso publicado en '{config.topic}'.")
+            print(f"Mensaje venenoso publicado en '{config.topic}' ({config.broker}).")
             return
         commands = build_commands(args)
         for command in commands:
             await bus.publish(config.topic, command.model_dump(mode="json"))
-        print(f"{len(commands)} mensajes publicados en '{config.topic}'.")
-    finally:
-        await bus.close()
+        print(f"{len(commands)} mensajes publicados en '{config.topic}' ({config.broker}).")
 
 
 def main() -> None:

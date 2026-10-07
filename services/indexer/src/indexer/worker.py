@@ -11,10 +11,10 @@ import asyncio
 import contextlib
 import logging
 
-from headache_core.adapters.rabbitmq import RabbitMQMessageBus
 from headache_core.config import get_settings
 from indexer.bootstrap import open_pipeline
 from indexer.handler import IndexingHandler
+from indexer.messaging import open_bus
 from indexer.settings import IndexerSettings
 
 logger = logging.getLogger("indexer.worker")
@@ -23,21 +23,16 @@ logger = logging.getLogger("indexer.worker")
 async def run() -> None:
     settings = get_settings()
     config = IndexerSettings()
-    async with open_pipeline(settings, config) as pipeline:
-        bus = await RabbitMQMessageBus.connect(
-            settings.rabbitmq,
-            prefetch=config.prefetch,
-            max_deliveries=config.max_deliveries,
-            retry_delay_ms=config.retry_delay_ms,
+    async with open_pipeline(settings, config) as pipeline, open_bus(settings, config) as bus:
+        await bus.subscribe(config.topic, IndexingHandler(pipeline.indexer))
+        logger.info(
+            "Escuchando '%s' en %s con el motor %s (prefetch=%d). Ctrl+C para parar.",
+            config.topic,
+            config.broker,
+            config.engine,
+            config.prefetch,
         )
-        try:
-            await bus.subscribe(config.topic, IndexingHandler(pipeline.indexer))
-            logger.info(
-                "Escuchando '%s' (prefetch=%d). Ctrl+C para parar.", config.topic, config.prefetch
-            )
-            await asyncio.Event().wait()
-        finally:
-            await bus.close()
+        await asyncio.Event().wait()
 
 
 def main() -> None:
@@ -47,6 +42,7 @@ def main() -> None:
     )
     logging.getLogger("aio_pika").setLevel(logging.WARNING)
     logging.getLogger("aiormq").setLevel(logging.WARNING)
+    logging.getLogger("azure").setLevel(logging.WARNING)
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(run())
 

@@ -71,9 +71,16 @@ jobs:
           --health-interval 10s
           --health-timeout 10s
           --health-retries 12
+      # SQS emulado; el test de contrato crea sus colas. Service Bus se salta en CI
+      # (su emulador exige aceptar una EULA y ~2 GB de RAM con SQL Server).
+      elasticmq:
+        image: softwaremill/elasticmq-native:1.7.1
+        ports:
+          - 9324:9324
     env:
       POSTGRES__PASSWORD: headache-ci
       RABBITMQ__PASSWORD: headache-ci
+      SQS__ENDPOINT_URL: http://127.0.0.1:9324
     steps:
       - uses: actions/checkout@v5
 

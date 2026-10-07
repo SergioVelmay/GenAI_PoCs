@@ -76,6 +76,22 @@ class LangfuseSettings(BaseModel):
     secret_key: SecretStr = SecretStr("")
 
 
+class SqsSettings(BaseModel):
+    region: str = "eu-west-1"
+    profile: str | None = None
+    # Solo en local (ElasticMQ). Vacío = AWS real con credenciales del perfil/rol IAM.
+    endpoint_url: str | None = None
+    wait_time_s: int = 10  # Long polling: menos peticiones vacías (= menos coste).
+
+
+class ServiceBusSettings(BaseModel):
+    # Nube: namespace + Entra ID (Managed Identity), sin claves.
+    fully_qualified_namespace: str = ""
+    # Solo para el emulador local (su clave es pública y fija).
+    connection_string: SecretStr | None = None
+    max_wait_s: int = 5
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -93,6 +109,8 @@ class Settings(BaseSettings):
     llm_gateway: LLMGatewaySettings = LLMGatewaySettings()
     postgres: PostgresSettings = PostgresSettings()
     rabbitmq: RabbitMQSettings = RabbitMQSettings()
+    sqs: SqsSettings = SqsSettings()
+    service_bus: ServiceBusSettings = ServiceBusSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:
