@@ -56,8 +56,21 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4
+        env:
+          RABBITMQ_DEFAULT_USER: headache
+          RABBITMQ_DEFAULT_PASS: headache-ci
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
     env:
       POSTGRES__PASSWORD: headache-ci
+      RABBITMQ__PASSWORD: headache-ci
     steps:
       - uses: actions/checkout@v5
 

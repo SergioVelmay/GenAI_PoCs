@@ -398,6 +398,14 @@ class HeadacheDataGenerator:
                 docs.append(_city_faq_doc(city, self.door_minutes[city.name], language))
         for venue in self.venues:
             docs.append(_venue_doc(venue, self.rng.choice((True, False))))
+        # Sin usar el RNG: añadir fichas no altera el resto de datos de la misma semilla.
+        venues = {v.id: v for v in self.venues}
+        sessions: dict[str, list[Session]] = {}
+        for session in self.sessions:
+            sessions.setdefault(session.event_id, []).append(session)
+        for event in self.events:
+            upcoming = sorted(s.starts_at for s in sessions[event.id] if s.starts_at > self.now)
+            docs.append(_event_doc(event, venues[event.venue_id], upcoming[:3]))
         return docs
 
 
@@ -492,6 +500,36 @@ def _venue_doc(venue: Venue, step_free: bool) -> KnowledgeDocument:
         language="en",
         content=content,
         metadata={"city": venue.city, "venue_id": venue.id},
+    )
+
+
+def _event_doc(event: Event, venue: Venue, upcoming: list[datetime]) -> KnowledgeDocument:
+    rules = CATEGORY_RULES[event.category]
+    refunds = (
+        f"Refundable up to {event.refund_window_hours} hours before the start."
+        if event.refundable
+        else "Non-refundable; one date change allowed up to 24 hours before."
+    )
+    dates = ", ".join(f"{d:%Y-%m-%d %H:%M}" for d in upcoming) or "no upcoming sessions"
+    title = f"Event: {event.title} ({event.city})"
+    content = (
+        f"# {title}\n\n{event.description}\n\n"
+        f"Category: {rules.label_en}. Venue: {venue.name}, {venue.address}, {event.city}.\n\n"
+        f"Price: {event.price.amount} {event.price.currency} per ticket.\n\n"
+        f"Refunds: {refunds}\n\nUpcoming sessions: {dates}."
+    )
+    return KnowledgeDocument(
+        id=f"event-{event.id}",
+        title=title,
+        doc_type=DocumentType.EVENT_SHEET,
+        language="en",
+        content=content,
+        metadata={
+            "city": event.city,
+            "category": event.category.value,
+            "venue_id": venue.id,
+            "event_id": event.id,
+        },
     )
 
 

@@ -12,6 +12,7 @@ dependencies = [
 postgres = [
     "alembic>=1.14",
     "asyncpg>=0.30",
+    "pgvector>=0.4",
     "sqlalchemy[asyncio]>=2.0.36",
 ]
 azure = [
@@ -26,6 +27,9 @@ gateway = [
 ]
 observability = [
     "langfuse>=3.0",
+]
+rabbitmq = [
+    "aio-pika>=9.5",
 ]
 
 [build-system]

@@ -1,3 +1,4 @@
+from headache_core.ports.ingestion import IngestionLedgerPort, LedgerEntry
 from headache_core.ports.llm import (
     ChatMessage,
     GenerationObservation,
@@ -11,7 +12,12 @@ from headache_core.ports.llm import (
     Role,
     TokenUsage,
 )
-from headache_core.ports.messaging import Message, MessageBusPort, MessageHandler
+from headache_core.ports.messaging import (
+    Message,
+    MessageBusPort,
+    MessageHandler,
+    PermanentMessageError,
+)
 from headache_core.ports.repositories import (
     ConflictError,
     CustomerRepository,
@@ -36,17 +42,20 @@ __all__ = [
     "EmbeddingPort",
     "EventRepository",
     "GenerationObservation",
+    "IngestionLedgerPort",
     "LLMError",
     "LLMPort",
     "LLMRateLimitError",
     "LLMResponse",
     "LLMTracer",
     "LLMTransientError",
+    "LedgerEntry",
     "Message",
     "MessageBusPort",
     "MessageHandler",
     "MetadataValue",
     "OrderRepository",
+    "PermanentMessageError",
     "RefundRepository",
     "ResponseSchema",
     "Role",

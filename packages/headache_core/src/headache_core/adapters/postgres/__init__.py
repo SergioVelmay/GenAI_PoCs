@@ -5,6 +5,15 @@ from headache_core.adapters.postgres.database import (
     create_engine,
     create_session_factory,
 )
-from headache_core.adapters.postgres.tables import Base
+from headache_core.adapters.postgres.tables import EMBEDDING_DIMENSIONS, Base
+from headache_core.adapters.postgres.vector_store import PgVectorStore, PostgresIngestionLedger
 
-__all__ = ["Base", "SqlAlchemyUnitOfWork", "create_engine", "create_session_factory"]
+__all__ = [
+    "EMBEDDING_DIMENSIONS",
+    "Base",
+    "PgVectorStore",
+    "PostgresIngestionLedger",
+    "SqlAlchemyUnitOfWork",
+    "create_engine",
+    "create_session_factory",
+]

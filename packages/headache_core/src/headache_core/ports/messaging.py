@@ -15,12 +15,24 @@ class Message:
     payload: Mapping[str, Any]
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     published_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    # 1 en la primera entrega; > 1 si es un reintento (entrega at-least-once).
+    delivery_count: int = 1
+
+
+class PermanentMessageError(Exception):
+    """Mensaje imposible de procesar (mal formado, inválido): va directo a la DLQ, sin reintentos.
+
+    Cualquier otra excepción del handler se considera transitoria y el mensaje se reintenta
+    hasta agotar el máximo de entregas; después también acaba en la DLQ.
+    """
 
 
 type MessageHandler = Callable[[Message], Awaitable[None]]
 
 
 class MessageBusPort(Protocol):
+    """Cola con semántica at-least-once: los handlers deben ser idempotentes."""
+
     async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message: ...
 
     async def subscribe(self, topic: str, handler: MessageHandler) -> None: ...

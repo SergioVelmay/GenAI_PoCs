@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[postgres,azure,aws,gateway,observability]",
+    "headache-core[postgres,rabbitmq,azure,aws,gateway,observability]",
+    "indexer",
     "ticketing-api",
 ]
 
@@ -13,6 +14,7 @@ members = ["packages/*", "services/*"]
 
 [tool.uv.sources]
 headache-core = { workspace = true }
+indexer = { workspace = true }
 ticketing-api = { workspace = true }
 
 [dependency-groups]
@@ -35,7 +37,7 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["headache_core", "ticketing_api"]
+known-first-party = ["headache_core", "indexer", "ticketing_api"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -44,6 +46,8 @@ plugins = ["pydantic.mypy"]
 files = [
     "packages/headache_core/src",
     "packages/headache_core/tests",
+    "services/indexer/src",
+    "services/indexer/tests",
     "services/ticketing_api/src",
     "services/ticketing_api/tests",
     "scripts",
@@ -55,4 +59,4 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # Los tests de integración necesitan PostgreSQL: uv run pytest -m integration
 addopts = "--import-mode=importlib -m 'not integration'"
-markers = ["integration: requiere PostgreSQL migrado (docker compose up -d)"]
+markers = ["integration: requiere docker compose up -d (PostgreSQL migrado y RabbitMQ)"]

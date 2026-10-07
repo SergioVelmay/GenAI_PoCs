@@ -43,7 +43,8 @@
   `uv run ruff check .` · `uv run ruff format --check .` · `uv run mypy` (strict) · `uv run pytest`.
 - Tests con adaptadores en memoria: deterministas y sin red ni coste. `pytest-asyncio` en modo `auto`.
 - Tests de integración (marcador `integration`, excluidos por defecto): `uv run pytest -m integration`. Requieren PostgreSQL migrado.
-- Migraciones: `uv run alembic -c packages/headache_core/alembic.ini upgrade head` (0001 esquema, 0002 índices `CONCURRENTLY`). Carga masiva: `scripts/load_seed.py --truncate`; benchmark de índices: `scripts/sql_benchmark.py`.
+- Migraciones: `uv run alembic -c packages/headache_core/alembic.ini upgrade head` (0001 esquema, 0002 índices `CONCURRENTLY`, 0003 pgvector `knowledge_chunks` + `ingestion_ledger`, vector(1024)). Carga masiva: `scripts/load_seed.py --truncate`; benchmark de índices: `scripts/sql_benchmark.py`.
+- Indexer (fase 3, `services/indexer`): `uv run python -m indexer.worker` (N procesos = competing consumers), `uv run python -m indexer.producer [--limit N | --delete ID | --poison]`, `uv run python -m indexer.search "consulta" --filter language=en`. Cola RabbitMQ quorum `knowledge.documents` + DLQ `knowledge.documents.dlq` (`x-delivery-limit`). Config `INDEXER__*`.
 - En Windows usa `127.0.0.1` y no `localhost` para conectar desde el código (PostgreSQL, RabbitMQ, Langfuse): el intento IPv6 añade ~2 s por conexión.
 - Datos sintéticos: `uv run python scripts/generate_synthetic_data.py --scale small|medium|large`. Son deterministas por semilla y se generan en `data/synthetic/`, que no se versiona.
 - LLM: todo pasa por `LLMPort`. El gateway se monta en `adapters/llm_factory.build_gateway` (routing → fallback → trazas/coste → rate limit → adaptador). `LLM_GATEWAY__ENGINE=native|litellm`. Scripts con coste: `scripts/llm_cache_benchmark.py` y `scripts/llm_gateway_demo.py`.

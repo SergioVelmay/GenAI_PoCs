@@ -26,10 +26,12 @@ from headache_core.domain import (
 from headache_core.ports import (
     ChatMessage,
     ConflictError,
+    LedgerEntry,
     LLMResponse,
     Message,
     MessageHandler,
     MetadataValue,
+    PermanentMessageError,
     ResponseSchema,
     SearchResult,
     TokenUsage,
@@ -133,6 +135,9 @@ class InMemoryVectorStore:
     def __init__(self) -> None:
         self._records: dict[str, VectorRecord] = {}
 
+    def __len__(self) -> int:
+        return len(self._records)
+
     async def upsert(self, records: Sequence[VectorRecord]) -> None:
         for record in records:
             self._records[record.id] = record
@@ -158,21 +163,53 @@ class InMemoryVectorStore:
 
 
 class InMemoryMessageBus:
-    """Entrega síncrona a los suscriptores. Reintentos y DLQ reales llegan en Fase 3."""
+    """Entrega síncrona con la misma semántica que RabbitMQ/SQS/Service Bus.
 
-    def __init__(self) -> None:
+    Un fallo transitorio se reintenta hasta `max_deliveries` entregas; un `PermanentMessageError`
+    o el agotamiento de reintentos mandan el mensaje a `dead_letters` (la DLQ).
+    """
+
+    def __init__(self, *, max_deliveries: int = 3) -> None:
         self._handlers: dict[str, list[MessageHandler]] = defaultdict(list)
+        self._max_deliveries = max_deliveries
         self.published: list[Message] = []
+        self.dead_letters: list[Message] = []
 
     async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
         message = Message(topic=topic, payload=payload)
         self.published.append(message)
         for handler in self._handlers[topic]:
-            await handler(message)
+            await self._deliver(handler, message)
         return message
 
     async def subscribe(self, topic: str, handler: MessageHandler) -> None:
         self._handlers[topic].append(handler)
+
+    async def _deliver(self, handler: MessageHandler, message: Message) -> None:
+        for attempt in range(1, self._max_deliveries + 1):
+            try:
+                await handler(replace(message, delivery_count=attempt))
+            except PermanentMessageError:
+                break
+            except Exception:
+                continue
+            else:
+                return
+        self.dead_letters.append(message)
+
+
+class InMemoryIngestionLedger:
+    def __init__(self) -> None:
+        self._entries: dict[tuple[str, str], LedgerEntry] = {}
+
+    async def get(self, index_name: str, document_id: str) -> LedgerEntry | None:
+        return self._entries.get((index_name, document_id))
+
+    async def save(self, entry: LedgerEntry) -> None:
+        self._entries[(entry.index_name, entry.document_id)] = entry
+
+    async def delete(self, index_name: str, document_id: str) -> None:
+        self._entries.pop((index_name, document_id), None)
 
 
 class InMemoryCustomerRepository:

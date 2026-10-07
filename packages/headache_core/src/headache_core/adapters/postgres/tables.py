@@ -9,7 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -24,6 +26,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from headache_core.domain import EventCategory, OrderStatus, RefundStatus
@@ -174,3 +177,47 @@ class RefundRow(Base):
     reason: Mapped[str] = mapped_column(Text)
     status: Mapped[RefundStatus] = mapped_column(_str_enum(RefundStatus, "refund_status"))
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# text-embedding-3-small (con `dimensions`) y Titan Embed v2 admiten 1024: misma tabla en ambas.
+EMBEDDING_DIMENSIONS = 1024
+
+
+class KnowledgeChunkRow(Base):
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        # HNSW: mejor recall/latencia que IVFFlat y no necesita datos previos para construirse.
+        Index(
+            "ix_knowledge_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        # GIN jsonb_path_ops: filtros por metadatos con `attributes @> '{...}'`.
+        Index(
+            "ix_knowledge_chunks_attributes",
+            "attributes",
+            postgresql_using="gin",
+            postgresql_ops={"attributes": "jsonb_path_ops"},
+        ),
+    )
+
+    # Varios índices lógicos (p. ej. una estrategia de chunking cada uno) en la misma tabla.
+    index_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class IngestionLedgerRow(Base):
+    __tablename__ = "ingestion_ledger"
+
+    index_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    document_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    chunk_ids: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    pipeline_version: Mapped[str] = mapped_column(Text)
+    indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

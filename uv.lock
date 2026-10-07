@@ -11,7 +11,21 @@ resolution-markers = [
 members = [
     "genai-pocs",
     "headache-core",
+    "indexer",
     "ticketing-api",
+]
+
+[[package]]
+name = "aio-pika"
+version = "10.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiormq" },
+    { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2a/77/9f8ae466a9e8d16ee4136bf12fea656160fbfbd32295d1df8248c92e77b8/aio_pika-10.1.0.tar.gz", hash = "sha256:ec340bff09d169a367717a4dd822969dac9cc5e835e22a67020e3613784f3139", size = 86810, upload-time = "2026-09-27T11:28:07.651Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/7d/4204ac838183657bd08ca25d0e6a825d646c50c7941368819a9bbee6411e/aio_pika-10.1.0-py3-none-any.whl", hash = "sha256:8dd8aa4514328876e9208970b7dae3a7650afb3373906a2a530286742ebe0f74", size = 58042, upload-time = "2026-09-27T11:28:06.092Z" },
 ]
 
 [[package]]
@@ -163,6 +177,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e2/20/349db4af12dbc16070d32028d30c2067123b4520f3dcb2d9013524efeb4f/aiohttp-3.14.4-cp315-cp315t-win_amd64.whl", hash = "sha256:2b2c95f5f769eec92b552969db1f79ea0282058ce5131ed0f2fa540b4af3f14e", size = 531284, upload-time = "2026-10-05T17:43:39.362Z" },
     { url = "https://files.pythonhosted.org/packages/26/21/544c711bc5fad611278ebd153bdcab1bffce8b8581f8ec9096b275948a3c/aiohttp-3.14.4-cp315-cp315t-win_arm64.whl", hash = "sha256:54209fff79346ee1ef0d5cbf92fa80a5bb37396406bb4d932e5107f9c29b2d3f", size = 510623, upload-time = "2026-10-05T17:43:42.15Z" },
     { url = "https://files.pythonhosted.org/packages/2b/27/5e1f8446545be98e9416af59c396b1ed1f9f3294afb0a40ee3a709889273/aiohttp-3.14.4-py3-none-any.whl", hash = "sha256:5c6758ba62aea282c537179cfc8474a90f2b5f7b089cc5ff66d8920d86a9bfdd", size = 279487, upload-time = "2026-10-05T17:43:44.905Z" },
+]
+
+[[package]]
+name = "aiormq"
+version = "7.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pamqp" },
+    { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/09/42586119acc0c0d705fdb810c8a155c11827598faa54301e58c119a4e684/aiormq-7.2.1.tar.gz", hash = "sha256:05d55dfbdba0c3854ceb5f118855b0d47fa15fbd08dae1b9c4c0415237c769aa", size = 74840, upload-time = "2026-09-29T07:18:24.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/e9/8c10248926849a9dab64e0b01804f4749ef0940eaa2723574656425b7dc1/aiormq-7.2.1-py3-none-any.whl", hash = "sha256:4a96b0dce49880f3677976863b680414417eb00d0a9e3d381664bd86c64cea11", size = 39750, upload-time = "2026-09-29T07:18:22.604Z" },
 ]
 
 [[package]]
@@ -939,7 +966,8 @@ name = "genai-pocs"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "postgres"] },
+    { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "postgres", "rabbitmq"] },
+    { name = "indexer" },
     { name = "ticketing-api" },
 ]
 
@@ -957,7 +985,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "headache-core", extras = ["postgres", "azure", "aws", "gateway", "observability"], editable = "packages/headache_core" },
+    { name = "headache-core", extras = ["postgres", "rabbitmq", "azure", "aws", "gateway", "observability"], editable = "packages/headache_core" },
+    { name = "indexer", editable = "services/indexer" },
     { name = "ticketing-api", editable = "services/ticketing_api" },
 ]
 
@@ -1100,11 +1129,16 @@ observability = [
 postgres = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "pgvector" },
     { name = "sqlalchemy", extra = ["asyncio"] },
+]
+rabbitmq = [
+    { name = "aio-pika" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "aio-pika", marker = "extra == 'rabbitmq'", specifier = ">=9.5" },
     { name = "alembic", marker = "extra == 'postgres'", specifier = ">=1.14" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.30" },
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.19" },
@@ -1112,11 +1146,12 @@ requires-dist = [
     { name = "langfuse", marker = "extra == 'observability'", specifier = ">=3.0" },
     { name = "litellm", marker = "extra == 'gateway'", specifier = ">=1.70" },
     { name = "openai", marker = "extra == 'azure'", specifier = ">=1.68" },
+    { name = "pgvector", marker = "extra == 'postgres'", specifier = ">=0.4" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'postgres'", specifier = ">=2.0.36" },
 ]
-provides-extras = ["postgres", "azure", "aws", "gateway", "observability"]
+provides-extras = ["postgres", "azure", "aws", "gateway", "observability", "rabbitmq"]
 
 [[package]]
 name = "hf-xet"
@@ -1269,6 +1304,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/e7/72/c600ae4f68c28fc19
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/f9/97f2ca8bb3ec6e4b1d64f983ebe98b9a192faddff67fac3d6303a537e670/importlib_metadata-8.9.0-py3-none-any.whl", hash = "sha256:e0f761b6ea91ced3b0844c14c9d955224d538105921f8e6754c00f6ca79fba7f", size = 27220, upload-time = "2026-03-20T16:56:25.07Z" },
 ]
+
+[[package]]
+name = "indexer"
+version = "0.1.0"
+source = { editable = "services/indexer" }
+dependencies = [
+    { name = "headache-core", extra = ["postgres", "rabbitmq"] },
+]
+
+[package.metadata]
+requires-dist = [{ name = "headache-core", extras = ["postgres", "rabbitmq"], editable = "packages/headache_core" }]
 
 [[package]]
 name = "iniconfig"
@@ -2079,12 +2125,30 @@ wheels = [
 ]
 
 [[package]]
+name = "pamqp"
+version = "4.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/31/4c/33a0ddaaac7bc42f9a542dbaaee8b580ceca3f89bf5da7c498d1fa97ff9a/pamqp-4.0.1.tar.gz", hash = "sha256:9dd13b828e346622793981f14a5df817fce5de998c746209d6c0154eb8403970", size = 137192, upload-time = "2026-07-06T16:37:51.732Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/14/1dfc08b743ba995a38dee0ea09beb46a05c7fe8ac53d729095905f7bf11d/pamqp-4.0.1-py3-none-any.whl", hash = "sha256:a547f45128b06e42ce8d7a739b0cfcc40f2c724770622eaaff4a3f587b1cf7d0", size = 32773, upload-time = "2026-07-06T16:37:50.623Z" },
+]
+
+[[package]]
 name = "pathspec"
 version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a", size = 135180, upload-time = "2026-04-27T01:46:08.907Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+]
+
+[[package]]
+name = "pgvector"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/ec/6eb80aebc728200f95229219882994c1b0585b956ca47da5edb9d062627a/pgvector-0.5.0.tar.gz", hash = "sha256:07a9dcf735696879406983afc6eba9a787cef7c0cf6c367ca1a5779f036dee74", size = 35170, upload-time = "2026-07-06T18:27:27.767Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/e4/a5573f2c579ca9ad133293bfb624148ba0893674ca4a6eeec85ced9a6a09/pgvector-0.5.0-py3-none-any.whl", hash = "sha256:fedc9800894e6da2be51358d7b7c574bf34f247ca741a5a09513622135f5964f", size = 30958, upload-time = "2026-07-06T18:27:26.797Z" },
 ]
 
 [[package]]

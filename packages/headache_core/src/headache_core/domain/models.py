@@ -34,6 +34,7 @@ class DocumentType(StrEnum):
     POLICY = "policy"
     FAQ = "faq"
     VENUE_GUIDE = "venue_guide"
+    EVENT_SHEET = "event_sheet"
 
 
 class SupportIntent(StrEnum):

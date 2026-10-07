@@ -12,6 +12,7 @@ from headache_core.ports import (
     LLMPort,
     Message,
     MessageBusPort,
+    PermanentMessageError,
     Role,
     VectorRecord,
     VectorStorePort,
@@ -60,3 +61,49 @@ async def test_message_bus_delivers_to_subscribers() -> None:
     await bus.publish("documents.uploaded", {"path": "policies/refunds.md"})
 
     assert received[0].payload["path"] == "policies/refunds.md"
+
+
+async def test_message_bus_retries_transient_failures() -> None:
+    bus = InMemoryMessageBus(max_deliveries=3)
+    attempts: list[int] = []
+
+    async def flaky(message: Message) -> None:
+        attempts.append(message.delivery_count)
+        if message.delivery_count < 3:
+            raise ConnectionError("pasajero")
+
+    await bus.subscribe("t", flaky)
+    await bus.publish("t", {})
+
+    assert attempts == [1, 2, 3]
+    assert bus.dead_letters == []
+
+
+async def test_message_bus_dead_letters_after_max_deliveries() -> None:
+    bus = InMemoryMessageBus(max_deliveries=2)
+    attempts: list[int] = []
+
+    async def broken(message: Message) -> None:
+        attempts.append(message.delivery_count)
+        raise ConnectionError("siempre falla")
+
+    await bus.subscribe("t", broken)
+    message = await bus.publish("t", {"k": 1})
+
+    assert attempts == [1, 2]
+    assert bus.dead_letters == [message]
+
+
+async def test_message_bus_sends_permanent_errors_straight_to_dlq() -> None:
+    bus = InMemoryMessageBus(max_deliveries=5)
+    attempts: list[int] = []
+
+    async def rejecting(message: Message) -> None:
+        attempts.append(message.delivery_count)
+        raise PermanentMessageError("mal formado")
+
+    await bus.subscribe("t", rejecting)
+    await bus.publish("t", {})
+
+    assert attempts == [1]
+    assert len(bus.dead_letters) == 1
