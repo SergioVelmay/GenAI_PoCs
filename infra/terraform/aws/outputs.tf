@@ -22,3 +22,18 @@ output "indexer_worker_policy_arn" {
 output "account_id" {
   value = data.aws_caller_identity.current.account_id
 }
+
+output "kb_docs_bucket" {
+  description = "Valor para BEDROCK_KB__DOCS_BUCKET."
+  value       = aws_s3_bucket.docs.bucket
+}
+
+output "knowledge_base_id" {
+  description = "Valor para BEDROCK_KB__KNOWLEDGE_BASE_ID."
+  value       = aws_bedrockagent_knowledge_base.main.id
+}
+
+output "kb_data_source_id" {
+  description = "Valor para BEDROCK_KB__DATA_SOURCE_ID."
+  value       = aws_bedrockagent_data_source.docs.data_source_id
+}

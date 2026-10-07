@@ -24,6 +24,22 @@ variable "max_deliveries" {
   default     = 5
 }
 
+variable "search_sku" {
+  description = "free (0 €, sin identidad gestionada) o basic (~70 €/mes, identidad gestionada)."
+  type        = string
+  default     = "free"
+  validation {
+    condition     = contains(["free", "basic"], var.search_sku)
+    error_message = "search_sku debe ser free o basic."
+  }
+}
+
+variable "openai_resource_id" {
+  description = "Id del recurso de Azure OpenAI/Foundry con el despliegue de embeddings (fase 2)."
+  type        = string
+  default     = null
+}
+
 variable "budget_limit_eur" {
   type    = number
   default = 20

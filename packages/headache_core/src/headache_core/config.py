@@ -106,6 +106,28 @@ class S3VectorsSettings(BaseModel):
     index_name: str = "knowledge"
 
 
+class AzureManagedIngestionSettings(BaseModel):
+    """Carril A en Azure: indexer + skillset de AI Search que leen de Blob Storage."""
+
+    # Con identidad gestionada (tier Basic o superior): "/subscriptions/.../storageAccounts/x".
+    storage_resource_id: str = ""
+    # Tier Free (sin identidad gestionada): connection string con clave de la cuenta.
+    storage_connection_string: SecretStr | None = None
+    storage_account_url: str = ""  # https://<cuenta>.blob.core.windows.net (subida del corpus)
+    container: str = "knowledge-docs"
+    prefix: str = "knowledge-managed"
+
+
+class BedrockKnowledgeBaseSettings(BaseModel):
+    """Carril A en AWS: Knowledge Base que sincroniza desde S3 hacia S3 Vectors."""
+
+    region: str = "eu-west-1"
+    profile: str | None = None
+    docs_bucket: str = ""
+    knowledge_base_id: str = ""
+    data_source_id: str = ""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -127,6 +149,8 @@ class Settings(BaseSettings):
     service_bus: ServiceBusSettings = ServiceBusSettings()
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
+    azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
+    bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:

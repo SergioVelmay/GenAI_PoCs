@@ -9,6 +9,7 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
   }
+  search_managed_identity = var.search_sku != "free"
 }
 
 data "azurerm_client_config" "current" {}
@@ -52,10 +53,19 @@ resource "azurerm_search_service" "main" {
   name                = "srch-${local.name}-${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  sku                 = "free" # 1 por suscripción, 50 MB, sin SLA: suficiente para la PoC.
+  sku                 = var.search_sku
   # Solo RBAC: sin claves de administración ni de consulta.
   local_authentication_enabled = false
   tags                         = local.tags
+
+  # Identidad gestionada para que el indexer (carril A) lea Blob y llame a Azure OpenAI.
+  # El tier Free no la admite: ahí el carril A tiene que usar claves.
+  dynamic "identity" {
+    for_each = local.search_managed_identity ? [1] : []
+    content {
+      type = "SystemAssigned"
+    }
+  }
 }
 
 # ---------- Permisos para desarrollar en local con `az login` ----------

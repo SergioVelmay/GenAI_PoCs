@@ -11,3 +11,13 @@ output "servicebus_namespace" {
 output "resource_group" {
   value = azurerm_resource_group.main.name
 }
+
+output "storage_resource_id" {
+  description = "Valor para AZURE_MANAGED__STORAGE_RESOURCE_ID (identidad gestionada)."
+  value       = azurerm_storage_account.docs.id
+}
+
+output "storage_account_url" {
+  description = "Valor para AZURE_MANAGED__STORAGE_ACCOUNT_URL."
+  value       = azurerm_storage_account.docs.primary_blob_endpoint
+}

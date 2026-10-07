@@ -443,6 +443,21 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-storage-blob"
+version = "12.31.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "cryptography" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/26/ca/5299cedef5957dd838d4dc46f97bea37335bb39f6610d72b27e1a3317650/azure_storage_blob-12.31.0.tar.gz", hash = "sha256:997b393cfcbdc4b186d5911790d91f80387f7edc12c4d73eab963a2d26e5b2a9", size = 670868, upload-time = "2026-09-30T21:23:22.837Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/57/d1f45fbccc0dfbe6b6db7e5fa06199e35219c712f3743677bec1b4e7d78b/azure_storage_blob-12.31.0-py3-none-any.whl", hash = "sha256:0c0cb601d3462491d09ea96023cd791bb9dd4b173bf950daf3cff34ff47ba5b5", size = 455738, upload-time = "2026-09-30T21:23:24.944Z" },
+]
+
+[[package]]
 name = "backoff"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -501,6 +516,9 @@ bedrock-agent = [
 ]
 bedrock-runtime = [
     { name = "mypy-boto3-bedrock-runtime" },
+]
+s3 = [
+    { name = "mypy-boto3-s3" },
 ]
 s3vectors = [
     { name = "mypy-boto3-s3vectors" },
@@ -1098,7 +1116,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "asyncpg-stubs" },
-    { name = "boto3-stubs", extra = ["bedrock-agent", "bedrock-runtime", "s3vectors", "sqs"] },
+    { name = "boto3-stubs", extra = ["bedrock-agent", "bedrock-runtime", "s3", "s3vectors", "sqs"] },
     { name = "faker" },
     { name = "httpx" },
     { name = "mypy" },
@@ -1117,7 +1135,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "asyncpg-stubs", specifier = ">=0.30" },
-    { name = "boto3-stubs", extras = ["bedrock-agent", "bedrock-runtime", "s3vectors", "sqs"], specifier = ">=1.38" },
+    { name = "boto3-stubs", extras = ["bedrock-agent", "bedrock-runtime", "s3", "s3vectors", "sqs"], specifier = ">=1.38" },
     { name = "faker", specifier = ">=30.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mypy", specifier = ">=1.13" },
@@ -1279,6 +1297,7 @@ azure = [
     { name = "azure-identity" },
     { name = "azure-search-documents" },
     { name = "azure-servicebus" },
+    { name = "azure-storage-blob" },
     { name = "openai" },
 ]
 gateway = [
@@ -1310,6 +1329,7 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.19" },
     { name = "azure-search-documents", marker = "extra == 'azure'", specifier = ">=11.6" },
     { name = "azure-servicebus", marker = "extra == 'azure'", specifier = ">=7.14" },
+    { name = "azure-storage-blob", marker = "extra == 'azure'", specifier = ">=12.24" },
     { name = "boto3", marker = "extra == 'aws'", specifier = ">=1.38" },
     { name = "langfuse", marker = "extra == 'observability'", specifier = ">=3.0" },
     { name = "litellm", marker = "extra == 'gateway'", specifier = ">=1.70" },
@@ -2296,6 +2316,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/26/78/542f5804cf0f9e3c1ccbf30917eaa3b4b6002b91965de02d065d7441fc93/mypy_boto3_bedrock_runtime-1.43.62.tar.gz", hash = "sha256:beb70b08ef72cdfd5036bcd3270f2fbac0a2ce5e40f70dfc1d87c4f139d4d7ff", size = 31492, upload-time = "2026-07-31T19:54:15.291Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/b2/e3bff20acd290b909f1c28856d6d8d7984f7f7d5bda299d5957f64e97bb3/mypy_boto3_bedrock_runtime-1.43.62-py3-none-any.whl", hash = "sha256:603d9df54da5029fc0d0e3c09b6db33733af53182bee030c0c7af99e88ed3b39", size = 37865, upload-time = "2026-07-31T19:54:13.959Z" },
+]
+
+[[package]]
+name = "mypy-boto3-s3"
+version = "1.43.106"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/db/e3922d6c62365c1098da97d9a775e78c66827df5cba11619a7d2a11cdae4/mypy_boto3_s3-1.43.106.tar.gz", hash = "sha256:731195f15830699a36e29d3c8abb2918bccd3587eb2edcb233f8046967893279", size = 79447, upload-time = "2026-09-30T22:44:48.472Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/4a/52419b5496215ab52c6c257134c1ac0da25c1ca5d802f133424d02a43686/mypy_boto3_s3-1.43.106-py3-none-any.whl", hash = "sha256:e233d04dbcf3925522dff4346e75c37344ec3d1cbb82337e5eed2af263847668", size = 86791, upload-time = "2026-09-30T22:44:46.139Z" },
 ]
 
 [[package]]
