@@ -17,8 +17,7 @@ from indexer.settings import IndexerSettings
 
 async def search(query: str, filters: dict[str, MetadataValue], top_k: int) -> None:
     async with open_pipeline(get_settings(), IndexerSettings()) as pipeline:
-        vector = await pipeline.embeddings.embed_query(query)
-        results = await pipeline.store.search(vector, top_k=top_k, filters=filters or None)
+        results = await pipeline.searcher.search(query, top_k=top_k, filters=filters or None)
     for result in results:
         snippet = result.record.text.replace("\n", " ")[:90]
         print(f"{result.score:.3f}  {result.record.id:<28} {snippet}")

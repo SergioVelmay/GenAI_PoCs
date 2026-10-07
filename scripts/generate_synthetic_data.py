@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, is_dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, TypedDict
 
 from faker import Faker
 
@@ -399,6 +399,7 @@ class HeadacheDataGenerator:
         for venue in self.venues:
             docs.append(_venue_doc(venue, self.rng.choice((True, False))))
         # Sin usar el RNG: añadir fichas no altera el resto de datos de la misma semilla.
+        docs.extend(_help_center_doc(language) for language in ("es", "en"))
         venues = {v.id: v for v in self.venues}
         sessions: dict[str, list[Session]] = {}
         for session in self.sessions:
@@ -530,6 +531,171 @@ def _event_doc(event: Event, venue: Venue, upcoming: list[datetime]) -> Knowledg
             "venue_id": venue.id,
             "event_id": event.id,
         },
+    )
+
+
+class HelpCenterTexts(TypedDict):
+    title: str
+    intro: str
+    sections: list[tuple[str, str | None]]
+    refundable: str
+    non_refundable: str
+    refund_intro: str
+
+
+HELP_CENTER: dict[str, HelpCenterTexts] = {
+    "es": {
+        "title": "Guía del centro de ayuda de Headache",
+        "intro": (
+            "Esta guía reúne las respuestas a las dudas más habituales de quienes compran "
+            "entradas en Headache. Si tu caso no aparece aquí, escríbenos desde el chat de la app."
+        ),
+        "sections": [
+            (
+                "Entradas y app",
+                "Todas las entradas son digitales. Tras la compra recibirás un correo de "
+                "confirmación y las entradas aparecerán en la sección «Mis entradas» de la app. "
+                "No hace falta imprimirlas: en el acceso se escanea el código QR desde el móvil. "
+                "Si compraste varias entradas, puedes enviarlas a tus acompañantes desde la app "
+                "para que entren por separado. Si no ves tus entradas, comprueba que has iniciado "
+                "sesión con el mismo correo que usaste al comprar.",
+            ),
+            ("Reembolsos por categoría", None),
+            (
+                "Cambios de fecha",
+                "Las entradas no reembolsables admiten un único cambio de fecha hasta 24 horas "
+                "antes del inicio, siempre que haya plazas en la nueva sesión. El cambio se hace "
+                "desde la app y no tiene coste si la nueva sesión tiene el mismo precio; si es más "
+                "cara, se paga la diferencia. No se devuelve la diferencia si es más barata.",
+            ),
+            (
+                "Cancelaciones del organizador",
+                "Si el organizador cancela una sesión, te avisaremos por correo y por la app. "
+                "Recibirás el 100 % del importe, incluidos los gastos de gestión, en el método de "
+                "pago original. Si la sesión solo cambia de horario, puedes mantener la entrada o "
+                "pedir el reembolso completo durante los siete días siguientes al aviso.",
+            ),
+            (
+                "Accesibilidad",
+                "Cada ficha de recinto indica si el acceso es sin escalones y si hay aseos "
+                "adaptados. Si necesitas asistencia, contacta con soporte al menos 48 horas antes "
+                "para que el recinto pueda prepararse. Los acompañantes de personas con "
+                "discapacidad tienen entrada gratuita en la mayoría de experiencias.",
+            ),
+            (
+                "Tarjetas regalo",
+                "Las tarjetas regalo son válidas durante doce meses y se pueden usar en cualquier "
+                "ciudad y categoría. El saldo restante se conserva para futuras compras. Las "
+                "tarjetas regalo no son reembolsables ni se pueden canjear por dinero.",
+            ),
+            (
+                "Llegada al recinto",
+                "La hora de apertura de puertas depende de la ciudad: consulta las preguntas "
+                "frecuentes de cada ciudad. Llega con margen: una vez empezada la experiencia, "
+                "el acceso puede quedar restringido para no molestar al resto del público.",
+            ),
+            (
+                "Organizadores y colaboradores",
+                "Si organizas eventos y quieres publicarlos en Headache, escribe al equipo de "
+                "colaboradores desde el formulario de la web. Revisamos cada propuesta en un plazo "
+                "de diez días hábiles.",
+            ),
+        ],
+        "refundable": "{label}: reembolsable hasta {hours} horas antes del inicio.",
+        "non_refundable": "{label}: sin reembolso; un cambio de fecha hasta 24 horas antes.",
+        "refund_intro": (
+            "Las condiciones dependen de la categoría de la experiencia. Los reembolsos "
+            "aprobados llegan al método de pago original en 5-10 días hábiles y los gastos de "
+            "gestión no se devuelven salvo cancelación del organizador."
+        ),
+    },
+    "en": {
+        "title": "Headache help center guide",
+        "intro": (
+            "This guide collects answers to the most common questions from people who buy "
+            "tickets on Headache. If your case is not covered here, message us from the app chat."
+        ),
+        "sections": [
+            (
+                "Tickets and the app",
+                "All tickets are digital. After buying you will receive a confirmation email and "
+                "the tickets will appear under 'My tickets' in the app. There is no need to print "
+                "them: the QR code is scanned from your phone at the entrance. If you bought "
+                "several tickets you can send them to your companions from the app so they can "
+                "enter separately. If you cannot see your tickets, check that you are logged in "
+                "with the same email you used to buy them.",
+            ),
+            ("Refunds by category", None),
+            (
+                "Date changes",
+                "Non-refundable tickets allow a single date change up to 24 hours before the "
+                "start, subject to availability in the new session. The change is made in the app "
+                "and is free if the new session has the same price; if it is more expensive, you "
+                "pay the difference. The difference is not returned if it is cheaper.",
+            ),
+            (
+                "Cancellations by the organiser",
+                "If the organiser cancels a session we will notify you by email and in the app. "
+                "You will receive 100% of the amount, including booking fees, on the original "
+                "payment method. If only the time changes, you can keep the ticket or request a "
+                "full refund within seven days of the notice.",
+            ),
+            (
+                "Accessibility",
+                "Each venue guide states whether access is step-free and whether there are "
+                "accessible toilets. If you need assistance, contact support at least 48 hours in "
+                "advance so the venue can prepare. Companions of people with disabilities get "
+                "free entry to most experiences.",
+            ),
+            (
+                "Gift cards",
+                "Gift cards are valid for twelve months and can be used in any city and category. "
+                "Any remaining balance is kept for future purchases. Gift cards are "
+                "non-refundable and cannot be exchanged for cash.",
+            ),
+            (
+                "Arriving at the venue",
+                "Door opening times depend on the city: check each city's FAQ. Arrive early: once "
+                "the experience has started, entry may be restricted so as not to disturb the "
+                "rest of the audience.",
+            ),
+            (
+                "Organisers and partners",
+                "If you organise events and want to list them on Headache, contact the partners "
+                "team through the form on the website. We review every proposal within ten "
+                "business days.",
+            ),
+        ],
+        "refundable": "{label}: refundable up to {hours} hours before the start.",
+        "non_refundable": "{label}: non-refundable; one date change up to 24 hours before.",
+        "refund_intro": (
+            "Conditions depend on the experience category. Approved refunds reach the original "
+            "payment method within 5-10 business days and booking fees are only returned when "
+            "the organiser cancels."
+        ),
+    },
+}
+
+
+def _help_center_doc(language: str) -> KnowledgeDocument:
+    """Documento largo con secciones: da juego a las estrategias de chunking."""
+    texts = HELP_CENTER[language]
+    title = texts["title"]
+    refund_lines = []
+    for rules in CATEGORY_RULES.values():
+        label = rules.label_es if language == "es" else rules.label_en
+        template = texts["refundable"] if rules.refundable else texts["non_refundable"]
+        refund_lines.append("- " + template.format(label=label, hours=rules.refund_window_hours))
+    parts = [f"# {title}", texts["intro"]]
+    for heading, body in texts["sections"]:
+        text = body or f"{texts['refund_intro']}\n\n" + "\n".join(refund_lines)
+        parts.append(f"## {heading}\n\n{text}")
+    return KnowledgeDocument(
+        id=f"handbook-help-center-{language}",
+        title=title,
+        doc_type=DocumentType.HANDBOOK,
+        language=language,
+        content="\n\n".join(parts),
     )
 
 

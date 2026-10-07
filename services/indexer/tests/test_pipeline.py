@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.core.vector_stores import SimpleVectorStore
 
+from headache_core.adapters.llamaindex import LlamaIndexIndexer, PortEmbedding
 from headache_core.adapters.memory import (
     HashingEmbedding,
     InMemoryIngestionLedger,
@@ -115,3 +118,29 @@ async def test_crash_before_ledger_is_recovered_by_redelivery(document: Document
 def test_command_rejects_mismatched_ids(document: DocumentPayload) -> None:
     with pytest.raises(ValueError, match="mismo id"):
         IndexingCommand(action="upsert", document_id="otro", document=document)
+
+
+async def test_same_messages_drive_the_llamaindex_engine(document: DocumentPayload) -> None:
+    vectors = SimpleVectorStore()
+    indexer = LlamaIndexIndexer.create(
+        vector_store=vectors,
+        docstore=SimpleDocumentStore(),
+        embed_model=PortEmbedding(HashingEmbedding(64), model_name="hashing-64"),
+        strategy="sentence",
+        chunk_size=32,
+        chunk_overlap=0,
+    )
+    bus = InMemoryMessageBus(max_deliveries=3)
+    await bus.subscribe(TOPIC, IndexingHandler(indexer))
+
+    await bus.publish(TOPIC, IndexingCommand.upsert(document).model_dump(mode="json"))
+    indexed = len(vectors.data.embedding_dict)
+    await bus.publish(TOPIC, IndexingCommand.upsert(document).model_dump(mode="json"))
+
+    assert indexed > 0
+    assert len(vectors.data.embedding_dict) == indexed
+
+    await bus.publish(TOPIC, IndexingCommand.delete(document.id).model_dump(mode="json"))
+
+    assert vectors.data.embedding_dict == {}
+    assert bus.dead_letters == []

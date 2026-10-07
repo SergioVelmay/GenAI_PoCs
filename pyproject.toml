@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[postgres,rabbitmq,azure,aws,gateway,observability]",
+    "headache-core[postgres,rabbitmq,llamaindex,azure,aws,gateway,observability]",
     "indexer",
     "ticketing-api",
 ]
@@ -52,6 +52,11 @@ files = [
     "services/ticketing_api/tests",
     "scripts",
 ]
+
+# Las integraciones de LlamaIndex con PostgreSQL no publican tipos (sin py.typed).
+[[tool.mypy.overrides]]
+module = ["llama_index.vector_stores.*", "llama_index.storage.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["packages", "services"]

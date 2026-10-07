@@ -31,6 +31,11 @@ observability = [
 rabbitmq = [
     "aio-pika>=9.5",
 ]
+llamaindex = [
+    "llama-index-core>=0.14",
+    "llama-index-storage-docstore-postgres>=0.4",
+    "llama-index-vector-stores-postgres>=0.7",
+]
 
 [build-system]
 requires = ["hatchling"]

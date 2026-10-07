@@ -6,7 +6,7 @@ import logging
 
 from pydantic import ValidationError
 
-from headache_core.application.ingestion import DocumentIndexer, IndexingResult
+from headache_core.application.ingestion import IndexingResult, KnowledgeIndexer
 from headache_core.ports import Message, PermanentMessageError
 from indexer.messages import IndexingCommand
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class IndexingHandler:
-    def __init__(self, indexer: DocumentIndexer) -> None:
+    def __init__(self, indexer: KnowledgeIndexer) -> None:
         self._indexer = indexer
 
     async def __call__(self, message: Message) -> None:

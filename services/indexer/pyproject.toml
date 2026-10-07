@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Indexación dirigida por eventos del conocimiento de Headache: productor y workers"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[postgres,rabbitmq]",
+    "headache-core[postgres,rabbitmq,llamaindex]",
 ]
 
 [tool.uv.sources]

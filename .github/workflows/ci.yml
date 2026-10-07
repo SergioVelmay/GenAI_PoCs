@@ -40,6 +40,9 @@ jobs:
       - name: Generador de datos sintéticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
 
+      - name: Informe de chunking (smoke test)
+        run: uv run python scripts/chunking_report.py --source /tmp/synthetic/knowledge/documents.jsonl
+
   integration:
     runs-on: ubuntu-latest
     services:

@@ -85,14 +85,23 @@ class SentenceChunker:
 
     def _units(self, text: str) -> list[str]:
         units: list[str] = []
+        heading = ""  # Un título nunca cierra un chunk: viaja con la frase que le sigue.
         for line in text.splitlines():
-            for sentence in _SENTENCE_SPLIT.split(line.strip()):
+            line = line.strip()
+            if line.startswith("#"):
+                heading = f"{heading}\n{line}".strip()
+                continue
+            for sentence in _SENTENCE_SPLIT.split(line):
                 if not sentence:
                     continue
+                if heading:
+                    sentence, heading = f"{heading}\n{sentence}", ""
                 if _word_count(sentence) > self._max_words:
                     units.extend(_windows(sentence.split(), self._max_words, 0))
                 else:
                     units.append(sentence)
+        if heading:
+            units.append(heading)
         return units
 
     def _overlap(self, units: list[str], *, budget: int) -> list[str]:

@@ -13,6 +13,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 from headache_core.application.ingestion.chunking import Chunker
 from headache_core.domain import KnowledgeDocument
@@ -39,6 +40,14 @@ class IndexingResult:
     outcome: IndexingOutcome
     chunks_upserted: int = 0
     chunks_deleted: int = 0
+
+
+class KnowledgeIndexer(Protocol):
+    """Lo que el worker necesita: lo cumplen el carril nativo y el de LlamaIndex."""
+
+    async def index(self, document: KnowledgeDocument) -> IndexingResult: ...
+
+    async def remove(self, document_id: str) -> IndexingResult: ...
 
 
 def content_hash(document: KnowledgeDocument) -> str:
