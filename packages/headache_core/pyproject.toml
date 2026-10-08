@@ -9,6 +9,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+retrieval = [
+    "numpy>=1.26",
+    "rank-bm25>=0.2.2",
+]
 postgres = [
     "alembic>=1.14",
     "asyncpg>=0.30",

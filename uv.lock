@@ -12,6 +12,7 @@ members = [
     "genai-pocs",
     "headache-core",
     "indexer",
+    "retrieval",
     "ticketing-api",
 ]
 
@@ -1108,8 +1109,9 @@ name = "genai-pocs"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "headache-core", extra = ["aws", "azure", "gateway", "llamaindex", "observability", "postgres", "rabbitmq"] },
+    { name = "headache-core", extra = ["aws", "azure", "gateway", "llamaindex", "observability", "postgres", "rabbitmq", "retrieval"] },
     { name = "indexer" },
+    { name = "retrieval" },
     { name = "ticketing-api" },
 ]
 
@@ -1127,8 +1129,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "headache-core", extras = ["postgres", "rabbitmq", "llamaindex", "azure", "aws", "gateway", "observability"], editable = "packages/headache_core" },
+    { name = "headache-core", extras = ["postgres", "rabbitmq", "llamaindex", "azure", "aws", "gateway", "observability", "retrieval"], editable = "packages/headache_core" },
     { name = "indexer", editable = "services/indexer" },
+    { name = "retrieval", editable = "services/retrieval" },
     { name = "ticketing-api", editable = "services/ticketing_api" },
 ]
 
@@ -1320,6 +1323,10 @@ postgres = [
 rabbitmq = [
     { name = "aio-pika" },
 ]
+retrieval = [
+    { name = "numpy" },
+    { name = "rank-bm25" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1336,13 +1343,15 @@ requires-dist = [
     { name = "llama-index-core", marker = "extra == 'llamaindex'", specifier = ">=0.14" },
     { name = "llama-index-storage-docstore-postgres", marker = "extra == 'llamaindex'", specifier = ">=0.4" },
     { name = "llama-index-vector-stores-postgres", marker = "extra == 'llamaindex'", specifier = ">=0.7" },
+    { name = "numpy", marker = "extra == 'retrieval'", specifier = ">=1.26" },
     { name = "openai", marker = "extra == 'azure'", specifier = ">=1.68" },
     { name = "pgvector", marker = "extra == 'postgres'", specifier = ">=0.4" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
+    { name = "rank-bm25", marker = "extra == 'retrieval'", specifier = ">=0.2.2" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'postgres'", specifier = ">=2.0.36" },
 ]
-provides-extras = ["postgres", "azure", "aws", "gateway", "observability", "rabbitmq", "llamaindex"]
+provides-extras = ["retrieval", "postgres", "azure", "aws", "gateway", "observability", "rabbitmq", "llamaindex"]
 
 [[package]]
 name = "hf-xet"
@@ -3127,6 +3136,18 @@ wheels = [
 ]
 
 [[package]]
+name = "rank-bm25"
+version = "0.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fc/0a/f9579384aa017d8b4c15613f86954b92a95a93d641cc849182467cf0bb3b/rank_bm25-0.2.2.tar.gz", hash = "sha256:096ccef76f8188563419aaf384a02f0ea459503fdf77901378d4fd9d87e5e51d", size = 8347, upload-time = "2022-02-16T12:10:52.196Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/21/f691fb2613100a62b3fa91e9988c991e9ca5b89ea31c0d3152a3210344f9/rank_bm25-0.2.2-py3-none-any.whl", hash = "sha256:7bd4a95571adadfc271746fa146a4bcfd89c0cf731e49c3d1ad863290adbe8ae", size = 8584, upload-time = "2022-02-16T12:10:50.626Z" },
+]
+
+[[package]]
 name = "referencing"
 version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3257,6 +3278,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz", hash = "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed", size = 142856, upload-time = "2026-05-14T19:25:27.735Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl", hash = "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0", size = 73075, upload-time = "2026-05-14T19:25:26.443Z" },
+]
+
+[[package]]
+name = "retrieval"
+version = "0.1.0"
+source = { editable = "services/retrieval" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "headache-core", extra = ["postgres", "retrieval"] },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "headache-core", extras = ["postgres", "retrieval"], editable = "packages/headache_core" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
 [[package]]

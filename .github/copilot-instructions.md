@@ -64,7 +64,7 @@
 | 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ✅ Hecha |
 | 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ✅ Hecha* (validación en cloud pendiente, ver abajo) |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | ✅ Hecha* (validación en cloud pendiente; comparativa en `docs/fase-3-comparativa.md`) |
-| 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | |
+| 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | En curso: 4.1 local implementada; carriles A/C y cloud pendientes (docs/fase-4-retrieval.md) |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | |
 | 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | |
 | 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | |
