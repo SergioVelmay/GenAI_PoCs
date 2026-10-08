@@ -2,9 +2,8 @@
 
 ## Estado y alcance
 
-**4.1/4.2 publicadas; 4.3 AI Search y Bedrock implementados y probados sin red.
-La fase 4 sigue en curso; sustitucion del carril A Azure aprobada, implementacion
-Foundry Agent Service/Foundry IQ y ejecucion cloud pendientes.**
+**4.1/4.2/4.3 publicadas; carril A Azure (Foundry IQ + Agent Service) implementado y
+probado sin red. La fase 4 sigue en curso: composicion cloud y ejecucion real pendientes.**
 
 No se han creado recursos cloud ni invocado modelos. No se ha regenerado ni modificado
 el dataset LARGE, ni escrito en PostgreSQL. Los tests usan adaptadores en memoria.
@@ -46,7 +45,7 @@ incremento, con confirmacion antes de ejecutar cualquier llamada con coste.
 | Filtros | Igualdad de metadatos + ACL del servidor | Filtros OData | Filtros de Retrieve/KB | Prefiltrado antes de construir los retrievers |
 | Reranking | Cobertura lexica, **no neuronal** | Semantic Ranker | Bedrock Rerank, incluido Cohere segun region/modelo | Integracion de reranker |
 | Parent-child | Chunk -> documento padre | Campos de padre + recuperacion adicional | Chunking jerarquico de KB | AutoMergingRetriever/docstore |
-| RAG gestionado, carril A | Sin equivalente local real | Foundry Agent Service + Foundry IQ: sustitucion aprobada, implementacion pendiente | RetrieveAndGenerate de KB | No sustituye al carril A |
+| RAG gestionado, carril A | Sin equivalente local real | Foundry IQ (`retrieve`) + Foundry Agent Service via MCP | Retrieve / RetrieveAndGenerate de KB | No sustituye al carril A |
 
 El mismo contrato permite comparar implementaciones, pero **ninguna equivalencia implica
 identica calidad, seguridad o funcionalidades entre proveedores**. Los adaptadores
@@ -116,12 +115,55 @@ de la API local. La validacion estructural **no comprueba entailment ni fidelida
 consultada el 2026-10-08 anuncia su retirada el **14 de octubre de 2026**; solo admite
 las versiones listadas de GPT-4o/GPT-4o-mini, no los GPT-4.1 mini/nano previstos aqui.
 Por este motivo, Sergio confirma sustituir On Your Data por **Foundry Agent Service
-con Foundry IQ**, la alternativa recomendada por Microsoft. Es una decision de
-arquitectura, no una implementacion terminada ni autorizacion para crear recursos o
-invocar modelos con coste. El siguiente incremento debe verificar las APIs/SDKs
-vigentes, fuentes admitidas, filtros de acceso y formato de citas, e implementar y
-probar el adaptador/composicion con dobles locales antes de ejecutar cloud.
-No afecta al carril B AI Search implementado en este incremento.
+con Foundry IQ**, la alternativa recomendada por Microsoft. La aprobacion es de
+arquitectura: no autoriza crear recursos ni invocar modelos con coste.
+
+**Azure, carril A: implementacion offline.** `FoundryIQKnowledge` implementa el mismo
+`ManagedKnowledgePort` que Bedrock KB. Foundry IQ es una *knowledge base* de AI Search
+que orquesta *knowledge sources*; aqui una knowledge source `searchIndex` reutiliza el
+indice nativo del carril B (`knowledge-semantic`, campos `chunk_id/text/metadata_json`).
+Verificado contra `azure-search-documents` 12.0 instalado: `KnowledgeBaseRetrievalClient`
+envia `POST /knowledgebases('kb')/retrieve?api-version=2026-04-01` (GA).
+
+- **`retrieve` (determinista):** intent semantico, ACL y filtros como `filterAddOn` del
+  servidor, referencias con `sourceData`. Cada referencia se vuelve a validar: tipo
+  `searchIndex`, `docKey` igual a la clave del `chunk_id`, ACL y filtros. Devuelve el
+  `chunk_id` canonico, el mismo `source_id` que los carriles B/C. Una respuesta parcial
+  (`206`, `activity[].error`) se rechaza en lugar de entregar resultados incompletos.
+- **`answer` (Agent Service):** el agente invoca la herramienta MCP
+  `knowledge_base_retrieve` y cita con `【mensaje:resultado†fuente】`. Se aceptan solo
+  llamadas completadas a esa herramienta del `server_label` configurado; cada marca
+  debe apuntar a un resultado real de esa llamada y no se admite texto sin cita.
+  `I don't know` o una respuesta vacia es abstencion. Responder sin consultar la KB
+  se rechaza. Las marcas se eliminan y los spans se calculan sobre el texto limpio.
+
+**Limite de seguridad importante.** La app no puede anadir filtros a la llamada MCP
+que decide el agente, y la salida MCP solo trae los campos de la configuracion semantica
+(titulo y texto): ni `chunk_id`, ni `document_id`, ni ACL. Por eso:
+
+- El aislamiento se garantiza en el servidor: **una knowledge source por audiencia** con
+  `baseFilter` (p. ej. `acl eq 'public'`), una knowledge base y un agente vinculados a
+  ella. `baseFilter` solo existe en la API preview `2026-08-01-preview`; las
+  definiciones REST estan en `knowledge_source_definition`/`agent_definition`.
+- El adaptador exige que el scope pedido coincida con la audiencia del agente y rechaza
+  filtros por peticion, en lugar de ignorarlos en silencio.
+- La referencia de una respuesta del agente tiene `source_id` hash por contenido y
+  `document_id` vacio: **no es comparable 1:1 con B/C** y no se recomprueba la ACL por
+  referencia. Es una diferencia real del carril gestionado frente a Bedrock y B/C.
+
+La knowledge base se define **sin modelos** y el endpoint MCP usa la API GA: retrieval
+minimal y extractivo, sin planificacion ni sintesis con LLM dentro de AI Search; el
+unico LLM es el modelo del agente (`gpt-4.1-mini`). Activar *query planning* o *answer
+synthesis* (preview) anade coste y otro punto de generacion a evaluar. Si mas adelante
+se usan ACL de Entra (`x-ms-query-source-authorization`), recordar que, sin token,
+las fuentes con permisos devuelven resultados **sin filtrar**.
+
+No se ha instalado `azure-ai-projects` ni creado recursos: el agente se consume con la
+API Responses de `openai` (ya instalado), cliente inyectado. Crear la conexion
+`RemoteTool`, la knowledge source/base y el agente es trabajo de 4.4, con confirmacion.
+Referencias: [Foundry IQ](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-foundry-iq),
+[conectar un agente](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/foundry-iq-connect)
+y [retrieve/MCP](https://learn.microsoft.com/en-us/azure/search/agentic-retrieval-how-to-retrieve).
 
 Referencias tecnicas: [Semantic Ranker](https://learn.microsoft.com/en-us/azure/search/semantic-how-to-query-request),
 [Bedrock Rerank](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_Rerank.html)
@@ -313,6 +355,7 @@ por tokens, autenticacion y escala se deben resolver antes de produccion.
 ```powershell
 uv run pytest packages/headache_core/tests/test_retrieval.py services/retrieval/tests/test_retrieval_api.py
 uv run pytest packages/headache_core/tests/test_cloud_retrieval.py packages/headache_core/tests/test_cloud_vector_stores.py packages/headache_core/tests/test_managed_ingestion.py
+uv run pytest packages/headache_core/tests/test_foundry_iq.py
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
@@ -331,21 +374,21 @@ los padres privados, hits con score cero y el bloqueo de los modelos por defecto
 |---|---|---|
 | 4.1, carril B local + FastAPI | Publicado (`78b004a`) | Embeddings/gateway reales y rutas cloud explicitamente conectadas |
 | 4.2, carril C LlamaIndex + SQL | Publicado (`e426802`) | Comparacion con modelos reales; integracion del docstore jerarquico persistente es un extra |
-| 4.3, SDK AI Search y Bedrock | Revisado, tests offline correctos | Composicion de clientes, permisos, ingesta ACL y validacion real |
-| Carril A Azure | Sustitucion por Agent Service + Foundry IQ aprobada | Adaptador, fuentes/citas/ACL, wiring e infraestructura necesarios |
+| 4.3, SDK AI Search y Bedrock | Publicado (`c1cb588`) | Composicion de clientes, permisos, ingesta ACL y validacion real |
+| Carril A Azure (Foundry IQ + Agent Service) | Implementado, tests offline correctos, pendiente de revision | Crear KS/KB/agente por audiencia (preview `baseFilter`), conexion MCP y validacion real |
 | 4.4, comparativa cloud A/B/C | Pendiente | Ejecucion con confirmacion y medidas de coste, latencia y fidelidad |
 
 Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval estan implementadas
 y probadas con dobles de `LLMPort`; **no estan activas con modelos reales en la API**.
-Hay RAG extractivo local con citas verificables; la generacion gestionada AWS esta
-implementada como adaptador separado, no como ruta HTTP conectada. No hay todavia un
-RAG gestionado Azure ni una comparativa cloud ejecutada. La fase 4 no se declara cerrada.
+Hay RAG extractivo local con citas verificables; la generacion gestionada de AWS y de
+Azure esta implementada como adaptadores separados, no como rutas HTTP conectadas. No
+hay comparativa cloud ejecutada. La fase 4 no se declara cerrada.
 
 Orden de los siguientes incrementos:
 
-1. **Preparacion sin coste:** implementar el nuevo carril A Azure con APIs vigentes y
-  dobles locales; preparar factories/rutas explicitas para los adaptadores cloud y
-  el gateway de fase 2, manteniendo la composicion local sin llamadas cloud por defecto.
+1. **Preparacion sin coste:** carril A Azure ya implementado; queda preparar
+  factories/rutas explicitas para los adaptadores cloud y el gateway de fase 2,
+  manteniendo la composicion local sin llamadas cloud por defecto.
 2. **Validacion cloud con confirmacion independiente:** autenticacion, despliegues
   minimos necesarios, schema/metadatos ACL y encoder compatible, ingesta y pruebas
   de estrategias. Usar el mismo corpus y preguntas en A/B/C; registrar diferencias
@@ -358,9 +401,9 @@ Pendientes antes de cerrar fase 4:
 
 - **4.2, local: revisada y publicada** (`e426802`). Lectura SQL, carril C sobre corpus
   comun, comparacion de padres y auto-merging.
-- **4.3, adaptadores sin coste: AI Search y Bedrock implementados, probados y revisados.**
-  Sustitucion del carril A Azure por Foundry Agent Service/Foundry IQ aprobada el
-  2026-10-08; su implementacion sigue pendiente. No se afirma validacion cloud.
+- **4.3, adaptadores sin coste: AI Search y Bedrock publicados** (`c1cb588`).
+- **Carril A Azure:** Foundry IQ + Agent Service implementado y probado sin red,
+  pendiente de revision. No se afirma validacion cloud.
 - **4.4, cloud con confirmacion:** conectar gateway y embeddings reales, autenticar,
   clasificar/reingerir ACL, montar clientes y rutas cloud explicitamente, ejecutar los
   carriles A/B/C y medir coste, latencia y fidelidad. Se mantienen los
@@ -409,3 +452,12 @@ La decision no sustituye la comprobacion de APIs, seguridad y costes de la alter
 **Que garantiza una cita gestionada?** Que el span existe en la respuesta y apunta a
 una referencia autorizada retornada por la KB. No prueba que la afirmacion sea fiel a
 esa fuente: hacen falta evals y validacion cloud, igual que en los demas carriles.
+
+**Foundry IQ es lo mismo que On Your Data?** No. On Your Data era un parametro de
+chat completions; Foundry IQ es una knowledge base reutilizable que se consulta por API
+(`retrieve`) o como herramienta MCP de cualquier agente. La generacion pasa al agente.
+
+**Como aseguras la ACL si el agente decide la llamada MCP?** No en el prompt ni en el
+agente: en el servidor, con una knowledge source por audiencia (`baseFilter`) y un
+agente vinculado a ella. El adaptador rechaza scopes o filtros que no puede garantizar.
+Para ACL por usuario se usan permisos de Entra en el indice y el token del usuario.
