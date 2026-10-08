@@ -15,6 +15,8 @@ class RetrievalSettings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+    engine: Literal["native", "llamaindex"] = "native"
+    merge_ratio: float = Field(default=0.5, gt=0, lt=1)
     source: Literal["synthetic", "postgres"] = "synthetic"
     documents_path: Path = Path("data/synthetic/knowledge/documents.jsonl")
     max_documents: int = Field(default=500, ge=1, le=100_000)

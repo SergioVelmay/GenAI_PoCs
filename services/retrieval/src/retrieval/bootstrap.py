@@ -1,6 +1,7 @@
 """Carga de una muestra local, sin escrituras ni llamadas a modelos."""
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from itertools import islice
 
@@ -13,7 +14,8 @@ from headache_core.application.ingestion.chunking import SentenceChunker
 from headache_core.application.ingestion.indexer import chunk_id
 from headache_core.application.retrieval import RetrievalService
 from headache_core.domain import DocumentType
-from headache_core.ports.vector_store import MetadataValue, VectorRecord
+from headache_core.ports.retrieval import RetrievalPort
+from headache_core.ports.vector_store import EmbeddingPort, MetadataValue, VectorRecord
 from retrieval.settings import RetrievalSettings
 
 PUBLIC_TYPES = frozenset({"policy", "faq", "venue_guide", "event_sheet"})
@@ -35,6 +37,7 @@ class LocalRuntime:
     documents: int
     chunks: int
     source: str
+    engine: str
 
 
 def access_metadata(metadata: dict[str, MetadataValue]) -> dict[str, MetadataValue]:
@@ -168,6 +171,28 @@ async def load_postgres(
     return records, parents
 
 
+def build_local_service(
+    settings: RetrievalSettings,
+    *,
+    records: Sequence[VectorRecord],
+    parents: Sequence[VectorRecord],
+    embeddings: EmbeddingPort,
+) -> RetrievalService:
+    backend: RetrievalPort
+    if settings.engine == "llamaindex":
+        from headache_core.adapters.llamaindex_retrieval import LlamaIndexRetrieval
+
+        backend = LlamaIndexRetrieval(
+            records,
+            embeddings=embeddings,
+            parents=parents,
+            merge_ratio=settings.merge_ratio,
+        )
+    else:
+        backend = LocalRetrieval(records, embeddings=embeddings, parents=parents)
+    return RetrievalService(backend, reranker=TokenCoverageReranker())
+
+
 async def build_local_runtime(settings: RetrievalSettings) -> LocalRuntime:
     embeddings = HashingEmbedding(1024)
     records, parents = await (
@@ -175,10 +200,10 @@ async def build_local_runtime(settings: RetrievalSettings) -> LocalRuntime:
         if settings.source == "synthetic"
         else load_postgres(settings, embeddings)
     )
-    backend = LocalRetrieval(records, embeddings=embeddings, parents=parents)
     return LocalRuntime(
-        RetrievalService(backend, reranker=TokenCoverageReranker()),
+        build_local_service(settings, records=records, parents=parents, embeddings=embeddings),
         len(parents),
         len(records),
         settings.source,
+        settings.engine,
     )

@@ -2,7 +2,7 @@
 
 ## Estado y alcance
 
-**Incremento 4.1: base local implementada. La fase 4 completa sigue en curso.**
+**Incrementos 4.1 y 4.2: base local y carril C implementados. La fase 4 sigue en curso.**
 
 No se han creado recursos cloud ni invocado modelos. No se ha regenerado ni modificado
 el dataset LARGE, ni escrito en PostgreSQL. Los tests usan adaptadores en memoria.
@@ -17,6 +17,11 @@ Implementado:
 - Planificacion de rewrite, HyDE, subpreguntas, router y auto-retrieval sobre `LLMPort`.
 - Respuesta extractiva, seleccion literal asistida por LLM y validacion de citas.
 - FastAPI con una ruta por estrategia y resolucion de fuentes autorizadas.
+- Carril C LlamaIndex: BM25Retriever, VectorIndexRetriever y QueryFusionRetriever sobre
+  los mismos chunks, embeddings e IDs del carril B.
+- AutoMergingRetriever con docstore en memoria y padres autorizados; ratio configurable.
+- Lectura SQL real verificada en ambos motores, sin escrituras.
+- Comparacion reproducible: `uv run python -m retrieval.compare`.
 
 **Los endpoints LLM devuelven 503 en la composicion local.** Sus flujos se prueban con
 `FakeLLM`, un doble de test guionizado, no un modelo local. No hay una variable de entorno
@@ -25,19 +30,19 @@ incremento, con confirmacion antes de ejecutar cualquier llamada con coste.
 
 ## Conceptos y equivalencias
 
-| Concepto | Local, carril B | Azure | AWS | Carril C, pendiente |
+| Concepto | Local, carril B | Azure | AWS | Carril C local |
 |---|---|---|---|---|
 | Lexico | BM25 con `rank-bm25` | Busqueda textual de AI Search | Depende del backend de KB; S3 Vectors no ofrece BM25 | BM25Retriever de LlamaIndex |
 | Vector | Hashing de fase 3, **no semantico** | Embeddings de Foundry + AI Search | Titan + pgvector/S3 Vectors | VectorIndexRetriever |
 | Hibrida | Rankings fusionados por RRF | Hibrida con RRF | KB hibrida solo donde el backend la admite | QueryFusionRetriever |
-| Filtros | Igualdad de metadatos + ACL del servidor | Filtros OData | Filtros de Retrieve/KB | MetadataFilters |
+| Filtros | Igualdad de metadatos + ACL del servidor | Filtros OData | Filtros de Retrieve/KB | Prefiltrado antes de construir los retrievers |
 | Reranking | Cobertura lexica, **no neuronal** | Semantic Ranker | Bedrock Rerank, incluido Cohere segun region/modelo | Integracion de reranker |
 | Parent-child | Chunk -> documento padre | Campos de padre + recuperacion adicional | Chunking jerarquico de KB | AutoMergingRetriever/docstore |
 | RAG gestionado, carril A | Sin equivalente local real | Revisar disponibilidad actual de On Your Data antes de implementarlo | RetrieveAndGenerate de KB | No sustituye al carril A |
 
 El mismo contrato permite comparar implementaciones, pero **ninguna equivalencia implica
-identica calidad, seguridad o funcionalidades entre proveedores**. Los carriles A y C
-todavia no estan implementados para esta fase.
+identica calidad, seguridad o funcionalidades entre proveedores**. El carril A y los
+adaptadores de retrieval/reranking cloud siguen pendientes para esta fase.
 
 ### Por que RRF
 
@@ -49,7 +54,9 @@ $$
 
 Solo contribuyen los rankings en los que aparece el documento; las posiciones empiezan
 en 1. Se fusionan IDs de chunk, no titulos, y el desempate es determinista por ID.
-Los duplicados dentro de un ranking no cuentan dos veces. `candidate_k` controla el
+Esta formula corresponde al carril nativo; el carril C delega en la implementacion
+RRF del framework. No exigimos igualdad de scores entre carriles. Los duplicados dentro
+de un ranking no cuentan dos veces. `candidate_k` controla el
 recall previo a la fusion/reranking; `top_k` controla el contexto final.
 
 ### Estrategias avanzadas
@@ -63,7 +70,11 @@ recall previo a la fusion/reranking; `top_k` controla el contexto final.
 - **Auto-retrieval:** infiere filtros de una lista cerrada. No acepta ACL y no puede
   reemplazar filtros explicitos del usuario. Un conflicto se rechaza.
 - **Parent-child:** recupera pequenos chunks y amplia al documento padre autorizado.
-  Es expansion explicita, no el auto-merging jerarquico de LlamaIndex.
+  Es expansion explicita, disponible en ambos motores.
+- **Auto-merge:** en LlamaIndex, sustituye los hijos recuperados por el padre si su
+  proporcion supera `merge_ratio` (por defecto 0.5). Un hijo de tres no amplia; dos de
+  tres si. Los hits vectoriales con score cero se descartan antes de calcular el ratio.
+  Puede reducir el numero final de hits: no se rellena con fuentes irrelevantes.
 
 El plan del LLM se valida con los structured outputs de fase 2. Puede proponer busquedas,
 pero no decide acceso, reembolsos ni otras reglas de negocio.
@@ -78,6 +89,19 @@ uv run uvicorn retrieval.app:create_app --factory --host 127.0.0.1 --port 8010
 ```
 
 Swagger: http://127.0.0.1:8010/docs. Diagnostico: http://127.0.0.1:8010/health.
+
+Para ejecutar el carril C en otro puerto:
+
+```powershell
+$env:RETRIEVAL__ENGINE = "llamaindex"
+uv run uvicorn retrieval.app:create_app --factory --host 127.0.0.1 --port 8012
+```
+
+`RETRIEVAL__ENGINE=native|llamaindex` selecciona el motor. `/health` identifica el motor
+activo; no depende del motor de ingesta de fase 3. Cambiar esta variable requiere
+reiniciar el proceso. No se modifica `Settings.llm` global de LlamaIndex: la fusión usa
+una sola consulta y un guard que falla si intenta invocar un modelo; los embeddings
+siempre se pasan mediante `PortEmbedding`.
 
 Por defecto lee **los primeros 500 documentos** del JSONL existente, con chunks de
 80 palabras y solape de 15, igual que la ingesta nativa por defecto. `/health` devuelve
@@ -102,6 +126,7 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8010/rag/extractive -Conten
 | `/search/hybrid` | BM25 + vector + RRF |
 | `/search/rerank` | Hibrida + cobertura lexica |
 | `/search/parent-child` | Hibrida + expansion de padres |
+| `/search/auto-merge` | Carril C: vector + AutoMergingRetriever; nativo: 503 explicito |
 | `/search/rewrite` | 503 sin LLM configurado |
 | `/search/hyde` | 503 sin LLM configurado |
 | `/search/subquestions` | 503 sin LLM configurado |
@@ -133,10 +158,44 @@ sus solapes; no son una copia byte a byte del Markdown original.
 
 Se verifica que los embeddings coincidan con hashing del titulo + texto de fase 3.
 Un indice Titan/OpenAI de 1024 dimensiones no es compatible con consultas de hashing:
-el arranque lo rechaza. Las tablas propias de LlamaIndex no se leen en este incremento.
+el arranque lo rechaza. Ambos motores leen la misma tabla nativa `knowledge_chunks`.
+Las tablas propias de ingesta de LlamaIndex no se leen en este incremento: el carril C
+reconstruye nodos y un docstore en memoria a partir de la instantanea comun.
 
-La prueba real de este cargador requiere PostgreSQL disponible; los tests unitarios
-no certifican una conexion SQL real.
+La lectura real se verifico el 2026-10-08 con 134 documentos y 134 chunks existentes;
+ambos motores respondieron a `refund` filtrando idioma y categoria, con fuente
+`policy-candlelit-en`. PostgreSQL se arranco conservando su volumen, sin migraciones,
+cargas ni borrados. Hay un test marcado `integration` de solo lectura: funciona tambien
+contra un esquema migrado sin datos; en ese caso valida el camino SQL vacio, no calidad.
+
+```powershell
+uv run pytest services/retrieval/tests/test_retrieval_api.py -m integration
+```
+
+### Comparacion reproducible de carriles B/C
+
+```powershell
+uv run python -m retrieval.compare "reembolso gastos de gestion" --filter language=es --filter category=candlelit --top-k 3
+uv run python -m retrieval.compare "refund" --source postgres --filter language=en --filter category=candlelit
+```
+
+El comando no genera datos, escribe ficheros ni invoca modelos. Carga una sola instantanea
+y la comparte entre motores, con el mismo limite y chunking; no hace dos lecturas SQL
+entre las que una ingesta concurrente pudiera cambiar los datos. Informa de IDs
+resolubles y tiempo de consulta.
+La version local del carril C construye los retrievers/indices autorizados en cada
+consulta, fuera del event loop con `asyncio.to_thread`; ese coste esta incluido en sus
+tiempos. No es un benchmark de servicios persistentes ni de calidad semantica.
+
+BM25 nativo usa BM25Plus (`rank-bm25`); LlamaIndex usa BM25S y su politica predeterminada
+de stopwords inglesas, sin stemming. Normalizamos mayusculas y acentos antes de BM25
+en ambos carriles, pero los scores y el desempate pueden diferir por las implementaciones.
+El vector reutiliza exactamente los embeddings de cada chunk, sin reembeber metadatos.
+
+En el corpus actual hay un chunk por documento: ambas estrategias de padres devuelven
+el mismo padre. Los tests con tres hijos distinguen expansion explicita y auto-merging.
+La jerarquia reconstituida tiene un nivel padre/hijos, no los tres niveles del parser
+jerarquico de ingesta de fase 3; integrar su docstore persistente sigue siendo un extra.
 
 ## Seguridad y limites de la respuesta
 
@@ -162,7 +221,8 @@ libre: para permitirla hacen falta comprobaciones de fidelidad y evals.
 
 Este backend es para aprender y validar contratos, no para 300 M de usuarios: carga
 una muestra en RAM, recalcula BM25 sobre candidatos autorizados y hace busqueda vectorial
-exacta. Persistencia lexical, ejecucion CPU no bloqueante, cachés, limites de contexto
+exacta. En carril C, la construccion y retrieval se ejecutan fuera del event loop; en
+carril B el trabajo CPU sigue siendo directo. Persistencia lexical, cachés, limites de contexto
 por tokens, autenticacion y escala se deben resolver antes de produccion.
 
 ## Verificacion y siguientes incrementos
@@ -177,12 +237,14 @@ uv run pytest
 
 Cobertura local: RRF por rango y deduplicacion; filtros previos a top-k; ACL y fuentes
 privadas; estrategias con `FakeLLM`; parent-child; citas literales, citas inventadas y
-abstencion; contrato HTTP y limites del cargador sin modificar el corpus.
+abstencion; contrato HTTP y limites del cargador sin modificar el corpus. Los mismos
+tests se ejecutan con ambos motores. Se verifican tambien el umbral de auto-merging,
+los padres privados, hits con score cero y el bloqueo de los modelos por defecto.
 
 Pendientes antes de cerrar fase 4:
 
-- **4.2, local:** comprobar la lectura SQL real y añadir carril C LlamaIndex usando el
-  mismo corpus y casos. Comparar expansion de padres y auto-merging del docstore.
+- **4.2, local: implementada y verificada.** Lectura SQL, carril C sobre corpus comun,
+  comparacion de padres y auto-merging. Pendiente de revision del usuario.
 - **4.3, adaptadores sin coste:** implementar y probar con dobles los SDKs de AI Search
   (hibrida/semantic ranker), Bedrock Rerank/Cohere y KB RetrieveAndGenerate; verificar
   la disponibilidad actual del carril gestionado de Azure. No asumir que todos los
@@ -211,3 +273,13 @@ vigencia y suficiencia de la evidencia.
 
 **Por que hashing local?** Permite tests deterministas sin red/coste ni modelos locales.
 No demuestra recuperacion semantica: eso requiere embeddings cloud reales y evals.
+
+**Parent-child y auto-merging son lo mismo?** No. La expansion explicita siempre intenta
+devolver el padre de un hit. Auto-merging necesita una proporcion suficiente de hijos
+recuperados; reduce ruido cuando solo coincide un detalle aislado y amplia contexto
+cuando coinciden varios. El umbral y el tamano del padre deben evaluarse.
+
+**Que aporta LlamaIndex si ya tengo puertos?** Compone retrievers y docstores existentes,
+sin mover seguridad ni reglas de negocio al framework. El coste es adaptar contratos,
+conocer sus defaults y asumir cambios de API. Aqui conserva los mismos IDs y fuentes,
+de modo que la comparacion prueba ranking, no diferencias de ingesta.

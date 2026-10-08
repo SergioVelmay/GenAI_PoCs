@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 from rank_bm25 import BM25Plus
 
-from headache_core.application.retrieval import reciprocal_rank_fusion
+from headache_core.application.retrieval import RetrievalUnavailableError, reciprocal_rank_fusion
 from headache_core.domain.retrieval import AccessScope
 from headache_core.ports.retrieval import SearchMode
 from headache_core.ports.vector_store import (
@@ -52,6 +52,8 @@ class LocalRetrieval:
         filters: Mapping[str, MetadataValue],
         scope: AccessScope,
     ) -> list[SearchResult]:
+        if mode == "auto-merge":
+            raise RetrievalUnavailableError("Auto-merging requiere el motor llamaindex")
         if top_k < 1:
             raise ValueError("top_k debe ser positivo")
         eligible = [

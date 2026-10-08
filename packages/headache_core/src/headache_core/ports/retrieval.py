@@ -6,7 +6,7 @@ from typing import Literal, Protocol
 from headache_core.domain.retrieval import AccessScope
 from headache_core.ports.vector_store import MetadataValue, SearchResult, VectorRecord
 
-type SearchMode = Literal["bm25", "vector", "hybrid"]
+type SearchMode = Literal["bm25", "vector", "hybrid", "auto-merge"]
 type RetrievalStrategy = Literal[
     "bm25",
     "vector",
@@ -18,6 +18,7 @@ type RetrievalStrategy = Literal[
     "router",
     "auto",
     "parent-child",
+    "auto-merge",
 ]
 
 

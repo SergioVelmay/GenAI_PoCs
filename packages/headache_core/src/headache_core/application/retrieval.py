@@ -111,7 +111,7 @@ class RetrievalService:
         queries = [request.query]
         filters = dict(request.filters)
         mode: SearchMode = "hybrid"
-        if request.strategy in ("bm25", "vector", "hybrid"):
+        if request.strategy in ("bm25", "vector", "hybrid", "auto-merge"):
             mode = request.strategy
         elif request.strategy in ("rewrite", "hyde", "subquestions", "router", "auto"):
             plan = await self._plan(request)

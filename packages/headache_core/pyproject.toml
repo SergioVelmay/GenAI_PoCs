@@ -40,6 +40,7 @@ rabbitmq = [
 ]
 llamaindex = [
     "llama-index-core>=0.14",
+    "llama-index-retrievers-bm25>=0.6",
     "llama-index-storage-docstore-postgres>=0.4",
     "llama-index-vector-stores-postgres>=0.7",
 ]

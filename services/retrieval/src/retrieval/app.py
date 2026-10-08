@@ -34,6 +34,7 @@ STRATEGIES: tuple[RetrievalStrategy, ...] = (
     "router",
     "auto",
     "parent-child",
+    "auto-merge",
 )
 
 
@@ -169,6 +170,7 @@ def create_app(
         if service is None:
             runtime = await build_local_runtime(settings or RetrievalSettings())
             app.state.retrieval_service = runtime.service
+            app.state.engine = runtime.engine
             app.state.corpus = {
                 "source": runtime.source,
                 "documents": runtime.documents,
@@ -178,6 +180,7 @@ def create_app(
 
     app = FastAPI(title="Headache retrieval API", version="0.1.0", lifespan=lifespan)
     app.state.retrieval_service = service
+    app.state.engine = settings.engine if settings else "injected"
     app.state.corpus = {"source": "injected"}
     app.add_exception_handler(ValueError, error_handler(422))
     app.add_exception_handler(RetrievalUnavailableError, error_handler(503))
@@ -188,6 +191,7 @@ def create_app(
     async def health(request: Request) -> dict[str, object]:
         return {
             "status": "ok",
+            "engine": request.app.state.engine,
             "embeddings": "hashing-not-semantic",
             "reranker": "token-coverage-not-neural",
             "cloud_calls": False,
