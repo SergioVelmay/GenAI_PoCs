@@ -24,6 +24,10 @@ from azure.search.documents.indexes.models import (
     SearchField,
     SearchFieldDataType,
     SearchIndex,
+    SemanticConfiguration,
+    SemanticField,
+    SemanticPrioritizedFields,
+    SemanticSearch,
     SimpleField,
     VectorSearch,
     VectorSearchProfile,
@@ -41,8 +45,10 @@ FILTERABLE_FIELDS = (
     "city",
     "venue_id",
     "event_id",
+    "acl",
 )
 VECTOR_PROFILE = "hnsw-cosine"
+SEMANTIC_CONFIGURATION = "knowledge-semantic"
 UPLOAD_BATCH = 1000  # Máximo de documentos por petición de indexación.
 
 
@@ -56,6 +62,7 @@ def build_index(name: str, dimensions: int) -> SearchIndex:
         SimpleField(name="chunk_id", type=SearchFieldDataType.STRING),
         # Texto también indexado en BM25: deja preparada la búsqueda híbrida de la fase 4.
         SearchableField(name="text", type=SearchFieldDataType.STRING),
+        SearchableField(name="title", type=SearchFieldDataType.STRING),
         SearchField(
             name="embedding",
             type="Collection(Edm.Single)",
@@ -78,7 +85,22 @@ def build_index(name: str, dimensions: int) -> SearchIndex:
         ],
         profiles=[VectorSearchProfile(name=VECTOR_PROFILE, algorithm_configuration_name="hnsw")],
     )
-    return SearchIndex(name=name, fields=fields, vector_search=vector_search)
+    return SearchIndex(
+        name=name,
+        fields=fields,
+        vector_search=vector_search,
+        semantic_search=SemanticSearch(
+            configurations=[
+                SemanticConfiguration(
+                    name=SEMANTIC_CONFIGURATION,
+                    prioritized_fields=SemanticPrioritizedFields(
+                        title_field=SemanticField(field_name="title"),
+                        content_fields=[SemanticField(field_name="text")],
+                    ),
+                )
+            ]
+        ),
+    )
 
 
 def to_document(record: VectorRecord) -> dict[str, Any]:
@@ -86,6 +108,7 @@ def to_document(record: VectorRecord) -> dict[str, Any]:
         "id": document_key(record.id),
         "chunk_id": record.id,
         "text": record.text,
+        "title": str(record.metadata.get("title", "")),
         "embedding": record.embedding,
         "metadata_json": json.dumps(record.metadata, ensure_ascii=False),
     }

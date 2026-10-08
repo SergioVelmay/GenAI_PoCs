@@ -21,7 +21,16 @@ if TYPE_CHECKING:
     from mypy_boto3_bedrock_agent import AgentsforBedrockClient
     from mypy_boto3_s3 import S3Client
 
-FILTERABLE_ATTRIBUTES = ("document_id", "doc_type", "language", "category", "city", "title")
+FILTERABLE_ATTRIBUTES = (
+    "document_id",
+    "doc_type",
+    "language",
+    "category",
+    "city",
+    "title",
+    "event_id",
+    "acl",
+)
 TERMINAL_STATES = {"COMPLETE", "FAILED", "STOPPED"}
 
 

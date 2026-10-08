@@ -527,6 +527,9 @@ wheels = [
 bedrock-agent = [
     { name = "mypy-boto3-bedrock-agent" },
 ]
+bedrock-agent-runtime = [
+    { name = "mypy-boto3-bedrock-agent-runtime" },
+]
 bedrock-runtime = [
     { name = "mypy-boto3-bedrock-runtime" },
 ]
@@ -1130,7 +1133,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "asyncpg-stubs" },
-    { name = "boto3-stubs", extra = ["bedrock-agent", "bedrock-runtime", "s3", "s3vectors", "sqs"] },
+    { name = "boto3-stubs", extra = ["bedrock-agent", "bedrock-agent-runtime", "bedrock-runtime", "s3", "s3vectors", "sqs"] },
     { name = "faker" },
     { name = "httpx" },
     { name = "mypy" },
@@ -1150,7 +1153,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "asyncpg-stubs", specifier = ">=0.30" },
-    { name = "boto3-stubs", extras = ["bedrock-agent", "bedrock-runtime", "s3", "s3vectors", "sqs"], specifier = ">=1.38" },
+    { name = "boto3-stubs", extras = ["bedrock-agent", "bedrock-agent-runtime", "bedrock-runtime", "s3", "s3vectors", "sqs"], specifier = ">=1.38" },
     { name = "faker", specifier = ">=30.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mypy", specifier = ">=1.13" },
@@ -2344,6 +2347,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e3/bd/29249eff98c8ebb177100c4ffa20d66d74ff149b037314b60ba6199d03bc/mypy_boto3_bedrock_agent-1.43.107.tar.gz", hash = "sha256:c33995e044a86c3f27f62b8c258f37da89bb2710ee418133b604257c3b997104", size = 56780, upload-time = "2026-10-01T20:22:27.877Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6b/d8/80a70f41ca613621e18880813211f35233b45b18ee66ad0f4106eff24c39/mypy_boto3_bedrock_agent-1.43.107-py3-none-any.whl", hash = "sha256:318e7893ec64c0d3683ca774f319844ab105334520f2a313c1c53de23f8861d5", size = 63943, upload-time = "2026-10-01T20:22:24.532Z" },
+]
+
+[[package]]
+name = "mypy-boto3-bedrock-agent-runtime"
+version = "1.43.105"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/03/8109b4f84e19c827bc2fd79be0636a59c01ae7d7bcb4ba7852a41bcf2de6/mypy_boto3_bedrock_agent_runtime-1.43.105.tar.gz", hash = "sha256:82d945befae779576b6dbe44472b3781eeccfa879dfef568d1156fb6dafe2182", size = 47070, upload-time = "2026-09-29T22:34:11.556Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/25/e4e233569e3ac7148bd49102c2d5e32133c5b4ae2cf64d9b3892e8021bd8/mypy_boto3_bedrock_agent_runtime-1.43.105-py3-none-any.whl", hash = "sha256:80d3df5bce1ea8638b16db645318e3ba7dcc2d21264f2b2254c77b2355b8b925", size = 56694, upload-time = "2026-09-29T22:34:09.429Z" },
 ]
 
 [[package]]

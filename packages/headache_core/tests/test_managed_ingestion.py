@@ -172,3 +172,17 @@ async def test_bedrock_upload_and_sync() -> None:
     assert (status.status, status.scanned, status.indexed) == ("COMPLETE", 1, 1)
     s3_stub.assert_no_pending_responses()
     agent_stub.assert_no_pending_responses()
+
+
+def test_bedrock_sidecar_preserves_explicit_acl_without_granting_default_access() -> None:
+    document = KnowledgeDocument(
+        id=DOC.id,
+        title=DOC.title,
+        doc_type=DOC.doc_type,
+        language=DOC.language,
+        content=DOC.content,
+        metadata={"acl": "internal", "event_id": "event-1"},
+    )
+    metadata = metadata_sidecar(document)["metadataAttributes"]
+    assert metadata["acl"] == "internal" and metadata["event_id"] == "event-1"
+    assert "acl" not in metadata_sidecar(DOC)["metadataAttributes"]

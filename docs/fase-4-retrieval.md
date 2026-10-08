@@ -2,7 +2,9 @@
 
 ## Estado y alcance
 
-**Incrementos 4.1 y 4.2: base local y carril C implementados. La fase 4 sigue en curso.**
+**4.1/4.2 publicadas; 4.3 AI Search y Bedrock implementados y probados sin red.
+La fase 4 sigue en curso; sustitucion del carril A Azure aprobada, implementacion
+Foundry Agent Service/Foundry IQ y ejecucion cloud pendientes.**
 
 No se han creado recursos cloud ni invocado modelos. No se ha regenerado ni modificado
 el dataset LARGE, ni escrito en PostgreSQL. Los tests usan adaptadores en memoria.
@@ -22,6 +24,12 @@ Implementado:
 - AutoMergingRetriever con docstore en memoria y padres autorizados; ratio configurable.
 - Lectura SQL real verificada en ambos motores, sin escrituras.
 - Comparacion reproducible: `uv run python -m retrieval.compare`.
+- Carril B Azure: SDK de AI Search para BM25/vector/hibrida y Semantic Ranker opcional,
+  prefilter ACL, fuente por ID y rechazo de scores semanticos ausentes.
+- Bedrock Rerank, incluido modelo Cohere mediante ARN explicito: mantiene los candidatos
+  originales aunque el proveedor devuelva texto alternativo.
+- Carril A AWS: SDK de KB Retrieve y RetrieveAndGenerate, filtros ACL, referencias S3
+  y validacion estricta de spans/cobertura de citas.
 
 **Los endpoints LLM devuelven 503 en la composicion local.** Sus flujos se prueban con
 `FakeLLM`, un doble de test guionizado, no un modelo local. No hay una variable de entorno
@@ -38,11 +46,86 @@ incremento, con confirmacion antes de ejecutar cualquier llamada con coste.
 | Filtros | Igualdad de metadatos + ACL del servidor | Filtros OData | Filtros de Retrieve/KB | Prefiltrado antes de construir los retrievers |
 | Reranking | Cobertura lexica, **no neuronal** | Semantic Ranker | Bedrock Rerank, incluido Cohere segun region/modelo | Integracion de reranker |
 | Parent-child | Chunk -> documento padre | Campos de padre + recuperacion adicional | Chunking jerarquico de KB | AutoMergingRetriever/docstore |
-| RAG gestionado, carril A | Sin equivalente local real | Revisar disponibilidad actual de On Your Data antes de implementarlo | RetrieveAndGenerate de KB | No sustituye al carril A |
+| RAG gestionado, carril A | Sin equivalente local real | Foundry Agent Service + Foundry IQ: sustitucion aprobada, implementacion pendiente | RetrieveAndGenerate de KB | No sustituye al carril A |
 
 El mismo contrato permite comparar implementaciones, pero **ninguna equivalencia implica
-identica calidad, seguridad o funcionalidades entre proveedores**. El carril A y los
-adaptadores de retrieval/reranking cloud siguen pendientes para esta fase.
+identica calidad, seguridad o funcionalidades entre proveedores**. Los adaptadores
+cloud se validan con dobles; aun no hay validacion real de region, permisos o calidad.
+
+### 4.3: SDKs sin ejecutar cloud
+
+Los clientes se inyectan, nunca se crean durante el arranque local. La API conserva
+su composicion local: este incremento no anade un interruptor que active coste.
+Los tests de AI Search capturan peticiones; los de AWS usan clientes con credenciales
+ficticias y `botocore.stub.Stubber`. Se verifica tambien el enum de Rerank contra el
+modelo instalado de botocore, porque Stubber no valida todos los valores de enums.
+
+**Azure, carril B.** `AzureSearchRetrieval` implementa `RetrievalPort`. La hibrida envia
+texto y `VectorizedQuery` al mismo indice: AI Search fusiona rankings mediante RRF.
+Con `semantic=True`, se envia `semantic_query` y `knowledge-semantic`; el score expuesto
+es `@search.rerankerScore`, no el score RRF. No es un `RerankerPort` generico al que
+podamos pasar candidatos ajenos a ese indice. Las consultas vectoriales solicitan
+50 vecinos para alimentar al ranker, con `vector_filter_mode=preFilter`; la ventana
+semantica solicitada (`candidate_k`) no puede superar 50. La consulta textual sin
+semantica no invoca embeddings. `get` recupera el ID codificado y comprueba ACL.
+Un vector cloud exige el mismo encoder/configuracion que la ingesta: 1024 dimensiones
+por si solas no prueban compatibilidad. Debe garantizarlo la composicion de 4.4.
+
+El esquema de ingesta nativa ahora incluye `title`, `acl` filtrable y configuracion
+semantica. **No se ha actualizado ningun indice cloud.** Antes de probarlo habra que
+actualizar el esquema y reingerir metadatos ACL explicitos, con confirmacion. No se
+asigna acceso publico por defecto en estos adaptadores cloud; una ACL ausente se
+deniega. La politica didactica del cargador local no se aplica automaticamente a
+los pipelines cloud. El indice gestionado Azure de fase 3 tiene otro esquema y no se
+puede enchufar directamente a este adaptador del indice nativo.
+
+**AWS, reranking B.** `BedrockReranker` implementa `RerankerPort`: recibe candidatos
+previamente autorizados por `RetrievalService`, envia solo su texto y aplica los indices
+devueltos sobre los registros originales. Rechaza indices duplicados/fuera de rango
+y scores no finitos. No modifica las fuentes ni acepta el texto retornado por el modelo.
+El ARN debe elegirse por disponibilidad regional; el ARN de Cohere del test no demuestra
+que haya acceso al modelo en la cuenta. El reranker no decide la ACL.
+
+**AWS, KB A.** `BedrockKnowledgeBase` implementa `ManagedKnowledgePort`, distinto del RAG
+extractivo. KB crea el embedding de la consulta y, con RetrieveAndGenerate, tambien
+orquesta la generacion internamente: no reutiliza nuestro gateway Python de `LLMPort`.
+Es la diferencia deliberada entre carril A gestionado y B/C composables. Los filtros
+de metadatos se combinan con ACL del servidor y las referencias se vuelven a comprobar.
+Los sidecars de ingesta conservan `acl` y `event_id` explicitos; el corpus ya cargado
+sin ACL requiere clasificacion y resincronizacion antes de validarlo en cloud.
+
+La KB de fase 3 usa S3 Vectors: este incremento usa `SEMANTIC` y rechaza `HYBRID`, salvo
+que una composicion declare un store compatible. No inventamos BM25 sobre S3 Vectors.
+El adaptador solo acepta referencias textuales S3 con `document_id`; no soporta otros
+conectores ni respuestas multimodales. Si Retrieve o Rerank devuelven `nextToken`, falla
+explicitamente: la paginacion completa es un seguimiento, no se entrega un ranking
+truncado como si estuviera completo.
+
+Las citas gestionadas tienen texto generado, span normalizado `[start, end)` y fuentes
+con texto literal, URI y un ID estable derivado de KB/documento/URI/texto. Se aceptan
+offsets finales inclusivos o exclusivos solo si coinciden con el texto declarado.
+No se reutilizan sesiones entre peticiones, evitando mezclar scopes de usuarios.
+Sin citas o tras intervencion de guardrail, se abstiene. Spans falsos, fuentes sin ACL,
+filtros incumplidos o texto no blanco fuera de los spans provocan rechazo completo.
+Esta politica de cobertura es conservadora: formatos o marcadores del proveedor
+pueden provocar rechazo y deben medirse en 4.4 antes de relajarla. Una fuente citada
+es un snapshot retornado por la KB, no una relectura independiente de S3 ni un `href`
+de la API local. La validacion estructural **no comprueba entailment ni fidelidad**.
+
+**Azure, carril A: sustitucion aprobada el 2026-10-08.** La [documentacion oficial de On Your Data](https://learn.microsoft.com/en-us/azure/foundry-classic/openai/concepts/use-your-data)
+consultada el 2026-10-08 anuncia su retirada el **14 de octubre de 2026**; solo admite
+las versiones listadas de GPT-4o/GPT-4o-mini, no los GPT-4.1 mini/nano previstos aqui.
+Por este motivo, Sergio confirma sustituir On Your Data por **Foundry Agent Service
+con Foundry IQ**, la alternativa recomendada por Microsoft. Es una decision de
+arquitectura, no una implementacion terminada ni autorizacion para crear recursos o
+invocar modelos con coste. El siguiente incremento debe verificar las APIs/SDKs
+vigentes, fuentes admitidas, filtros de acceso y formato de citas, e implementar y
+probar el adaptador/composicion con dobles locales antes de ejecutar cloud.
+No afecta al carril B AI Search implementado en este incremento.
+
+Referencias tecnicas: [Semantic Ranker](https://learn.microsoft.com/en-us/azure/search/semantic-how-to-query-request),
+[Bedrock Rerank](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_Rerank.html)
+y [RetrieveAndGenerate](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_RetrieveAndGenerate.html).
 
 ### Por que RRF
 
@@ -229,6 +312,7 @@ por tokens, autenticacion y escala se deben resolver antes de produccion.
 
 ```powershell
 uv run pytest packages/headache_core/tests/test_retrieval.py services/retrieval/tests/test_retrieval_api.py
+uv run pytest packages/headache_core/tests/test_cloud_retrieval.py packages/headache_core/tests/test_cloud_vector_stores.py packages/headache_core/tests/test_managed_ingestion.py
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
@@ -241,16 +325,45 @@ abstencion; contrato HTTP y limites del cargador sin modificar el corpus. Los mi
 tests se ejecutan con ambos motores. Se verifican tambien el umbral de auto-merging,
 los padres privados, hits con score cero y el bloqueo de los modelos por defecto.
 
+### Informe de estado al 2026-10-08
+
+| Bloque | Estado | Lo que falta |
+|---|---|---|
+| 4.1, carril B local + FastAPI | Publicado (`78b004a`) | Embeddings/gateway reales y rutas cloud explicitamente conectadas |
+| 4.2, carril C LlamaIndex + SQL | Publicado (`e426802`) | Comparacion con modelos reales; integracion del docstore jerarquico persistente es un extra |
+| 4.3, SDK AI Search y Bedrock | Revisado, tests offline correctos | Composicion de clientes, permisos, ingesta ACL y validacion real |
+| Carril A Azure | Sustitucion por Agent Service + Foundry IQ aprobada | Adaptador, fuentes/citas/ACL, wiring e infraestructura necesarios |
+| 4.4, comparativa cloud A/B/C | Pendiente | Ejecucion con confirmacion y medidas de coste, latencia y fidelidad |
+
+Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval estan implementadas
+y probadas con dobles de `LLMPort`; **no estan activas con modelos reales en la API**.
+Hay RAG extractivo local con citas verificables; la generacion gestionada AWS esta
+implementada como adaptador separado, no como ruta HTTP conectada. No hay todavia un
+RAG gestionado Azure ni una comparativa cloud ejecutada. La fase 4 no se declara cerrada.
+
+Orden de los siguientes incrementos:
+
+1. **Preparacion sin coste:** implementar el nuevo carril A Azure con APIs vigentes y
+  dobles locales; preparar factories/rutas explicitas para los adaptadores cloud y
+  el gateway de fase 2, manteniendo la composicion local sin llamadas cloud por defecto.
+2. **Validacion cloud con confirmacion independiente:** autenticacion, despliegues
+  minimos necesarios, schema/metadatos ACL y encoder compatible, ingesta y pruebas
+  de estrategias. Usar el mismo corpus y preguntas en A/B/C; registrar diferencias
+  de chunking y de funcionalidades, sin asumir soporte HYBRID en S3 Vectors.
+3. **Cierre de fase 4:** medir coste, latencia y comportamiento de citas/abstencion;
+  documentar resultados y limitaciones. Las evals sistematicas con golden dataset
+  y gates de calidad corresponden a fase 5.
+
 Pendientes antes de cerrar fase 4:
 
-- **4.2, local: implementada y verificada.** Lectura SQL, carril C sobre corpus comun,
-  comparacion de padres y auto-merging. Pendiente de revision del usuario.
-- **4.3, adaptadores sin coste:** implementar y probar con dobles los SDKs de AI Search
-  (hibrida/semantic ranker), Bedrock Rerank/Cohere y KB RetrieveAndGenerate; verificar
-  la disponibilidad actual del carril gestionado de Azure. No asumir que todos los
-  backends de KB ofrecen hibrida.
+- **4.2, local: revisada y publicada** (`e426802`). Lectura SQL, carril C sobre corpus
+  comun, comparacion de padres y auto-merging.
+- **4.3, adaptadores sin coste: AI Search y Bedrock implementados, probados y revisados.**
+  Sustitucion del carril A Azure por Foundry Agent Service/Foundry IQ aprobada el
+  2026-10-08; su implementacion sigue pendiente. No se afirma validacion cloud.
 - **4.4, cloud con confirmacion:** conectar gateway y embeddings reales, autenticar,
-  ejecutar los carriles A/B/C y medir coste, latencia y fidelidad. Se mantienen los
+  clasificar/reingerir ACL, montar clientes y rutas cloud explicitamente, ejecutar los
+  carriles A/B/C y medir coste, latencia y fidelidad. Se mantienen los
   pendientes cloud de fases 2 y 3.
 - **Fase 5:** golden dataset, hit rate/MRR y evals de relevancia/fidelidad; los tests
   actuales validan contratos, no sustituyen esas metricas.
@@ -283,3 +396,16 @@ cuando coinciden varios. El umbral y el tamano del padre deben evaluarse.
 sin mover seguridad ni reglas de negocio al framework. El coste es adaptar contratos,
 conocer sus defaults y asumir cambios de API. Aqui conserva los mismos IDs y fuentes,
 de modo que la comparacion prueba ranking, no diferencias de ingesta.
+
+**Semantic Ranker equivale a Bedrock Rerank?** Ambos reordenan, pero AI Search trabaja
+sobre los primeros resultados de su indice; Bedrock Rerank acepta candidatos de nuestra
+aplicacion. No comparten puertos ni escalas de scores necesariamente.
+
+**Por que no implementar On Your Data?** Su retirada anunciada y su lista limitada de
+modelos lo hacen una mala dependencia nueva. Validamos el ciclo de vida del producto
+y Sergio aprobo el 2026-10-08 sustituirlo por Foundry Agent Service + Foundry IQ.
+La decision no sustituye la comprobacion de APIs, seguridad y costes de la alternativa.
+
+**Que garantiza una cita gestionada?** Que el span existe en la respuesta y apunta a
+una referencia autorizada retornada por la KB. No prueba que la afirmacion sea fiel a
+esa fuente: hacen falta evals y validacion cloud, igual que en los demas carriles.

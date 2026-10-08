@@ -98,7 +98,7 @@ def test_ai_search_document_uses_safe_key_and_flattens_filterable_fields() -> No
     assert document["chunk_id"] == RECORD.id
     assert document["language"] == "en"
     assert document["chunk"] == 0
-    assert "title" not in document  # No filtrable: solo dentro de metadata_json.
+    assert document["title"] == "T"
     assert json.loads(document["metadata_json"])["title"] == "T"
 
 
@@ -117,6 +117,11 @@ def test_ai_search_index_declares_vector_field_and_filters() -> None:
     assert fields["id"]["key"] is True
     assert fields["embedding"]["dimensions"] == 1024
     assert fields["language"]["filterable"] is True
+    assert fields["acl"]["filterable"] is True
+    assert fields["title"]["searchable"] is True
+    assert index["semantic"]["configurations"][0]["prioritizedFields"]["titleField"] == {
+        "fieldName": "title",
+    }
     assert index["vectorSearch"]["algorithms"][0]["hnswParameters"]["metric"] == "cosine"
 
 
