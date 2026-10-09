@@ -12,6 +12,7 @@ dist/
 build/
 
 # Secretos
+.secrets/
 .env
 .env.*
 !.env.example

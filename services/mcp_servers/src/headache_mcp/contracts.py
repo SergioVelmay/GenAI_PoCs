@@ -18,8 +18,7 @@ from fastmcp import Client, FastMCP
 
 from headache_core.adapters.memory import InMemoryUnitOfWork
 from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_mcp.adapter import anonymous
-from headache_mcp.servers import SERVERS
+from headache_mcp.servers import SERVERS, create_server
 
 CONTRACTS_DIR = Path(__file__).resolve().parents[2] / "contracts"
 _WIRE_FIELDS = ("name", "title", "description", "inputSchema", "annotations")
@@ -40,7 +39,7 @@ async def describe(server: FastMCP[Any]) -> dict[str, Any]:
 
 def contract_servers() -> dict[str, FastMCP[Any]]:
     ticketing = UnitOfWorkTicketing(InMemoryUnitOfWork)
-    return {name: factory(ticketing, anonymous, None) for name, factory in SERVERS.items()}
+    return {name: create_server(name, ticketing) for name in SERVERS}
 
 
 def _render(contract: dict[str, Any]) -> str:

@@ -116,9 +116,13 @@ services:
     command: ["catalog"]
     environment:
       TICKETING_API__BASE_URL: http://host.docker.internal:8000
-      # Sin OAuth (fase 6.3) la identidad es fija y solo se admite en entorno local.
       ENVIRONMENT: local
+      # jwt: tokens del emisor de desarrollo (python -m headache_mcp.auth). none: identidad fija.
+      MCP__AUTH: ${MCP__AUTH:-none}
+      MCP__PUBLIC_KEY_FILE: /run/secrets/headache/mcp-dev-key.pub
       MCP__DEV_CUSTOMER_ID: ${MCP__DEV_CUSTOMER_ID:-}
+    volumes:
+      - ./.secrets:/run/secrets/headache:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

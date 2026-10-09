@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -11,6 +12,7 @@ from fastmcp.utilities.tests import asgi_server
 
 from headache_core.adapters.memory import InMemoryUnitOfWork
 from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
+from headache_core.config import McpSettings
 from headache_core.domain import (
     Customer,
     Event,
@@ -20,13 +22,10 @@ from headache_core.domain import (
     OrderStatus,
     Session,
 )
-from headache_mcp.adapter import fixed_identity
+from headache_mcp.adapter import anonymous, fixed_identity
+from headache_mcp.auth import SERVER_SCOPES, DevTokenIssuer, jwt_auth, token_identity
 from headache_mcp.contracts import CONTRACTS_DIR, contract_servers, describe
-from headache_mcp.servers import (
-    create_catalog_server,
-    create_refunds_server,
-    create_ticketing_server,
-)
+from headache_mcp.servers import create_server
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")
@@ -97,7 +96,7 @@ async def test_annotations_flag_side_effects() -> None:
 
 
 async def test_catalog_search_returns_structured_projection(ticketing: UnitOfWorkTicketing) -> None:
-    async with Client(create_catalog_server(ticketing)) as client:
+    async with Client(create_server("catalog", ticketing)) as client:
         result = await client.call_tool("search_events", {"city": "Madrid", "limit": 3})
 
     assert not result.is_error
@@ -107,7 +106,7 @@ async def test_catalog_search_returns_structured_projection(ticketing: UnitOfWor
 
 
 async def test_ticketing_scopes_orders_to_identity(ticketing: UnitOfWorkTicketing) -> None:
-    server = create_ticketing_server(ticketing, identity=fixed_identity("cus_1"))
+    server = create_server("ticketing", ticketing, identity=fixed_identity("cus_1"))
 
     own_error, own = await _call(server, "get_order", order_id="ord_1")
     foreign_error, foreign = await _call(server, "get_order", order_id="ord_2")
@@ -117,7 +116,7 @@ async def test_ticketing_scopes_orders_to_identity(ticketing: UnitOfWorkTicketin
 
 
 async def test_unauthenticated_calls_are_rejected(ticketing: UnitOfWorkTicketing) -> None:
-    server = create_ticketing_server(ticketing, identity=fixed_identity(""))
+    server = create_server("ticketing", ticketing, identity=fixed_identity(""))
 
     is_error, payload = await _call(server, "list_my_orders", limit=5)
 
@@ -125,7 +124,7 @@ async def test_unauthenticated_calls_are_rejected(ticketing: UnitOfWorkTicketing
 
 
 async def test_invalid_arguments_are_typed_errors(ticketing: UnitOfWorkTicketing) -> None:
-    server = create_refunds_server(ticketing, identity=fixed_identity("cus_1"))
+    server = create_server("refunds", ticketing, identity=fixed_identity("cus_1"))
 
     is_error, payload = await _call(server, "request_refund", order_id="DROP TABLE", reason="x")
 
@@ -133,7 +132,7 @@ async def test_invalid_arguments_are_typed_errors(ticketing: UnitOfWorkTicketing
 
 
 async def test_refund_over_streamable_http(ticketing: UnitOfWorkTicketing) -> None:
-    server = create_refunds_server(ticketing, identity=fixed_identity("cus_1"))
+    server = create_server("refunds", ticketing, identity=fixed_identity("cus_1"))
 
     async with asgi_server(server) as running:
         async with running.http_client() as http:
@@ -147,3 +146,116 @@ async def test_refund_over_streamable_http(ticketing: UnitOfWorkTicketing) -> No
     assert result.structured_content is not None
     assert result.structured_content["approved"] is True
     assert result.structured_content["amount"] == "60.00 EUR"
+
+
+# ---------- OAuth 2.1: los servidores como resource servers ----------
+
+INIT = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": {"name": "test", "version": "0"},
+    },
+}
+MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
+
+
+@pytest.fixture
+def issuer(tmp_path: Path) -> DevTokenIssuer:
+    return DevTokenIssuer.load_or_create(tmp_path / "key.pem", issuer="https://auth.test")
+
+
+def _secured(name: str, ticketing: UnitOfWorkTicketing, tmp_path: Path) -> FastMCP[Any]:
+    settings = McpSettings(
+        auth="jwt", issuer="https://auth.test", public_key_file=str(tmp_path / "key.pub")
+    )
+    return create_server(
+        name,
+        ticketing,
+        identity=anonymous if name == "catalog" else token_identity(),
+        auth=jwt_auth(settings, name, public_url="http://127.0.0.1"),
+    )
+
+
+def _token(issuer: DevTokenIssuer, server: str, *, subject: str = "cus_1", **kwargs: Any) -> str:
+    options: dict[str, Any] = {"scopes": SERVER_SCOPES[server], **kwargs}
+    return issuer.mint(subject=subject, audience=f"api://headache-mcp/{server}", **options)
+
+
+async def test_identity_comes_from_the_token(
+    ticketing: UnitOfWorkTicketing, issuer: DevTokenIssuer, tmp_path: Path
+) -> None:
+    server = _secured("ticketing", ticketing, tmp_path)
+
+    async with (
+        asgi_server(server) as running,
+        running.client(auth=_token(issuer, "ticketing")) as client,
+    ):
+        mine = await client.call_tool("list_my_orders", {"limit": 5})
+        foreign = await client.call_tool("get_order", {"order_id": "ord_2"}, raise_on_error=False)
+
+    assert mine.structured_content is not None
+    assert [o["id"] for o in mine.structured_content["items"]] == ["ord_1"]
+    assert foreign.is_error
+
+
+@pytest.mark.parametrize(
+    ("case", "status"),
+    [
+        ("missing", 401),
+        ("wrong_audience", 401),
+        ("expired", 401),
+        ("wrong_issuer", 401),
+        # El verificador trata un scope de servidor ausente como token inválido (401, no 403).
+        ("insufficient_scope", 401),
+    ],
+)
+async def test_invalid_tokens_are_rejected_before_any_tool_runs(
+    case: str, status: int, ticketing: UnitOfWorkTicketing, issuer: DevTokenIssuer, tmp_path: Path
+) -> None:
+    tokens = {
+        "missing": None,
+        # Un token emitido para `ticketing` no se puede reutilizar en `refunds` (passthrough).
+        "wrong_audience": _token(issuer, "ticketing"),
+        "expired": _token(issuer, "refunds", expires_in_seconds=-60),
+        "wrong_issuer": DevTokenIssuer.load_or_create(
+            tmp_path / "other" / "key.pem", issuer="https://evil.test"
+        ).mint(subject="cus_1", audience="api://headache-mcp/refunds", scopes=["refunds:write"]),
+        "insufficient_scope": _token(issuer, "refunds", scopes=["orders:read"]),
+    }
+    token = tokens[case]
+    headers = MCP_HEADERS if token is None else {**MCP_HEADERS, "Authorization": f"Bearer {token}"}
+
+    async with (
+        asgi_server(_secured("refunds", ticketing, tmp_path)) as running,
+        running.http_client() as http,
+    ):
+        response = await http.post("/mcp", json=INIT, headers=headers)
+
+    assert response.status_code == status
+    assert "resource_metadata" in response.headers["www-authenticate"]
+
+
+async def test_protected_resource_metadata_advertises_issuer_and_scopes(
+    ticketing: UnitOfWorkTicketing, tmp_path: Path, issuer: DevTokenIssuer
+) -> None:
+    async with (
+        asgi_server(_secured("refunds", ticketing, tmp_path)) as running,
+        running.http_client() as http,
+    ):
+        response = await http.get("/.well-known/oauth-protected-resource/mcp")
+
+    metadata = response.json()
+    assert metadata["resource"] == "http://127.0.0.1/mcp"
+    assert metadata["authorization_servers"] == ["https://auth.test/"]
+    assert metadata["scopes_supported"] == ["refunds:write"]
+
+
+def test_dev_issuer_reuses_its_key(tmp_path: Path) -> None:
+    first = DevTokenIssuer.load_or_create(tmp_path / "k.pem", issuer="https://auth.test")
+    second = DevTokenIssuer.load_or_create(tmp_path / "k.pem", issuer="https://auth.test")
+
+    assert first.public_key == second.public_key

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Awaitable, Callable, Iterable, Iterator
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,16 +43,39 @@ class Tool[A: BaseModel]:
     # Las escrituras no se ejecutan en paralelo y un timeout en ellas es "resultado incierto".
     read_only: bool = True
     timeout_s: float = 10.0
+    # Tools remotas (MCP): el esquema lo publica el servidor, que es quien valida de verdad.
+    published_schema: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not _NAME.match(self.name):
             raise ValueError(f"Nombre de tool no válido: {self.name!r}")
 
     def spec(self) -> ToolSpec:
+        if self.published_schema is not None:
+            schema = self.published_schema
+            return ToolSpec(self.name, self.description, schema, strict=is_strict_schema(schema))
         return ToolSpec(self.name, self.description, strict_json_schema(self.args_model))
 
     def parse(self, arguments: str) -> A:
         return self.args_model.model_validate_json(arguments or "{}")
+
+
+def is_strict_schema(schema: Any) -> bool:
+    """¿Cumple el modo strict de OpenAI? Un servidor de terceros puede publicar esquemas laxos."""
+    if isinstance(schema, list):
+        return all(is_strict_schema(item) for item in schema)
+    if not isinstance(schema, Mapping):
+        return True
+    if "default" in schema:
+        return False
+    if schema.get("type") == "object" and "properties" in schema:
+        properties = schema["properties"]
+        if schema.get("additionalProperties") is not False or set(
+            schema.get("required", ())
+        ) != set(properties):
+            return False
+        return all(is_strict_schema(p) for p in properties.values())
+    return all(is_strict_schema(value) for value in schema.values())
 
 
 class ToolRegistry:

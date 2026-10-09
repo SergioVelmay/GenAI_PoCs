@@ -156,10 +156,30 @@ class TicketingApiSettings(BaseModel):
 
 
 class McpSettings(BaseModel):
-    """Servidores MCP (fase 6). Sin OAuth, la identidad fija solo se admite en local."""
+    """Servidores MCP (fase 6) como resource servers OAuth 2.1 y URLs que usa el agente."""
 
     host: str = "127.0.0.1"
+    # "none": identidad fija (dev_customer_id), solo en local. "jwt": bearer tokens validados.
+    auth: Literal["none", "jwt"] = "none"
     dev_customer_id: str = ""
+    # Authorization server: Entra ID / Cognito en la nube; emisor de desarrollo en local.
+    issuer: str = "https://auth.headache.local"
+    jwks_uri: str = ""
+    public_key_file: str = ""
+    # Un audience por servidor: un token de `ticketing` no sirve en `refunds`.
+    audience_template: str = "api://headache-mcp/{server}"
+    customer_claim: str = "sub"
+    # URL pública para los metadatos RFC 9728 (/.well-known/oauth-protected-resource).
+    public_url_template: str = "http://127.0.0.1:{port}"
+    dev_private_key_file: str = ".secrets/mcp-dev-key.pem"
+    servers: dict[str, str] = {
+        "catalog": "http://127.0.0.1:8101/mcp",
+        "ticketing": "http://127.0.0.1:8102/mcp",
+        "refunds": "http://127.0.0.1:8103/mcp",
+    }
+
+    def audience(self, server: str) -> str:
+        return self.audience_template.format(server=server)
 
 
 class Settings(BaseSettings):

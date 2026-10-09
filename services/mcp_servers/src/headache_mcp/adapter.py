@@ -12,6 +12,7 @@ from contextlib import AbstractAsyncContextManager
 from typing import Annotated, Any
 
 from fastmcp import FastMCP
+from fastmcp.server.auth import AuthProvider
 from fastmcp.tools.base import Tool as MCPTool
 from fastmcp.tools.base import ToolResult
 from mcp_types import ToolAnnotations
@@ -77,12 +78,14 @@ def build_server(
     registry: ToolRegistry,
     *,
     identity: IdentityResolver,
+    auth: AuthProvider | None = None,
     lifespan: Lifespan | None = None,
 ) -> FastMCP[Any]:
     server: FastMCP[Any] = FastMCP(
         name,
         instructions,
         version="0.1.0",
+        auth=auth,
         lifespan=lifespan,
         mask_error_details=True,
     )
