@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # NLTK (pathsec) rechaza ficheros con st_nlink > 1; uv en Linux instala con hardlinks a su caché.
+  UV_LINK_MODE: copy
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
