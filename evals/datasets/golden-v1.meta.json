@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "corpus": "evals/corpus/knowledge.jsonl",
+  "corpus_sha256": "4bbd46f0ee6ab06970b55bbf39ccbbef5aaaadc63103b4bf91defa2fa5e6f4d3",
+  "documents": 116,
+  "items": 144,
+  "by_type": {
+    "acl_adversarial": 14,
+    "cross_lingual": 19,
+    "factual": 78,
+    "filtered": 17,
+    "unanswerable": 16
+  }
+}

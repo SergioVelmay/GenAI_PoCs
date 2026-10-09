@@ -8,16 +8,18 @@ dependencies = [
     "indexer",
     "ticketing-api",
     "retrieval",
+    "rag-evals",
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "services/*"]
+members = ["packages/*", "services/*", "evals"]
 
 [tool.uv.sources]
 headache-core = { workspace = true }
 indexer = { workspace = true }
 ticketing-api = { workspace = true }
 retrieval = { workspace = true }
+rag-evals = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -39,7 +41,7 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["headache_core", "indexer", "retrieval", "ticketing_api"]
+known-first-party = ["headache_core", "indexer", "rag_evals", "retrieval", "ticketing_api"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -54,6 +56,8 @@ files = [
     "services/ticketing_api/tests",
     "services/retrieval/src",
     "services/retrieval/tests",
+    "evals/src",
+    "evals/tests",
     "scripts",
 ]
 
@@ -67,7 +71,7 @@ module = ["rank_bm25"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "services"]
+testpaths = ["packages", "services", "evals"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # Los tests de integración necesitan PostgreSQL: uv run pytest -m integration

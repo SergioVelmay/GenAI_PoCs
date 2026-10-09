@@ -55,6 +55,7 @@
 - Terraform en `infra/terraform/{aws,azure}` (estado local, `terraform.tfvars` sin versionar). Validación sin coste: `terraform fmt -check`, `init -backend=false`, `validate` (también en CI). `plan`/`apply` requieren credenciales y confirmación. El índice de AI Search no lo gestiona azurerm: `scripts/provision_search_index.py [--apply]`.
 - Carril B en la nube del indexer: `INDEXER__EMBEDDINGS=hashing|azure|bedrock` (1024 dims) y `INDEXER__VECTOR_STORE=pgvector|azure_search|s3_vectors`; el ledger sigue en PostgreSQL con `index_name@store`.
 - Retrieval (fase 4, `services/retrieval`): `uv run uvicorn retrieval.app:create_app --factory --host 127.0.0.1 --port 8010`; comparativa B/C: `uv run python -m retrieval.compare "consulta"`. Por defecto 100 % local y sin coste; la nube se compone solo de forma explícita con `RETRIEVAL__BACKEND|EMBEDDINGS|SEMANTIC_RANKER|RERANKER|LLM|MANAGED` (`retrieval/cloud.py`). Carril A en rutas `/managed/*` (`bedrock_kb` o `foundry_iq`). Aprovisionamiento de Foundry IQ: `scripts/provision_foundry_iq.py [--apply]`.
+- Evals (fase 5, paquete `evals/` = `rag_evals`): corpus congelado `evals/corpus/knowledge.jsonl` (escala small, semilla 42) y golden dataset versionado `evals/datasets/golden-v1.jsonl` (+ `.meta.json` con el sha256 del corpus; gold por `document_id`). Regenerar/verificar: `uv run python -m rag_evals.golden [--check]`. Evals de retrieval sin coste (B y C, todas las estrategias): `uv run python -m rag_evals.retrieval_eval [--engine native] [--strategy bm25]` → `evals/reports/retrieval.{md,json}`. Métricas puras en `headache_core/domain/evals.py`.
 - Commits con Conventional Commits en español, p. ej. `feat: fase 1 - esquema SQL de ticketing`.
 
 ## Plan de fases (estado)
@@ -66,7 +67,7 @@
 | 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ✅ Hecha* (validación en cloud pendiente, ver abajo) |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | ✅ Hecha* (validación en cloud pendiente; comparativa en `docs/fase-3-comparativa.md`) |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | ✅ Hecha* (validación en cloud pendiente; carril A Azure = Foundry IQ + Agent Service por retirada de On Your Data el 14-10-2026; `docs/fase-4-retrieval.md`) |
-| 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | |
+| 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | 🚧 En curso (5.1 golden + 5.2 métricas de retrieval hechas; faltan 5.3 generación, 5.4 CI, 5.5 comparativa) |
 | 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | |
 | 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | |
 | 8 | Agentic harness y guardrails: validación, autocorrección, SQL seguro, PII, prompt injection, human-in-the-loop | |
