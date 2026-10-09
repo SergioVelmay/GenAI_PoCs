@@ -13,6 +13,45 @@ class Role(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCall:
+    """Petición del modelo para ejecutar una tool. El backend decide si la ejecuta."""
+
+    id: str
+    name: str
+    # JSON crudo tal como lo generó el modelo: puede ser inválido y se valida al ejecutar.
+    arguments: str
+
+
+@dataclass(frozen=True, slots=True)
+class ToolSpec:
+    """Contrato de una tool que ve el modelo: nombre, cuándo usarla y JSON Schema de entrada."""
+
+    name: str
+    description: str
+    json_schema: Mapping[str, Any]
+    strict: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class ToolConfig:
+    tools: tuple[ToolSpec, ...]
+    # "auto" (el modelo decide), "required" (al menos una tool) o el nombre de una tool concreta.
+    choice: str = "auto"
+    # False obliga a una tool por turno (Azure). Bedrock no lo expone de forma portable.
+    parallel: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.tools:
+            raise ValueError("ToolConfig necesita al menos una tool.")
+        names = {tool.name for tool in self.tools}
+        if len(names) != len(self.tools):
+            raise ValueError("Nombres de tool duplicados.")
+        if self.choice not in {"auto", "required"} | names:
+            raise ValueError(f"tool choice desconocido: {self.choice!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +61,11 @@ class ChatMessage:
     # Fin de un prefijo estable que conviene cachear. Bedrock lo traduce a `cachePoint`;
     # Azure OpenAI lo ignora porque cachea solo (prefijos idénticos de >= 1024 tokens).
     cache_checkpoint: bool = False
+    # Solo en ASSISTANT: tools que el modelo pidió en ese turno.
+    tool_calls: tuple[ToolCall, ...] = ()
+    # Solo en TOOL: a qué llamada responde y si es un error (Bedrock lo marca como status=error).
+    tool_call_id: str | None = None
+    is_error: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +102,7 @@ class LLMResponse:
     provider: str = "unknown"
     latency_ms: float = 0.0
     finish_reason: str | None = None
+    tool_calls: tuple[ToolCall, ...] = ()
 
 
 class LLMError(Exception):
@@ -80,6 +125,7 @@ class LLMPort(Protocol):
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse: ...
 
 

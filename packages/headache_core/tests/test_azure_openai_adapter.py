@@ -17,6 +17,9 @@ from headache_core.ports import (
     ResponseSchema,
     Role,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
+    ToolSpec,
 )
 
 COMPLETION: dict[str, Any] = {
@@ -88,3 +91,69 @@ async def test_maps_http_errors(status: int, expected: type[LLMError]) -> None:
     with pytest.raises(LLMError) as info:
         await _llm(handler).complete([ChatMessage(Role.USER, "hola")])
     assert type(info.value) is expected
+
+
+TOOLS = ToolConfig(
+    (
+        ToolSpec("get_order", "Estado de un pedido.", {"type": "object"}),
+        ToolSpec("list_my_orders", "Pedidos del cliente.", {"type": "object"}),
+    ),
+    choice="get_order",
+    parallel=False,
+)
+
+
+async def test_sends_tools_and_parses_tool_calls() -> None:
+    seen: dict[str, Any] = {}
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_order", "arguments": '{"order_id": "ord_1"}'},
+    }
+    completion = {
+        **COMPLETION,
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {"role": "assistant", "content": None, "tool_calls": [tool_call]},
+            }
+        ],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=completion)
+
+    previous = ToolCall("call_0", "list_my_orders", "{}")
+    response = await _llm(handler).complete(
+        [
+            ChatMessage(Role.USER, "¿Y mi pedido?"),
+            ChatMessage(Role.ASSISTANT, "", tool_calls=(previous,)),
+            ChatMessage(Role.TOOL, '{"items": []}', tool_call_id="call_0"),
+        ],
+        tools=TOOLS,
+    )
+
+    body = seen["body"]
+    assert body["tools"][0] == {
+        "type": "function",
+        "function": {
+            "name": "get_order",
+            "description": "Estado de un pedido.",
+            "parameters": {"type": "object"},
+            "strict": True,
+        },
+    }
+    assert body["tool_choice"] == {"type": "function", "function": {"name": "get_order"}}
+    assert body["parallel_tool_calls"] is False
+    assert body["messages"][1]["tool_calls"][0]["function"]["name"] == "list_my_orders"
+    assert body["messages"][1]["content"] is None
+    assert body["messages"][2] == {
+        "role": "tool",
+        "tool_call_id": "call_0",
+        "content": '{"items": []}',
+    }
+    assert response.tool_calls == (ToolCall("call_1", "get_order", '{"order_id": "ord_1"}'),)
+    assert response.finish_reason == "tool_calls"
+    assert response.content == ""

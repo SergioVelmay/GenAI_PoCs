@@ -22,6 +22,7 @@ from headache_core.ports import (
     LLMTracer,
     LLMTransientError,
     ResponseSchema,
+    ToolConfig,
 )
 
 type Sleep = Callable[[float], Awaitable[None]]
@@ -57,6 +58,7 @@ class FallbackLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         last_error: LLMTransientError | None = None
         for llm in self._candidates:
@@ -67,6 +69,7 @@ class FallbackLLM:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         response_schema=response_schema,
+                        tools=tools,
                     )
                 except LLMRateLimitError as exc:
                     last_error = exc
@@ -119,7 +122,8 @@ class TokenBucket:
 
 def estimate_tokens(messages: Sequence[ChatMessage]) -> int:
     """Aproximación barata (~4 caracteres por token) para reservar cuota antes de llamar."""
-    return sum(len(m.content) for m in messages) // 4 + 1
+    chars = sum(len(m.content) + sum(len(c.arguments) for c in m.tool_calls) for m in messages)
+    return chars // 4 + 1
 
 
 class RateLimitedLLM:
@@ -155,6 +159,7 @@ class RateLimitedLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         await self._requests.acquire()
         await self._tokens.acquire(
@@ -165,6 +170,7 @@ class RateLimitedLLM:
             temperature=temperature,
             max_tokens=max_tokens,
             response_schema=response_schema,
+            tools=tools,
         )
 
 
@@ -193,10 +199,13 @@ class ObservedLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         metadata = self._metadata
         if response_schema is not None:
             metadata = {**metadata, "response_schema": response_schema.name}
+        if tools is not None:
+            metadata = {**metadata, "tools": ",".join(t.name for t in tools.tools)}
         observation = self._tracer.start_generation(
             name=self._name, messages=messages, metadata=metadata
         )
@@ -206,6 +215,7 @@ class ObservedLLM:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 response_schema=response_schema,
+                tools=tools,
             )
         except Exception as exc:
             observation.fail(exc)

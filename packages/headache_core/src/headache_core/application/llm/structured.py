@@ -31,9 +31,17 @@ class StructuredResult[T: BaseModel]:
 def response_schema_for(output_type: type[BaseModel]) -> ResponseSchema:
     return ResponseSchema(
         name=output_type.__name__,
-        json_schema=_to_strict(output_type.model_json_schema()),
+        json_schema=strict_json_schema(output_type),
         description=(output_type.__doc__ or "").strip(),
     )
+
+
+def strict_json_schema(model: type[BaseModel]) -> dict[str, Any]:
+    return _to_strict(model.model_json_schema())
+
+
+# Palabras clave que el modo strict de OpenAI no admite: Pydantic las sigue validando en local.
+_UNSUPPORTED_STRICT_KEYS = frozenset({"default", "minLength", "maxLength"})
 
 
 def _to_strict(schema: dict[str, Any]) -> dict[str, Any]:
@@ -50,7 +58,9 @@ def _to_strict(schema: dict[str, Any]) -> dict[str, Any]:
             return node
         if "$ref" in node:
             return {"$ref": node["$ref"]}
-        result = {key: visit(value) for key, value in node.items() if key != "default"}
+        result = {
+            key: visit(value) for key, value in node.items() if key not in _UNSUPPORTED_STRICT_KEYS
+        }
         if result.get("type") == "object" and "properties" in result:
             result["additionalProperties"] = False
             result["required"] = list(result["properties"])

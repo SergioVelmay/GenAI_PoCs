@@ -35,6 +35,8 @@ from headache_core.ports import (
     ResponseSchema,
     SearchResult,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
     VectorRecord,
 )
 
@@ -42,14 +44,20 @@ from headache_core.ports import (
 class FakeLLM:
     """Devuelve respuestas guionizadas (o hace eco) y registra cada llamada.
 
-    Un elemento del guion que sea una excepción se lanza en vez de responder.
+    Un elemento del guion que sea una excepción se lanza en vez de responder; una lista de
+    `ToolCall` simula un turno en el que el modelo pide tools.
     """
 
-    def __init__(self, responses: Sequence[str | Exception] = (), model: str = "fake-llm") -> None:
+    def __init__(
+        self,
+        responses: Sequence[str | list[ToolCall] | Exception] = (),
+        model: str = "fake-llm",
+    ) -> None:
         self._responses = list(responses)
         self._model = model
         self.calls: list[list[ChatMessage]] = []
         self.schemas: list[ResponseSchema | None] = []
+        self.tools: list[ToolConfig | None] = []
 
     async def complete(
         self,
@@ -58,17 +66,28 @@ class FakeLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         self.calls.append(list(messages))
         self.schemas.append(response_schema)
+        self.tools.append(tools)
         scripted = self._responses.pop(0) if self._responses else messages[-1].content
         if isinstance(scripted, Exception):
             raise scripted
+        tool_calls = tuple(scripted) if isinstance(scripted, list) else ()
+        content = scripted if isinstance(scripted, str) else ""
         usage = TokenUsage(
             input_tokens=sum(len(m.content.split()) for m in messages),
-            output_tokens=len(scripted.split()),
+            output_tokens=len(content.split()) + sum(len(c.arguments.split()) for c in tool_calls),
         )
-        return LLMResponse(content=scripted, model=self._model, usage=usage, provider="fake")
+        return LLMResponse(
+            content=content,
+            model=self._model,
+            usage=usage,
+            provider="fake",
+            finish_reason="tool_calls" if tool_calls else "stop",
+            tool_calls=tool_calls,
+        )
 
 
 class RecordingTracer:

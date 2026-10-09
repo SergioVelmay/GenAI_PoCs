@@ -9,7 +9,21 @@ from typing import Any, Self
 from langfuse import Langfuse
 
 from headache_core.config import LangfuseSettings
-from headache_core.ports import ChatMessage, LLMResponse
+from headache_core.ports import ChatMessage, LLMResponse, ToolCall
+
+
+def _calls(calls: Sequence[ToolCall]) -> list[dict[str, str]]:
+    return [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in calls]
+
+
+def _message(message: ChatMessage) -> dict[str, Any]:
+    payload: dict[str, Any] = {"role": message.role.value, "content": message.content}
+    if message.tool_calls:
+        payload["tool_calls"] = _calls(message.tool_calls)
+    if message.tool_call_id is not None:
+        payload["tool_call_id"] = message.tool_call_id
+        payload["is_error"] = message.is_error
+    return payload
 
 
 class _LangfuseGeneration:
@@ -22,7 +36,11 @@ class _LangfuseGeneration:
         uncached = usage.input_tokens - usage.cached_input_tokens - usage.cache_write_tokens
         self._observation.update(
             model=response.model,
-            output=response.content,
+            output=(
+                {"content": response.content, "tool_calls": _calls(response.tool_calls)}
+                if response.tool_calls
+                else response.content
+            ),
             usage_details={
                 "input": max(uncached, 0),
                 "output": usage.output_tokens,
@@ -71,7 +89,7 @@ class LangfuseTracer:
         observation = self._client.start_observation(
             name=name,
             as_type="generation",
-            input=[{"role": m.role.value, "content": m.content} for m in messages],
+            input=[_message(m) for m in messages],
             metadata=dict(metadata),
         )
         return _LangfuseGeneration(observation)

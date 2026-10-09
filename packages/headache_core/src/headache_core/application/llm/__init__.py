@@ -26,6 +26,7 @@ from headache_core.application.llm.structured import (
     StructuredResult,
     complete_structured,
     response_schema_for,
+    strict_json_schema,
 )
 
 __all__ = [
@@ -50,4 +51,5 @@ __all__ = [
     "estimate_tokens",
     "normalize_model_name",
     "response_schema_for",
+    "strict_json_schema",
 ]

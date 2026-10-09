@@ -16,6 +16,9 @@ from headache_core.ports import (
     ResponseSchema,
     Role,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
+    ToolSpec,
 )
 
 if TYPE_CHECKING:
@@ -156,3 +159,103 @@ async def test_maps_client_errors(code: str, status: int, expected: type[LLMErro
     with stubber, pytest.raises(LLMError) as info:
         await BedrockConverseLLM(client, MODEL).complete([ChatMessage(Role.USER, "hola")])
     assert type(info.value) is expected
+
+
+TOOLS = ToolConfig(
+    (ToolSpec("get_order", "Estado de un pedido.", {"type": "object"}),), choice="required"
+)
+
+
+async def test_tool_use_round_trip_groups_parallel_results_in_one_user_turn() -> None:
+    client = _client()
+    stubber = Stubber(client)
+    stubber.add_response(
+        "converse",
+        {
+            **_response(
+                [
+                    {"text": "Consulto el otro pedido."},
+                    {"toolUse": {"toolUseId": "t3", "name": "get_order", "input": {"id": "3"}}},
+                ]
+            ),
+            "stopReason": "tool_use",
+        },
+        {
+            "modelId": MODEL,
+            "system": [{"text": "Asistente"}],
+            "messages": [
+                {"role": "user", "content": [{"text": "Mis pedidos 1 y 2"}]},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"toolUse": {"toolUseId": "t1", "name": "get_order", "input": {"id": "1"}}},
+                        {"toolUse": {"toolUseId": "t2", "name": "get_order", "input": {}}},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "toolResult": {
+                                "toolUseId": "t1",
+                                "content": [{"text": '{"status":"paid"}'}],
+                                "status": "success",
+                            }
+                        },
+                        {
+                            "toolResult": {
+                                "toolUseId": "t2",
+                                "content": [{"text": '{"error":{}}'}],
+                                "status": "error",
+                            }
+                        },
+                    ],
+                },
+            ],
+            "inferenceConfig": {"temperature": 0.0},
+            "toolConfig": {
+                "tools": [
+                    {
+                        "toolSpec": {
+                            "name": "get_order",
+                            "description": "Estado de un pedido.",
+                            "inputSchema": {"json": {"type": "object"}},
+                        }
+                    }
+                ],
+                "toolChoice": {"any": {}},
+            },
+        },
+    )
+
+    with stubber:
+        response = await BedrockConverseLLM(client, MODEL).complete(
+            [
+                ChatMessage(Role.SYSTEM, "Asistente"),
+                ChatMessage(Role.USER, "Mis pedidos 1 y 2"),
+                ChatMessage(
+                    Role.ASSISTANT,
+                    "",
+                    tool_calls=(
+                        ToolCall("t1", "get_order", '{"id": "1"}'),
+                        # Argumentos inválidos (p. ej. tras un fallback): viajan como objeto vacío.
+                        ToolCall("t2", "get_order", "{roto"),
+                    ),
+                ),
+                ChatMessage(Role.TOOL, '{"status":"paid"}', tool_call_id="t1"),
+                ChatMessage(Role.TOOL, '{"error":{}}', tool_call_id="t2", is_error=True),
+            ],
+            tools=TOOLS,
+        )
+
+    assert response.content == "Consulto el otro pedido."
+    assert response.tool_calls == (ToolCall("t3", "get_order", '{"id": "3"}'),)
+    assert response.finish_reason == "tool_use"
+    stubber.assert_no_pending_responses()
+
+
+async def test_tool_mode_rejects_tools_with_forced_tool_structured_output() -> None:
+    with pytest.raises(LLMError):
+        await BedrockConverseLLM(_client(), MODEL).complete(
+            [ChatMessage(Role.USER, "hola")], response_schema=SCHEMA, tools=TOOLS
+        )

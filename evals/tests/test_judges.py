@@ -5,7 +5,13 @@ from importlib.util import find_spec
 import pytest
 
 from headache_core.adapters.memory import FakeLLM, HashingEmbedding
-from headache_core.ports.llm import ChatMessage, LLMResponse, ResponseSchema, TokenUsage
+from headache_core.ports.llm import (
+    ChatMessage,
+    LLMResponse,
+    ResponseSchema,
+    TokenUsage,
+    ToolConfig,
+)
 from rag_evals.judges import JudgeError, JudgeSample, NativeJudge
 
 SAMPLE = JudgeSample(
@@ -33,6 +39,7 @@ class SchemaRoutedLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         name = response_schema.name if response_schema is not None else "text"
         self.seen.append(name)

@@ -10,7 +10,7 @@ import asyncio
 import json
 import time
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import boto3
 from botocore.config import Config
@@ -32,6 +32,8 @@ from headache_core.ports import (
     ResponseSchema,
     Role,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
 )
 
 if TYPE_CHECKING:
@@ -42,6 +44,8 @@ if TYPE_CHECKING:
         ConverseResponseTypeDef,
         MessageTypeDef,
         SystemContentBlockTypeDef,
+        ToolChoiceTypeDef,
+        ToolConfigurationTypeDef,
     )
 
 # "tool": tool use forzado (portable, funciona en Claude y Nova).
@@ -69,6 +73,64 @@ def _to_llm_error(exc: ClientError | BotoCoreError) -> LLMError:
     if isinstance(exc, BotoConnectionError | ConnectTimeoutError | ReadTimeoutError):
         return LLMTransientError(str(exc))
     return LLMError(str(exc))  # Credenciales, región... no se arreglan reintentando.
+
+
+def _tool_input(arguments: str) -> dict[str, Any]:
+    # Converse exige un objeto JSON; unos argumentos inválidos (p. ej. tras un fallback desde
+    # Azure) viajan vacíos y el error de validación ya está en el toolResult siguiente.
+    try:
+        parsed = json.loads(arguments)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _content(message: ChatMessage) -> list[ContentBlockTypeDef]:
+    content: list[ContentBlockTypeDef] = []
+    if message.role is Role.TOOL:
+        if message.tool_call_id is None:
+            raise LLMError("Un mensaje TOOL necesita tool_call_id.")
+        content.append(
+            {
+                "toolResult": {
+                    "toolUseId": message.tool_call_id,
+                    "content": [{"text": message.content}],
+                    "status": "error" if message.is_error else "success",
+                }
+            }
+        )
+    elif message.content:  # Converse rechaza bloques de texto vacíos.
+        content.append({"text": message.content})
+    content.extend(
+        {"toolUse": {"toolUseId": c.id, "name": c.name, "input": _tool_input(c.arguments)}}
+        for c in message.tool_calls
+    )
+    if message.cache_checkpoint:
+        content.append({"cachePoint": {"type": "default"}})
+    return content
+
+
+def _tool_configuration(config: ToolConfig) -> ToolConfigurationTypeDef:
+    choice: ToolChoiceTypeDef
+    if config.choice == "auto":
+        choice = {"auto": {}}
+    elif config.choice == "required":
+        choice = {"any": {}}
+    else:
+        choice = {"tool": {"name": config.choice}}
+    return {
+        "tools": [
+            {
+                "toolSpec": {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "inputSchema": {"json": dict(spec.json_schema)},
+                }
+            }
+            for spec in config.tools
+        ],
+        "toolChoice": choice,
+    }
 
 
 class BedrockConverseLLM:
@@ -105,7 +167,10 @@ class BedrockConverseLLM:
         temperature: float,
         max_tokens: int | None,
         response_schema: ResponseSchema | None,
+        tools: ToolConfig | None = None,
     ) -> ConverseRequestTypeDef:
+        if tools is not None and response_schema is not None and self._structured_mode == "tool":
+            raise LLMError("En modo 'tool', Bedrock no combina tools y structured output.")
         system: list[SystemContentBlockTypeDef] = []
         conversation: list[MessageTypeDef] = []
         for message in messages:
@@ -114,13 +179,19 @@ class BedrockConverseLLM:
                 if message.cache_checkpoint:
                     system.append({"cachePoint": {"type": "default"}})
                 continue
-            content: list[ContentBlockTypeDef] = [{"text": message.content}]
-            if message.cache_checkpoint:
-                content.append({"cachePoint": {"type": "default"}})
+            # Los resultados de tools viajan en un turno `user` y Converse exige alternar roles:
+            # mensajes seguidos del mismo rol (p. ej. llamadas en paralelo) se agrupan.
             role: Literal["user", "assistant"] = (
-                "user" if message.role is Role.USER else "assistant"
+                "assistant" if message.role is Role.ASSISTANT else "user"
             )
-            conversation.append({"role": role, "content": content})
+            content = _content(message)
+            if conversation and conversation[-1]["role"] == role:
+                conversation[-1] = {
+                    "role": role,
+                    "content": [*conversation[-1]["content"], *content],
+                }
+            else:
+                conversation.append({"role": role, "content": content})
 
         request: ConverseRequestTypeDef = {
             "modelId": self._model_id,
@@ -131,6 +202,8 @@ class BedrockConverseLLM:
             request["inferenceConfig"]["maxTokens"] = max_tokens
         if system:
             request["system"] = system
+        if tools is not None:
+            request["toolConfig"] = _tool_configuration(tools)
         if response_schema is not None:
             if self._structured_mode == "native":
                 request["outputConfig"] = {
@@ -167,8 +240,9 @@ class BedrockConverseLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
-        request = self._build_request(messages, temperature, max_tokens, response_schema)
+        request = self._build_request(messages, temperature, max_tokens, response_schema, tools)
         started = time.perf_counter()
         try:
             # boto3 es síncrono: se ejecuta en un hilo para no bloquear el event loop.
@@ -176,14 +250,35 @@ class BedrockConverseLLM:
         except (ClientError, BotoCoreError) as exc:
             raise _to_llm_error(exc) from exc
         latency_ms = (time.perf_counter() - started) * 1000
+        if tools is not None:
+            content, tool_calls = _extract_turn(response)
+        else:
+            content, tool_calls = _extract_content(response), ()
         return LLMResponse(
-            content=_extract_content(response),
+            content=content,
             model=self._model_id,
             usage=_extract_usage(response),
             provider="aws",
             latency_ms=latency_ms,
             finish_reason=response["stopReason"],
+            tool_calls=tool_calls,
         )
+
+
+def _extract_turn(response: ConverseResponseTypeDef) -> tuple[str, tuple[ToolCall, ...]]:
+    message = response["output"].get("message")
+    blocks = message["content"] if message else []
+    text = "".join(block.get("text", "") for block in blocks)
+    calls = tuple(
+        ToolCall(
+            id=block["toolUse"]["toolUseId"],
+            name=block["toolUse"]["name"],
+            arguments=json.dumps(block["toolUse"]["input"], ensure_ascii=False),
+        )
+        for block in blocks
+        if "toolUse" in block
+    )
+    return text, calls
 
 
 def _extract_content(response: ConverseResponseTypeDef) -> str:

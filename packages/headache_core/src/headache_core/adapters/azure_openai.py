@@ -12,7 +12,13 @@ from typing import Self
 
 import openai
 from openai import AsyncAzureOpenAI, AsyncOpenAI, omit
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import (
+    ChatCompletionFunctionToolParam,
+    ChatCompletionMessage,
+    ChatCompletionMessageFunctionToolCall,
+    ChatCompletionMessageParam,
+    ChatCompletionToolChoiceOptionParam,
+)
 from openai.types.shared_params import ResponseFormatJSONSchema
 
 from headache_core.config import AzureOpenAISettings
@@ -25,6 +31,8 @@ from headache_core.ports import (
     ResponseSchema,
     Role,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
 )
 
 COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
@@ -49,8 +57,61 @@ def _to_openai(message: ChatMessage) -> ChatCompletionMessageParam:
             return {"role": "system", "content": message.content}
         case Role.USER:
             return {"role": "user", "content": message.content}
+        case Role.ASSISTANT if message.tool_calls:
+            return {
+                "role": "assistant",
+                "content": message.content or None,
+                "tool_calls": [
+                    {
+                        "id": call.id,
+                        "type": "function",
+                        "function": {"name": call.name, "arguments": call.arguments},
+                    }
+                    for call in message.tool_calls
+                ],
+            }
         case Role.ASSISTANT:
             return {"role": "assistant", "content": message.content}
+        case Role.TOOL:
+            if message.tool_call_id is None:
+                raise LLMError("Un mensaje TOOL necesita tool_call_id.")
+            # OpenAI no tiene status de error: el contenido ya lo describe.
+            return {
+                "role": "tool",
+                "tool_call_id": message.tool_call_id,
+                "content": message.content,
+            }
+
+
+def to_openai_tools(config: ToolConfig) -> list[ChatCompletionFunctionToolParam]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": spec.name,
+                "description": spec.description,
+                "parameters": dict(spec.json_schema),
+                "strict": spec.strict,
+            },
+        }
+        for spec in config.tools
+    ]
+
+
+def to_openai_tool_choice(config: ToolConfig) -> ChatCompletionToolChoiceOptionParam:
+    if config.choice == "auto":
+        return "auto"
+    if config.choice == "required":
+        return "required"
+    return {"type": "function", "function": {"name": config.choice}}
+
+
+def _tool_calls(message: ChatCompletionMessage) -> tuple[ToolCall, ...]:
+    return tuple(
+        ToolCall(id=call.id, name=call.function.name, arguments=call.function.arguments)
+        for call in message.tool_calls or ()
+        if isinstance(call, ChatCompletionMessageFunctionToolCall)
+    )
 
 
 def _response_format(schema: ResponseSchema) -> ResponseFormatJSONSchema:
@@ -104,6 +165,7 @@ class AzureOpenAILLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         started = time.perf_counter()
         try:
@@ -113,6 +175,9 @@ class AzureOpenAILLM:
                 temperature=temperature,
                 max_tokens=max_tokens if max_tokens is not None else omit,
                 response_format=_response_format(response_schema) if response_schema else omit,
+                tools=to_openai_tools(tools) if tools else omit,
+                tool_choice=to_openai_tool_choice(tools) if tools else omit,
+                parallel_tool_calls=tools.parallel if tools else omit,
             )
         except openai.OpenAIError as exc:
             raise to_llm_error(exc) from exc
@@ -134,4 +199,5 @@ class AzureOpenAILLM:
             provider="azure",
             latency_ms=latency_ms,
             finish_reason=choice.finish_reason,
+            tool_calls=_tool_calls(choice.message),
         )

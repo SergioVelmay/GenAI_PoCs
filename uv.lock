@@ -1251,7 +1251,7 @@ name = "genai-pocs"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "headache-core", extra = ["aws", "azure", "gateway", "llamaindex", "observability", "postgres", "rabbitmq", "retrieval"] },
+    { name = "headache-core", extra = ["aws", "azure", "gateway", "llamaindex", "observability", "postgres", "rabbitmq", "retrieval", "tools"] },
     { name = "indexer" },
     { name = "rag-evals" },
     { name = "retrieval" },
@@ -1272,7 +1272,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "headache-core", extras = ["postgres", "rabbitmq", "llamaindex", "azure", "aws", "gateway", "observability", "retrieval"], editable = "packages/headache_core" },
+    { name = "headache-core", extras = ["postgres", "rabbitmq", "llamaindex", "azure", "aws", "gateway", "observability", "retrieval", "tools"], editable = "packages/headache_core" },
     { name = "indexer", editable = "services/indexer" },
     { name = "rag-evals", editable = "evals" },
     { name = "retrieval", editable = "services/retrieval" },
@@ -1523,6 +1523,9 @@ retrieval = [
     { name = "numpy" },
     { name = "rank-bm25" },
 ]
+tools = [
+    { name = "httpx" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1534,6 +1537,7 @@ requires-dist = [
     { name = "azure-servicebus", marker = "extra == 'azure'", specifier = ">=7.14" },
     { name = "azure-storage-blob", marker = "extra == 'azure'", specifier = ">=12.24" },
     { name = "boto3", marker = "extra == 'aws'", specifier = ">=1.38" },
+    { name = "httpx", marker = "extra == 'tools'", specifier = ">=0.27" },
     { name = "langfuse", marker = "extra == 'observability'", specifier = ">=3.0" },
     { name = "litellm", marker = "extra == 'gateway'", specifier = ">=1.70" },
     { name = "llama-index-core", marker = "extra == 'llamaindex'", specifier = ">=0.14" },
@@ -1548,7 +1552,7 @@ requires-dist = [
     { name = "rank-bm25", marker = "extra == 'retrieval'", specifier = ">=0.2.2" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'postgres'", specifier = ">=2.0.36" },
 ]
-provides-extras = ["retrieval", "postgres", "azure", "aws", "gateway", "observability", "rabbitmq", "llamaindex"]
+provides-extras = ["retrieval", "postgres", "azure", "aws", "gateway", "observability", "rabbitmq", "tools", "llamaindex"]
 
 [[package]]
 name = "hf-xet"

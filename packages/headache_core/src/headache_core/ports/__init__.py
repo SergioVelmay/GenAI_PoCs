@@ -11,6 +11,9 @@ from headache_core.ports.llm import (
     ResponseSchema,
     Role,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
+    ToolSpec,
 )
 from headache_core.ports.messaging import (
     Message,
@@ -26,6 +29,14 @@ from headache_core.ports.repositories import (
     RefundRepository,
     SessionRepository,
     UnitOfWork,
+)
+from headache_core.ports.ticketing import (
+    RefundResult,
+    TicketingError,
+    TicketingNotFoundError,
+    TicketingPort,
+    TicketingRejectedError,
+    TicketingUnavailableError,
 )
 from headache_core.ports.vector_store import (
     EmbeddingPort,
@@ -57,11 +68,20 @@ __all__ = [
     "OrderRepository",
     "PermanentMessageError",
     "RefundRepository",
+    "RefundResult",
     "ResponseSchema",
     "Role",
     "SearchResult",
     "SessionRepository",
+    "TicketingError",
+    "TicketingNotFoundError",
+    "TicketingPort",
+    "TicketingRejectedError",
+    "TicketingUnavailableError",
     "TokenUsage",
+    "ToolCall",
+    "ToolConfig",
+    "ToolSpec",
     "UnitOfWork",
     "VectorRecord",
     "VectorStorePort",

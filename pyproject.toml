@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[postgres,rabbitmq,llamaindex,azure,aws,gateway,observability,retrieval]",
+    "headache-core[postgres,rabbitmq,llamaindex,azure,aws,gateway,observability,retrieval,tools]",
     "indexer",
     "ticketing-api",
     "retrieval",

@@ -16,6 +16,7 @@ from headache_core.ports import (
     LLMResponse,
     ResponseSchema,
     Role,
+    ToolConfig,
 )
 
 
@@ -129,6 +130,7 @@ class RoutingLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         tier = await self._classifier.classify(messages, response_schema=response_schema)
         return await self._routes[tier].complete(
@@ -136,4 +138,5 @@ class RoutingLLM:
             temperature=temperature,
             max_tokens=max_tokens,
             response_schema=response_schema,
+            tools=tools,
         )

@@ -38,6 +38,9 @@ observability = [
 rabbitmq = [
     "aio-pika>=9.5",
 ]
+tools = [
+    "httpx>=0.27",
+]
 llamaindex = [
     "llama-index-core>=0.14",
     "llama-index-retrievers-bm25>=0.6",

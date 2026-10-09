@@ -148,6 +148,13 @@ class FoundryIQSettings(BaseModel):
     audience: tuple[str, ...] = ("public",)
 
 
+class TicketingApiSettings(BaseModel):
+    """API de la fase 1 consumida por tools y servidores MCP."""
+
+    base_url: str = "http://127.0.0.1:8000"
+    timeout_s: float = 5.0
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -172,6 +179,7 @@ class Settings(BaseSettings):
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()
+    ticketing_api: TicketingApiSettings = TicketingApiSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:

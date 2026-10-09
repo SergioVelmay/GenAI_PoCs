@@ -19,7 +19,12 @@ from typing import Any
 import openai
 from litellm.router import Router
 
-from headache_core.adapters.azure_openai import COGNITIVE_SERVICES_SCOPE, to_llm_error
+from headache_core.adapters.azure_openai import (
+    COGNITIVE_SERVICES_SCOPE,
+    to_llm_error,
+    to_openai_tool_choice,
+    to_openai_tools,
+)
 from headache_core.application.llm import ModelTier
 from headache_core.config import LLMProvider, Settings
 from headache_core.ports import (
@@ -27,7 +32,10 @@ from headache_core.ports import (
     LLMError,
     LLMResponse,
     ResponseSchema,
+    Role,
     TokenUsage,
+    ToolCall,
+    ToolConfig,
 )
 
 
@@ -96,6 +104,21 @@ def build_router(settings: Settings) -> Router:
 
 
 def _to_litellm(message: ChatMessage) -> dict[str, Any]:
+    if message.role is Role.TOOL:
+        return {"role": "tool", "tool_call_id": message.tool_call_id, "content": message.content}
+    if message.tool_calls:
+        return {
+            "role": "assistant",
+            "content": message.content or None,
+            "tool_calls": [
+                {
+                    "id": c.id,
+                    "type": "function",
+                    "function": {"name": c.name, "arguments": c.arguments},
+                }
+                for c in message.tool_calls
+            ],
+        }
     if not message.cache_checkpoint:
         return {"role": message.role.value, "content": message.content}
     # Formato de Anthropic; LiteLLM lo traduce a `cachePoint` en Bedrock y lo ignora en Azure.
@@ -119,10 +142,15 @@ class LiteLLMGateway:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
     ) -> LLMResponse:
         options: dict[str, Any] = {"temperature": temperature}
         if max_tokens is not None:
             options["max_tokens"] = max_tokens
+        if tools is not None:
+            options["tools"] = to_openai_tools(tools)
+            options["tool_choice"] = to_openai_tool_choice(tools)
+            options["parallel_tool_calls"] = tools.parallel
         if response_schema is not None:
             options["response_format"] = {
                 "type": "json_schema",
@@ -165,4 +193,8 @@ class LiteLLMGateway:
             provider=f"litellm:{hidden.get('custom_llm_provider', 'unknown')}",
             latency_ms=latency_ms,
             finish_reason=choice.finish_reason,
+            tool_calls=tuple(
+                ToolCall(id=c.id, name=c.function.name, arguments=c.function.arguments)
+                for c in getattr(choice.message, "tool_calls", None) or ()
+            ),
         )
