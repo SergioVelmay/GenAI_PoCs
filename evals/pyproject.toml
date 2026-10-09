@@ -8,6 +8,16 @@ dependencies = [
     "retrieval",
 ]
 
+[project.optional-dependencies]
+# Jueces LLM de framework (carril C): pesados, solo con `uv sync --all-packages --extra evals`.
+evals = [
+    "deepeval>=4.2.8",
+    "ragas>=0.4.3",
+    # ragas 0.4.3 importa langchain_community.chat_models.vertexai, eliminado en 0.4.2
+    # (paquete archivado). Quitar el tope cuando ragas deje de importarlo.
+    "langchain-community>=0.4.1,<0.4.2",
+]
+
 [tool.uv.sources]
 headache-core = { workspace = true }
 retrieval = { workspace = true }

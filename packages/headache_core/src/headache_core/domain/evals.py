@@ -49,6 +49,28 @@ def ndcg_at_k(ranking: Sequence[str], grades: Mapping[str, int], k: int) -> floa
     return dcg / idcg
 
 
+def ratio(flags: Sequence[bool]) -> float | None:
+    """Fraccion de verdaderos; None si no hay nada que medir (no es un 0 ni un 1)."""
+    return sum(flags) / len(flags) if flags else None
+
+
+def average_precision(relevance: Sequence[bool]) -> float | None:
+    """Precision media de un ranking de contextos (Context Precision de RAGAS).
+
+    Premia que los contextos relevantes esten arriba: media de precision@i en cada
+    posicion relevante. 0 si ningun contexto es relevante; None si no hay contextos.
+    """
+    if not relevance:
+        return None
+    hits = 0
+    precisions: list[float] = []
+    for position, relevant in enumerate(relevance, start=1):
+        if relevant:
+            hits += 1
+            precisions.append(hits / position)
+    return sum(precisions) / len(precisions) if precisions else 0.0
+
+
 def percentile(values: Sequence[float], q: float) -> float:
     """Interpolacion lineal entre rangos (equivale al metodo por defecto de numpy)."""
     if not values:

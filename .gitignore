@@ -5,6 +5,8 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+# Estado local de DeepEval (extra `evals`)
+.deepeval/
 *.egg-info/
 dist/
 build/

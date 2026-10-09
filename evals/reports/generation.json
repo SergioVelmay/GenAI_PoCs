@@ -1,0 +1,345 @@
+{
+  "dataset": {
+    "version": 1,
+    "corpus": "evals/corpus/knowledge.jsonl",
+    "corpus_sha256": "4bbd46f0ee6ab06970b55bbf39ccbbef5aaaadc63103b4bf91defa2fa5e6f4d3",
+    "documents": 116,
+    "items": 144,
+    "by_type": {
+      "acl_adversarial": 14,
+      "cross_lingual": 19,
+      "factual": 78,
+      "filtered": 17,
+      "unanswerable": 16
+    }
+  },
+  "top_k": 5,
+  "candidate_k": 20,
+  "embeddings": "hashing-1024",
+  "runs": [
+    {
+      "engine": "native",
+      "strategy": "hybrid",
+      "mode": "extractive",
+      "judge": "none",
+      "answerable": 114,
+      "unanswerable": 30,
+      "answer_evidence": 1.0,
+      "false_abstention": 0.0,
+      "correct_abstention": 0.0667,
+      "citation_validity": 1.0,
+      "citation_precision": 0.2184,
+      "citations_per_answer": 4.5789,
+      "rejected": 0,
+      "acl_leaks": 0,
+      "latency_p50_ms": 1.69,
+      "latency_p95_ms": 2.49,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 14,
+          "abstention_rate": 0.0,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 19,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 78,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "filtered": {
+          "questions": 17,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 16,
+          "abstention_rate": 0.125,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 0,
+      "judge_scores": {
+        "faithfulness": null,
+        "answer_relevancy": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "cost": null,
+      "missed": []
+    },
+    {
+      "engine": "native",
+      "strategy": "bm25",
+      "mode": "extractive",
+      "judge": "none",
+      "answerable": 114,
+      "unanswerable": 30,
+      "answer_evidence": 1.0,
+      "false_abstention": 0.0,
+      "correct_abstention": 0.1,
+      "citation_validity": 1.0,
+      "citation_precision": 0.2184,
+      "citations_per_answer": 4.5789,
+      "rejected": 0,
+      "acl_leaks": 0,
+      "latency_p50_ms": 1.29,
+      "latency_p95_ms": 1.95,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 14,
+          "abstention_rate": 0.0714,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 19,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 78,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "filtered": {
+          "questions": 17,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 16,
+          "abstention_rate": 0.125,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 0,
+      "judge_scores": {
+        "faithfulness": null,
+        "answer_relevancy": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "cost": null,
+      "missed": []
+    },
+    {
+      "engine": "native",
+      "strategy": "parent-child",
+      "mode": "extractive",
+      "judge": "none",
+      "answerable": 114,
+      "unanswerable": 30,
+      "answer_evidence": 1.0,
+      "false_abstention": 0.0,
+      "correct_abstention": 0.0667,
+      "citation_validity": 1.0,
+      "citation_precision": 0.2184,
+      "citations_per_answer": 4.5789,
+      "rejected": 0,
+      "acl_leaks": 0,
+      "latency_p50_ms": 1.7,
+      "latency_p95_ms": 2.3,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 14,
+          "abstention_rate": 0.0,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 19,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 78,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "filtered": {
+          "questions": 17,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 16,
+          "abstention_rate": 0.125,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 0,
+      "judge_scores": {
+        "faithfulness": null,
+        "answer_relevancy": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "cost": null,
+      "missed": []
+    },
+    {
+      "engine": "llamaindex",
+      "strategy": "hybrid",
+      "mode": "extractive",
+      "judge": "none",
+      "answerable": 114,
+      "unanswerable": 30,
+      "answer_evidence": 1.0,
+      "false_abstention": 0.0,
+      "correct_abstention": 0.0667,
+      "citation_validity": 1.0,
+      "citation_precision": 0.2261,
+      "citations_per_answer": 4.5789,
+      "rejected": 0,
+      "acl_leaks": 0,
+      "latency_p50_ms": 42.2,
+      "latency_p95_ms": 71.08,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 14,
+          "abstention_rate": 0.0,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 19,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 78,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "filtered": {
+          "questions": 17,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 16,
+          "abstention_rate": 0.125,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 0,
+      "judge_scores": {
+        "faithfulness": null,
+        "answer_relevancy": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "cost": null,
+      "missed": []
+    },
+    {
+      "engine": "llamaindex",
+      "strategy": "bm25",
+      "mode": "extractive",
+      "judge": "none",
+      "answerable": 114,
+      "unanswerable": 30,
+      "answer_evidence": 1.0,
+      "false_abstention": 0.0,
+      "correct_abstention": 0.2,
+      "citation_validity": 1.0,
+      "citation_precision": 0.2184,
+      "citations_per_answer": 4.5789,
+      "rejected": 0,
+      "acl_leaks": 0,
+      "latency_p50_ms": 23.66,
+      "latency_p95_ms": 39.64,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 14,
+          "abstention_rate": 0.1429,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 19,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 78,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "filtered": {
+          "questions": 17,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 16,
+          "abstention_rate": 0.25,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 0,
+      "judge_scores": {
+        "faithfulness": null,
+        "answer_relevancy": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "cost": null,
+      "missed": []
+    },
+    {
+      "engine": "llamaindex",
+      "strategy": "parent-child",
+      "mode": "extractive",
+      "judge": "none",
+      "answerable": 114,
+      "unanswerable": 30,
+      "answer_evidence": 1.0,
+      "false_abstention": 0.0,
+      "correct_abstention": 0.0667,
+      "citation_validity": 1.0,
+      "citation_precision": 0.2261,
+      "citations_per_answer": 4.5789,
+      "rejected": 0,
+      "acl_leaks": 0,
+      "latency_p50_ms": 46.42,
+      "latency_p95_ms": 82.09,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 14,
+          "abstention_rate": 0.0,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 19,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 78,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "filtered": {
+          "questions": 17,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 16,
+          "abstention_rate": 0.125,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 0,
+      "judge_scores": {
+        "faithfulness": null,
+        "answer_relevancy": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "cost": null,
+      "missed": []
+    }
+  ]
+}

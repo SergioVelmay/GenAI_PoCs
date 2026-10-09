@@ -70,6 +70,17 @@ ignore_missing_imports = true
 module = ["rank_bm25"]
 ignore_missing_imports = true
 
+# Extra opcional `evals`: puede no estar instalado (CI). Se tratan como Any en ambos casos
+# para que mypy de el mismo resultado con y sin el extra.
+[[tool.mypy.overrides]]
+module = ["ragas", "ragas.*", "deepeval", "deepeval.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["rag_evals.frameworks.*"]
+disallow_subclassing_any = false
+
 [tool.pytest.ini_options]
 testpaths = ["packages", "services", "evals"]
 asyncio_mode = "auto"

@@ -3,9 +3,11 @@ import math
 import pytest
 
 from headache_core.domain.evals import (
+    average_precision,
     hit_at_k,
     ndcg_at_k,
     percentile,
+    ratio,
     recall_at_k,
     reciprocal_rank,
     unique_in_order,
@@ -48,6 +50,20 @@ def test_metrics_reject_duplicated_rankings_and_invalid_k() -> None:
         hit_at_k(["a", "a"], {"a"}, 2)
     with pytest.raises(ValueError):
         reciprocal_rank(["a"], {"a"}, 0)
+
+
+def test_ratio_distinguishes_nothing_to_measure_from_zero() -> None:
+    assert ratio([True, False, True, True]) == 0.75
+    assert ratio([False]) == 0.0
+    assert ratio([]) is None
+
+
+def test_average_precision_rewards_relevant_contexts_on_top() -> None:
+    assert average_precision([True, True, False]) == 1.0
+    assert average_precision([False, True]) == 0.5
+    assert average_precision([True, False, True]) == pytest.approx((1 + 2 / 3) / 2)
+    assert average_precision([False, False]) == 0.0
+    assert average_precision([]) is None
 
 
 def test_percentile_interpolates_like_numpy() -> None:
