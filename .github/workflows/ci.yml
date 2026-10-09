@@ -47,6 +47,42 @@ jobs:
       - name: Informe de chunking (smoke test)
         run: uv run python scripts/chunking_report.py --source /tmp/synthetic/knowledge/documents.jsonl
 
+  evals:
+    # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquí.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias (lockfile obligatorio)
+        run: uv sync --all-packages --locked
+
+      - name: Golden dataset coherente con el corpus
+        run: uv run python -m rag_evals.golden --check
+
+      - name: Evals de retrieval (B y C, todas las estrategias)
+        run: uv run python -m rag_evals.retrieval_eval --out /tmp/evals
+
+      - name: Evals de generación (extractivo)
+        run: >-
+          uv run python -m rag_evals.generation_eval --out /tmp/evals
+          --strategy hybrid --strategy bm25 --strategy parent-child
+
+      # report: las regresiones se informan en el resumen; los invariantes (ACL, citas) bloquean.
+      - name: Gate contra el baseline
+        run: uv run python -m rag_evals.gate --reports /tmp/evals --mode report
+
+      - name: Publicar informes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: /tmp/evals/
+          if-no-files-found: ignore
+
   terraform:
     runs-on: ubuntu-latest
     strategy:
