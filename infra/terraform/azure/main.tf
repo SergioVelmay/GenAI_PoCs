@@ -54,6 +54,9 @@ resource "azurerm_search_service" "main" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = var.search_sku
+  # Plan gratuito del Semantic Ranker (1000 consultas/mes): lo usan el carril B y Foundry IQ.
+  # azurerm no admite fijarlo en el tier Free.
+  semantic_search_sku = var.search_sku == "free" ? null : "free"
   # Solo RBAC: sin claves de administración ni de consulta.
   local_authentication_enabled = false
   tags                         = local.tags

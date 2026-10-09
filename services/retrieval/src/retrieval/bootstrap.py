@@ -1,8 +1,8 @@
-"""Carga de una muestra local, sin escrituras ni llamadas a modelos."""
+"""Composicion del servicio: corpus local por defecto; piezas cloud solo si se piden."""
 
 from collections import defaultdict
-from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field, replace
 from itertools import islice
 
 import numpy as np
@@ -13,8 +13,10 @@ from headache_core.adapters.memory import HashingEmbedding
 from headache_core.application.ingestion.chunking import SentenceChunker
 from headache_core.application.ingestion.indexer import chunk_id
 from headache_core.application.retrieval import RetrievalService
+from headache_core.config import Settings
 from headache_core.domain import DocumentType
-from headache_core.ports.retrieval import RetrievalPort
+from headache_core.ports.llm import LLMPort
+from headache_core.ports.retrieval import ManagedKnowledgePort, RerankerPort, RetrievalPort
 from headache_core.ports.vector_store import EmbeddingPort, MetadataValue, VectorRecord
 from retrieval.settings import RetrievalSettings
 
@@ -31,13 +33,20 @@ class SyntheticDocument(BaseModel):
     metadata: dict[str, MetadataValue]
 
 
-@dataclass(frozen=True, slots=True)
-class LocalRuntime:
+@dataclass
+class Runtime:
     service: RetrievalService
     documents: int
     chunks: int
     source: str
     engine: str
+    managed: ManagedKnowledgePort | None = None
+    components: dict[str, str] = field(default_factory=dict)
+    close: Callable[[], Awaitable[None]] | None = None
+
+    async def aclose(self) -> None:
+        if self.close is not None:
+            await self.close()
 
 
 def access_metadata(metadata: dict[str, MetadataValue]) -> dict[str, MetadataValue]:
@@ -177,6 +186,8 @@ def build_local_service(
     records: Sequence[VectorRecord],
     parents: Sequence[VectorRecord],
     embeddings: EmbeddingPort,
+    reranker: RerankerPort | None = None,
+    llm: LLMPort | None = None,
 ) -> RetrievalService:
     backend: RetrievalPort
     if settings.engine == "llamaindex":
@@ -190,20 +201,50 @@ def build_local_service(
         )
     else:
         backend = LocalRetrieval(records, embeddings=embeddings, parents=parents)
-    return RetrievalService(backend, reranker=TokenCoverageReranker())
+    return RetrievalService(backend, reranker=reranker or TokenCoverageReranker(), llm=llm)
 
 
-async def build_local_runtime(settings: RetrievalSettings) -> LocalRuntime:
+async def build_runtime(config: RetrievalSettings, settings: Settings | None = None) -> Runtime:
+    if not config.uses_cloud:
+        return await build_local_runtime(config)
+    from retrieval.cloud import build_cloud_parts
+
+    parts = await build_cloud_parts(config, settings or Settings())
+    try:
+        if parts.backend is not None:
+            service = RetrievalService(
+                parts.backend, reranker=parts.reranker or TokenCoverageReranker(), llm=parts.llm
+            )
+            runtime = Runtime(service, 0, 0, "azure_search", "azure_search")
+        else:
+            runtime = await build_local_runtime(config, reranker=parts.reranker, llm=parts.llm)
+    except BaseException:
+        await parts.aclose()
+        raise
+    runtime.managed = parts.managed
+    runtime.components = parts.components
+    runtime.close = parts.aclose
+    return runtime
+
+
+async def build_local_runtime(
+    settings: RetrievalSettings,
+    *,
+    reranker: RerankerPort | None = None,
+    llm: LLMPort | None = None,
+) -> Runtime:
     embeddings = HashingEmbedding(1024)
     records, parents = await (
         load_synthetic(settings, embeddings)
         if settings.source == "synthetic"
         else load_postgres(settings, embeddings)
     )
-    return LocalRuntime(
-        build_local_service(settings, records=records, parents=parents, embeddings=embeddings),
-        len(parents),
-        len(records),
-        settings.source,
-        settings.engine,
+    service = build_local_service(
+        settings,
+        records=records,
+        parents=parents,
+        embeddings=embeddings,
+        reranker=reranker,
+        llm=llm,
     )
+    return Runtime(service, len(parents), len(records), settings.source, settings.engine)

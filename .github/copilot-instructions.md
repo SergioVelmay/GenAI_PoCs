@@ -54,6 +54,7 @@
 - IaC con **Terraform** como hilo principal (más ejemplos puntuales de CDK/CloudFormation y Bicep). CI/CD con **GitHub Actions**.
 - Terraform en `infra/terraform/{aws,azure}` (estado local, `terraform.tfvars` sin versionar). Validación sin coste: `terraform fmt -check`, `init -backend=false`, `validate` (también en CI). `plan`/`apply` requieren credenciales y confirmación. El índice de AI Search no lo gestiona azurerm: `scripts/provision_search_index.py [--apply]`.
 - Carril B en la nube del indexer: `INDEXER__EMBEDDINGS=hashing|azure|bedrock` (1024 dims) y `INDEXER__VECTOR_STORE=pgvector|azure_search|s3_vectors`; el ledger sigue en PostgreSQL con `index_name@store`.
+- Retrieval (fase 4, `services/retrieval`): `uv run uvicorn retrieval.app:create_app --factory --host 127.0.0.1 --port 8010`; comparativa B/C: `uv run python -m retrieval.compare "consulta"`. Por defecto 100 % local y sin coste; la nube se compone solo de forma explícita con `RETRIEVAL__BACKEND|EMBEDDINGS|SEMANTIC_RANKER|RERANKER|LLM|MANAGED` (`retrieval/cloud.py`). Carril A en rutas `/managed/*` (`bedrock_kb` o `foundry_iq`). Aprovisionamiento de Foundry IQ: `scripts/provision_foundry_iq.py [--apply]`.
 - Commits con Conventional Commits en español, p. ej. `feat: fase 1 - esquema SQL de ticketing`.
 
 ## Plan de fases (estado)
@@ -64,7 +65,7 @@
 | 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ✅ Hecha |
 | 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ✅ Hecha* (validación en cloud pendiente, ver abajo) |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | ✅ Hecha* (validación en cloud pendiente; comparativa en `docs/fase-3-comparativa.md`) |
-| 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | En curso: 4.1/4.2/4.3 publicadas; carril A Azure sustituido por Foundry IQ + Agent Service (aprobado 08-10-2026 por retirada de On Your Data el 14-10-2026), implementado y probado offline; composición cloud y validación real pendientes (docs/fase-4-retrieval.md) |
+| 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | ✅ Hecha* (validación en cloud pendiente; carril A Azure = Foundry IQ + Agent Service por retirada de On Your Data el 14-10-2026; `docs/fase-4-retrieval.md`) |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | |
 | 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | |
 | 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | |
@@ -98,6 +99,14 @@ Desde la **fase 3** (código, IaC y comparativa cerrados; falta la validación e
 - [ ] Carril B: `scripts/provision_search_index.py --apply` e indexar con `INDEXER__EMBEDDINGS=azure|bedrock` y `INDEXER__VECTOR_STORE=azure_search|s3_vectors` (también con `INDEXER__BROKER=sqs|servicebus`).
 - [ ] Carril A: `scripts/managed_ingestion.py aws --apply` y `azure --apply`; comprobar que el vectorizador de Azure usa 1024 dimensiones.
 - [ ] Medir por carril (ingesta completa, incremental, coste real, latencia) y completar `docs/fase-3-comparativa.md`.
+
+Desde la **fase 4** (código, composición, IaC y aprovisionamiento cerrados y probados en local; falta la validación en cloud, todo con coste y confirmación). Requiere antes los pendientes de las fases 2 y 3:
+
+- [ ] Clasificar el corpus con `acl` explícita y reingerir: `provision_search_index.py --apply` (el esquema añade `title`, `acl` y configuración semántica) y resincronizar Bedrock KB con los sidecars nuevos. Sin `acl`, los adaptadores cloud deniegan.
+- [ ] AI Search en tier `basic` para Semantic Ranker y Foundry IQ (plan semántico gratuito, ya en Terraform). Revisar el coste antes del `apply`.
+- [ ] Foundry IQ: crear el proyecto de Foundry en el portal, rellenar `FOUNDRY_IQ__*`, pasar `foundry_project_principal_id` a Terraform (rol *Search Index Data Reader*) y ejecutar `scripts/provision_foundry_iq.py --apply` (verifica el `baseFilter` de la audiencia).
+- [ ] Bedrock: habilitar Cohere Rerank y rellenar `BEDROCK__RERANK_MODEL_ARN` y `BEDROCK_KB__GENERATION_MODEL_ARN`.
+- [ ] Ejecutar el servicio con `RETRIEVAL__BACKEND=azure_search`, `RETRIEVAL__LLM=gateway`, `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb|foundry_iq`; comparar A/B/C con el mismo corpus y las mismas preguntas (coste, latencia, citas y abstención) y documentarlo en `docs/fase-4-retrieval.md`.
 
 ## Entorno del usuario
 

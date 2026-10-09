@@ -89,6 +89,22 @@ def mcp_endpoint(search_endpoint: str, knowledge_base: str) -> str:
     )
 
 
+def mcp_connection_definition(name: str, *, mcp_url: str) -> dict[str, Any]:
+    """Conexion `RemoteTool` del proyecto (ARM): el agente usa su identidad gestionada."""
+    return {
+        "name": name,
+        "type": "Microsoft.MachineLearningServices/workspaces/connections",
+        "properties": {
+            "authType": "ProjectManagedIdentity",
+            "category": "RemoteTool",
+            "target": mcp_url,
+            "isSharedToAll": True,
+            "audience": "https://search.azure.com/",
+            "metadata": {"ApiType": "Azure"},
+        },
+    }
+
+
 def agent_definition(
     name: str, *, model: str, mcp_url: str, connection: str, server_label: str = "knowledge-base"
 ) -> dict[str, Any]:

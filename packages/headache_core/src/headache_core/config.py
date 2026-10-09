@@ -33,6 +33,8 @@ class BedrockSettings(BaseModel):
     chat_model_id: str = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
     cheap_chat_model_id: str = "eu.amazon.nova-lite-v1:0"
     embedding_model_id: str = "amazon.titan-embed-text-v2:0"
+    # Bedrock Rerank (p. ej. Cohere Rerank 3.5); la disponibilidad depende de la region.
+    rerank_model_arn: str = ""
 
 
 class LLMGatewaySettings(BaseModel):
@@ -126,6 +128,24 @@ class BedrockKnowledgeBaseSettings(BaseModel):
     docs_bucket: str = ""
     knowledge_base_id: str = ""
     data_source_id: str = ""
+    # Modelo de RetrieveAndGenerate (ARN o inference profile); vacio = solo Retrieve.
+    generation_model_arn: str = ""
+
+
+class FoundryIQSettings(BaseModel):
+    """Carril A en Azure: knowledge base de AI Search + agente de Foundry Agent Service."""
+
+    # https://<recurso>.services.ai.azure.com/api/projects/<proyecto>
+    project_endpoint: str = ""
+    # Para crear la conexion MCP (ARM): /subscriptions/.../accounts/<recurso>/projects/<p>
+    project_resource_id: str = ""
+    knowledge_base: str = "knowledge-public-kb"
+    knowledge_source: str = "knowledge-public-ks"
+    connection: str = "knowledge-public-mcp"
+    agent_name: str = "headache-public-agent"
+    agent_model: str = "gpt-4.1-mini"
+    # Audiencia fija de la knowledge source (baseFilter) y del agente vinculado a ella.
+    audience: tuple[str, ...] = ("public",)
 
 
 class Settings(BaseSettings):
@@ -151,6 +171,7 @@ class Settings(BaseSettings):
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
+    foundry_iq: FoundryIQSettings = FoundryIQSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:

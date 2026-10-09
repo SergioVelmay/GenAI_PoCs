@@ -40,6 +40,12 @@ variable "openai_resource_id" {
   default     = null
 }
 
+variable "foundry_project_principal_id" {
+  description = "Object id de la identidad gestionada del proyecto de Foundry (carril A, fase 4)."
+  type        = string
+  default     = null
+}
+
 variable "budget_limit_eur" {
   type    = number
   default = 20

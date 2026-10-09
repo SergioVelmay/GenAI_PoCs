@@ -19,6 +19,7 @@ from headache_core.adapters.foundry_iq import (
     agent_definition,
     knowledge_base_definition,
     knowledge_source_definition,
+    mcp_connection_definition,
     mcp_endpoint,
 )
 from headache_core.application.retrieval import InvalidCitationError, RetrievalUnavailableError
@@ -255,5 +256,7 @@ def test_definitions_bind_audience_and_disable_kb_models() -> None:
         "tools"
     ][0]
     assert tool["allowed_tools"] == [KB_TOOL] and tool["require_approval"] == "never"
+    connection = mcp_connection_definition("c", mcp_url=url)["properties"]
+    assert connection["authType"] == "ProjectManagedIdentity" and connection["target"] == url
     with pytest.raises(ValueError):
         knowledge_source_definition(SOURCE, index_name="knowledge", audience=AccessScope(()))

@@ -2,8 +2,9 @@
 
 ## Estado y alcance
 
-**4.1/4.2/4.3 publicadas; carril A Azure (Foundry IQ + Agent Service) implementado y
-probado sin red. La fase 4 sigue en curso: composicion cloud y ejecucion real pendientes.**
+**Fase 4 Hecha\*: todo lo local esta implementado y probado (carriles A/B/C, composicion
+cloud explicita, aprovisionamiento en dry-run e IaC validada). Falta la validacion en
+cloud, con coste y confirmacion, igual que en las fases 2 y 3.**
 
 No se han creado recursos cloud ni invocado modelos. No se ha regenerado ni modificado
 el dataset LARGE, ni escrito en PostgreSQL. Los tests usan adaptadores en memoria.
@@ -30,10 +31,9 @@ Implementado:
 - Carril A AWS: SDK de KB Retrieve y RetrieveAndGenerate, filtros ACL, referencias S3
   y validacion estricta de spans/cobertura de citas.
 
-**Los endpoints LLM devuelven 503 en la composicion local.** Sus flujos se prueban con
-`FakeLLM`, un doble de test guionizado, no un modelo local. No hay una variable de entorno
-que active accidentalmente llamadas cloud. El gateway de fase 2 se conectara en otro
-incremento, con confirmacion antes de ejecutar cualquier llamada con coste.
+**Por defecto la API no hace llamadas cloud.** Los endpoints LLM devuelven 503 y sus
+flujos se prueban con `FakeLLM`, un doble guionizado, no un modelo local. La nube solo
+se activa componiendola de forma explicita (ver "Composicion cloud explicita").
 
 ## Conceptos y equivalencias
 
@@ -158,10 +158,9 @@ synthesis* (preview) anade coste y otro punto de generacion a evaluar. Si mas ad
 se usan ACL de Entra (`x-ms-query-source-authorization`), recordar que, sin token,
 las fuentes con permisos devuelven resultados **sin filtrar**.
 
-No se ha instalado `azure-ai-projects` ni creado recursos: el agente se consume con la
-API Responses de `openai` (ya instalado), cliente inyectado. Crear la conexion
-`RemoteTool`, la knowledge source/base y el agente es trabajo de 4.4, con confirmacion.
-Referencias: [Foundry IQ](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-foundry-iq),
+No se ha instalado `azure-ai-projects`: el agente se consume con la API Responses de
+`openai` (ya instalado), apuntando a `{project_endpoint}/openai/v1` con un token de Entra
+(`https://ai.azure.com/.default`). Referencias: [Foundry IQ](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-foundry-iq),
 [conectar un agente](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/foundry-iq-connect)
 y [retrieve/MCP](https://learn.microsoft.com/en-us/azure/search/agentic-retrieval-how-to-retrieve).
 
@@ -322,6 +321,43 @@ el mismo padre. Los tests con tres hijos distinguen expansion explicita y auto-m
 La jerarquia reconstituida tiene un nivel padre/hijos, no los tres niveles del parser
 jerarquico de ingesta de fase 3; integrar su docstore persistente sigue siendo un extra.
 
+## Composicion cloud explicita
+
+`retrieval/cloud.py` es la raiz de composicion cloud. Nada se crea por defecto; cada
+opcion distinta del valor por defecto **tiene coste** al consultar. Construir los
+clientes no llama a la red; si falta configuracion, el arranque falla en vez de degradar
+en silencio a local, y lo ya construido se cierra. Los clientes se cierran al apagar.
+
+| Variable | Valores | Efecto |
+|---|---|---|
+| `RETRIEVAL__BACKEND` | `local` \| `azure_search` | Corpus en memoria o carril B en AI Search (`AZURE_SEARCH__*`) |
+| `RETRIEVAL__EMBEDDINGS` | `hashing` \| `azure` \| `bedrock` | Encoder de consulta; debe ser el de la ingesta. `local` exige `hashing` |
+| `RETRIEVAL__SEMANTIC_RANKER` | `false` \| `true` | Semantic Ranker de AI Search (solo con `azure_search`) |
+| `RETRIEVAL__RERANKER` | `token-coverage` \| `bedrock` | `/search/rerank` con Bedrock Rerank (`BEDROCK__RERANK_MODEL_ARN`) |
+| `RETRIEVAL__LLM` | `none` \| `gateway` | Gateway de fase 2: rewrite, HyDE, subpreguntas, router, auto y `llm-extractive` |
+| `RETRIEVAL__MANAGED` | `none` \| `bedrock_kb` \| `foundry_iq` | Carril A en `POST /managed/retrieve` y `POST /managed/answer` |
+
+Las combinaciones incoherentes fallan al validar la configuracion: AI Search con hashing
+(no hay un encoder compatible) o Semantic Ranker sin AI Search. Con `backend=local`, un
+reranker o un LLM cloud se combinan con el corpus local. `/health` informa de cada pieza
+activa y `cloud_calls`. Las rutas `/managed/*` usan siempre el scope publico y devuelven
+503 si no hay carril gestionado; en Foundry IQ, `answer` exige ademas
+`FOUNDRY_IQ__PROJECT_ENDPOINT`.
+
+**Aprovisionamiento de Foundry IQ.** `scripts/provision_foundry_iq.py` imprime en dry-run
+la knowledge source (con `baseFilter` de la audiencia), la knowledge base sin modelos, la
+conexion `RemoteTool` y el agente. Con `--apply` (nube, con confirmacion) crea la knowledge
+source por la API preview y **relee el `baseFilter` y falla si no se conservo**: enviarla
+por la API GA lo descartaria y el agente veria todo el indice. Despues crea la knowledge
+base (GA), la conexion por ARM y el agente.
+
+**Terraform.** `foundry_project_principal_id` (opcional) asigna *Search Index Data
+Reader* a la identidad del proyecto de Foundry, que usa el agente para invocar el MCP de
+la knowledge base. Con `search_sku = "basic"` se activa el plan gratuito del Semantic
+Ranker (1000 consultas/mes), necesario para el ranker del carril B y para Foundry IQ. El
+proyecto de Foundry y el despliegue del modelo se crean en el portal, como en fase 2.
+Validado sin coste con `fmt -check`, `init -backend=false` y `validate`.
+
 ## Seguridad y limites de la respuesta
 
 El cargador asigna acceso `public` a `policy`, `faq`, `venue_guide` y `event_sheet`, e
@@ -355,7 +391,8 @@ por tokens, autenticacion y escala se deben resolver antes de produccion.
 ```powershell
 uv run pytest packages/headache_core/tests/test_retrieval.py services/retrieval/tests/test_retrieval_api.py
 uv run pytest packages/headache_core/tests/test_cloud_retrieval.py packages/headache_core/tests/test_cloud_vector_stores.py packages/headache_core/tests/test_managed_ingestion.py
-uv run pytest packages/headache_core/tests/test_foundry_iq.py
+uv run pytest packages/headache_core/tests/test_foundry_iq.py services/retrieval/tests/test_retrieval_cloud.py
+uv run python scripts/provision_foundry_iq.py
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
@@ -372,44 +409,29 @@ los padres privados, hits con score cero y el bloqueo de los modelos por defecto
 
 | Bloque | Estado | Lo que falta |
 |---|---|---|
-| 4.1, carril B local + FastAPI | Publicado (`78b004a`) | Embeddings/gateway reales y rutas cloud explicitamente conectadas |
-| 4.2, carril C LlamaIndex + SQL | Publicado (`e426802`) | Comparacion con modelos reales; integracion del docstore jerarquico persistente es un extra |
-| 4.3, SDK AI Search y Bedrock | Publicado (`c1cb588`) | Composicion de clientes, permisos, ingesta ACL y validacion real |
-| Carril A Azure (Foundry IQ + Agent Service) | Implementado, tests offline correctos, pendiente de revision | Crear KS/KB/agente por audiencia (preview `baseFilter`), conexion MCP y validacion real |
-| 4.4, comparativa cloud A/B/C | Pendiente | Ejecucion con confirmacion y medidas de coste, latencia y fidelidad |
+| 4.1, carril B local + FastAPI | Publicado (`78b004a`) | Nada local |
+| 4.2, carril C LlamaIndex + SQL | Publicado (`e426802`) | Extra: docstore jerarquico persistente de fase 3 |
+| 4.3, SDK AI Search y Bedrock | Publicado (`c1cb588`) | Validacion real |
+| Carril A Azure (Foundry IQ + Agent Service) | Publicado (`a9b9fc1`) | Crear KS/KB/agente y validacion real |
+| Composicion cloud, rutas `/managed/*`, aprovisionamiento e IaC | Implementado y probado en local | Validacion real |
+| Comparativa cloud A/B/C | Pendiente (nube, con coste) | Ver pendientes en `.github/copilot-instructions.md` |
 
-Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval estan implementadas
-y probadas con dobles de `LLMPort`; **no estan activas con modelos reales en la API**.
-Hay RAG extractivo local con citas verificables; la generacion gestionada de AWS y de
-Azure esta implementada como adaptadores separados, no como rutas HTTP conectadas. No
-hay comparativa cloud ejecutada. La fase 4 no se declara cerrada.
+Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval estan implementadas,
+probadas con dobles de `LLMPort` y conectadas al gateway con `RETRIEVAL__LLM=gateway`;
+**no se han ejecutado con modelos reales**. La generacion gestionada de AWS y de Azure
+esta expuesta en `/managed/answer`. No hay comparativa cloud ejecutada.
 
-Orden de los siguientes incrementos:
+Pendientes en la nube (aplazados, como en las fases 2 y 3; todos con coste y confirmacion):
 
-1. **Preparacion sin coste:** carril A Azure ya implementado; queda preparar
-  factories/rutas explicitas para los adaptadores cloud y el gateway de fase 2,
-  manteniendo la composicion local sin llamadas cloud por defecto.
-2. **Validacion cloud con confirmacion independiente:** autenticacion, despliegues
-  minimos necesarios, schema/metadatos ACL y encoder compatible, ingesta y pruebas
-  de estrategias. Usar el mismo corpus y preguntas en A/B/C; registrar diferencias
-  de chunking y de funcionalidades, sin asumir soporte HYBRID en S3 Vectors.
-3. **Cierre de fase 4:** medir coste, latencia y comportamiento de citas/abstencion;
-  documentar resultados y limitaciones. Las evals sistematicas con golden dataset
-  y gates de calidad corresponden a fase 5.
+1. Clasificar el corpus con `acl` explicita y reingerir en AI Search y Bedrock KB.
+2. AI Search `basic`, proyecto de Foundry, rol de su identidad y
+  `provision_foundry_iq.py --apply`; habilitar Cohere Rerank y el modelo de generacion
+  de Bedrock KB.
+3. Comparar A/B/C con el mismo corpus y preguntas: coste, latencia, citas y abstencion,
+  sin asumir soporte HYBRID en S3 Vectors. Documentar los resultados aqui.
 
-Pendientes antes de cerrar fase 4:
-
-- **4.2, local: revisada y publicada** (`e426802`). Lectura SQL, carril C sobre corpus
-  comun, comparacion de padres y auto-merging.
-- **4.3, adaptadores sin coste: AI Search y Bedrock publicados** (`c1cb588`).
-- **Carril A Azure:** Foundry IQ + Agent Service implementado y probado sin red,
-  pendiente de revision. No se afirma validacion cloud.
-- **4.4, cloud con confirmacion:** conectar gateway y embeddings reales, autenticar,
-  clasificar/reingerir ACL, montar clientes y rutas cloud explicitamente, ejecutar los
-  carriles A/B/C y medir coste, latencia y fidelidad. Se mantienen los
-  pendientes cloud de fases 2 y 3.
-- **Fase 5:** golden dataset, hit rate/MRR y evals de relevancia/fidelidad; los tests
-  actuales validan contratos, no sustituyen esas metricas.
+Las evals sistematicas con golden dataset, hit rate/MRR y gates de calidad son la fase 5;
+los tests actuales validan contratos, no la calidad del retrieval.
 
 ## Checkpoint de entrevista
 
@@ -461,3 +483,8 @@ chat completions; Foundry IQ es una knowledge base reutilizable que se consulta 
 agente: en el servidor, con una knowledge source por audiencia (`baseFilter`) y un
 agente vinculado a ella. El adaptador rechaza scopes o filtros que no puede garantizar.
 Para ACL por usuario se usan permisos de Entra en el indice y el token del usuario.
+
+**Como evitas activar la nube sin querer?** Composicion explicita: cada pieza cloud es
+una variable con valor por defecto local, las combinaciones incoherentes fallan al
+arrancar y `/health` declara que piezas estan activas. Faltar configuracion es un error,
+no un fallback silencioso a otro proveedor.

@@ -49,3 +49,13 @@ resource "azurerm_role_assignment" "search_calls_openai" {
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = azurerm_search_service.main.identity[0].principal_id
 }
+
+# ---------- Fase 4, carril A: Foundry IQ + Agent Service ----------
+# El agente invoca la knowledge base por MCP con la identidad gestionada del proyecto.
+
+resource "azurerm_role_assignment" "foundry_project_reads_search" {
+  count                = var.foundry_project_principal_id != null ? 1 : 0
+  scope                = azurerm_search_service.main.id
+  role_definition_name = "Search Index Data Reader"
+  principal_id         = var.foundry_project_principal_id
+}
