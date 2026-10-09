@@ -69,7 +69,7 @@
 | 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ✅ Hecha* (validación en cloud pendiente, ver abajo) |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | ✅ Hecha* (validación en cloud pendiente; comparativa en `docs/fase-3-comparativa.md`) |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | ✅ Hecha* (validación en cloud pendiente; carril A Azure = Foundry IQ + Agent Service por retirada de On Your Data el 14-10-2026; `docs/fase-4-retrieval.md`) |
-| 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | 🚧 En curso (5.1 golden + 5.2 métricas de retrieval + 5.3 generación/jueces en local + 5.4 gate en CI hechas; falta 5.5 comparativa) |
+| 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | ✅ Hecha* (validación con LLM/cloud pendiente; comparativa en `docs/fase-5-evals.md`) |
 | 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | |
 | 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | |
 | 8 | Agentic harness y guardrails: validación, autocorrección, SQL seguro, PII, prompt injection, human-in-the-loop | |
@@ -117,6 +117,8 @@ Desde la **fase 5** (evals en local hechas; las ejecuciones con LLM tienen coste
 - [ ] Calibrar los jueces: Sergio etiqueta ~20 respuestas a mano y se mide el acuerdo humano-juez antes de usar el juez como gate.
 - [ ] Juez con modelo distinto del generador (evitar el sesgo de autopreferencia) y embeddings reales para `AnswerRelevancy` de RAGAS (en local son hashing, léxicos).
 - [ ] Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations (RAG/LLM-as-a-judge) con el mismo golden dataset.
+- [ ] Repetir las evals de retrieval con embeddings reales y reranker de nube, fijar un baseline nuevo y completar `docs/fase-5-evals.md`.
+- [ ] Pasar el job `evals` de CI a `--mode enforce` tras varias ejecuciones estables.
 
 ## Entorno del usuario
 
