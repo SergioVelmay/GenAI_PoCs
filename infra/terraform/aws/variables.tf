@@ -41,3 +41,54 @@ variable "budget_email" {
   description = "Correo que recibe la alerta de presupuesto."
   type        = string
 }
+
+# ---------- Fase 6.4: AgentCore Gateway (MCP) ----------
+
+variable "mcp_gateway_enabled" {
+  description = "Crea el MCP Gateway. false hasta tener los servidores MCP en HTTPS (fase 13)."
+  type        = bool
+  default     = false
+}
+
+variable "mcp_server_urls" {
+  description = "Endpoint HTTPS /mcp de cada servidor (catalog, ticketing, refunds)."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.mcp_server_urls : contains(["catalog", "ticketing", "refunds"], k) && startswith(v, "https://")])
+    error_message = "Claves catalog|ticketing|refunds y URLs https://."
+  }
+}
+
+variable "mcp_oidc_discovery_url" {
+  description = "OpenID configuration del IdP (Cognito user pool): .../.well-known/openid-configuration."
+  type        = string
+  default     = ""
+}
+
+variable "mcp_gateway_audience" {
+  description = "Audience que deben traer los tokens de los agentes (MCP__AUDIENCE_TEMPLATE)."
+  type        = string
+  default     = "api://headache-mcp/gateway"
+}
+
+variable "mcp_oauth_client_id" {
+  description = "Cliente OAuth del gateway en el IdP (write-only: no queda en el estado)."
+  type        = string
+  default     = null
+  ephemeral   = true
+}
+
+variable "mcp_oauth_client_secret" {
+  type      = string
+  default   = null
+  sensitive = true
+  ephemeral = true
+}
+
+variable "mcp_oauth_credentials_version" {
+  description = "Incrementar para rotar el cliente OAuth (argumentos write-only)."
+  type        = number
+  default     = 1
+}

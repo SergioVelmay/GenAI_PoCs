@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -8,7 +10,7 @@ from typing import Any
 
 import pytest
 from fastmcp import Client, FastMCP
-from fastmcp.utilities.tests import asgi_server
+from fastmcp.utilities.tests import ASGIServer, asgi_server
 
 from headache_core.adapters.memory import InMemoryUnitOfWork
 from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
@@ -23,8 +25,15 @@ from headache_core.domain import (
     Session,
 )
 from headache_mcp.adapter import anonymous, fixed_identity
-from headache_mcp.auth import SERVER_SCOPES, DevTokenIssuer, jwt_auth, token_identity
+from headache_mcp.auth import (
+    GATEWAY_SCOPES,
+    SERVER_SCOPES,
+    DevTokenIssuer,
+    jwt_auth,
+    token_identity,
+)
 from headache_mcp.contracts import CONTRACTS_DIR, contract_servers, describe
+from headache_mcp.gateway import DevTokenExchanger, TokenExchanger, create_gateway
 from headache_mcp.servers import create_server
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
@@ -259,3 +268,108 @@ def test_dev_issuer_reuses_its_key(tmp_path: Path) -> None:
     second = DevTokenIssuer.load_or_create(tmp_path / "k.pem", issuer="https://auth.test")
 
     assert first.public_key == second.public_key
+
+
+# ---------- MCP Gateway propio (carril B) ----------
+
+
+class SpyExchanger(DevTokenExchanger):
+    def __init__(self, issuer: DevTokenIssuer) -> None:
+        super().__init__(issuer)
+        self.calls: list[tuple[str, str, tuple[str, ...]]] = []
+
+    async def exchange(self, *, subject: str, audience: str, scopes: Sequence[str]) -> str:
+        self.calls.append((subject, audience, tuple(scopes)))
+        return await super().exchange(subject=subject, audience=audience, scopes=scopes)
+
+
+@asynccontextmanager
+async def _gateway(
+    ticketing: UnitOfWorkTicketing,
+    tmp_path: Path,
+    exchanger: TokenExchanger,
+    *,
+    requests_per_second: float = 50.0,
+) -> AsyncIterator[ASGIServer]:
+    settings = McpSettings(
+        auth="jwt", issuer="https://auth.test", public_key_file=str(tmp_path / "key.pub")
+    )
+    async with AsyncExitStack() as stack:
+        backends = {
+            name: await stack.enter_async_context(asgi_server(_secured(name, ticketing, tmp_path)))
+            for name in SERVER_SCOPES
+        }
+        gateway = create_gateway(
+            list(backends),
+            settings=settings,
+            connect=lambda name, token: backends[name].client(auth=token),
+            exchanger=exchanger,
+            auth=jwt_auth(
+                settings, "gateway", public_url="http://127.0.0.1", scopes=GATEWAY_SCOPES
+            ),
+            requests_per_second=requests_per_second,
+        )
+        yield await stack.enter_async_context(asgi_server(gateway))
+
+
+def _gateway_token(issuer: DevTokenIssuer, scopes: list[str] = GATEWAY_SCOPES) -> str:
+    return issuer.mint(subject="cus_1", audience="api://headache-mcp/gateway", scopes=scopes)
+
+
+async def test_gateway_aggregates_servers_and_exchanges_tokens(
+    ticketing: UnitOfWorkTicketing, issuer: DevTokenIssuer, tmp_path: Path
+) -> None:
+    exchanger = SpyExchanger(issuer)
+
+    async with (
+        _gateway(ticketing, tmp_path, exchanger) as running,
+        running.client(auth=_gateway_token(issuer)) as client,
+    ):
+        tools = {t.name for t in await client.list_tools()}
+        mine = await client.call_tool("list_my_orders", {"limit": 5})
+        foreign = await client.call_tool("get_order", {"order_id": "ord_2"}, raise_on_error=False)
+
+    assert tools == {
+        "search_events",
+        "get_event",
+        "list_sessions",
+        "list_my_orders",
+        "get_order",
+        "request_refund",
+    }
+    assert mine.structured_content is not None
+    assert [o["id"] for o in mine.structured_content["items"]] == ["ord_1"]
+    assert foreign.is_error
+    # Cada servidor recibe un token propio: su audience y solo su scope, con el mismo usuario.
+    assert ("cus_1", "api://headache-mcp/ticketing", ("orders:read",)) in exchanger.calls
+    assert {audience for _, audience, _ in exchanger.calls} <= {
+        f"api://headache-mcp/{name}" for name in SERVER_SCOPES
+    }
+
+
+async def test_gateway_rejects_tokens_without_all_its_scopes(
+    ticketing: UnitOfWorkTicketing, issuer: DevTokenIssuer, tmp_path: Path
+) -> None:
+    token = _gateway_token(issuer, scopes=["catalog:read"])
+
+    async with (
+        _gateway(ticketing, tmp_path, DevTokenExchanger(issuer)) as running,
+        running.http_client() as http,
+    ):
+        response = await http.post(
+            "/mcp", json=INIT, headers={**MCP_HEADERS, "Authorization": f"Bearer {token}"}
+        )
+
+    assert response.status_code == 401
+
+
+async def test_gateway_rate_limits_each_caller(
+    ticketing: UnitOfWorkTicketing, issuer: DevTokenIssuer, tmp_path: Path
+) -> None:
+    async with (
+        _gateway(ticketing, tmp_path, DevTokenExchanger(issuer), requests_per_second=1) as running,
+        running.client(auth=_gateway_token(issuer)) as client,
+    ):
+        with pytest.raises(Exception, match="Rate limit"):
+            for _ in range(5):
+                await client.call_tool("search_events", {"city": "Madrid"})

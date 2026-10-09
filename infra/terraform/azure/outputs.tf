@@ -21,3 +21,11 @@ output "storage_account_url" {
   description = "Valor para AZURE_MANAGED__STORAGE_ACCOUNT_URL."
   value       = azurerm_storage_account.docs.primary_blob_endpoint
 }
+
+output "mcp_apim_urls" {
+  description = "Endpoint MCP de cada servidor publicado en APIM (vacío si apim_enabled = false)."
+  value = {
+    for name, api in azapi_resource.mcp_server :
+    name => "${azurerm_api_management.mcp[0].gateway_url}/headache-${name}/mcp"
+  }
+}

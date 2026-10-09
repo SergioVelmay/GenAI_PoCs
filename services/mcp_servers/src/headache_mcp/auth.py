@@ -27,6 +27,8 @@ SERVER_SCOPES: dict[str, list[str]] = {
     "ticketing": ["orders:read"],
     "refunds": ["refunds:write"],
 }
+# El gateway agrupa a los tres: exige la unión y entrega a cada servidor solo su scope.
+GATEWAY_SCOPES: list[str] = sorted({s for scopes in SERVER_SCOPES.values() for s in scopes})
 
 
 def token_identity(claim: str = "sub") -> IdentityResolver:
@@ -40,7 +42,9 @@ def token_identity(claim: str = "sub") -> IdentityResolver:
     return resolve
 
 
-def jwt_auth(settings: McpSettings, server: str, *, public_url: str) -> AuthProvider:
+def jwt_auth(
+    settings: McpSettings, server: str, *, public_url: str, scopes: list[str] | None = None
+) -> AuthProvider:
     if bool(settings.jwks_uri) == bool(settings.public_key_file):
         raise ValueError("Configura MCP__JWKS_URI (nube) o MCP__PUBLIC_KEY_FILE (local), no ambos.")
     public_key = (
@@ -54,7 +58,7 @@ def jwt_auth(settings: McpSettings, server: str, *, public_url: str) -> AuthProv
         issuer=settings.issuer,
         audience=settings.audience(server),
         algorithm="RS256",
-        required_scopes=SERVER_SCOPES[server],
+        required_scopes=scopes if scopes is not None else SERVER_SCOPES[server],
     )
     return RemoteAuthProvider(
         verifier,
@@ -105,7 +109,7 @@ class DevTokenIssuer:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Emisor de tokens de desarrollo (solo local)")
     parser.add_argument("--customer", required=True)
-    parser.add_argument("--server", choices=sorted(SERVER_SCOPES), required=True)
+    parser.add_argument("--server", choices=[*sorted(SERVER_SCOPES), "gateway"], required=True)
     args = parser.parse_args()
 
     settings = get_settings()
@@ -118,7 +122,7 @@ def main() -> None:
         issuer.mint(
             subject=args.customer,
             audience=settings.mcp.audience(args.server),
-            scopes=SERVER_SCOPES[args.server],
+            scopes=GATEWAY_SCOPES if args.server == "gateway" else SERVER_SCOPES[args.server],
         )
     )
 

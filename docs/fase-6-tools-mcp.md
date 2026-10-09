@@ -1,0 +1,189 @@
+# Fase 6 · Tool calling avanzado, servidores MCP, OAuth y MCP Gateway
+
+Cómo deja Headache que un LLM consulte y modifique el backend de ticketing de forma segura: el
+modelo propone, el backend valida, autoriza, ejecuta y sanea. Las mismas tools se usan en proceso
+(bucle propio), por MCP (tres servidores FastMCP) y detrás de un gateway (propio, AgentCore o APIM).
+
+> Estado: todo lo local está completo, probado (tests + contenedores) y en CI. La ejecución con
+> LLM real, el IdP en la nube (Entra ID / Cognito) y los gateways gestionados están **pendientes
+> de validación con coste** (ver el final).
+
+## 1. Piezas
+
+| Pieza | Qué hace | Código |
+|---|---|---|
+| Tool calling en el puerto | `complete(..., tools=ToolConfig)`, `Role.TOOL`, `ToolCall`; Azure OpenAI, Bedrock Converse y LiteLLM | [ports/llm.py](../packages/headache_core/src/headache_core/ports/llm.py) |
+| Tools tipadas | Esquema strict desde Pydantic; identidad en `ToolContext`, nunca en el esquema | [registry.py](../packages/headache_core/src/headache_core/application/tools/registry.py) |
+| Bucle manual (carril B) | Lecturas en paralelo acotado, escrituras en serie, timeouts, errores tipados, límite de iteraciones | [loop.py](../packages/headache_core/src/headache_core/application/tools/loop.py) |
+| Saneamiento | Invisibles fuera, textos y listas acotados sin romper el JSON | [tool_output.py](../packages/headache_core/src/headache_core/domain/tool_output.py) |
+| Tools de ticketing | 6 tools con proyección de salida y propiedad del pedido | [ticketing.py](../packages/headache_core/src/headache_core/application/tools/ticketing.py) |
+| Servidores MCP | `catalog`, `ticketing`, `refunds` (FastMCP 4, Streamable HTTP), contratos versionados | [headache_mcp](../services/mcp_servers/src/headache_mcp), [contracts/](../services/mcp_servers/contracts) |
+| OAuth 2.1 | Resource servers JWT (firma, `iss`, `exp`, `aud` por servidor, scopes), RFC 9728 | [auth.py](../services/mcp_servers/src/headache_mcp/auth.py) |
+| MCP Gateway propio | Agregación, token exchange por servidor, rate limit y auditoría | [gateway.py](../services/mcp_servers/src/headache_mcp/gateway.py) |
+| Agente mínimo | Descubre tools MCP y las usa con el mismo bucle | [support_agent](../services/support_agent/src/support_agent) |
+| Gateways gestionados (IaC) | AgentCore Gateway (AWS) y APIM (Azure), desactivados por defecto | [aws/mcp_gateway.tf](../infra/terraform/aws/mcp_gateway.tf), [azure/mcp_gateway.tf](../infra/terraform/azure/mcp_gateway.tf) |
+
+## 2. El bucle de tools hecho a mano
+
+```mermaid
+sequenceDiagram
+    participant U as Cliente
+    participant A as ToolLoop
+    participant M as LLM
+    participant E as ToolExecutor
+    participant API as ticketing_api
+    U->>A: pregunta (+ identidad autenticada)
+    A->>M: mensajes + esquemas de tools
+    M-->>A: tool_calls [list_my_orders, search_events]
+    par lecturas en paralelo
+        A->>E: list_my_orders
+        E->>API: GET /customers/{id del token}/orders
+    and
+        A->>E: search_events
+        E->>API: GET /events
+    end
+    E-->>A: resultados saneados (o errores tipados)
+    A->>M: resultados como mensajes TOOL
+    M-->>A: tool_calls [request_refund]
+    A->>E: escritura (en serie, con timeout "incierto")
+    E->>API: POST /orders/{id}/refunds (decide la política de dominio)
+    A->>M: resultado
+    M-->>A: respuesta final
+```
+
+Diferencias entre proveedores que el adaptador oculta:
+
+| Concepto | Azure OpenAI | Bedrock Converse |
+|---|---|---|
+| Definir tools | `tools[].function` + `strict` | `toolConfig.tools[].toolSpec` |
+| Forzar uso | `tool_choice: "required"` / función | `toolChoice: {any}` / `{tool}` |
+| Petición del modelo | `message.tool_calls` (argumentos en texto JSON) | bloques `toolUse` (argumentos como objeto) |
+| Resultado | mensaje `role: tool` | `toolResult` dentro de un turno `user`, con `status: error` |
+| Varias a la vez | `parallel_tool_calls` | varios `toolUse`; los resultados se agrupan en **un** turno `user` |
+
+Decisiones:
+
+- **El modelo nunca elige identidad.** `customer_id` sale del token; un pedido ajeno responde igual
+  que uno inexistente (no revela existencia).
+- **Errores como datos.** `unknown_tool`, `invalid_arguments`, `timeout`, `not_found`, `rejected`,
+  `unavailable`… vuelven al modelo para que corrija o explique; los fallos internos no filtran trazas.
+- **Escrituras.** En serie y nunca reintentadas tras un timeout: el resultado es *incierto*.
+- **Proyección.** Las tools devuelven solo lo que el modelo necesita (sin email ni `venue_id`).
+- **Límite de iteraciones.** Si el modelo entra en bucle, se escala a un humano.
+
+## 3. Servidores MCP
+
+| Servidor | Puerto | Tools | Scope | Efecto |
+|---|---|---|---|---|
+| `catalog` | 8101 | `search_events`, `get_event`, `list_sessions` | `catalog:read` | lectura |
+| `ticketing` | 8102 | `list_my_orders`, `get_order` | `orders:read` | lectura, datos personales |
+| `refunds` | 8103 | `request_refund` | `refunds:write` | escritura |
+
+- El servidor MCP es **solo transporte**: usa el mismo `ToolExecutor` que el bucle local.
+- Las anotaciones MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`) salen de `read_only`.
+- `tools/list` está versionado en `contracts/*.json`: cambiar nombre, descripción o esquema es un
+  cambio deliberado (`python -m headache_mcp.contracts --update`) y CI lo comprueba.
+- Una imagen (`services/mcp_servers/Dockerfile`) y un contenedor por servidor (`--profile mcp`).
+
+## 4. OAuth 2.1 en MCP
+
+- Cada servidor es un **resource server**: valida firma, `iss`, `exp`, `aud` y scope antes de
+  ejecutar nada, y publica sus metadatos en `/.well-known/oauth-protected-resource/mcp` (RFC 9728).
+- **Un audience por servidor** (`api://headache-mcp/{server}`): un token de `ticketing` no sirve en
+  `refunds`. Es la defensa contra el *token passthrough* que prohíbe la especificación MCP.
+- En local, `DevTokenIssuer` hace de authorization server (clave RSA en `.secrets/`, ignorado por
+  Git). En la nube, Entra ID o Cognito (`MCP__ISSUER` + `MCP__JWKS_URI`).
+
+## 5. MCP Gateway: propio frente a AgentCore Gateway frente a APIM
+
+Un gateway pone **un único punto de control** entre los agentes y los servidores MCP: autenticación,
+autorización, cuotas, auditoría, descubrimiento y, a veces, búsqueda semántica de tools.
+
+```mermaid
+flowchart LR
+    Agent[Agente] -- "token aud=gateway<br/>scopes: los 3" --> GW[MCP Gateway]
+    GW -- "token exchange<br/>aud=catalog, catalog:read" --> C[catalog]
+    GW -- "aud=ticketing, orders:read" --> T[ticketing]
+    GW -- "aud=refunds, refunds:write" --> R[refunds]
+```
+
+| Capacidad | B · Gateway propio (FastMCP) | A · AgentCore Gateway (AWS) | A · API Management (Azure) |
+|---|---|---|---|
+| Endpoint para el agente | uno, con las tools de los tres | uno, con las tools de todos los *targets* | uno **por servidor** (`/headache-{server}/mcp`) |
+| Autenticación de entrada | `JWTVerifier` (audience del gateway) | `CUSTOM_JWT` (OIDC discovery, audience, scopes, claims) | política `validate-jwt` |
+| Credencial hacia el servidor | token exchange (dev STS) | OAuth **token exchange (OBO)**, client credentials, API key o SigV4 | reenvía el token del propio servidor (APIM es su puerta) |
+| Token passthrough a MCP | no | **no admitido** para destinos MCP | no aplica (mismo audience) |
+| Descubrimiento | proxy en cada `tools/list` | `DEFAULT` (sincronizado) o `DYNAMIC` (en cada llamada) | passthrough del servidor |
+| Búsqueda semántica de tools | no | `search_type = SEMANTIC` (no compatible con `DYNAMIC`) | no |
+| Políticas | middleware: rate limit por usuario, auditoría | interceptores Lambda, *policy engine* Cedar | XML: `rate-limit-by-key`, cuotas, IP, caché, transformaciones |
+| Otros orígenes de tools | — | OpenAPI, Lambda, Smithy, API Gateway, conectores | REST API de APIM convertida en MCP |
+| Coste en reposo | 0 (un contenedor más) | ~0, pago por llamada | Developer ~50 $/mes (Consumption **no** admite MCP) |
+| IaC | código + compose | `aws_bedrockagentcore_gateway` (+ `_target`, `_oauth2_credential_provider`) | `azapi_resource` (`Microsoft.ApiManagement/service/apis@2025-09-01-preview`, `type = "mcp"`) |
+
+Lectura:
+
+- **AgentCore Gateway** es el más cercano a nuestro gateway propio: agrega servidores y hace OBO,
+  así cada servidor recibe un token con su audience y el usuario original. Con OBO y sin 2LO hay
+  que usar `listing_mode = DYNAMIC` (no hay token de usuario en la sincronización de fondo).
+- **APIM** es un API gateway con soporte MCP: brilla en políticas (cuotas, IP, transformaciones,
+  observabilidad con App Insights) y en convertir REST en MCP, pero publica cada servidor por
+  separado y no hace OBO de serie. Hay que desactivar el log del cuerpo de respuesta (rompe el
+  streaming) y no admite *workspaces* ni prompts MCP.
+- **Propio**: sin coste y totalmente controlable; a cambio, hay que operar y securizar el STS y
+  mantener las políticas en código. Útil como referencia y para entornos sin gateway gestionado.
+
+Uso en local (sin coste):
+
+```powershell
+uv run python -m headache_mcp.auth --customer cus_0121338 --server gateway   # crea .secrets/
+$env:MCP__AUTH="jwt"; docker compose --profile mcp up -d --build              # 3 servidores + gateway
+# Agente (tiene coste): uv run python -m support_agent --gateway --customer cus_0121338 "..."
+```
+
+## 6. Equivalencias Azure ↔ AWS ↔ framework
+
+| Concepto | Azure | AWS | Framework (fase 7) |
+|---|---|---|---|
+| Tool calling | Azure OpenAI `tools` | Bedrock Converse `toolConfig` | LangChain `bind_tools`, Strands `@tool`, MAF `AIFunction` |
+| Bucle de tools | Foundry Agent Service (gestionado) | AgentCore Runtime / Bedrock Agents | LangGraph `ToolNode`, Strands agent loop |
+| Servidor MCP alojado | Container Apps / Functions | AgentCore Runtime (MCP) / ECS | FastMCP |
+| Cliente MCP | tool `mcp` de Foundry | AgentCore Gateway / Strands `MCPClient` | `MultiServerMCPClient`, `McpToolset` (nuestro) |
+| MCP Gateway | API Management | AgentCore Gateway | gateway propio (FastMCP `ProxyProvider`) |
+| IdP / OBO | Entra ID On-Behalf-Of | Cognito + AgentCore Identity (token exchange) | `DevTokenIssuer` (solo local) |
+
+## 7. Pendiente de validación con coste
+
+- Ejecutar el agente con LLM real (`scripts/tool_loop_demo.py` y `python -m support_agent`, con y sin
+  `--gateway`) en Azure OpenAI y Bedrock; revisar trazas y coste en Langfuse.
+- Registrar los servidores MCP en Entra ID (App ID URI y scopes; `scp` admite otros formatos de
+  nombre) y en Cognito (resource server + scopes); probar OBO de extremo a extremo.
+- Publicar los servidores por HTTPS (fases 13 y 14) y aplicar `mcp_gateway_enabled` (AWS) y
+  `apim_enabled` (Azure) con confirmación; medir latencia y coste frente al gateway propio.
+- Tool de compra con `Idempotency-Key` estable y aprobación humana (fase 8).
+
+## 8. Checkpoint de entrevista
+
+**¿Por qué un bucle de tools propio si existen frameworks?**
+Para saber qué controlan y qué no: límites, idempotencia, errores como datos, saneamiento y
+observabilidad. En la fase 7 comparo el mismo agente en LangGraph, MAF, Strands y servicios gestionados.
+
+**¿Cómo evitas que un prompt injection reembolse pedidos de otro cliente?**
+La identidad sale del token, no de los argumentos; la autorización se comprueba en el backend en
+cada llamada; los scopes limitan qué servidor puede usar el agente; y la política de dominio decide.
+
+**¿Qué es el token passthrough y cómo lo evitas con un gateway?**
+Reenviar el token del usuario a otro servicio. Rompe el audience y la auditoría. El gateway valida
+un token emitido para él y obtiene, por token exchange (RFC 8693 / OBO), uno nuevo para cada servidor
+con su audience y solo su scope. AgentCore Gateway ni siquiera admite passthrough hacia destinos MCP.
+
+**¿AgentCore Gateway o APIM?**
+Si busco un *agent gateway* (agregar servidores, OBO, búsqueda semántica de tools, Cedar), AgentCore.
+Si la organización ya gobierna sus APIs con APIM y quiere las mismas políticas, cuotas y observabilidad
+para MCP (o convertir REST en MCP), APIM. En Azure, el OBO lo pondría el propio servidor o un backend.
+
+**¿Por qué tres servidores y no uno?**
+Mínimo privilegio y radio de impacto: el agente de consultas nunca recibe `refunds:write`, y cada
+servidor se despliega, escala y audita por separado. El gateway devuelve la comodidad de un único endpoint.
+
+**¿Cómo evitas romper a los agentes al cambiar una tool?**
+Contratos versionados de `tools/list` en CI. Para el modelo, la descripción es parte del contrato.

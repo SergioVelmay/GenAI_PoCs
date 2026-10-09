@@ -62,6 +62,7 @@
 - Tool calling (fase 6.1): `LLMPort.complete(..., tools=ToolConfig)`; mensajes `Role.TOOL` con `tool_call_id`/`is_error` y `ChatMessage.tool_calls` (Bedrock agrupa resultados consecutivos en un turno `user`). Bucle manual `application/tools/loop.py` (`ToolLoop`: lecturas en paralelo acotado, escrituras en serie, timeouts, errores tipados que vuelven al modelo, `max_iterations` → respuesta de escalado). Saneamiento en `domain/tool_output.py`. Tools de ticketing en `application/tools/ticketing.py`: identidad en `ToolContext` (nunca argumento del modelo) y salidas proyectadas. `TicketingPort` con adaptadores `ticketing_http` (httpx, `TICKETING_API__BASE_URL`) y `ticketing_local` (UoW). Demo con coste: `scripts/tool_loop_demo.py --customer cus_... "pregunta"`.
 - MCP (fase 6.2, `services/mcp_servers`, paquete `headache_mcp`, FastMCP 4.x / SDK `mcp` 2.x): servidores `catalog` (8101), `ticketing` (8102) y `refunds` (8103) sobre `HttpTicketingClient`, mismo `ToolExecutor` que el bucle local (`RegistryTool`). `uv run python -m headache_mcp <servidor>` (Streamable HTTP en `/mcp`, `/health`). Sin OAuth (llega en 6.3) la identidad es `MCP__DEV_CUSTOMER_ID` y solo en `ENVIRONMENT=local`. Contratos versionados en `services/mcp_servers/contracts/*.json` (`python -m headache_mcp.contracts [--update]`). Imagen única `services/mcp_servers/Dockerfile`; `docker compose --profile mcp up -d` (la API debe escuchar en 0.0.0.0:8000 del host).
 - OAuth en MCP (fase 6.3): `MCP__AUTH=jwt` convierte cada servidor en resource server (`headache_mcp/auth.py`: `JWTVerifier` + `RemoteAuthProvider`, RFC 9728 en `/.well-known/oauth-protected-resource/mcp`). Valida firma, `iss`, `exp`, `aud` por servidor (`api://headache-mcp/{server}`, sin token passthrough) y scopes (`catalog:read`, `orders:read`, `refunds:write`); la identidad sale del claim `sub`. En local, emisor de desarrollo `python -m headache_mcp.auth --customer cus_... --server ticketing` (claves en `.secrets/`, ignorado). En la nube: `MCP__ISSUER` + `MCP__JWKS_URI` de Entra ID/Cognito. Agente mínimo carril B en `services/support_agent` (`McpToolset` descubre tools MCP → `ToolRegistry`; `SupportAgent` = `ToolLoop`): `uv run python -m support_agent --customer cus_... "pregunta"` (tiene coste).
+- MCP Gateway (fase 6.4): propio en `headache_mcp/gateway.py` (`python -m headache_mcp gateway`, puerto 8100, `--profile mcp` lo incluye; exige `MCP__AUTH=jwt`): `ProxyProvider` por servidor, token exchange por servidor (audience y scope propios; `DevTokenExchanger` solo local), rate limit por usuario y auditoría. Agente con `--gateway`. Carril A en Terraform, desactivado por defecto: `aws/mcp_gateway.tf` (AgentCore Gateway + targets `mcp_server` con OAuth `TOKEN_EXCHANGE`, `mcp_gateway_enabled`) y `azure/mcp_gateway.tf` (APIM con `azapi` 2025-09-01-preview `type = "mcp"` + `validate-jwt`, `apim_enabled`; Developer ~50 $/mes, Consumption no admite MCP). Comparativa en `docs/fase-6-tools-mcp.md`.
 
 ## Plan de fases (estado)
 
@@ -73,7 +74,7 @@
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | ✅ Hecha* (validación en cloud pendiente; comparativa en `docs/fase-3-comparativa.md`) |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | ✅ Hecha* (validación en cloud pendiente; carril A Azure = Foundry IQ + Agent Service por retirada de On Your Data el 14-10-2026; `docs/fase-4-retrieval.md`) |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | ✅ Hecha* (validación con LLM/cloud pendiente; comparativa en `docs/fase-5-evals.md`) |
-| 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | |
+| 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | ✅ Hecha* (validación con LLM/cloud pendiente; comparativa en `docs/fase-6-tools-mcp.md`) |
 | 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | |
 | 8 | Agentic harness y guardrails: validación, autocorrección, SQL seguro, PII, prompt injection, human-in-the-loop | |
 | 9 | Orquestación multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | |
@@ -122,6 +123,13 @@ Desde la **fase 5** (evals en local hechas; las ejecuciones con LLM tienen coste
 - [ ] Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations (RAG/LLM-as-a-judge) con el mismo golden dataset.
 - [ ] Repetir las evals de retrieval con embeddings reales y reranker de nube, fijar un baseline nuevo y completar `docs/fase-5-evals.md`.
 - [ ] Pasar el job `evals` de CI a `--mode enforce` tras varias ejecuciones estables.
+
+Desde la **fase 6** (local completo y probado con contenedores; todo lo siguiente tiene coste y requiere confirmación y los pendientes de la fase 2):
+
+- [ ] Ejecutar `scripts/tool_loop_demo.py` y `python -m support_agent` (con y sin `--gateway`) con Azure OpenAI y Bedrock; revisar trazas y coste en Langfuse.
+- [ ] Registrar los servidores MCP en Entra ID (App ID URI y scopes; revisar el formato de `scp`) y en Cognito (resource server + scopes); probar OBO de extremo a extremo y sustituir `DevTokenExchanger`.
+- [ ] Con los servidores MCP en HTTPS (fases 13/14): `mcp_gateway_enabled=true` (AgentCore Gateway) y `apim_enabled=true` (APIM); comparar latencia y coste con el gateway propio.
+- [ ] Tool de compra con `Idempotency-Key` estable y aprobación humana (fase 8).
 
 ## Entorno del usuario
 

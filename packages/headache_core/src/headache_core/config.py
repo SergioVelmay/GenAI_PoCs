@@ -177,6 +177,7 @@ class McpSettings(BaseModel):
         "ticketing": "http://127.0.0.1:8102/mcp",
         "refunds": "http://127.0.0.1:8103/mcp",
     }
+    gateway_url: str = "http://127.0.0.1:8100/mcp"
 
     def audience(self, server: str) -> str:
         return self.audience_template.format(server=server)

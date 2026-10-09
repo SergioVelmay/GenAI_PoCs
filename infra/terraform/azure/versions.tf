@@ -10,6 +10,11 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.7"
     }
+    # Recursos ARM que azurerm aún no modela (servidores MCP de APIM).
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.0"
+    }
   }
 
   # Estado local de momento; en la fase 14 pasa a un backend azurerm (Storage + bloqueo por lease).

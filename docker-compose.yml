@@ -140,6 +140,23 @@ services:
     ports:
       - "127.0.0.1:8103:8103"
 
+  # Gateway propio (carril B): exige MCP__AUTH=jwt en los tres servidores.
+  mcp-gateway:
+    <<: *mcp
+    command: ["gateway"]
+    environment:
+      ENVIRONMENT: local
+      MCP__AUTH: jwt
+      MCP__PUBLIC_KEY_FILE: /run/secrets/headache/mcp-dev-key.pub
+      # Solo local: el gateway hace de STS con la clave de desarrollo.
+      MCP__DEV_PRIVATE_KEY_FILE: /run/secrets/headache/mcp-dev-key.pem
+      MCP__PUBLIC_URL_TEMPLATE: http://127.0.0.1:{port}
+      MCP__SERVERS: >-
+        {"catalog": "http://mcp-catalog:8101/mcp", "ticketing": "http://mcp-ticketing:8102/mcp",
+        "refunds": "http://mcp-refunds:8103/mcp"}
+    ports:
+      - "127.0.0.1:8100:8100"
+
   # ---------- Observabilidad (Langfuse v3) ----------
   langfuse-web:
     image: langfuse/langfuse:3

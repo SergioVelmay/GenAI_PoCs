@@ -61,3 +61,43 @@ variable "budget_start_date" {
   type        = string
   default     = "2026-10-01T00:00:00Z"
 }
+
+# ---------- Fase 6.4: API Management como MCP Gateway ----------
+
+variable "apim_enabled" {
+  description = "Crea APIM. Tiene coste fijo (Developer ~50 $/mes): solo con confirmación."
+  type        = bool
+  default     = false
+}
+
+variable "apim_sku" {
+  description = "Tier con soporte MCP: Developer_1 (sin SLA) o BasicV2_1/StandardV2_1."
+  type        = string
+  default     = "Developer_1"
+  validation {
+    condition     = !startswith(var.apim_sku, "Consumption")
+    error_message = "El tier Consumption no admite servidores MCP."
+  }
+}
+
+variable "mcp_server_base_urls" {
+  description = "URL base HTTPS de cada servidor (catalog, ticketing, refunds); APIM añade /mcp."
+  type        = map(string)
+  default     = {}
+  validation {
+    condition     = alltrue([for k, v in var.mcp_server_base_urls : contains(["catalog", "ticketing", "refunds"], k) && startswith(v, "https://")])
+    error_message = "Claves catalog|ticketing|refunds y URLs https://."
+  }
+}
+
+variable "mcp_oidc_config_url" {
+  description = "OpenID configuration de Entra ID: https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration."
+  type        = string
+  default     = ""
+}
+
+variable "mcp_audience_template" {
+  description = "Igual que MCP__AUDIENCE_TEMPLATE: App ID URI de cada servidor en Entra ID."
+  type        = string
+  default     = "api://headache-mcp/{server}"
+}

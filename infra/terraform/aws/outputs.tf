@@ -23,6 +23,11 @@ output "account_id" {
   value = data.aws_caller_identity.current.account_id
 }
 
+output "mcp_gateway_url" {
+  description = "Valor para MCP__GATEWAY_URL (vacío si el gateway está desactivado)."
+  value       = one(aws_bedrockagentcore_gateway.mcp[*].gateway_url)
+}
+
 output "kb_docs_bucket" {
   description = "Valor para BEDROCK_KB__DOCS_BUCKET."
   value       = aws_s3_bucket.docs.bucket

@@ -24,12 +24,12 @@ from headache_core.adapters.memory import RecordingTracer
 from headache_core.application.llm import CompositeTracer
 from headache_core.application.tools import ToolContext
 from headache_core.config import Settings, get_settings
-from headache_mcp.auth import SERVER_SCOPES, DevTokenIssuer
+from headache_mcp.auth import GATEWAY_SCOPES, SERVER_SCOPES, DevTokenIssuer
 from support_agent.agent import SupportAgent
 from support_agent.toolset import McpToolset
 
 
-def _clients(settings: Settings, customer: str) -> dict[str, Client[Any]]:
+def _clients(settings: Settings, customer: str, *, gateway: bool) -> dict[str, Client[Any]]:
     if settings.mcp.auth != "jwt":
         return {name: Client(url) for name, url in settings.mcp.servers.items()}
     if settings.environment != "local":
@@ -39,6 +39,12 @@ def _clients(settings: Settings, customer: str) -> dict[str, Client[Any]]:
     issuer = DevTokenIssuer.load_or_create(
         Path(settings.mcp.dev_private_key_file), issuer=settings.mcp.issuer
     )
+    if gateway:
+        # Un solo token (audience del gateway); el gateway lo cambia por uno por servidor.
+        token = issuer.mint(
+            subject=customer, audience=settings.mcp.audience("gateway"), scopes=GATEWAY_SCOPES
+        )
+        return {"gateway": Client(settings.mcp.gateway_url, auth=token)}
     return {
         name: Client(
             url,
@@ -56,6 +62,7 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Agente mínimo con tools MCP")
     parser.add_argument("question")
     parser.add_argument("--customer", required=True, help="Cliente autenticado")
+    parser.add_argument("--gateway", action="store_true", help="Usar el MCP Gateway (8100)")
     args = parser.parse_args()
 
     settings = get_settings()
@@ -63,7 +70,7 @@ async def main() -> None:
     tracer = build_tracer(settings)
     llm = build_gateway(settings, tracer=CompositeTracer([tracer, ledger]))
 
-    async with McpToolset(_clients(settings, args.customer)) as tools:
+    async with McpToolset(_clients(settings, args.customer, gateway=args.gateway)) as tools:
         print(f"Tools descubiertas: {', '.join(tools.names)}\n")
         result = await SupportAgent(llm, tools).answer(
             args.question, ToolContext(customer_id=args.customer)
