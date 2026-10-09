@@ -1,0 +1,128 @@
+{
+  "server": "headache-catalog",
+  "tools": [
+    {
+      "name": "get_event",
+      "title": "Get Event",
+      "description": "Detalle de un evento, incluida su política de reembolso (refundable y refund_window_hours: horas antes de la sesión hasta las que se admite).",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "description": "ID de evento, p. ej. 'evt_0000123'.",
+            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "title": "Event Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id"
+        ],
+        "title": "EventIdArgs"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_sessions",
+      "title": "List Sessions",
+      "description": "Próximas sesiones (fechas en UTC) y plazas libres de un evento.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "description": "ID de evento, p. ej. 'evt_0000123'.",
+            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "only_available": {
+            "description": "true = solo sesiones futuras con plazas libres.",
+            "title": "Only Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_id",
+          "only_available"
+        ],
+        "title": "ListSessionsArgs"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "search_events",
+      "title": "Search Events",
+      "description": "Busca eventos del catálogo por ciudad y/o categoría. Úsala para localizar un evento antes de consultar sus sesiones.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ciudad en inglés, p. ej. 'Madrid' o 'New York'. null = todas.",
+            "title": "City"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "candlelit",
+                  "exhibition",
+                  "theatre",
+                  "food_drink",
+                  "tours",
+                  "nightlife",
+                  "sports"
+                ],
+                "title": "EventCategory",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = todas."
+          },
+          "limit": {
+            "description": "Número máximo de eventos (1-10).",
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "SearchEventsArgs",
+        "required": [
+          "city",
+          "category",
+          "limit"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+.git
+.venv
+**/__pycache__
+**/.pytest_cache
+.mypy_cache
+.ruff_cache
+.deepeval
+.env
+.env.*
+data
+evals/reports
+infra/terraform/**/.terraform
+infra/terraform/**/*.tfstate*
+infra/terraform/**/terraform.tfvars

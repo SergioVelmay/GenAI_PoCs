@@ -83,6 +83,18 @@ jobs:
           path: /tmp/evals/
           if-no-files-found: ignore
 
+  mcp-image:
+    # Los servidores MCP se despliegan como contenedores: la imagen debe construir y arrancar.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -f services/mcp_servers/Dockerfile -t headache-mcp:ci .
+      - name: Smoke test (health de catalog)
+        run: |
+          docker run -d --name mcp -p 127.0.0.1:8101:8101 headache-mcp:ci catalog
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8101/health && exit 0; sleep 1; done
+          docker logs mcp; exit 1
+
   terraform:
     runs-on: ubuntu-latest
     strategy:

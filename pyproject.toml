@@ -9,6 +9,7 @@ dependencies = [
     "ticketing-api",
     "retrieval",
     "rag-evals",
+    "mcp-servers",
 ]
 
 [tool.uv.workspace]
@@ -20,6 +21,7 @@ indexer = { workspace = true }
 ticketing-api = { workspace = true }
 retrieval = { workspace = true }
 rag-evals = { workspace = true }
+mcp-servers = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -41,7 +43,7 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["headache_core", "indexer", "rag_evals", "retrieval", "ticketing_api"]
+known-first-party = ["headache_core", "headache_mcp", "indexer", "rag_evals", "retrieval", "ticketing_api"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -56,6 +58,8 @@ files = [
     "services/ticketing_api/tests",
     "services/retrieval/src",
     "services/retrieval/tests",
+    "services/mcp_servers/src",
+    "services/mcp_servers/tests",
     "evals/src",
     "evals/tests",
     "scripts",

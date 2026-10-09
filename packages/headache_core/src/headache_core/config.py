@@ -155,6 +155,13 @@ class TicketingApiSettings(BaseModel):
     timeout_s: float = 5.0
 
 
+class McpSettings(BaseModel):
+    """Servidores MCP (fase 6). Sin OAuth, la identidad fija solo se admite en local."""
+
+    host: str = "127.0.0.1"
+    dev_customer_id: str = ""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -180,6 +187,7 @@ class Settings(BaseSettings):
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()
     ticketing_api: TicketingApiSettings = TicketingApiSettings()
+    mcp: McpSettings = McpSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:

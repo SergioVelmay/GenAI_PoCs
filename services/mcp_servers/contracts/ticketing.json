@@ -1,0 +1,60 @@
+{
+  "server": "headache-ticketing",
+  "tools": [
+    {
+      "name": "get_order",
+      "title": "Get Order",
+      "description": "Estado e importe de un pedido del cliente autenticado.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "order_id": {
+            "description": "ID de pedido, p. ej. 'ord_0000123'.",
+            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "title": "Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "title": "OrderIdArgs"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_my_orders",
+      "title": "List My Orders",
+      "description": "Pedidos recientes del cliente autenticado. Úsala si no da un ID de pedido.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "description": "Número máximo de pedidos (1-20).",
+            "maximum": 20,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "ListOrdersArgs",
+        "required": [
+          "limit"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

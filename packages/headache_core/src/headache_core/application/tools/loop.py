@@ -80,10 +80,10 @@ class ToolLoop:
     ) -> None:
         self._llm = llm
         self._registry = registry
+        self._executor = ToolExecutor(registry, max_output_chars=max_output_chars)
         self._max_iterations = max_iterations
         self._max_calls = max_calls_per_turn
         self._max_parallel = max_parallel
-        self._max_output_chars = max_output_chars
         self._config = registry.config(parallel=parallel_tool_calls)
         self._temperature = temperature
         self._max_tokens = max_tokens
@@ -125,7 +125,7 @@ class ToolLoop:
         results: dict[str, ToolExecution] = {}
         accepted = list(calls[: self._max_calls])
         for call in calls[self._max_calls :]:
-            results[call.id] = self._failure(
+            results[call.id] = ToolExecutor.failure(
                 call,
                 ToolErrorKind.TOO_MANY_CALLS,
                 f"Máximo {self._max_calls} llamadas por turno; repite solo las necesarias.",
@@ -142,20 +142,31 @@ class ToolLoop:
 
         async def guarded(call: ToolCall) -> ToolExecution:
             async with semaphore:
-                return await self._execute(call, context)
+                return await self._executor.execute(call, context)
 
         for execution in await asyncio.gather(*(guarded(c) for c in reads)):
             results[execution.call.id] = execution
         # Escrituras en serie y en el orden pedido: sin carreras entre efectos secundarios.
         for call in writes:
-            results[call.id] = await self._execute(call, context)
+            results[call.id] = await self._executor.execute(call, context)
         return [results[c.id] for c in calls]
 
-    async def _execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
+
+class ToolExecutor:
+    """Ejecuta UNA llamada: validar, ejecutar con timeout, tipar errores y sanear la salida.
+
+    Lo comparten el bucle local y los servidores MCP: mismas garantías por cualquier transporte.
+    """
+
+    def __init__(self, registry: ToolRegistry, *, max_output_chars: int = 4000) -> None:
+        self._registry = registry
+        self._max_output_chars = max_output_chars
+
+    async def execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
         started = time.perf_counter()
         tool = self._registry.get(call.name)
         if tool is None:
-            return self._failure(
+            return self.failure(
                 call,
                 ToolErrorKind.UNKNOWN_TOOL,
                 f"La tool '{call.name}' no existe. Disponibles: {', '.join(self._registry.names)}.",
@@ -169,7 +180,7 @@ class ToolLoop:
                 f"{'.'.join(str(p) for p in e['loc']) or '(raíz)'}: {e['msg']}"
                 for e in exc.errors(include_url=False, include_input=False)
             )
-            return self._failure(
+            return self.failure(
                 call, ToolErrorKind.INVALID_ARGUMENTS, f"Argumentos no válidos: {problems}", started
             )
         try:
@@ -183,21 +194,21 @@ class ToolLoop:
                     "Sin respuesta a tiempo: el resultado es incierto. No repitas la operación; "
                     "indica al cliente que se verificará."
                 )
-            return self._failure(
+            return self.failure(
                 call, ToolErrorKind.TIMEOUT, message, started, retryable=tool.read_only
             )
         except ToolError as exc:
-            return self._failure(call, exc.kind, exc.message, started, retryable=exc.retryable)
+            return self.failure(call, exc.kind, exc.message, started, retryable=exc.retryable)
         except Exception:
             logger.exception("Fallo inesperado en la tool %s", call.name)
-            return self._failure(
+            return self.failure(
                 call, ToolErrorKind.INTERNAL, "Error interno al ejecutar la tool.", started
             )
         output = render_tool_output(to_jsonable_python(value), max_chars=self._max_output_chars)
         return ToolExecution(call, output, None, _elapsed_ms(started))
 
     @staticmethod
-    def _failure(
+    def failure(
         call: ToolCall, kind: str, message: str, started: float, *, retryable: bool = False
     ) -> ToolExecution:
         output = render_tool_error(kind, message, retryable=retryable)

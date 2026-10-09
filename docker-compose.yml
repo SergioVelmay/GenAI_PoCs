@@ -1,6 +1,7 @@
 # Entorno local. Núcleo:            docker compose up -d
 #                Con observabilidad: docker compose --profile observability up -d
 #                Emuladores de colas: --profile sqs (ElasticMQ) | --profile servicebus
+#                Servidores MCP:     --profile mcp (necesitan ticketing_api en el host :8000)
 name: genai-pocs
 
 x-langfuse-env: &langfuse-env
@@ -103,6 +104,37 @@ services:
     environment:
       ACCEPT_EULA: ${SERVICEBUS_ACCEPT_EULA:-N}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+
+  # ---------- Servidores MCP (fase 6): una imagen, tres contenedores ----------
+  mcp-catalog: &mcp
+    build:
+      context: .
+      dockerfile: services/mcp_servers/Dockerfile
+    image: headache-mcp:local
+    profiles: [mcp]
+    restart: unless-stopped
+    command: ["catalog"]
+    environment:
+      TICKETING_API__BASE_URL: http://host.docker.internal:8000
+      # Sin OAuth (fase 6.3) la identidad es fija y solo se admite en entorno local.
+      ENVIRONMENT: local
+      MCP__DEV_CUSTOMER_ID: ${MCP__DEV_CUSTOMER_ID:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8101:8101"
+
+  mcp-ticketing:
+    <<: *mcp
+    command: ["ticketing"]
+    ports:
+      - "127.0.0.1:8102:8102"
+
+  mcp-refunds:
+    <<: *mcp
+    command: ["refunds"]
+    ports:
+      - "127.0.0.1:8103:8103"
 
   # ---------- Observabilidad (Langfuse v3) ----------
   langfuse-web:

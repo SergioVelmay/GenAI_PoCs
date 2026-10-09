@@ -1,0 +1,38 @@
+{
+  "server": "headache-refunds",
+  "tools": [
+    {
+      "name": "request_refund",
+      "title": "Request Refund",
+      "description": "Solicita el reembolso de un pedido del cliente autenticado. Solo si el cliente lo pide explícitamente. La política de Headache decide y devuelve el motivo.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "order_id": {
+            "description": "ID de pedido, p. ej. 'ord_0000123'.",
+            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Motivo del cliente, resumido en una frase (máx. 500).",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "reason"
+        ],
+        "title": "RefundArgs"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

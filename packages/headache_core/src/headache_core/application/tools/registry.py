@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -67,8 +67,15 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return list(self._tools)
 
+    def __iter__(self) -> Iterator[Tool[Any]]:
+        return iter(self._tools.values())
+
     def get(self, name: str) -> Tool[Any] | None:
         return self._tools.get(name)
+
+    def subset(self, names: Iterable[str]) -> ToolRegistry:
+        """Solo las tools indicadas: cada servidor MCP expone su contexto acotado."""
+        return ToolRegistry(self._tools[name] for name in names)
 
     def config(self, *, choice: str = "auto", parallel: bool = True) -> ToolConfig:
         return ToolConfig(

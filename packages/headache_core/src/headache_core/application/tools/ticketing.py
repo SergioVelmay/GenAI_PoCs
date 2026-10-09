@@ -25,6 +25,10 @@ from headache_core.ports import (
 )
 
 ID_PATTERN = r"^[a-z]{3}_[A-Za-z0-9]{1,40}$"
+# Agrupación por contexto acotado y riesgo: un servidor MCP por grupo (fase 6.2).
+CATALOG_TOOLS = ("search_events", "get_event", "list_sessions")
+ORDER_TOOLS = ("list_my_orders", "get_order")
+REFUND_TOOLS = ("request_refund",)
 
 TICKETING_AGENT_PROMPT = """\
 Eres el asistente de atención al cliente de Headache, un marketplace de experiencias y eventos.
