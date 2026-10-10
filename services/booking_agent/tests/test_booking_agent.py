@@ -9,8 +9,10 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from booking_agent.flavors import create_agent
-from booking_agent.runtime import AgentDeps, JournaledExecutor
+from booking_agent.bridges.langchain import to_chat_messages as from_langchain
+from booking_agent.flavors import FLAVORS, create_agent
+from booking_agent.flavors.langgraph import LangGraphAgent
+from booking_agent.runtime import AgentDeps, AgentRuntime, JournaledExecutor
 from booking_agent.spec import BOOKING_AGENT_PROMPT, SKILLS_DIR, AgentSpec, build_booking_spec
 from headache_core.adapters.local_retrieval import LocalRetrieval
 from headache_core.adapters.memory import (
@@ -30,12 +32,24 @@ from headache_core.application.tools import (
     build_ticketing_tools,
 )
 from headache_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
-from headache_core.ports import Role, ToolCall
+from headache_core.ports import ChatMessage, Role, ToolCall
 from headache_core.ports.memory import ThreadAccessError
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")
 ANA = ToolContext(customer_id="cus_1")
+ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(FLAVORS))
+
+
+async def _stored(
+    agent: AgentRuntime, store: InMemoryCheckpointStore, thread_id: str
+) -> tuple[list[ChatMessage], str]:
+    """Hilo persistido: LangGraph usa su checkpointer; el resto, nuestro CheckpointStore."""
+    if isinstance(agent, LangGraphAgent):
+        snapshot = await agent.graph.aget_state({"configurable": {"thread_id": thread_id}})
+        return from_langchain(snapshot.values["messages"]), snapshot.values.get("summary", "")
+    state = store.threads[thread_id]
+    return list(state.messages), state.summary
 
 
 def _call(call_id: str, name: str, **arguments: Any) -> ToolCall:
@@ -95,7 +109,8 @@ def test_spec_exposes_the_same_tools_and_skills_to_every_flavor() -> None:
     assert SkillCatalog.from_directory(SKILLS_DIR).get("booking-assistance") is not None
 
 
-async def test_native_agent_keeps_thread_and_long_term_memory() -> None:
+@ALL_FLAVORS
+async def test_agent_keeps_thread_and_long_term_memory(flavor: str) -> None:
     preferences = InMemoryPreferenceStore()
     spec = _spec(preferences)
     llm = FakeLLM(
@@ -108,7 +123,7 @@ async def test_native_agent_keeps_thread_and_long_term_memory() -> None:
     )
     store = InMemoryCheckpointStore()
     executor = JournaledExecutor(spec.tools)
-    agent = create_agent("native", AgentDeps(spec, llm, executor, store, preferences))
+    agent = create_agent(flavor, AgentDeps(spec, llm, executor, store, preferences))
 
     first = await agent.respond("t1", "Vivo en Madrid.", ANA)
     second = await agent.respond("t1", "¿Qué hay cerca?", ANA)
@@ -123,48 +138,63 @@ async def test_native_agent_keeps_thread_and_long_term_memory() -> None:
         "Vivo en Madrid.",
         "¿Qué hay cerca?",
     ]
-    thread = store.threads["t1"]
-    assert thread.version == 2 and thread.customer_id == "cus_1"
-    assert len(thread.messages) == 8
-    assert not any(m.cache_checkpoint for m in thread.messages)
+    # Checkpoint de caché al final del historial previo, en todos los sabores.
+    assert [i for i, m in enumerate(prompt) if m.cache_checkpoint] == [0, 5]
+    messages, _ = await _stored(agent, store, "t1")
+    assert len(messages) == 8
+    assert not any(m.cache_checkpoint for m in messages)
+    if flavor != "langgraph":
+        thread = store.threads["t1"]
+        assert thread.version == 2 and thread.customer_id == "cus_1"
 
 
-async def test_native_agent_rejects_threads_of_other_customers() -> None:
+@ALL_FLAVORS
+async def test_agent_rejects_threads_of_other_customers(flavor: str) -> None:
     preferences = InMemoryPreferenceStore()
     spec = _spec(preferences)
     store = InMemoryCheckpointStore()
-    deps = AgentDeps(
-        spec, FakeLLM(["hola", "hola"]), JournaledExecutor(spec.tools), store, preferences
+    llm = FakeLLM(["hola", "hola"])
+    agent = create_agent(
+        flavor, AgentDeps(spec, llm, JournaledExecutor(spec.tools), store, preferences)
     )
-    agent = create_agent("native", deps)
     await agent.respond("t1", "hola", ANA)
 
     with pytest.raises(ThreadAccessError):
-        await agent.respond("t1", "hola", ToolContext(customer_id="cus_2"))
+        await agent.respond("t1", "me cuelo", ToolContext(customer_id="cus_2"))
+    # El intento no deja rastro en el hilo ajeno.
+    messages, _ = await _stored(agent, store, "t1")
+    assert "me cuelo" not in [m.content for m in messages]
+    assert len(llm.calls) == 1
 
 
-async def test_max_iterations_closes_the_exchange_with_the_fallback() -> None:
+@ALL_FLAVORS
+async def test_max_iterations_closes_the_exchange_with_the_fallback(flavor: str) -> None:
     preferences = InMemoryPreferenceStore()
     spec = _spec(preferences)
     loop = [[_call(f"c{i}", "list_my_orders", limit=1)] for i in range(10)]
     store = InMemoryCheckpointStore()
-    deps = AgentDeps(spec, FakeLLM(loop), JournaledExecutor(spec.tools), store, preferences)
+    executor = JournaledExecutor(spec.tools)
+    deps = AgentDeps(spec, FakeLLM(loop), executor, store, preferences)
+    agent = create_agent(flavor, deps)
 
-    turn = await create_agent("native", deps).respond("t1", "pedidos", ANA)
+    turn = await agent.respond("t1", "pedidos", ANA)
 
     assert turn.stop_reason == "max_iterations"
     assert turn.answer == spec.fallback_answer
-    last = store.threads["t1"].messages[-1]
-    assert (last.role, last.content) == (Role.ASSISTANT, spec.fallback_answer)
+    # Mismas tools ejecutadas en todos los sabores: una ronda por iteración.
+    assert len(executor.journal) == spec.max_iterations
+    messages, _ = await _stored(agent, store, "t1")
+    assert (messages[-1].role, messages[-1].content) == (Role.ASSISTANT, spec.fallback_answer)
 
 
-async def test_native_agent_compacts_long_threads() -> None:
+@ALL_FLAVORS
+async def test_agent_compacts_long_threads(flavor: str) -> None:
     preferences = InMemoryPreferenceStore()
     spec = _spec(preferences, ContextPolicy(trigger_tokens=20, target_tokens=10))
     llm = FakeLLM(["respuesta larga " * 20, "ok", "El cliente saludó.", "fin"])
     store = InMemoryCheckpointStore()
     agent = create_agent(
-        "native", AgentDeps(spec, llm, JournaledExecutor(spec.tools), store, preferences)
+        flavor, AgentDeps(spec, llm, JournaledExecutor(spec.tools), store, preferences)
     )
 
     await agent.respond("t1", "hola", ANA)
@@ -173,8 +203,29 @@ async def test_native_agent_compacts_long_threads() -> None:
     turn = await agent.respond("t1", "¿y ahora?", ANA)
 
     assert turn.compacted
-    assert store.threads["t1"].summary == "El cliente saludó."
     assert "El cliente saludó." in llm.calls[3][1].content
+    messages, summary = await _stored(agent, store, "t1")
+    assert summary == "El cliente saludó."
+    assert [m.content for m in messages if m.role is Role.USER] == ["sigo aquí", "¿y ahora?"]
+
+
+@ALL_FLAVORS
+async def test_invalid_tool_arguments_reach_the_executor(flavor: str) -> None:
+    preferences = InMemoryPreferenceStore()
+    spec = _spec(preferences)
+    llm = FakeLLM([[ToolCall("c1", "get_order", "{no es json")], "Revisa el número."])
+    executor = JournaledExecutor(spec.tools)
+    agent = create_agent(
+        flavor, AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences)
+    )
+
+    turn = await agent.respond("t1", "mi pedido", ANA)
+
+    assert turn.answer == "Revisa el número."
+    [execution] = executor.journal
+    assert execution.is_error and execution.call.arguments == "{no es json"
+    tool_message = next(m for m in llm.calls[1] if m.role is Role.TOOL)
+    assert "error" in tool_message.content
 
 
 class _Args(BaseModel):

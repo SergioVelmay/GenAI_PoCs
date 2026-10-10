@@ -109,3 +109,6 @@ asyncio_default_fixture_loop_scope = "function"
 # Los tests de integración necesitan PostgreSQL: uv run pytest -m integration
 addopts = "--import-mode=importlib -m 'not integration'"
 markers = ["integration: requiere docker compose up -d (PostgreSQL migrado y RabbitMQ)"]
+# llama-index-workflows recorre el agente (modelo Pydantic) con inspect.getmembers y toca
+# atributos deprecados: ruido de la librería, no de nuestro código.
+filterwarnings = ["ignore::pydantic.warnings.PydanticDeprecatedSince20:inspect", "ignore::pydantic.warnings.PydanticDeprecatedSince211:inspect"]

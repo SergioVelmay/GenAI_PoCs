@@ -78,6 +78,18 @@ async def test_native_flavor_passes_the_whole_suite(tmp_path: Path) -> None:
     assert render_markdown(report).startswith("# Evals del Knowledge & Booking Agent")
 
 
+@pytest.mark.parametrize("flavor", ["langgraph", "llamaindex"])
+async def test_framework_flavors_match_the_native_reference(flavor: str) -> None:
+    report = await run_agent_suite(load_scenarios(), flavors=["native", flavor], dataset="v1")
+
+    native, other = report.outcomes["native"], report.outcomes[flavor]
+    assert {o.scenario_id: o.failures for o in other if o.failures} == {}
+    # Paridad de comportamiento: mismas tools, en el mismo orden, en cada escenario.
+    assert [o.tools for o in other] == [o.tools for o in native]
+    summary = next(f for f in report.flavors if f.flavor == flavor)
+    assert summary.invariants == dict.fromkeys(summary.invariants, 0)
+
+
 async def test_trimming_without_summary_loses_the_early_fact(
     knowledge: tuple[RetrievalService, frozenset[str]],
 ) -> None:

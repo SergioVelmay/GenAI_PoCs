@@ -583,6 +583,9 @@ version = "0.1.0"
 source = { editable = "services/booking_agent" }
 dependencies = [
     { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "retrieval", "tools"] },
+    { name = "langchain-core" },
+    { name = "langgraph" },
+    { name = "llama-index-core" },
     { name = "retrieval" },
     { name = "support-agent" },
 ]
@@ -590,6 +593,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "headache-core", extras = ["azure", "aws", "gateway", "observability", "retrieval", "tools"], editable = "packages/headache_core" },
+    { name = "langchain-core", specifier = ">=1.6,<2" },
+    { name = "langgraph", specifier = ">=1.2,<2" },
+    { name = "llama-index-core", specifier = ">=0.14,<0.15" },
     { name = "retrieval", editable = "services/retrieval" },
     { name = "support-agent", editable = "services/support_agent" },
 ]

@@ -11,6 +11,8 @@ from booking_agent.runtime import AgentDeps, AgentRuntime
 
 FLAVORS: dict[str, str] = {
     "native": "booking_agent.flavors.native",
+    "langgraph": "booking_agent.flavors.langgraph",
+    "llamaindex": "booking_agent.flavors.llamaindex",
 }
 
 
