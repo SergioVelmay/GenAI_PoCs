@@ -13,6 +13,8 @@ FLAVORS: dict[str, str] = {
     "native": "booking_agent.flavors.native",
     "langgraph": "booking_agent.flavors.langgraph",
     "llamaindex": "booking_agent.flavors.llamaindex",
+    "maf": "booking_agent.flavors.maf",
+    "strands": "booking_agent.flavors.strands",
 }
 
 

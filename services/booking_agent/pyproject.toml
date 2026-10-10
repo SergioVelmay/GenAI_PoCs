@@ -7,10 +7,12 @@ dependencies = [
     "headache-core[azure,aws,gateway,observability,retrieval,tools]",
     "retrieval",
     "support-agent",
-    # Sabores de framework (fase 7.2).
+    # Sabores de framework (fase 7.2 y 7.3).
+    "agent-framework-core>=1.21,<2",
     "langchain-core>=1.6,<2",
     "langgraph>=1.2,<2",
     "llama-index-core>=0.14,<0.15",
+    "strands-agents>=1.59,<2",
 ]
 
 [tool.uv.sources]

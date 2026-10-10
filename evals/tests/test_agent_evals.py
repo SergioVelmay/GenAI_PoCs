@@ -78,7 +78,7 @@ async def test_native_flavor_passes_the_whole_suite(tmp_path: Path) -> None:
     assert render_markdown(report).startswith("# Evals del Knowledge & Booking Agent")
 
 
-@pytest.mark.parametrize("flavor", ["langgraph", "llamaindex"])
+@pytest.mark.parametrize("flavor", ["langgraph", "llamaindex", "maf", "strands"])
 async def test_framework_flavors_match_the_native_reference(flavor: str) -> None:
     report = await run_agent_suite(load_scenarios(), flavors=["native", flavor], dataset="v1")
 

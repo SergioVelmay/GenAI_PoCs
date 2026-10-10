@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from llama_index.core.base.llms.types import ChatMessage as LIChatMessage
 from llama_index.core.base.llms.types import MessageRole
@@ -17,6 +19,15 @@ from booking_agent.bridges.llamaindex import (
     to_llama_messages,
 )
 from booking_agent.bridges.llamaindex import to_chat_messages as from_llama
+from booking_agent.bridges.maf import GatewayChatClient, to_maf_messages
+from booking_agent.bridges.maf import to_chat_messages as from_maf
+from booking_agent.bridges.strands import (
+    GatewayModel,
+    system_blocks,
+    to_strands_messages,
+    tool_spec,
+)
+from booking_agent.bridges.strands import to_chat_messages as from_strands
 from headache_core.adapters.memory import FakeLLM
 from headache_core.ports import ChatMessage, Role, ToolCall
 from headache_core.ports.llm import ToolSpec
@@ -86,3 +97,71 @@ async def test_llamaindex_bridge_uses_spec_schemas_and_keeps_raw_arguments() -> 
     assert selection.tool_id == "c1"
     assert selection.tool_kwargs == {RAW_ARGUMENTS: "[1]"}
     assert bridge.metadata.is_function_calling_model
+
+
+HISTORY = [
+    ChatMessage(Role.USER, "hola"),
+    ChatMessage(
+        Role.ASSISTANT,
+        "",
+        tool_calls=(ToolCall("c1", "get_order", '{"order_id": "o1"}'), ToolCall("c2", "x", "{")),
+    ),
+    ChatMessage(Role.TOOL, '{"id": "o1"}', tool_call_id="c1"),
+    ChatMessage(Role.TOOL, '{"error": "x"}', tool_call_id="c2", is_error=True),
+    ChatMessage(Role.ASSISTANT, "listo", cache_checkpoint=True),
+]
+
+
+def test_maf_messages_round_trip_and_keep_raw_arguments() -> None:
+    assert from_maf(to_maf_messages(HISTORY)) == HISTORY
+
+
+async def test_maf_client_sends_instructions_first_and_the_exact_tool_specs() -> None:
+    llm = FakeLLM(["hola"])
+    client = GatewayChatClient(llm, [SPEC])
+    tool = SimpleNamespace(name="get_order")
+
+    response = await client._inner_get_response(
+        messages=to_maf_messages(HISTORY[:1]),
+        stream=False,
+        options={"instructions": "sistema", "tools": [tool], "tool_choice": "auto"},
+    )
+
+    assert response.text == "hola"
+    sent = llm.calls[0]
+    assert (sent[0].role, sent[0].content, sent[0].cache_checkpoint) == (
+        Role.SYSTEM,
+        "sistema",
+        True,
+    )
+    assert llm.tools[0] is not None and llm.tools[0].tools == (SPEC,)
+
+
+def test_strands_messages_group_tool_results_and_mark_cache_points() -> None:
+    converted = to_strands_messages(HISTORY)
+
+    assert [m["role"] for m in converted] == ["user", "assistant", "user", "assistant"]
+    assert len(converted[2]["content"]) == 2
+    assert converted[-1]["content"][-1] == {"cachePoint": {"type": "default"}}
+    assert from_strands(converted) == HISTORY
+
+
+async def test_strands_model_streams_the_gateway_response() -> None:
+    llm = FakeLLM([[ToolCall("c1", "get_order", "{roto")]])
+    model = GatewayModel(llm, [SPEC])
+    prefix = [ChatMessage(Role.SYSTEM, "sistema", cache_checkpoint=True)]
+
+    events = [
+        e
+        async for e in model.stream(
+            to_strands_messages(HISTORY[:1]),
+            [tool_spec(SPEC)],
+            system_prompt_content=system_blocks(prefix),
+        )
+    ]
+
+    assert llm.calls[0][0] == prefix[0]
+    assert llm.tools[0] is not None and llm.tools[0].tools == (SPEC,)
+    deltas = [e["contentBlockDelta"]["delta"] for e in events if "contentBlockDelta" in e]
+    assert deltas == [{"toolUse": {"input": '{"__raw_arguments__": "{roto"}'}}]
+    assert events[-2] == {"messageStop": {"stopReason": "tool_use"}}
