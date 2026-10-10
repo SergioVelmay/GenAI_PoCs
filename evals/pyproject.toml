@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Golden dataset y evals de RAG (fase 5) para Headache"
 requires-python = ">=3.12"
 dependencies = [
+    "booking-agent",
     "headache-core[retrieval,llamaindex]",
     "retrieval",
 ]
@@ -19,6 +20,7 @@ evals = [
 ]
 
 [tool.uv.sources]
+booking-agent = { workspace = true }
 headache-core = { workspace = true }
 retrieval = { workspace = true }
 

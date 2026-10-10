@@ -77,10 +77,11 @@ class ToolLoop:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         fallback_answer: str = FALLBACK_ANSWER,
+        executor: ToolExecutor | None = None,
     ) -> None:
         self._llm = llm
         self._registry = registry
-        self._executor = ToolExecutor(registry, max_output_chars=max_output_chars)
+        self._executor = executor or ToolExecutor(registry, max_output_chars=max_output_chars)
         self._max_iterations = max_iterations
         self._max_calls = max_calls_per_turn
         self._max_parallel = max_parallel

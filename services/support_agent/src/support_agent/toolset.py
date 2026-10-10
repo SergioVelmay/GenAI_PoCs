@@ -10,6 +10,7 @@ import json
 import logging
 from collections.abc import Mapping
 from contextlib import AsyncExitStack
+from pathlib import Path
 from types import TracebackType
 from typing import Any
 
@@ -19,8 +20,40 @@ from mcp_types import Tool as McpToolInfo
 from pydantic import BaseModel, ConfigDict
 
 from headache_core.application.tools import Tool, ToolContext, ToolError, ToolRegistry
+from headache_core.config import Settings
+from headache_mcp.auth import GATEWAY_SCOPES, SERVER_SCOPES, DevTokenIssuer
 
 logger = logging.getLogger(__name__)
+
+
+def mcp_clients(settings: Settings, customer: str, *, gateway: bool) -> dict[str, Client[Any]]:
+    """Un cliente por servidor (o uno para el gateway), con token en nombre del cliente."""
+    if settings.mcp.auth != "jwt":
+        return {name: Client(url) for name, url in settings.mcp.servers.items()}
+    if settings.environment != "local":
+        raise SystemExit(
+            "El emisor de desarrollo solo existe en local; en la nube usa OBO/Cognito."
+        )
+    issuer = DevTokenIssuer.load_or_create(
+        Path(settings.mcp.dev_private_key_file), issuer=settings.mcp.issuer
+    )
+    if gateway:
+        # Un solo token (audience del gateway); el gateway lo cambia por uno por servidor.
+        token = issuer.mint(
+            subject=customer, audience=settings.mcp.audience("gateway"), scopes=GATEWAY_SCOPES
+        )
+        return {"gateway": Client(settings.mcp.gateway_url, auth=token)}
+    return {
+        name: Client(
+            url,
+            auth=issuer.mint(
+                subject=customer,
+                audience=settings.mcp.audience(name),
+                scopes=SERVER_SCOPES[name],
+            ),
+        )
+        for name, url in settings.mcp.servers.items()
+    }
 
 
 class RemoteArgs(BaseModel):

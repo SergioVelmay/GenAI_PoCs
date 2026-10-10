@@ -18,6 +18,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "booking-agent",
     "genai-pocs",
     "headache-core",
     "indexer",
@@ -574,6 +575,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/61/ed/5cef92cb5be8963f17a5d6a31bf20c8b0af466b0dc76fc7951f2b727df4a/bm25s-0.3.13.tar.gz", hash = "sha256:49d76bf892ee730beda6d280a13d34b05d630a63988ae246944a81ce8bd15a12", size = 81454, upload-time = "2026-10-07T02:37:14.367Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/b7/88807a1bc1dfca8f88a0ed0bbc1eff59287c4636dbf3386117c552a682bd/bm25s-0.3.13-py3-none-any.whl", hash = "sha256:caf033369ec16586430544cf31321ff1a284c7c02f2aff87c4f7a2629f031f0e", size = 75516, upload-time = "2026-10-07T02:37:12.67Z" },
+]
+
+[[package]]
+name = "booking-agent"
+version = "0.1.0"
+source = { editable = "services/booking_agent" }
+dependencies = [
+    { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "retrieval", "tools"] },
+    { name = "retrieval" },
+    { name = "support-agent" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "headache-core", extras = ["azure", "aws", "gateway", "observability", "retrieval", "tools"], editable = "packages/headache_core" },
+    { name = "retrieval", editable = "services/retrieval" },
+    { name = "support-agent", editable = "services/support_agent" },
 ]
 
 [[package]]
@@ -1476,6 +1494,7 @@ name = "genai-pocs"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "booking-agent" },
     { name = "headache-core", extra = ["aws", "azure", "gateway", "llamaindex", "observability", "postgres", "rabbitmq", "retrieval", "tools"] },
     { name = "indexer" },
     { name = "mcp-servers" },
@@ -1499,6 +1518,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "booking-agent", editable = "services/booking_agent" },
     { name = "headache-core", extras = ["postgres", "rabbitmq", "llamaindex", "azure", "aws", "gateway", "observability", "retrieval", "tools"], editable = "packages/headache_core" },
     { name = "indexer", editable = "services/indexer" },
     { name = "mcp-servers", editable = "services/mcp_servers" },
@@ -4463,6 +4483,7 @@ name = "rag-evals"
 version = "0.1.0"
 source = { editable = "evals" }
 dependencies = [
+    { name = "booking-agent" },
     { name = "headache-core", extra = ["llamaindex", "retrieval"] },
     { name = "retrieval" },
 ]
@@ -4476,6 +4497,7 @@ evals = [
 
 [package.metadata]
 requires-dist = [
+    { name = "booking-agent", editable = "services/booking_agent" },
     { name = "deepeval", marker = "extra == 'evals'", specifier = ">=4.2.8" },
     { name = "headache-core", extras = ["retrieval", "llamaindex"], editable = "packages/headache_core" },
     { name = "langchain-community", marker = "extra == 'evals'", specifier = ">=0.4.1,<0.4.2" },

@@ -39,6 +39,7 @@ from headache_core.ports import (
     ToolConfig,
     VectorRecord,
 )
+from headache_core.ports.memory import CheckpointConflictError, ThreadState
 
 
 class FakeLLM:
@@ -373,6 +374,35 @@ class InMemoryUnitOfWork:
 
     async def commit(self) -> None:
         self.commits += 1
+
+
+class InMemoryCheckpointStore:
+    def __init__(self) -> None:
+        self.threads: dict[str, ThreadState] = {}
+
+    async def load(self, thread_id: str) -> ThreadState | None:
+        return self.threads.get(thread_id)
+
+    async def save(self, state: ThreadState, *, expected_version: int) -> ThreadState:
+        current = self.threads.get(state.thread_id)
+        if (current.version if current else 0) != expected_version:
+            raise CheckpointConflictError(f"El hilo {state.thread_id} ha cambiado.")
+        saved = replace(state, version=expected_version + 1)
+        self.threads[state.thread_id] = saved
+        return saved
+
+
+class InMemoryPreferenceStore:
+    def __init__(self, initial: Mapping[str, Mapping[str, str]] | None = None) -> None:
+        self.values: dict[str, dict[str, str]] = {
+            customer: dict(prefs) for customer, prefs in (initial or {}).items()
+        }
+
+    async def get(self, customer_id: str) -> dict[str, str]:
+        return dict(self.values.get(customer_id, {}))
+
+    async def put(self, customer_id: str, key: str, value: str) -> None:
+        self.values.setdefault(customer_id, {})[key] = value
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:

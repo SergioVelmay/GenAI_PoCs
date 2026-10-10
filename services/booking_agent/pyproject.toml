@@ -1,0 +1,22 @@
+[project]
+name = "booking-agent"
+version = "0.1.0"
+description = "Knowledge & Booking Agent (fase 7): el mismo agente en cinco sabores de framework"
+requires-python = ">=3.12"
+dependencies = [
+    "headache-core[azure,aws,gateway,observability,retrieval,tools]",
+    "retrieval",
+    "support-agent",
+]
+
+[tool.uv.sources]
+headache-core = { workspace = true }
+retrieval = { workspace = true }
+support-agent = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/booking_agent"]

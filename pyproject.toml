@@ -11,6 +11,7 @@ dependencies = [
     "rag-evals",
     "mcp-servers",
     "support-agent",
+    "booking-agent",
 ]
 
 [tool.uv.workspace]
@@ -24,6 +25,7 @@ retrieval = { workspace = true }
 rag-evals = { workspace = true }
 mcp-servers = { workspace = true }
 support-agent = { workspace = true }
+booking-agent = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -46,6 +48,7 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
+    "booking_agent",
     "headache_core",
     "headache_mcp",
     "indexer",
@@ -72,6 +75,8 @@ files = [
     "services/mcp_servers/tests",
     "services/support_agent/src",
     "services/support_agent/tests",
+    "services/booking_agent/src",
+    "services/booking_agent/tests",
     "evals/src",
     "evals/tests",
     "scripts",

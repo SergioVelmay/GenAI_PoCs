@@ -14,48 +14,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 from decimal import Decimal
-from pathlib import Path
-from typing import Any
-
-from fastmcp import Client
 
 from headache_core.adapters.llm_factory import build_gateway, build_tracer
 from headache_core.adapters.memory import RecordingTracer
 from headache_core.application.llm import CompositeTracer
 from headache_core.application.tools import ToolContext
-from headache_core.config import Settings, get_settings
-from headache_mcp.auth import GATEWAY_SCOPES, SERVER_SCOPES, DevTokenIssuer
+from headache_core.config import get_settings
 from support_agent.agent import SupportAgent
-from support_agent.toolset import McpToolset
-
-
-def _clients(settings: Settings, customer: str, *, gateway: bool) -> dict[str, Client[Any]]:
-    if settings.mcp.auth != "jwt":
-        return {name: Client(url) for name, url in settings.mcp.servers.items()}
-    if settings.environment != "local":
-        raise SystemExit(
-            "El emisor de desarrollo solo existe en local; en la nube usa OBO/Cognito."
-        )
-    issuer = DevTokenIssuer.load_or_create(
-        Path(settings.mcp.dev_private_key_file), issuer=settings.mcp.issuer
-    )
-    if gateway:
-        # Un solo token (audience del gateway); el gateway lo cambia por uno por servidor.
-        token = issuer.mint(
-            subject=customer, audience=settings.mcp.audience("gateway"), scopes=GATEWAY_SCOPES
-        )
-        return {"gateway": Client(settings.mcp.gateway_url, auth=token)}
-    return {
-        name: Client(
-            url,
-            auth=issuer.mint(
-                subject=customer,
-                audience=settings.mcp.audience(name),
-                scopes=SERVER_SCOPES[name],
-            ),
-        )
-        for name, url in settings.mcp.servers.items()
-    }
+from support_agent.toolset import McpToolset, mcp_clients
 
 
 async def main() -> None:
@@ -70,7 +36,7 @@ async def main() -> None:
     tracer = build_tracer(settings)
     llm = build_gateway(settings, tracer=CompositeTracer([tracer, ledger]))
 
-    async with McpToolset(_clients(settings, args.customer, gateway=args.gateway)) as tools:
+    async with McpToolset(mcp_clients(settings, args.customer, gateway=args.gateway)) as tools:
         print(f"Tools descubiertas: {', '.join(tools.names)}\n")
         result = await SupportAgent(llm, tools).answer(
             args.question, ToolContext(customer_id=args.customer)
