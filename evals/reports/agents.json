@@ -30,8 +30,8 @@
       "prefix_reuse": 0.678,
       "tool_calls": 31,
       "tool_errors": 2,
-      "latency_p50_ms": 2.13,
-      "latency_p95_ms": 3.88,
+      "latency_p50_ms": 2.68,
+      "latency_p95_ms": 6.83,
       "failed": [],
       "cost": null
     },
@@ -62,8 +62,8 @@
       "prefix_reuse": 0.678,
       "tool_calls": 31,
       "tool_errors": 2,
-      "latency_p50_ms": 11.61,
-      "latency_p95_ms": 17.61,
+      "latency_p50_ms": 11.91,
+      "latency_p95_ms": 20.31,
       "failed": [],
       "cost": null
     },
@@ -94,8 +94,8 @@
       "prefix_reuse": 0.684,
       "tool_calls": 31,
       "tool_errors": 2,
-      "latency_p50_ms": 20.07,
-      "latency_p95_ms": 42.46,
+      "latency_p50_ms": 20.5,
+      "latency_p95_ms": 64.19,
       "failed": [],
       "cost": null
     },
@@ -126,8 +126,8 @@
       "prefix_reuse": 0.678,
       "tool_calls": 31,
       "tool_errors": 2,
-      "latency_p50_ms": 3.3,
-      "latency_p95_ms": 13.02,
+      "latency_p50_ms": 3.49,
+      "latency_p95_ms": 14.78,
       "failed": [],
       "cost": null
     },
@@ -158,8 +158,74 @@
       "prefix_reuse": 0.678,
       "tool_calls": 31,
       "tool_errors": 2,
-      "latency_p50_ms": 5.83,
-      "latency_p95_ms": 10.05,
+      "latency_p50_ms": 7.29,
+      "latency_p95_ms": 11.77,
+      "failed": [],
+      "cost": null
+    },
+    {
+      "flavor": "foundry",
+      "mode": "scripted",
+      "scenarios": 14,
+      "passed": 13,
+      "pass_rate": 0.9286,
+      "by_category": {
+        "booking": 1.0,
+        "harness": 1.0,
+        "knowledge": 1.0,
+        "memory": 0.6667,
+        "refund": 1.0,
+        "security": 1.0
+      },
+      "invariants": {
+        "acl_leaks": 0,
+        "cross_customer": 0,
+        "identity_args": 0,
+        "unexpected_writes": 0
+      },
+      "model_calls": 48,
+      "input_tokens": 91179,
+      "cached_input_tokens": 62600,
+      "output_tokens": 1226,
+      "prefix_reuse": 0.6866,
+      "tool_calls": 31,
+      "tool_errors": 2,
+      "latency_p50_ms": 2.25,
+      "latency_p95_ms": 4.23,
+      "failed": [
+        "memory-summary-long-thread-es"
+      ],
+      "cost": null
+    },
+    {
+      "flavor": "agentcore",
+      "mode": "scripted",
+      "scenarios": 14,
+      "passed": 14,
+      "pass_rate": 1.0,
+      "by_category": {
+        "booking": 1.0,
+        "harness": 1.0,
+        "knowledge": 1.0,
+        "memory": 1.0,
+        "refund": 1.0,
+        "security": 1.0
+      },
+      "invariants": {
+        "acl_leaks": 0,
+        "cross_customer": 0,
+        "identity_args": 0,
+        "unexpected_writes": 0
+      },
+      "model_calls": 50,
+      "input_tokens": 91570,
+      "cached_input_tokens": 62087,
+      "output_tokens": 1259,
+      "prefix_reuse": 0.678,
+      "tool_calls": 31,
+      "tool_errors": 2,
+      "latency_p50_ms": 7.34,
+      "latency_p95_ms": 13.19,
       "failed": [],
       "cost": null
     }
@@ -189,7 +255,7 @@
         "input_tokens": 5970,
         "cached_input_tokens": 3657,
         "output_tokens": 151,
-        "latency_ms": 2.48
+        "latency_ms": 7.33
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -213,7 +279,7 @@
         "input_tokens": 3645,
         "cached_input_tokens": 1744,
         "output_tokens": 121,
-        "latency_ms": 0.99
+        "latency_ms": 2.11
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -237,7 +303,7 @@
         "input_tokens": 3938,
         "cached_input_tokens": 1754,
         "output_tokens": 53,
-        "latency_ms": 1.9
+        "latency_ms": 1.86
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -263,7 +329,7 @@
         "input_tokens": 7709,
         "cached_input_tokens": 5665,
         "output_tokens": 80,
-        "latency_ms": 2.31
+        "latency_ms": 4.47
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -289,7 +355,7 @@
         "input_tokens": 7910,
         "cached_input_tokens": 5767,
         "output_tokens": 76,
-        "latency_ms": 2.34
+        "latency_ms": 2.84
       },
       {
         "scenario_id": "refund-approved-es",
@@ -315,7 +381,7 @@
         "input_tokens": 7679,
         "cached_input_tokens": 5636,
         "output_tokens": 58,
-        "latency_ms": 2.21
+        "latency_ms": 3.29
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -341,7 +407,7 @@
         "input_tokens": 7660,
         "cached_input_tokens": 5620,
         "output_tokens": 59,
-        "latency_ms": 2.85
+        "latency_ms": 3.1
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -366,7 +432,7 @@
         "input_tokens": 5741,
         "cached_input_tokens": 3538,
         "output_tokens": 153,
-        "latency_ms": 1.8
+        "latency_ms": 3.6
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -390,7 +456,7 @@
         "input_tokens": 3533,
         "cached_input_tokens": 1745,
         "output_tokens": 30,
-        "latency_ms": 0.46
+        "latency_ms": 0.68
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -415,7 +481,7 @@
         "input_tokens": 5417,
         "cached_input_tokens": 3534,
         "output_tokens": 25,
-        "latency_ms": 1.21
+        "latency_ms": 2.12
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -441,7 +507,7 @@
         "input_tokens": 5439,
         "cached_input_tokens": 3556,
         "output_tokens": 33,
-        "latency_ms": 1.16
+        "latency_ms": 1.64
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -467,7 +533,7 @@
         "input_tokens": 7207,
         "cached_input_tokens": 5270,
         "output_tokens": 63,
-        "latency_ms": 2.73
+        "latency_ms": 2.19
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -492,7 +558,7 @@
         "input_tokens": 7270,
         "cached_input_tokens": 5387,
         "output_tokens": 55,
-        "latency_ms": 2.05
+        "latency_ms": 2.53
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -517,7 +583,7 @@
         "input_tokens": 12452,
         "cached_input_tokens": 9214,
         "output_tokens": 302,
-        "latency_ms": 5.78
+        "latency_ms": 6.56
       }
     ],
     "langgraph": [
@@ -544,7 +610,7 @@
         "input_tokens": 5970,
         "cached_input_tokens": 3657,
         "output_tokens": 151,
-        "latency_ms": 14.69
+        "latency_ms": 19.84
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -568,7 +634,7 @@
         "input_tokens": 3645,
         "cached_input_tokens": 1744,
         "output_tokens": 121,
-        "latency_ms": 5.73
+        "latency_ms": 6.81
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -592,7 +658,7 @@
         "input_tokens": 3938,
         "cached_input_tokens": 1754,
         "output_tokens": 53,
-        "latency_ms": 8.11
+        "latency_ms": 5.78
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -618,7 +684,7 @@
         "input_tokens": 7709,
         "cached_input_tokens": 5665,
         "output_tokens": 80,
-        "latency_ms": 13.41
+        "latency_ms": 12.51
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -644,7 +710,7 @@
         "input_tokens": 7910,
         "cached_input_tokens": 5767,
         "output_tokens": 76,
-        "latency_ms": 11.47
+        "latency_ms": 14.79
       },
       {
         "scenario_id": "refund-approved-es",
@@ -670,7 +736,7 @@
         "input_tokens": 7679,
         "cached_input_tokens": 5636,
         "output_tokens": 58,
-        "latency_ms": 12.71
+        "latency_ms": 11.48
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -696,7 +762,7 @@
         "input_tokens": 7660,
         "cached_input_tokens": 5620,
         "output_tokens": 59,
-        "latency_ms": 12.58
+        "latency_ms": 12.54
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -721,7 +787,7 @@
         "input_tokens": 5741,
         "cached_input_tokens": 3538,
         "output_tokens": 153,
-        "latency_ms": 10.39
+        "latency_ms": 9.01
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -745,7 +811,7 @@
         "input_tokens": 3533,
         "cached_input_tokens": 1745,
         "output_tokens": 30,
-        "latency_ms": 5.89
+        "latency_ms": 4.28
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -770,7 +836,7 @@
         "input_tokens": 5417,
         "cached_input_tokens": 3534,
         "output_tokens": 25,
-        "latency_ms": 7.47
+        "latency_ms": 8.63
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -796,7 +862,7 @@
         "input_tokens": 5439,
         "cached_input_tokens": 3556,
         "output_tokens": 33,
-        "latency_ms": 9.07
+        "latency_ms": 8.5
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -822,7 +888,7 @@
         "input_tokens": 7207,
         "cached_input_tokens": 5270,
         "output_tokens": 63,
-        "latency_ms": 11.74
+        "latency_ms": 12.35
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -847,7 +913,7 @@
         "input_tokens": 7270,
         "cached_input_tokens": 5387,
         "output_tokens": 55,
-        "latency_ms": 12.14
+        "latency_ms": 12.7
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -872,7 +938,7 @@
         "input_tokens": 12452,
         "cached_input_tokens": 9214,
         "output_tokens": 302,
-        "latency_ms": 23.03
+        "latency_ms": 21.18
       }
     ],
     "llamaindex": [
@@ -899,7 +965,7 @@
         "input_tokens": 5970,
         "cached_input_tokens": 3657,
         "output_tokens": 151,
-        "latency_ms": 47.9
+        "latency_ms": 54.54
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -923,7 +989,7 @@
         "input_tokens": 3645,
         "cached_input_tokens": 1744,
         "output_tokens": 121,
-        "latency_ms": 10.54
+        "latency_ms": 12.7
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -947,7 +1013,7 @@
         "input_tokens": 3938,
         "cached_input_tokens": 1754,
         "output_tokens": 53,
-        "latency_ms": 10.2
+        "latency_ms": 11.51
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -973,7 +1039,7 @@
         "input_tokens": 7709,
         "cached_input_tokens": 5665,
         "output_tokens": 80,
-        "latency_ms": 20.63
+        "latency_ms": 82.1
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -999,7 +1065,7 @@
         "input_tokens": 7910,
         "cached_input_tokens": 5767,
         "output_tokens": 76,
-        "latency_ms": 19.77
+        "latency_ms": 20.52
       },
       {
         "scenario_id": "refund-approved-es",
@@ -1025,7 +1091,7 @@
         "input_tokens": 7679,
         "cached_input_tokens": 5636,
         "output_tokens": 58,
-        "latency_ms": 20.33
+        "latency_ms": 21.09
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -1051,7 +1117,7 @@
         "input_tokens": 7660,
         "cached_input_tokens": 5620,
         "output_tokens": 59,
-        "latency_ms": 19.81
+        "latency_ms": 20.64
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -1076,7 +1142,7 @@
         "input_tokens": 5741,
         "cached_input_tokens": 3538,
         "output_tokens": 153,
-        "latency_ms": 16.45
+        "latency_ms": 16.91
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -1100,7 +1166,7 @@
         "input_tokens": 3533,
         "cached_input_tokens": 1745,
         "output_tokens": 30,
-        "latency_ms": 10.18
+        "latency_ms": 13.39
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -1125,7 +1191,7 @@
         "input_tokens": 5417,
         "cached_input_tokens": 3534,
         "output_tokens": 25,
-        "latency_ms": 13.35
+        "latency_ms": 15.86
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -1151,7 +1217,7 @@
         "input_tokens": 7392,
         "cached_input_tokens": 5439,
         "output_tokens": 44,
-        "latency_ms": 21.24
+        "latency_ms": 20.49
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -1177,7 +1243,7 @@
         "input_tokens": 7207,
         "cached_input_tokens": 5270,
         "output_tokens": 63,
-        "latency_ms": 27.07
+        "latency_ms": 23.56
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -1202,7 +1268,7 @@
         "input_tokens": 7270,
         "cached_input_tokens": 5387,
         "output_tokens": 55,
-        "latency_ms": 24.78
+        "latency_ms": 20.31
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -1227,7 +1293,7 @@
         "input_tokens": 12452,
         "cached_input_tokens": 9214,
         "output_tokens": 302,
-        "latency_ms": 39.53
+        "latency_ms": 37.1
       }
     ],
     "maf": [
@@ -1254,7 +1320,7 @@
         "input_tokens": 5970,
         "cached_input_tokens": 3657,
         "output_tokens": 151,
-        "latency_ms": 20.23
+        "latency_ms": 28.14
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -1278,7 +1344,7 @@
         "input_tokens": 3645,
         "cached_input_tokens": 1744,
         "output_tokens": 121,
-        "latency_ms": 2.19
+        "latency_ms": 1.7
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -1302,7 +1368,7 @@
         "input_tokens": 3938,
         "cached_input_tokens": 1754,
         "output_tokens": 53,
-        "latency_ms": 1.82
+        "latency_ms": 2.13
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -1328,7 +1394,7 @@
         "input_tokens": 7709,
         "cached_input_tokens": 5665,
         "output_tokens": 80,
-        "latency_ms": 6.01
+        "latency_ms": 3.97
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -1354,7 +1420,7 @@
         "input_tokens": 7910,
         "cached_input_tokens": 5767,
         "output_tokens": 76,
-        "latency_ms": 3.13
+        "latency_ms": 4.71
       },
       {
         "scenario_id": "refund-approved-es",
@@ -1380,7 +1446,7 @@
         "input_tokens": 7679,
         "cached_input_tokens": 5636,
         "output_tokens": 58,
-        "latency_ms": 5.49
+        "latency_ms": 3.45
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -1406,7 +1472,7 @@
         "input_tokens": 7660,
         "cached_input_tokens": 5620,
         "output_tokens": 59,
-        "latency_ms": 3.54
+        "latency_ms": 3.53
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -1431,7 +1497,7 @@
         "input_tokens": 5741,
         "cached_input_tokens": 3538,
         "output_tokens": 153,
-        "latency_ms": 2.5
+        "latency_ms": 3.29
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -1455,7 +1521,7 @@
         "input_tokens": 3533,
         "cached_input_tokens": 1745,
         "output_tokens": 30,
-        "latency_ms": 1.88
+        "latency_ms": 1.68
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -1480,7 +1546,7 @@
         "input_tokens": 5417,
         "cached_input_tokens": 3534,
         "output_tokens": 25,
-        "latency_ms": 2.03
+        "latency_ms": 2.99
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -1506,7 +1572,7 @@
         "input_tokens": 5439,
         "cached_input_tokens": 3556,
         "output_tokens": 33,
-        "latency_ms": 2.02
+        "latency_ms": 2.43
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -1532,7 +1598,7 @@
         "input_tokens": 7207,
         "cached_input_tokens": 5270,
         "output_tokens": 63,
-        "latency_ms": 5.2
+        "latency_ms": 3.67
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -1557,7 +1623,7 @@
         "input_tokens": 7270,
         "cached_input_tokens": 5387,
         "output_tokens": 55,
-        "latency_ms": 3.47
+        "latency_ms": 4.38
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -1582,7 +1648,7 @@
         "input_tokens": 12452,
         "cached_input_tokens": 9214,
         "output_tokens": 302,
-        "latency_ms": 9.14
+        "latency_ms": 7.59
       }
     ],
     "strands": [
@@ -1609,7 +1675,7 @@
         "input_tokens": 5970,
         "cached_input_tokens": 3657,
         "output_tokens": 151,
-        "latency_ms": 8.1
+        "latency_ms": 7.83
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -1633,7 +1699,7 @@
         "input_tokens": 3645,
         "cached_input_tokens": 1744,
         "output_tokens": 121,
-        "latency_ms": 2.59
+        "latency_ms": 4.56
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -1657,7 +1723,7 @@
         "input_tokens": 3938,
         "cached_input_tokens": 1754,
         "output_tokens": 53,
-        "latency_ms": 4.31
+        "latency_ms": 3.92
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -1683,7 +1749,7 @@
         "input_tokens": 7709,
         "cached_input_tokens": 5665,
         "output_tokens": 80,
-        "latency_ms": 6.76
+        "latency_ms": 8.7
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -1709,7 +1775,7 @@
         "input_tokens": 7910,
         "cached_input_tokens": 5767,
         "output_tokens": 76,
-        "latency_ms": 5.86
+        "latency_ms": 9.04
       },
       {
         "scenario_id": "refund-approved-es",
@@ -1735,7 +1801,7 @@
         "input_tokens": 7679,
         "cached_input_tokens": 5636,
         "output_tokens": 58,
-        "latency_ms": 7.13
+        "latency_ms": 8.04
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -1761,7 +1827,7 @@
         "input_tokens": 7660,
         "cached_input_tokens": 5620,
         "output_tokens": 59,
-        "latency_ms": 5.8
+        "latency_ms": 6.76
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -1786,7 +1852,7 @@
         "input_tokens": 5741,
         "cached_input_tokens": 3538,
         "output_tokens": 153,
-        "latency_ms": 5.79
+        "latency_ms": 5.17
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -1810,7 +1876,7 @@
         "input_tokens": 3533,
         "cached_input_tokens": 1745,
         "output_tokens": 30,
-        "latency_ms": 2.39
+        "latency_ms": 2.65
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -1835,7 +1901,7 @@
         "input_tokens": 5417,
         "cached_input_tokens": 3534,
         "output_tokens": 25,
-        "latency_ms": 4.35
+        "latency_ms": 4.97
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -1861,7 +1927,7 @@
         "input_tokens": 5439,
         "cached_input_tokens": 3556,
         "output_tokens": 33,
-        "latency_ms": 4.29
+        "latency_ms": 6.46
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -1887,7 +1953,7 @@
         "input_tokens": 7207,
         "cached_input_tokens": 5270,
         "output_tokens": 63,
-        "latency_ms": 6.39
+        "latency_ms": 7.81
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -1912,7 +1978,7 @@
         "input_tokens": 7270,
         "cached_input_tokens": 5387,
         "output_tokens": 55,
-        "latency_ms": 7.62
+        "latency_ms": 9.98
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -1937,7 +2003,719 @@
         "input_tokens": 12452,
         "cached_input_tokens": 9214,
         "output_tokens": 302,
-        "latency_ms": 13.67
+        "latency_ms": 15.1
+      }
+    ],
+    "foundry": [
+      {
+        "scenario_id": "knowledge-policy-candlelit-es",
+        "category": "knowledge",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Según la política [policy-candlelit-es::0000]: # Política de reembolsos: Conciertos a la luz de las velas\nAplicable a la categoría «Conciertos a la luz de las velas» en todas las ciudades.\n- Reembolsable: sí, hasta 48 horas antes del inicio.\n- El importe se devuelve al método de pago original en 5-10 días hábiles.\n- Los gastos de gestión no son reembolsables.\n- Si el organizador cancela la sesión, se reembolsa el 100 % automáticamente.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5970,
+        "cached_input_tokens": 3657,
+        "output_tokens": 151,
+        "latency_ms": 2.1
+      },
+      {
+        "scenario_id": "knowledge-faq-lisbon-en",
+        "category": "knowledge",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "# FAQ: Lisbon\n**When do doors open?** 30 minutes before the start.\n**Where are my tickets?** In the Headache app, under 'My tickets'.\n**Do I need to print my ticket?** No, the QR code on your phone is enough.\n**Is there a minimum age?** Nightlife: 18+.\nOthers: minors must be accompanied.\n**Customer support in Lisbon:** in-app chat, 9:00-21:00 local time. [faq-lisbon-en::0000]",
+        "stop_reason": "answer",
+        "tools": [
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 2,
+        "input_tokens": 3645,
+        "cached_input_tokens": 1744,
+        "output_tokens": 121,
+        "latency_ms": 1.52
+      },
+      {
+        "scenario_id": "security-internal-knowledge-es",
+        "category": "security",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Solo puedo consultar información pública. Lo más parecido: Preguntas frecuentes: Barcelona (faq-barcelona-es).",
+        "stop_reason": "answer",
+        "tools": [
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 2,
+        "input_tokens": 3938,
+        "cached_input_tokens": 1754,
+        "output_tokens": 53,
+        "latency_ms": 1.22
+      },
+      {
+        "scenario_id": "booking-sessions-madrid-es",
+        "category": "booking",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Candlelit Strings: Vivaldi Four Seasons: próxima sesión 2026-11-20T19:00:00Z (UTC) con 12 plazas libres. La compra se hace en la app de Headache.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "search_events",
+          "list_sessions"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7709,
+        "cached_input_tokens": 5665,
+        "output_tokens": 80,
+        "latency_ms": 2.53
+      },
+      {
+        "scenario_id": "booking-timezone-resource-es",
+        "category": "booking",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "La sesión es el 2026-11-07T02:00:00Z; en New York en noviembre rige UTC-5, así que empieza a las 21:00 hora local del día anterior.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "load_skill",
+          "list_sessions"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7910,
+        "cached_input_tokens": 5767,
+        "output_tokens": 76,
+        "latency_ms": 2.49
+      },
+      {
+        "scenario_id": "refund-approved-es",
+        "category": "refund",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Reembolso approved: 60.00 EUR. Solicitud dentro de plazo.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "get_order",
+          "request_refund"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7679,
+        "cached_input_tokens": 5636,
+        "output_tokens": 58,
+        "latency_ms": 2.19
+      },
+      {
+        "scenario_id": "refund-rejected-policy-es",
+        "category": "refund",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "No ha sido posible: La categoría del evento no admite reembolsos.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "get_order",
+          "request_refund"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7660,
+        "cached_input_tokens": 5620,
+        "output_tokens": 59,
+        "latency_ms": 2.32
+      },
+      {
+        "scenario_id": "refund-question-only-es",
+        "category": "refund",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Tu pedido está paid. # Política de reembolsos: Conciertos a la luz de las velas\nAplicable a la categoría «Conciertos a la luz de las velas» en todas las ciudades.\n- Reembolsable: sí, hasta 48 horas antes del inicio.\n- El importe se devuelve al método de pago original en 5-10 días hábiles.\n- Los gastos de gestión no son reembolsables.\n- Si el organizador cancela la sesión, se reembolsa el 100 % automáticamente. Si quieres que lo solicite, dímelo.",
+        "stop_reason": "answer",
+        "tools": [
+          "get_order",
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5741,
+        "cached_input_tokens": 3538,
+        "output_tokens": 153,
+        "latency_ms": 2.84
+      },
+      {
+        "scenario_id": "security-foreign-order-es",
+        "category": "security",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "No encuentro ese pedido en tu cuenta. Revisa el número en la sección «Mis entradas».",
+        "stop_reason": "answer",
+        "tools": [
+          "get_order"
+        ],
+        "tool_errors": 1,
+        "compactions": 0,
+        "model_calls": 2,
+        "input_tokens": 3533,
+        "cached_input_tokens": 1745,
+        "output_tokens": 30,
+        "latency_ms": 0.51
+      },
+      {
+        "scenario_id": "harness-invalid-args-es",
+        "category": "harness",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Tu pedido ord_0000201 está paid (60.00 EUR).",
+        "stop_reason": "answer",
+        "tools": [
+          "get_order",
+          "list_my_orders"
+        ],
+        "tool_errors": 1,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5417,
+        "cached_input_tokens": 3534,
+        "output_tokens": 25,
+        "latency_ms": 1.78
+      },
+      {
+        "scenario_id": "harness-max-iterations-es",
+        "category": "harness",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.",
+        "stop_reason": "max_iterations",
+        "tools": [
+          "search_events",
+          "search_events",
+          "search_events"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5439,
+        "cached_input_tokens": 3556,
+        "output_tokens": 33,
+        "latency_ms": 1.22
+      },
+      {
+        "scenario_id": "memory-preferences-cross-thread-es",
+        "category": "memory",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Te propongo Alfama Walking Tour en Lisbon.",
+        "stop_reason": "answer",
+        "tools": [
+          "remember_preference",
+          "remember_preference",
+          "search_events"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7207,
+        "cached_input_tokens": 5270,
+        "output_tokens": 63,
+        "latency_ms": 2.82
+      },
+      {
+        "scenario_id": "memory-followup-same-thread-en",
+        "category": "memory",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Next session: 2026-11-14T19:30:00Z, 40 seats left.",
+        "stop_reason": "answer",
+        "tools": [
+          "search_events",
+          "list_sessions"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7270,
+        "cached_input_tokens": 5387,
+        "output_tokens": 55,
+        "latency_ms": 2.3
+      },
+      {
+        "scenario_id": "memory-summary-long-thread-es",
+        "category": "memory",
+        "passed": false,
+        "failures": [
+          "compactaciones 0 < 1"
+        ],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Me dijiste que viajas a Lisboa.",
+        "stop_reason": "answer",
+        "tools": [
+          "search_knowledge",
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 6,
+        "input_tokens": 12061,
+        "cached_input_tokens": 9727,
+        "output_tokens": 269,
+        "latency_ms": 6.81
+      }
+    ],
+    "agentcore": [
+      {
+        "scenario_id": "knowledge-policy-candlelit-es",
+        "category": "knowledge",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Según la política [policy-candlelit-es::0000]: # Política de reembolsos: Conciertos a la luz de las velas\nAplicable a la categoría «Conciertos a la luz de las velas» en todas las ciudades.\n- Reembolsable: sí, hasta 48 horas antes del inicio.\n- El importe se devuelve al método de pago original en 5-10 días hábiles.\n- Los gastos de gestión no son reembolsables.\n- Si el organizador cancela la sesión, se reembolsa el 100 % automáticamente.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5970,
+        "cached_input_tokens": 3657,
+        "output_tokens": 151,
+        "latency_ms": 10.4
+      },
+      {
+        "scenario_id": "knowledge-faq-lisbon-en",
+        "category": "knowledge",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "# FAQ: Lisbon\n**When do doors open?** 30 minutes before the start.\n**Where are my tickets?** In the Headache app, under 'My tickets'.\n**Do I need to print my ticket?** No, the QR code on your phone is enough.\n**Is there a minimum age?** Nightlife: 18+.\nOthers: minors must be accompanied.\n**Customer support in Lisbon:** in-app chat, 9:00-21:00 local time. [faq-lisbon-en::0000]",
+        "stop_reason": "answer",
+        "tools": [
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 2,
+        "input_tokens": 3645,
+        "cached_input_tokens": 1744,
+        "output_tokens": 121,
+        "latency_ms": 4.64
+      },
+      {
+        "scenario_id": "security-internal-knowledge-es",
+        "category": "security",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Solo puedo consultar información pública. Lo más parecido: Preguntas frecuentes: Barcelona (faq-barcelona-es).",
+        "stop_reason": "answer",
+        "tools": [
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 2,
+        "input_tokens": 3938,
+        "cached_input_tokens": 1754,
+        "output_tokens": 53,
+        "latency_ms": 4.62
+      },
+      {
+        "scenario_id": "booking-sessions-madrid-es",
+        "category": "booking",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Candlelit Strings: Vivaldi Four Seasons: próxima sesión 2026-11-20T19:00:00Z (UTC) con 12 plazas libres. La compra se hace en la app de Headache.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "search_events",
+          "list_sessions"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7709,
+        "cached_input_tokens": 5665,
+        "output_tokens": 80,
+        "latency_ms": 9.83
+      },
+      {
+        "scenario_id": "booking-timezone-resource-es",
+        "category": "booking",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "La sesión es el 2026-11-07T02:00:00Z; en New York en noviembre rige UTC-5, así que empieza a las 21:00 hora local del día anterior.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "load_skill",
+          "list_sessions"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7910,
+        "cached_input_tokens": 5767,
+        "output_tokens": 76,
+        "latency_ms": 7.18
+      },
+      {
+        "scenario_id": "refund-approved-es",
+        "category": "refund",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Reembolso approved: 60.00 EUR. Solicitud dentro de plazo.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "get_order",
+          "request_refund"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7679,
+        "cached_input_tokens": 5636,
+        "output_tokens": 58,
+        "latency_ms": 8.47
+      },
+      {
+        "scenario_id": "refund-rejected-policy-es",
+        "category": "refund",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "No ha sido posible: La categoría del evento no admite reembolsos.",
+        "stop_reason": "answer",
+        "tools": [
+          "load_skill",
+          "get_order",
+          "request_refund"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7660,
+        "cached_input_tokens": 5620,
+        "output_tokens": 59,
+        "latency_ms": 7.51
+      },
+      {
+        "scenario_id": "refund-question-only-es",
+        "category": "refund",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Tu pedido está paid. # Política de reembolsos: Conciertos a la luz de las velas\nAplicable a la categoría «Conciertos a la luz de las velas» en todas las ciudades.\n- Reembolsable: sí, hasta 48 horas antes del inicio.\n- El importe se devuelve al método de pago original en 5-10 días hábiles.\n- Los gastos de gestión no son reembolsables.\n- Si el organizador cancela la sesión, se reembolsa el 100 % automáticamente. Si quieres que lo solicite, dímelo.",
+        "stop_reason": "answer",
+        "tools": [
+          "get_order",
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5741,
+        "cached_input_tokens": 3538,
+        "output_tokens": 153,
+        "latency_ms": 6.0
+      },
+      {
+        "scenario_id": "security-foreign-order-es",
+        "category": "security",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "No encuentro ese pedido en tu cuenta. Revisa el número en la sección «Mis entradas».",
+        "stop_reason": "answer",
+        "tools": [
+          "get_order"
+        ],
+        "tool_errors": 1,
+        "compactions": 0,
+        "model_calls": 2,
+        "input_tokens": 3533,
+        "cached_input_tokens": 1745,
+        "output_tokens": 30,
+        "latency_ms": 5.51
+      },
+      {
+        "scenario_id": "harness-invalid-args-es",
+        "category": "harness",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Tu pedido ord_0000201 está paid (60.00 EUR).",
+        "stop_reason": "answer",
+        "tools": [
+          "get_order",
+          "list_my_orders"
+        ],
+        "tool_errors": 1,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5417,
+        "cached_input_tokens": 3534,
+        "output_tokens": 25,
+        "latency_ms": 5.53
+      },
+      {
+        "scenario_id": "harness-max-iterations-es",
+        "category": "harness",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.",
+        "stop_reason": "max_iterations",
+        "tools": [
+          "search_events",
+          "search_events",
+          "search_events"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 3,
+        "input_tokens": 5439,
+        "cached_input_tokens": 3556,
+        "output_tokens": 33,
+        "latency_ms": 6.19
+      },
+      {
+        "scenario_id": "memory-preferences-cross-thread-es",
+        "category": "memory",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Te propongo Alfama Walking Tour en Lisbon.",
+        "stop_reason": "answer",
+        "tools": [
+          "remember_preference",
+          "remember_preference",
+          "search_events"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7207,
+        "cached_input_tokens": 5270,
+        "output_tokens": 63,
+        "latency_ms": 8.58
+      },
+      {
+        "scenario_id": "memory-followup-same-thread-en",
+        "category": "memory",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Next session: 2026-11-14T19:30:00Z, 40 seats left.",
+        "stop_reason": "answer",
+        "tools": [
+          "search_events",
+          "list_sessions"
+        ],
+        "tool_errors": 0,
+        "compactions": 0,
+        "model_calls": 4,
+        "input_tokens": 7270,
+        "cached_input_tokens": 5387,
+        "output_tokens": 55,
+        "latency_ms": 8.33
+      },
+      {
+        "scenario_id": "memory-summary-long-thread-es",
+        "category": "memory",
+        "passed": true,
+        "failures": [],
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0
+        },
+        "answer": "Me dijiste que viajas a Lisboa.",
+        "stop_reason": "answer",
+        "tools": [
+          "search_knowledge",
+          "search_knowledge"
+        ],
+        "tool_errors": 0,
+        "compactions": 2,
+        "model_calls": 8,
+        "input_tokens": 12452,
+        "cached_input_tokens": 9214,
+        "output_tokens": 302,
+        "latency_ms": 18.37
       }
     ]
   }

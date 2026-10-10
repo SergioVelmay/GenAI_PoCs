@@ -15,7 +15,11 @@ FLAVORS: dict[str, str] = {
     "llamaindex": "booking_agent.flavors.llamaindex",
     "maf": "booking_agent.flavors.maf",
     "strands": "booking_agent.flavors.strands",
+    # Carril A: sin nube, Foundry usa un emulador y AgentCore su contrato HTTP en proceso.
+    "foundry": "booking_agent.flavors.foundry",
+    "agentcore": "booking_agent.flavors.agentcore",
 }
+MANAGED_FLAVORS = frozenset({"foundry", "agentcore"})
 
 
 def create_agent(flavor: str, deps: AgentDeps) -> AgentRuntime:

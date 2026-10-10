@@ -44,6 +44,35 @@ variable "budget_email" {
 
 # ---------- Fase 6.4: AgentCore Gateway (MCP) ----------
 
+variable "agentcore_enabled" {
+  description = "Fase 7.4: crea AgentCore Memory y, si hay imagen, AgentCore Runtime."
+  type        = bool
+  default     = false
+}
+
+variable "agentcore_container_uri" {
+  description = "Imagen ARM64 del agente en ECR (fase 13). Vacío = sin Runtime."
+  type        = string
+  default     = ""
+}
+
+variable "agentcore_flavor" {
+  description = "Sabor que corre dentro del contenedor del Runtime."
+  type        = string
+  default     = "strands"
+
+  validation {
+    condition     = contains(["native", "langgraph", "llamaindex", "maf", "strands"], var.agentcore_flavor)
+    error_message = "Sabor de framework desconocido (los gestionados no se alojan a sí mismos)."
+  }
+}
+
+variable "agentcore_event_expiry_days" {
+  description = "Retención de los eventos de memoria a corto plazo (días, 7-365)."
+  type        = number
+  default     = 30
+}
+
 variable "mcp_gateway_enabled" {
   description = "Crea el MCP Gateway. false hasta tener los servidores MCP en HTTPS (fase 13)."
   type        = bool

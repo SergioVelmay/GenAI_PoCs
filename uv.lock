@@ -601,7 +601,9 @@ version = "0.1.0"
 source = { editable = "services/booking_agent" }
 dependencies = [
     { name = "agent-framework-core" },
+    { name = "fastapi" },
     { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "retrieval", "tools"] },
+    { name = "httpx" },
     { name = "langchain-core" },
     { name = "langgraph" },
     { name = "llama-index-core" },
@@ -613,7 +615,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "agent-framework-core", specifier = ">=1.21,<2" },
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "headache-core", extras = ["azure", "aws", "gateway", "observability", "retrieval", "tools"], editable = "packages/headache_core" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "langchain-core", specifier = ">=1.6,<2" },
     { name = "langgraph", specifier = ">=1.2,<2" },
     { name = "llama-index-core", specifier = ">=0.14,<0.15" },
@@ -655,6 +659,9 @@ bedrock-agent = [
 ]
 bedrock-agent-runtime = [
     { name = "mypy-boto3-bedrock-agent-runtime" },
+]
+bedrock-agentcore = [
+    { name = "mypy-boto3-bedrock-agentcore" },
 ]
 bedrock-runtime = [
     { name = "mypy-boto3-bedrock-runtime" },
@@ -1535,7 +1542,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "asyncpg-stubs" },
-    { name = "boto3-stubs", extra = ["bedrock-agent", "bedrock-agent-runtime", "bedrock-runtime", "s3", "s3vectors", "sqs"] },
+    { name = "boto3-stubs", extra = ["bedrock-agent", "bedrock-agent-runtime", "bedrock-agentcore", "bedrock-runtime", "s3", "s3vectors", "sqs"] },
     { name = "faker" },
     { name = "httpx" },
     { name = "mypy" },
@@ -1559,7 +1566,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "asyncpg-stubs", specifier = ">=0.30" },
-    { name = "boto3-stubs", extras = ["bedrock-agent", "bedrock-agent-runtime", "bedrock-runtime", "s3", "s3vectors", "sqs"], specifier = ">=1.38" },
+    { name = "boto3-stubs", extras = ["bedrock-agent", "bedrock-agent-runtime", "bedrock-agentcore", "bedrock-runtime", "s3", "s3vectors", "sqs"], specifier = ">=1.38" },
     { name = "faker", specifier = ">=30.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mypy", specifier = ">=1.13" },
@@ -3354,6 +3361,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/71/03/8109b4f84e19c827bc2fd79be0636a59c01ae7d7bcb4ba7852a41bcf2de6/mypy_boto3_bedrock_agent_runtime-1.43.105.tar.gz", hash = "sha256:82d945befae779576b6dbe44472b3781eeccfa879dfef568d1156fb6dafe2182", size = 47070, upload-time = "2026-09-29T22:34:11.556Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dd/25/e4e233569e3ac7148bd49102c2d5e32133c5b4ae2cf64d9b3892e8021bd8/mypy_boto3_bedrock_agent_runtime-1.43.105-py3-none-any.whl", hash = "sha256:80d3df5bce1ea8638b16db645318e3ba7dcc2d21264f2b2254c77b2355b8b925", size = 56694, upload-time = "2026-09-29T22:34:09.429Z" },
+]
+
+[[package]]
+name = "mypy-boto3-bedrock-agentcore"
+version = "1.43.99"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/a4/247f5da79e908fe976b9084a8aceed4e53599aa0ea2ecde9fa4c9d16fb21/mypy_boto3_bedrock_agentcore-1.43.99.tar.gz", hash = "sha256:ea669d402a07344d5aa43db9a45b155ea06b1dc8230947568f59158afd19db35", size = 55885, upload-time = "2026-09-21T20:42:23.964Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/bd/5a1eeb62566b97bd974d4de10b495a085684f260de961693fbe9b81d2339/mypy_boto3_bedrock_agentcore-1.43.99-py3-none-any.whl", hash = "sha256:18a886a1643757fc0fbdfe592ae4e2157cbaf833b4089f2f7017238765e8b9b7", size = 63054, upload-time = "2026-09-21T20:42:21.886Z" },
 ]
 
 [[package]]

@@ -78,7 +78,7 @@ async def test_native_flavor_passes_the_whole_suite(tmp_path: Path) -> None:
     assert render_markdown(report).startswith("# Evals del Knowledge & Booking Agent")
 
 
-@pytest.mark.parametrize("flavor", ["langgraph", "llamaindex", "maf", "strands"])
+@pytest.mark.parametrize("flavor", ["langgraph", "llamaindex", "maf", "strands", "agentcore"])
 async def test_framework_flavors_match_the_native_reference(flavor: str) -> None:
     report = await run_agent_suite(load_scenarios(), flavors=["native", flavor], dataset="v1")
 
@@ -87,6 +87,16 @@ async def test_framework_flavors_match_the_native_reference(flavor: str) -> None
     # Paridad de comportamiento: mismas tools, en el mismo orden, en cada escenario.
     assert [o.tools for o in other] == [o.tools for o in native]
     summary = next(f for f in report.flavors if f.flavor == flavor)
+    assert summary.invariants == dict.fromkeys(summary.invariants, 0)
+
+
+async def test_foundry_cannot_compact_a_service_side_conversation() -> None:
+    report = await run_agent_suite(load_scenarios(), flavors=["foundry"], dataset="v1")
+
+    failures = {o.scenario_id: o.failures for o in report.outcomes["foundry"] if o.failures}
+    # El historial es del servicio: responde bien, pero no hay compactación nuestra que medir.
+    assert failures == {"memory-summary-long-thread-es": ["compactaciones 0 < 1"]}
+    [summary] = report.flavors
     assert summary.invariants == dict.fromkeys(summary.invariants, 0)
 
 

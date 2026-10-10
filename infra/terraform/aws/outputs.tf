@@ -28,6 +28,16 @@ output "mcp_gateway_url" {
   value       = one(aws_bedrockagentcore_gateway.mcp[*].gateway_url)
 }
 
+output "agentcore_memory_id" {
+  description = "Valor para AGENTCORE__MEMORY_ID (vacío si AgentCore está desactivado)."
+  value       = one(aws_bedrockagentcore_memory.booking[*].id)
+}
+
+output "agentcore_runtime_arn" {
+  description = "Valor para AGENTCORE__RUNTIME_ARN (vacío sin imagen)."
+  value       = one(aws_bedrockagentcore_agent_runtime.booking[*].agent_runtime_arn)
+}
+
 output "kb_docs_bucket" {
   description = "Valor para BEDROCK_KB__DOCS_BUCKET."
   value       = aws_s3_bucket.docs.bucket

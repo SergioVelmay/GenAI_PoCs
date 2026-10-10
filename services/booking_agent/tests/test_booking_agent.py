@@ -10,7 +10,7 @@ import pytest
 from pydantic import BaseModel
 
 from booking_agent.bridges.langchain import to_chat_messages as from_langchain
-from booking_agent.flavors import FLAVORS, create_agent
+from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS, create_agent
 from booking_agent.flavors.langgraph import LangGraphAgent
 from booking_agent.runtime import AgentDeps, AgentRuntime, JournaledExecutor
 from booking_agent.spec import BOOKING_AGENT_PROMPT, SKILLS_DIR, AgentSpec, build_booking_spec
@@ -38,7 +38,8 @@ from headache_core.ports.memory import ThreadAccessError
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")
 ANA = ToolContext(customer_id="cus_1")
-ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(FLAVORS))
+# Los sabores gestionados guardan el hilo en el servicio: tienen sus propios tests.
+ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(set(FLAVORS) - MANAGED_FLAVORS))
 
 
 async def _stored(
