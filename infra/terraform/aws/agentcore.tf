@@ -4,7 +4,7 @@
 # sin `agentcore_container_uri` solo se crea la memoria.
 
 locals {
-  agentcore        = var.agentcore_enabled ? 1 : 0
+  agentcore         = var.agentcore_enabled ? 1 : 0
   agentcore_runtime = var.agentcore_enabled && var.agentcore_container_uri != "" ? 1 : 0
   # Memory y Runtime solo admiten [a-zA-Z][a-zA-Z0-9_]*.
   agentcore_name = replace("${local.name}_booking", "-", "_")
@@ -95,7 +95,7 @@ resource "aws_bedrockagentcore_agent_runtime" "booking" {
   }
 
   environment_variables = {
-    AGENTCORE__MEMORY_ID = aws_bedrockagentcore_memory.booking[0].id
+    AGENTCORE__MEMORY_ID  = aws_bedrockagentcore_memory.booking[0].id
     BOOKING_AGENT__FLAVOR = var.agentcore_flavor
   }
 
