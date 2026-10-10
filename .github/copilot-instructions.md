@@ -78,7 +78,7 @@
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | ✅ Hecha* (validación en cloud pendiente; carril A Azure = Foundry IQ + Agent Service por retirada de On Your Data el 14-10-2026; `docs/fase-4-retrieval.md`) |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | ✅ Hecha* (validación con LLM/cloud pendiente; comparativa en `docs/fase-5-evals.md`) |
 | 6 | Tool calling avanzado (bucle manual) + servidores MCP con FastMCP + MCP gateway | ✅ Hecha* (validación con LLM/cloud pendiente; comparativa en `docs/fase-6-tools-mcp.md`) |
-| 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | 🚧 En curso (7.1 núcleo + sabor native + suite de evals; 7.2 LangGraph + LlamaIndex; 7.3 MAF + Strands; 7.4 carril A en local: Foundry Agent Service emulado + AgentCore Runtime/Memory) |
+| 7 | Un agente en 5 sabores: LangGraph, MAF, Strands, LlamaIndex, Foundry Agent Service / AgentCore; context engineering | ✅ Hecha* (validación con LLM/cloud pendiente; 7 sabores con la misma suite y comparativa en `docs/fase-7-agentes.md`) |
 | 8 | Agentic harness y guardrails: validación, autocorrección, SQL seguro, PII, prompt injection, human-in-the-loop | |
 | 9 | Orquestación multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | |
 | 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, pruebas de carga | |
