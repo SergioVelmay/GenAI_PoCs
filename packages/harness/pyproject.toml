@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "headache-core",
     "pydantic>=2.9",
+    "sqlglot>=26",
 ]
 
 [tool.uv.sources]

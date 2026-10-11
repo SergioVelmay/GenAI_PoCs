@@ -2,6 +2,7 @@
 
 Tres puntos de intercepción que no dependen del framework:
 - `generate_validated`: artefactos estructurados con autocorrección (propuestas, emails, SQL).
+- `check_sql`: SQL generado por LLM validado con un parser y allow-lists, con LIMIT forzado.
 - `GuardedExecutor`: cada tool que pide el modelo pasa por guardas antes de ejecutarse.
 - `GuardedRuntime`: guardas de entrada y de salida alrededor de cualquier `AgentRuntime`.
 """
@@ -19,6 +20,7 @@ from harness.executor import (
     turn_trace,
 )
 from harness.runtime import BLOCKED_INPUT_ANSWER, GuardedRuntime, TurnRecord
+from harness.sql import SqlCheck, SqlPolicy, check_sql
 from harness.validation import (
     Validator,
     Violation,
@@ -40,11 +42,14 @@ __all__ = [
     "GuardedExecutor",
     "GuardedRuntime",
     "MaxCallsPerTurn",
+    "SqlCheck",
+    "SqlPolicy",
     "ToolGuard",
     "TurnRecord",
     "TurnTrace",
     "Validator",
     "Violation",
+    "check_sql",
     "correction_feedback",
     "current_trace",
     "extract_json",
