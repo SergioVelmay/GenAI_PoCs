@@ -42,6 +42,19 @@ async def run_validators[T, C](
     return violations
 
 
+def staged[T, C](*stages: Sequence[Validator[T, C]]) -> Validator[T, C]:
+    """Etapas en orden; se para en la primera que falle. Lo barato (reglas) antes que lo caro
+    (un juez LLM o la base de datos): no se paga por validar algo que ya se sabe inválido."""
+
+    async def validate(value: T, context: C) -> list[Violation]:
+        for stage in stages:
+            if violations := await run_validators(stage, value, context):
+                return violations
+        return []
+
+    return validate
+
+
 def from_rules(rules: Iterable[RuleViolation], *, path: str = "") -> list[Violation]:
     return [Violation(r.code, r.message, path) for r in rules]
 

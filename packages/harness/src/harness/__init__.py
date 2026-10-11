@@ -30,6 +30,7 @@ from harness.validation import (
     parse_output,
     render_feedback,
     run_validators,
+    staged,
 )
 
 __all__ = [
@@ -59,5 +60,6 @@ __all__ = [
     "parse_output",
     "render_feedback",
     "run_validators",
+    "staged",
     "turn_trace",
 ]
