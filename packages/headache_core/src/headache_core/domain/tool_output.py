@@ -2,7 +2,7 @@
 
 La salida de una tool es *dato no confiable*: puede traer texto de terceros (descripciones de
 partners, emails...) y acaba dentro del prompt. Aquí solo se aplican reglas deterministas de
-forma y tamaño; la detección de prompt injection llega con los guardrails (fase 8).
+forma y tamaño; la detección de prompt injection está en `harness.security.DocumentShield`.
 """
 
 from __future__ import annotations

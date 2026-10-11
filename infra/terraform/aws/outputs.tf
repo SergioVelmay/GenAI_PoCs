@@ -52,3 +52,11 @@ output "kb_data_source_id" {
   description = "Valor para BEDROCK_KB__DATA_SOURCE_ID."
   value       = aws_bedrockagent_data_source.docs.data_source_id
 }
+
+output "bedrock_guardrail" {
+  description = "BEDROCK_GUARDRAIL__GUARDRAIL_ID y __VERSION (null si está desactivado)."
+  value = var.bedrock_guardrail_enabled ? {
+    guardrail_id = aws_bedrock_guardrail.harness[0].guardrail_id
+    version      = aws_bedrock_guardrail_version.harness[0].version
+  } : null
+}

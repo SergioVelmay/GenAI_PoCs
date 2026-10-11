@@ -101,3 +101,15 @@ variable "mcp_audience_template" {
   type        = string
   default     = "api://headache-mcp/{server}"
 }
+
+variable "content_safety_enabled" {
+  description = "Fase 8.4: crea Azure AI Content Safety para el harness."
+  type        = bool
+  default     = false
+}
+
+variable "content_safety_sku" {
+  description = "F0 (gratuito, cuota limitada) o S0 (pago por uso)."
+  type        = string
+  default     = "F0"
+}

@@ -50,6 +50,12 @@ variable "agentcore_enabled" {
   default     = false
 }
 
+variable "bedrock_guardrail_enabled" {
+  description = "Fase 8.4: crea el guardrail de Bedrock del harness (pago por uso)."
+  type        = bool
+  default     = false
+}
+
 variable "agentcore_container_uri" {
   description = "Imagen ARM64 del agente en ECR (fase 13). Vacío = sin Runtime."
   type        = string

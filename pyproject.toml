@@ -107,6 +107,12 @@ follow_imports = "skip"
 module = ["rag_evals.frameworks.*"]
 disallow_subclassing_any = false
 
+# Extra opcional `pii` del harness: mismo tratamiento que `evals`.
+[[tool.mypy.overrides]]
+module = ["presidio_analyzer", "presidio_analyzer.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["packages", "services", "evals"]
 asyncio_mode = "auto"

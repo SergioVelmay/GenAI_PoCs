@@ -29,3 +29,8 @@ output "mcp_apim_urls" {
     name => "${azurerm_api_management.mcp[0].gateway_url}/headache-${name}/mcp"
   }
 }
+
+output "content_safety_endpoint" {
+  description = "Valor para CONTENT_SAFETY__ENDPOINT (null si content_safety_enabled = false)."
+  value       = var.content_safety_enabled ? azurerm_cognitive_account.content_safety[0].endpoint : null
+}

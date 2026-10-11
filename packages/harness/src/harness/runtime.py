@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
 from harness.executor import turn_trace
+from harness.pii import TextFilter
 from harness.validation import Validator, run_validators
 from headache_core.application.agents.runtime import AgentRuntime, AgentTurn
 from headache_core.application.tools import FALLBACK_ANSWER, ToolContext, ToolExecution
@@ -47,12 +48,16 @@ class GuardedRuntime:
         *,
         input_guards: Sequence[Validator[str, ToolContext]] = (),
         output_guards: Sequence[Validator[TurnRecord, ToolContext]] = (),
+        input_filters: Sequence[TextFilter] = (),
+        output_filters: Sequence[TextFilter] = (),
         blocked_input_answer: str = BLOCKED_INPUT_ANSWER,
         blocked_output_answer: str = FALLBACK_ANSWER,
     ) -> None:
         self._inner = inner
         self._input_guards = tuple(input_guards)
         self._output_guards = tuple(output_guards)
+        self._input_filters = tuple(input_filters)
+        self._output_filters = tuple(output_filters)
         self._blocked_input = blocked_input_answer
         self._blocked_output = blocked_output_answer
 
@@ -61,19 +66,35 @@ class GuardedRuntime:
         return self._inner.flavor
 
     async def respond(self, thread_id: str, message: str, context: ToolContext) -> AgentTurn:
+        # Las guardas ven el texto original; el agente (y su hilo) solo el filtrado.
         violations = await run_validators(self._input_guards, message, context)
         if violations:
             codes = tuple(v.code for v in violations)
             logger.warning("Entrada bloqueada por el harness: %s", codes)
             return AgentTurn(self._blocked_input, "guardrail", guardrails=codes)
+        message, input_codes = await _apply(self._input_filters, message, context)
         with turn_trace() as trace:
             turn = await self._inner.respond(thread_id, message, context)
         record = TurnRecord(message, turn.answer, tuple(trace.executions))
         violations = await run_validators(self._output_guards, record, context)
         if violations:
-            codes = tuple(v.code for v in violations)
+            codes = tuple(
+                dict.fromkeys((*input_codes, *trace.findings, *(v.code for v in violations)))
+            )
             logger.warning("Respuesta bloqueada por el harness: %s", codes)
             return replace(
                 turn, answer=self._blocked_output, stop_reason="guardrail", guardrails=codes
             )
-        return turn
+        answer, output_codes = await _apply(self._output_filters, turn.answer, context)
+        codes = tuple(dict.fromkeys((*input_codes, *trace.findings, *output_codes)))
+        return replace(turn, answer=answer, guardrails=codes)
+
+
+async def _apply(
+    filters: Sequence[TextFilter], text: str, context: ToolContext
+) -> tuple[str, tuple[str, ...]]:
+    codes: list[str] = []
+    for text_filter in filters:
+        text, found = await text_filter(text, context)
+        codes += found
+    return text, tuple(codes)

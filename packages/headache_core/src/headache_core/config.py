@@ -183,6 +183,30 @@ class McpSettings(BaseModel):
         return self.audience_template.format(server=server)
 
 
+class GuardrailsSettings(BaseModel):
+    """Fase 8.4: escudo de contenido y detector de PII del harness."""
+
+    # heuristic: local y sin coste. azure: Content Safety. bedrock: Bedrock Guardrails.
+    shield: Literal["heuristic", "azure", "bedrock"] = "heuristic"
+    # presidio exige `uv sync --all-packages --extra pii`.
+    pii: Literal["regex", "presidio"] = "regex"
+    # False = si el escudo no responde, se bloquea (falla cerrado).
+    fail_open: bool = False
+
+
+class ContentSafetySettings(BaseModel):
+    endpoint: str = ""  # https://<recurso>.cognitiveservices.azure.com
+    # None => Entra ID (rol "Cognitive Services User"), sin claves.
+    api_key: SecretStr | None = None
+
+
+class BedrockGuardrailSettings(BaseModel):
+    region: str = "eu-west-1"
+    profile: str | None = None
+    guardrail_id: str = ""
+    version: str = "DRAFT"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -209,6 +233,9 @@ class Settings(BaseSettings):
     foundry_iq: FoundryIQSettings = FoundryIQSettings()
     ticketing_api: TicketingApiSettings = TicketingApiSettings()
     mcp: McpSettings = McpSettings()
+    guardrails: GuardrailsSettings = GuardrailsSettings()
+    content_safety: ContentSafetySettings = ContentSafetySettings()
+    bedrock_guardrail: BedrockGuardrailSettings = BedrockGuardrailSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
 
     def provider_chain(self) -> list[LLMProvider]:

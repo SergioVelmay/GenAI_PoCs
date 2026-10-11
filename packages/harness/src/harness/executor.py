@@ -38,6 +38,8 @@ POLICY_DENIED = "policy_denied"
 @dataclass(slots=True)
 class TurnTrace:
     executions: list[ToolExecution] = field(default_factory=list)
+    # Códigos de lo que el harness detectó y neutralizó sin bloquear el turno.
+    findings: list[str] = field(default_factory=list)
 
     def succeeded(self, tool_name: str) -> list[ToolExecution]:
         return [e for e in self.executions if e.call.name == tool_name and not e.is_error]
@@ -73,27 +75,42 @@ class ToolGuard(Protocol):
     ) -> Denial | None: ...
 
 
+class ToolOutputGuard(Protocol):
+    """Revisa (y puede neutralizar) la salida de una tool antes de que la lea el modelo."""
+
+    async def inspect(
+        self, tool: Tool[Any], execution: ToolExecution, context: ToolContext, trace: TurnTrace
+    ) -> ToolExecution: ...
+
+
 class GuardedExecutor(ToolExecutor):
     def __init__(
         self,
         registry: ToolRegistry,
         guards: Sequence[ToolGuard],
         *,
+        output_guards: Sequence[ToolOutputGuard] = (),
         max_output_chars: int = 4000,
     ) -> None:
         super().__init__(registry, max_output_chars=max_output_chars)
         self._registry = registry
         self._guards = tuple(guards)
+        self._output_guards = tuple(output_guards)
 
     async def execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
         started = time.perf_counter()
         trace = current_trace()
-        denial = await self._check(call, context, trace or TurnTrace())
+        local = trace or TurnTrace()
+        denial = await self._check(call, context, local)
         if denial is not None:
             logger.warning("Tool %s bloqueada por el harness: %s", call.name, denial.code)
             execution = self.failure(call, denial.code, denial.message, started)
         else:
             execution = await super().execute(call, context)
+            tool = self._registry.get(call.name)
+            if tool is not None:
+                for guard in self._output_guards:
+                    execution = await guard.inspect(tool, execution, context, local)
         if trace is not None:
             trace.executions.append(execution)
         return execution

@@ -17,7 +17,12 @@ import asyncio
 from decimal import Decimal
 
 from booking_agent.flavors import FLAVORS, create_agent
-from booking_agent.guardrails import guarded_agent, guarded_executor
+from booking_agent.guardrails import (
+    build_pii_detector,
+    build_shield,
+    guarded_agent,
+    guarded_executor,
+)
 from booking_agent.runtime import AgentDeps
 from booking_agent.spec import build_booking_spec
 from headache_core.adapters.llm_factory import build_gateway, build_tracer
@@ -52,16 +57,20 @@ async def main() -> None:
     context = ToolContext(customer_id=args.customer)
     try:
         clients = mcp_clients(settings, args.customer, gateway=args.gateway)
-        async with McpToolset(clients) as ticketing:
+        fail_open = settings.guardrails.fail_open
+        async with McpToolset(clients) as ticketing, build_shield(settings) as shield:
             spec = build_booking_spec(
                 ticketing_tools=ticketing, retrieval=knowledge.service, preferences=preferences
             )
-            executor = guarded_executor(spec)
+            executor = guarded_executor(spec, shield, fail_open=fail_open)
             agent = guarded_agent(
                 create_agent(
                     args.flavor,
                     AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences),
-                )
+                ),
+                shield=shield,
+                pii=build_pii_detector(settings),
+                fail_open=fail_open,
             )
             questions = [args.question] if args.question else None
             while True:
