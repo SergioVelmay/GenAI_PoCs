@@ -6,7 +6,16 @@ from decimal import Decimal
 
 import pytest
 
-from headache_core.domain import Event, Money, Order, OrderStatus, Session, evaluate_refund
+from headache_core.domain import (
+    Event,
+    Money,
+    Order,
+    OrderStatus,
+    RefundAction,
+    Session,
+    check_refund_resolution,
+    evaluate_refund,
+)
 
 
 def test_refund_approved_within_window(order: Order, session: Session, event: Event) -> None:
@@ -64,3 +73,46 @@ def test_inconsistent_aggregates_raise(order: Order, session: Session, event: Ev
 def test_money_validation(amount: Decimal, currency: str) -> None:
     with pytest.raises(ValueError):
         Money(amount, currency)
+
+
+def _codes(
+    order: Order,
+    session: Session,
+    event: Event,
+    action: RefundAction,
+    amount: Money | None,
+    hours_before: int = 72,
+) -> list[str]:
+    violations = check_refund_resolution(
+        action=action,
+        amount=amount,
+        order=order,
+        session=session,
+        event=event,
+        decided_at=session.starts_at - timedelta(hours=hours_before),
+    )
+    return [v.code for v in violations]
+
+
+def test_refund_resolution_allows_full_and_partial_refunds(
+    order: Order, session: Session, event: Event
+) -> None:
+    half = Money(order.total.amount / 2, order.total.currency)
+
+    assert _codes(order, session, event, RefundAction.REFUND, order.total) == []
+    assert _codes(order, session, event, RefundAction.REFUND, half) == []
+    assert _codes(order, session, event, RefundAction.ESCALATE, None, hours_before=1) == []
+
+
+def test_refund_resolution_enforces_policy(order: Order, session: Session, event: Event) -> None:
+    total = order.total
+    more = Money(total.amount + 1, total.currency)
+    other = Money(total.amount, "USD" if total.currency != "USD" else "EUR")
+
+    assert _codes(order, session, event, RefundAction.REFUND, more) == ["amount_exceeds_paid"]
+    assert _codes(order, session, event, RefundAction.REFUND, other) == ["currency_mismatch"]
+    assert _codes(order, session, event, RefundAction.REFUND, None) == ["invalid_amount"]
+    assert _codes(order, session, event, RefundAction.DENY, None) == ["deny_eligible"]
+    late = _codes(order, session, event, RefundAction.REFUND, total, hours_before=1)
+    assert late == ["refund_not_allowed"]
+    assert _codes(order, session, event, RefundAction.DENY, None, hours_before=1) == []

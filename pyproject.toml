@@ -5,6 +5,7 @@ description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
 requires-python = ">=3.12"
 dependencies = [
     "headache-core[postgres,rabbitmq,llamaindex,azure,aws,gateway,observability,retrieval,tools]",
+    "harness",
     "indexer",
     "ticketing-api",
     "retrieval",
@@ -19,6 +20,7 @@ members = ["packages/*", "services/*", "evals"]
 
 [tool.uv.sources]
 headache-core = { workspace = true }
+harness = { workspace = true }
 indexer = { workspace = true }
 ticketing-api = { workspace = true }
 retrieval = { workspace = true }
@@ -49,6 +51,7 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
 [tool.ruff.lint.isort]
 known-first-party = [
     "booking_agent",
+    "harness",
     "headache_core",
     "headache_mcp",
     "indexer",
@@ -65,6 +68,8 @@ plugins = ["pydantic.mypy"]
 files = [
     "packages/headache_core/src",
     "packages/headache_core/tests",
+    "packages/harness/src",
+    "packages/harness/tests",
     "services/indexer/src",
     "services/indexer/tests",
     "services/ticketing_api/src",

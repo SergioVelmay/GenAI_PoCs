@@ -5,6 +5,7 @@ description = "Knowledge & Booking Agent (fase 7): el mismo agente en cinco sabo
 requires-python = ">=3.12"
 dependencies = [
     "headache-core[azure,aws,gateway,observability,retrieval,tools]",
+    "harness",
     "retrieval",
     "support-agent",
     # Sabores de framework (fase 7.2 y 7.3).
@@ -19,6 +20,7 @@ dependencies = [
 
 [tool.uv.sources]
 headache-core = { workspace = true }
+harness = { workspace = true }
 retrieval = { workspace = true }
 support-agent = { workspace = true }
 

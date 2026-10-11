@@ -19,7 +19,7 @@ import httpx
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from booking_agent.runtime import AgentRuntime
+from booking_agent.runtime import AgentRuntime, StopReason
 from headache_core.application.tools import ToolContext
 from headache_core.ports.memory import ThreadAccessError
 
@@ -45,7 +45,7 @@ class InvocationRequest(BaseModel):
 class InvocationResponse(BaseModel):
     response: str
     status: Literal["success"] = "success"
-    stop_reason: Literal["answer", "max_iterations"]
+    stop_reason: StopReason
     compacted: bool
 
 

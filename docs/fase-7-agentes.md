@@ -15,7 +15,7 @@ mismo modelo guionizado, así que las diferencias que aparecen son del framework
 | Pieza | Dónde | Qué hace |
 |---|---|---|
 | `AgentSpec` | `services/booking_agent/src/booking_agent/spec.py` | Prompt, tools, skills, política de contexto, `max_iterations` y fallback: lo único que ven todos los sabores. |
-| `AgentRuntime` | `booking_agent/runtime.py` | Contrato común: `respond(thread_id, message, ToolContext) -> AgentTurn`. |
+| `AgentRuntime` | `headache_core/application/agents/runtime.py` (reexportado en `booking_agent/runtime.py`) | Contrato común: `respond(thread_id, message, ToolContext) -> AgentTurn`. Desde la fase 8 vive en el núcleo para que el harness lo envuelva. |
 | `JournaledExecutor` | `booking_agent/runtime.py` | Todas las tools pasan por aquí: validación, timeouts, saneamiento, lock de escrituras y diario que lee la eval. |
 | Puentes al gateway | `booking_agent/bridges/` | Cada framework llama al modelo a través de nuestro `LLMPort` (routing, fallback, caché, coste, trazas). |
 | Context engineering | `headache_core/application/agents/` | Orden del prompt, compactación con resumen, hilos con dueño, preferencias, skills bajo demanda. |

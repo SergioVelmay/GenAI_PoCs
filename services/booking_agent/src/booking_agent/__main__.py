@@ -17,7 +17,8 @@ import asyncio
 from decimal import Decimal
 
 from booking_agent.flavors import FLAVORS, create_agent
-from booking_agent.runtime import AgentDeps, JournaledExecutor
+from booking_agent.guardrails import guarded_agent, guarded_executor
+from booking_agent.runtime import AgentDeps
 from booking_agent.spec import build_booking_spec
 from headache_core.adapters.llm_factory import build_gateway, build_tracer
 from headache_core.adapters.memory import (
@@ -55,10 +56,12 @@ async def main() -> None:
             spec = build_booking_spec(
                 ticketing_tools=ticketing, retrieval=knowledge.service, preferences=preferences
             )
-            executor = JournaledExecutor(spec.tools)
-            agent = create_agent(
-                args.flavor,
-                AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences),
+            executor = guarded_executor(spec)
+            agent = guarded_agent(
+                create_agent(
+                    args.flavor,
+                    AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences),
+                )
             )
             questions = [args.question] if args.question else None
             while True:
@@ -74,6 +77,8 @@ async def main() -> None:
                     call = execution.call
                     print(f"  {call.name}({call.arguments}) -> {execution.error or 'ok'}")
                 note = " [memoria compactada]" if turn.compacted else ""
+                if turn.guardrails:
+                    note += f" [harness: {', '.join(turn.guardrails)}]"
                 print(f"\n{agent.flavor} ({turn.stop_reason}){note}:\n{turn.answer}")
                 if questions is not None:
                     break
