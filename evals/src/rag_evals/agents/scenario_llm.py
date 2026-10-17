@@ -121,6 +121,7 @@ def _common_prefix(a: str, b: str) -> int:
 class ScenarioLLM:
     def __init__(self, scenario: Scenario, model: str = "scenario-llm") -> None:
         self._turns: dict[str, ScenarioTurn] = {t.user.strip(): t for t in scenario.turns}
+        self._turns |= {t.model_sees.strip(): t for t in scenario.turns if t.model_sees}
         self._model = model
         self._prompts: list[str] = []
         self._ids = 0
@@ -168,6 +169,8 @@ class ScenarioLLM:
             return resolve(turn.final, messages), ()
         calls: list[ToolCall] = []
         for planned in turn.plan[step]:
+            if planned.when_seen and not any(planned.when_seen in m.content for m in messages):
+                continue
             self._ids += 1
             arguments = _resolve_arguments(planned.arguments, messages)
             calls.append(
@@ -175,6 +178,8 @@ class ScenarioLLM:
                     f"call_{self._ids}", planned.name, json.dumps(arguments, ensure_ascii=False)
                 )
             )
+        if not calls:
+            return resolve(turn.final, messages), ()
         return "", tuple(calls)
 
     @staticmethod

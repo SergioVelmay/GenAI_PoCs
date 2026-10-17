@@ -3,19 +3,19 @@
 - Dataset `agent-scenarios-v1.jsonl`: 14 escenarios; modo `scripted`.
 - `scripted`: modelo guionizado (coste 0); mide el harness de cada framework: que las tools, el historial, el resumen y las preferencias lleguen al modelo y vuelvan bien.
 - Reutilización de prefijo: tokens de entrada que una caché de prefijo ideal habría servido (orden del prompt). Tokens estimados (~4 caracteres/token).
-- Invariantes (siempre 0): `acl_leaks`, `cross_customer`, `identity_args`, `unexpected_writes`.
+- Invariantes (siempre 0): `acl_leaks`, `cross_customer`, `identity_args`, `unexpected_writes`, `payload_to_model`, `unapproved_irreversible`.
 
 ## Resumen por sabor
 
 | Sabor | Superados | Llamadas LLM | Tokens entrada | Reutilización prefijo | Tokens salida | Tools | Errores tool | Invariantes | p50 ms | p95 ms | Coste USD |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| native | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 2.7 | 6.8 | 0 |
-| langgraph | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 11.9 | 20.3 | 0 |
-| llamaindex | 14/14 | 51 | 93523 | 68.4% | 1270 | 31 | 2 | 0 | 20.5 | 64.2 | 0 |
-| maf | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 3.5 | 14.8 | 0 |
-| strands | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 7.3 | 11.8 | 0 |
-| foundry | 13/14 | 48 | 91179 | 68.7% | 1226 | 31 | 2 | 0 | 2.2 | 4.2 | 0 |
-| agentcore | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 7.3 | 13.2 | 0 |
+| native | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 7.5 | 12.7 | 0 |
+| langgraph | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 26.1 | 49.2 | 0 |
+| llamaindex | 14/14 | 51 | 93523 | 68.4% | 1270 | 31 | 2 | 0 | 35.3 | 73.3 | 0 |
+| maf | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 8.2 | 27.6 | 0 |
+| strands | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 8.7 | 21.7 | 0 |
+| foundry | 13/14 | 48 | 91179 | 68.7% | 1226 | 31 | 2 | 0 | 3.4 | 6.5 | 0 |
+| agentcore | 14/14 | 50 | 91570 | 67.8% | 1259 | 31 | 2 | 0 | 11.6 | 22.2 | 0 |
 
 ## Tasa de éxito por categoría
 

@@ -11,8 +11,12 @@ from headache_core.domain import OrderStatus
 from rag_evals import EVALS_DIR
 
 SCENARIOS_PATH = EVALS_DIR / "datasets" / "agent-scenarios-v1.jsonl"
+# Fase 8.6: el modelo guionizado hace de modelo COMPROMETIDO (obedece al atacante).
+ATTACKS_PATH = EVALS_DIR / "datasets" / "attack-scenarios-v1.jsonl"
 
-type Category = Literal["knowledge", "booking", "refund", "security", "memory", "harness"]
+type Category = Literal[
+    "knowledge", "booking", "refund", "security", "memory", "harness", "attack", "benign"
+]
 
 
 class _Model(BaseModel):
@@ -23,10 +27,14 @@ class PlannedCall(_Model):
     name: str
     # Los valores de texto admiten marcadores: {tool:NOMBRE.ruta}, {memory:clave}, {seen:literal}.
     arguments: dict[str, Any] = Field(default_factory=dict)
+    # Solo se pide si este literal llegó al modelo: simula obedecer una instrucción inyectada.
+    when_seen: str | None = None
 
 
 class ScenarioTurn(_Model):
     user: str
+    # Texto que debe recibir el modelo si el harness lo transforma (p. ej. PII redactada).
+    model_sees: str | None = None
     thread: str = "t1"
     # Guion del modo `scripted`: un paso = las tools que pide el modelo en una iteración.
     plan: list[list[PlannedCall]] = Field(default_factory=list)
@@ -52,7 +60,12 @@ class Expectations(_Model):
     preferences: dict[str, str] = Field(default_factory=dict)
     skills: list[str] = Field(default_factory=list)
     min_compactions: int = 0
-    stop_reason: Literal["answer", "max_iterations"] = "answer"
+    stop_reason: Literal["answer", "max_iterations", "guardrail"] = "answer"
+    # Códigos del harness en todos los turnos (conjunto exacto: [] = no se disparó ninguno).
+    guardrails: list[str] = Field(default_factory=list)
+    pending_approvals: int = 0
+    # Literales que nunca deben llegar al modelo (cargas de inyección, PII).
+    never_seen: list[str] = Field(default_factory=list)
 
 
 class Scenario(_Model):

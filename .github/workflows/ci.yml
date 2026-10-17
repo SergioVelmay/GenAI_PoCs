@@ -75,6 +75,10 @@ jobs:
       - name: Gate contra el baseline
         run: uv run python -m rag_evals.gate --reports /tmp/evals --mode report
 
+      # Bloquea siempre: un ataque no contenido o un falso positivo es un fallo de seguridad.
+      - name: Tests de ataque del harness (7 sabores, modelo comprometido)
+        run: uv run python -m rag_evals.attacks --out /tmp/evals --check
+
       - name: Publicar informes
         if: always()
         uses: actions/upload-artifact@v4
