@@ -435,56 +435,5 @@ los tests actuales validan contratos, no la calidad del retrieval.
 
 ## Checkpoint de entrevista
 
-**Por que RRF y no sumar scores?** BM25 y cosine tienen escalas distintas. RRF combina
-posiciones y evita calibrarlas; el recall sigue dependiendo de la ventana de candidatos.
-
-**Donde se aplica ACL?** Antes del ranking/top-k, en el backend, y de nuevo en la
-aplicacion. El LLM no puede ampliar el scope ni generar ACL como filtro.
-
-**HyDE no introduce alucinaciones?** Su texto es hipotetico y solo guia la busqueda.
-La respuesta usa exclusivamente fuentes reales recuperadas; puede empeorar el recall
-y hay que medirlo frente a hibrida sin HyDE.
-
-**Una respuesta con citas es fiable?** Las citas demuestran trazabilidad, no entailment.
-Aqui reducimos el riesgo usando extraccion literal; aun debemos evaluar relevancia,
-vigencia y suficiencia de la evidencia.
-
-**Por que hashing local?** Permite tests deterministas sin red/coste ni modelos locales.
-No demuestra recuperacion semantica: eso requiere embeddings cloud reales y evals.
-
-**Parent-child y auto-merging son lo mismo?** No. La expansion explicita siempre intenta
-devolver el padre de un hit. Auto-merging necesita una proporcion suficiente de hijos
-recuperados; reduce ruido cuando solo coincide un detalle aislado y amplia contexto
-cuando coinciden varios. El umbral y el tamano del padre deben evaluarse.
-
-**Que aporta LlamaIndex si ya tengo puertos?** Compone retrievers y docstores existentes,
-sin mover seguridad ni reglas de negocio al framework. El coste es adaptar contratos,
-conocer sus defaults y asumir cambios de API. Aqui conserva los mismos IDs y fuentes,
-de modo que la comparacion prueba ranking, no diferencias de ingesta.
-
-**Semantic Ranker equivale a Bedrock Rerank?** Ambos reordenan, pero AI Search trabaja
-sobre los primeros resultados de su indice; Bedrock Rerank acepta candidatos de nuestra
-aplicacion. No comparten puertos ni escalas de scores necesariamente.
-
-**Por que no implementar On Your Data?** Su retirada anunciada y su lista limitada de
-modelos lo hacen una mala dependencia nueva. Validamos el ciclo de vida del producto
-y Sergio aprobo el 2026-10-08 sustituirlo por Foundry Agent Service + Foundry IQ.
-La decision no sustituye la comprobacion de APIs, seguridad y costes de la alternativa.
-
-**Que garantiza una cita gestionada?** Que el span existe en la respuesta y apunta a
-una referencia autorizada retornada por la KB. No prueba que la afirmacion sea fiel a
-esa fuente: hacen falta evals y validacion cloud, igual que en los demas carriles.
-
-**Foundry IQ es lo mismo que On Your Data?** No. On Your Data era un parametro de
-chat completions; Foundry IQ es una knowledge base reutilizable que se consulta por API
-(`retrieve`) o como herramienta MCP de cualquier agente. La generacion pasa al agente.
-
-**Como aseguras la ACL si el agente decide la llamada MCP?** No en el prompt ni en el
-agente: en el servidor, con una knowledge source por audiencia (`baseFilter`) y un
-agente vinculado a ella. El adaptador rechaza scopes o filtros que no puede garantizar.
-Para ACL por usuario se usan permisos de Entra en el indice y el token del usuario.
-
-**Como evitas activar la nube sin querer?** Composicion explicita: cada pieza cloud es
-una variable con valor por defecto local, las combinaciones incoherentes fallan al
-arrancar y `/health` declara que piezas estan activas. Faltar configuracion es un error,
-no un fallback silencioso a otro proveedor.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 4](preguntas-entrevista.md#fase-4).

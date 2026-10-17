@@ -139,19 +139,5 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 
 ## 8. Checkpoint de entrevista
 
-- **"¿Cómo construiste el golden dataset?"** Con plantillas deterministas sobre documentos
-  sintéticos: cada pregunta sabe qué documento la responde y qué literal debe aparecer. Es barato y
-  reproducible, pero sobreestima la calidad porque las preguntas comparten vocabulario con los
-  documentos (de ahí Hit@5 ≈ 1.0). El siguiente paso es añadir preguntas reales anonimizadas de
-  soporte y parafrasear con un LLM, revisando a mano.
-- **"¿Qué métrica mirarías primero?"** Para retrieval, MRR y nDCG (orden), porque el generador lee los
-  primeros resultados. Para generación, precisión de citas y abstención correcta. Y por encima de
-  todo los invariantes de seguridad: una fuga de ACL invalida cualquier media.
-- **"¿RAGAS o algo propio?"** Ambos, para cosas distintas. RAGAS/DeepEval sirven como referencia
-  estándar y para comparar con la literatura; el juez propio es lo que corre de forma recurrente,
-  porque cuesta una llamada por muestra en vez de 7-11 y su nota es auditable.
-- **"¿Cómo evitas que las evals se queden obsoletas?"** El dataset guarda el hash del corpus y el gate
-  falla si no coinciden; el baseline está versionado y solo se sube con revisión.
-- **"LlamaIndex es mucho más lento, ¿lo descartas?"** No por eso: la calidad es la misma y acelera el
-  desarrollo. Lo uso donde aporta (auto-merge, parsers) y mantengo el camino caliente en código
-  propio cuando la latencia de CPU importa a escala.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 5](preguntas-entrevista.md#fase-5).

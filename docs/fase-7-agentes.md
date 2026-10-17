@@ -140,23 +140,5 @@ Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md): suite c
 
 ## 10. Checkpoint de entrevista
 
-**¿Por qué siete implementaciones del mismo agente?** Para separar lo que es del framework de lo que
-es del producto. La misma suite con el mismo modelo guionizado convierte "me gusta más X" en datos:
-llamadas, tokens, paridad de tools, invariantes de seguridad y casos límite.
-
-**¿Qué dejarías siempre fuera del framework?** Identidad y autorización, ejecución de tools
-(validación, idempotencia, escrituras en serie), acceso al modelo (gateway: coste, fallback,
-trazas) y evals. El framework orquesta; el producto decide.
-
-**¿Agente gestionado o propio?** Gestionado: operación, escalado y aislamiento por sesión sin
-esfuerzo, a cambio de control del contexto (Foundry no deja compactar) y de portabilidad. AgentCore
-es el punto intermedio: gestiona la ejecución, pero el agente es tu contenedor.
-
-**¿Cómo haces que el prompt cachee bien?** Lo estable primero y lo variable al final; contexto de
-sesión separado de las instrucciones; checkpoints al final del prefijo estable y del historial; y
-nunca reescribir el historial salvo al compactar (que invalida la caché a propósito, con histéresis
-para que ocurra pocas veces).
-
-**¿Cómo detectas que un framework te cambia el comportamiento?** Con un diario de tools propio y
-tests de paridad contra una referencia. En esta fase cazaron un orden de mensajes no determinista
-(LlamaIndex), una lista mutada en sitio (Strands) y JSON inválido silenciado (MAF y Strands).
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 7](preguntas-entrevista.md#fase-7).

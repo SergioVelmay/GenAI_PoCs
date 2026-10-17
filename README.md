@@ -88,6 +88,9 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)).
 
+Preguntas de entrevista (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
+modelo y una chuleta Azure → AWS: [preguntas-entrevista.md](docs/preguntas-entrevista.md).
+
 ## Calidad y CI
 
 GitHub Actions ejecuta en cada push: lint, formato, `mypy --strict`, tests, evals deterministas con

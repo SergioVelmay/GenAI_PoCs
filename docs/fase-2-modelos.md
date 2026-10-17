@@ -157,15 +157,5 @@ reloj inyectado), precios, routing, structured outputs y factoría.
 
 ## 12. Checkpoint de entrevista
 
-1. **¿Por qué un LLM gateway?** Para centralizar lo transversal (cuotas, fallback, routing, trazas,
-   coste, seguridad) fuera del código de negocio y cambiar de proveedor sin tocar casos de uso.
-2. **¿Cómo bajas el coste sin perder calidad?** Routing al modelo más barato capaz, prompt caching
-   con prefijos estables, salidas estructuradas cortas y medir el coste por petición.
-3. **Diferencia de prompt caching entre Azure y Bedrock.** Azure: automático por prefijo ≥ 1024
-   tokens, sin coste de escritura. Bedrock: explícito con `cachePoint`; en Claude la escritura cuesta
-   más y la lectura un 90 % menos.
-4. **¿Qué haces ante un 429?** No reintentar contra el mismo despliegue: limitar en cliente (token
-   bucket por TPM), saltar a otro despliegue o región y, en el carril gestionado, APIM con backends
-   balanceados.
-5. **¿LiteLLM o gateway propio?** LiteLLM da rapidez y cobertura de proveedores; el propio da control
-   y tests deterministas. Aquí conviven tras el mismo puerto y se comparan con las mismas trazas.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 2](preguntas-entrevista.md#fase-2).

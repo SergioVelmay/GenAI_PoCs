@@ -57,7 +57,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   #
 
 - Commits: Conventional Commits en español (`feat: fase 8.2 - ...`), con trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 - Tests deterministas, sin red ni coste (adaptadores en memoria). Lo que tiene coste exige `--budget-usd` o dry-run por defecto (`--apply`).
-- Docs de fase en `docs/fase-N-*.md` con la misma estructura y checkpoint de entrevista.
+- Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud. No escribir "asterisco".
 
 ## Entorno y problemas conocidos

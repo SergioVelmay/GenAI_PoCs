@@ -154,15 +154,5 @@ alternativas habituales son SQLModel, asyncpg directo o Django ORM.
 
 ## 9. Checkpoint de entrevista
 
-1. **¿Cómo evitas la sobreventa con miles de compradores a la vez?** Un `UPDATE ... WHERE available
-   >= :q RETURNING` atómico, más un `CHECK` en la tabla. Nada de leer y escribir en dos pasos: el
-   test de integración demuestra que pierde actualizaciones.
-2. **¿Optimista o pesimista?** Pesimista cuando la contención es alta o la decisión lee varias filas
-   (reembolsos); optimista (versión) cuando los conflictos son raros. Aquí, además, la sentencia
-   condicional evita bloquear en la compra.
-3. **¿Cómo haces idempotente un `POST`?** `Idempotency-Key` con índice único: misma clave y mismo
-   cuerpo ⇒ misma respuesta; distinto cuerpo ⇒ `409`.
-4. **¿Por qué `CONCURRENTLY`?** Un `CREATE INDEX` normal bloquea las escrituras de la tabla durante
-   toda la creación. Coste: no va en transacción y puede quedar `INVALID`.
-5. **Una consulta no mejora con índices, ¿qué haces?** Si es analítica (recorre todo), sacarla del
-   OLTP: réplica, vista materializada o warehouse.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 1](preguntas-entrevista.md#fase-1).

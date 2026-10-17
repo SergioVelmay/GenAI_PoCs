@@ -16,7 +16,15 @@ Misma estructura en todas las fases:
 5. Comparativa **Azure ↔ AWS ↔ framework** (carriles A/B/C).
 6. Decisiones y límites (para defenderlas).
 7. Pendiente con coste (enlazando a `docs/pendientes-cloud.md`).
-8. **Checkpoint de entrevista** (rol de AI Technical Lead: 50 % técnico, 50 % negocio): 4–5 preguntas técnicas y 2–3 de negocio/stakeholders (valor para Headache y KPI, coste y ROI, riesgos y cómo se mitigan, cómo se lo contarías a operaciones o a dirección, priorización y roadmap), cada una con una respuesta modelo breve. Si la pregunta es de nube, responder primero en AWS y dar el equivalente de Azure.
+8. **Checkpoint de entrevista**: solo un enlace a la sección de la fase en `docs/preguntas-entrevista.md` (`preguntas-entrevista.md#fase-N`). Las preguntas viven **únicamente** en ese fichero.
+
+## Recopilatorio de preguntas (`docs/preguntas-entrevista.md`)
+
+- Fichero único para preparar la entrevista de AI Technical Lead (50 % técnico, 50 % negocio y stakeholders). Una sección por fase con ancla `<a id="fase-N"></a>`, título `## Fase N · Tema ([doc](fase-N-...md))` y dos subsecciones: `### Técnicas` (4–5) y `### Negocio y stakeholders` (2–3).
+- Respuestas modelo de 2–4 frases, ancladas en lo construido (rutas, números medidos, hallazgos), sin depender de leer el doc de la fase.
+- Negocio: valor para Headache y KPI, coste y ROI, riesgos y mitigación, cómo contarlo a operaciones, Legal o dirección, priorización.
+- Nube: responder primero en AWS y dar el equivalente de Azure. Si aparece un servicio nuevo, añadirlo a la chuleta Azure → AWS.
+- Preguntas generales de liderazgo que surjan van a la sección "Transversales".
 
 ## Estilo
 

@@ -163,27 +163,5 @@ $env:MCP__AUTH="jwt"; docker compose --profile mcp up -d --build              # 
 
 ## 8. Checkpoint de entrevista
 
-**¿Por qué un bucle de tools propio si existen frameworks?**
-Para saber qué controlan y qué no: límites, idempotencia, errores como datos, saneamiento y
-observabilidad. En la fase 7 comparo el mismo agente en LangGraph, MAF, Strands y servicios gestionados.
-
-**¿Cómo evitas que un prompt injection reembolse pedidos de otro cliente?**
-La identidad sale del token, no de los argumentos; la autorización se comprueba en el backend en
-cada llamada; los scopes limitan qué servidor puede usar el agente; y la política de dominio decide.
-
-**¿Qué es el token passthrough y cómo lo evitas con un gateway?**
-Reenviar el token del usuario a otro servicio. Rompe el audience y la auditoría. El gateway valida
-un token emitido para él y obtiene, por token exchange (RFC 8693 / OBO), uno nuevo para cada servidor
-con su audience y solo su scope. AgentCore Gateway ni siquiera admite passthrough hacia destinos MCP.
-
-**¿AgentCore Gateway o APIM?**
-Si busco un *agent gateway* (agregar servidores, OBO, búsqueda semántica de tools, Cedar), AgentCore.
-Si la organización ya gobierna sus APIs con APIM y quiere las mismas políticas, cuotas y observabilidad
-para MCP (o convertir REST en MCP), APIM. En Azure, el OBO lo pondría el propio servidor o un backend.
-
-**¿Por qué tres servidores y no uno?**
-Mínimo privilegio y radio de impacto: el agente de consultas nunca recibe `refunds:write`, y cada
-servidor se despliega, escala y audita por separado. El gateway devuelve la comodidad de un único endpoint.
-
-**¿Cómo evitas romper a los agentes al cambiar una tool?**
-Contratos versionados de `tools/list` en CI. Para el modelo, la descripción es parte del contrato.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 6](preguntas-entrevista.md#fase-6).

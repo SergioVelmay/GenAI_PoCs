@@ -130,12 +130,5 @@ mypy → pytest → smoke test del generador. Las fases siguientes añaden jobs 
 
 ## 9. Checkpoint de entrevista
 
-1. **¿Por qué Clean Architecture en una PoC de IA?** Porque el LLM, la nube y el framework son lo
-   que más cambia. Con puertos, cambiar Azure por AWS o LangGraph por MAF es un adaptador nuevo,
-   y los tests del dominio no se tocan.
-2. **¿Dónde está la lógica de negocio en un sistema con agentes?** En el dominio, determinista y
-   probado. El modelo extrae, clasifica y propone; el dominio decide (p. ej., `evaluate_refund`).
-3. **¿Cómo pruebas sin gastar?** Adaptadores en memoria que implementan los mismos puertos; los
-   tests de integración y con coste van aparte y se ejecutan de forma explícita.
-4. **¿Por qué uv?** Resolución y sincronización muy rápidas, workspaces nativos y lockfile
-   multiplataforma; `--locked` en CI garantiza builds reproducibles.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 0](preguntas-entrevista.md#fase-0).

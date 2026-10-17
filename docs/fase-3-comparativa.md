@@ -132,3 +132,8 @@ mismo corpus y un golden dataset.
   expone el parámetro `dimensions`).
 - Medir por carril: tiempo de ingesta del corpus completo, tiempo de una actualización incremental,
   coste real (Cost Explorer / Cost Management) y latencia de consulta. Completar esta comparativa.
+
+## 7. Checkpoint de entrevista
+
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 3](preguntas-entrevista.md#fase-3).

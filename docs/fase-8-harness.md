@@ -134,14 +134,5 @@ Invariantes nuevos en la suite de agentes (además de los de la fase 7):
 
 ## 8. Checkpoint de entrevista
 
-1. **¿Qué es un agentic harness?** El código que rodea al modelo y decide qué entra, qué se ejecuta
-   y qué sale: validación, guardas, autocorrección, aprobación y trazas. El modelo propone; el
-   harness dispone.
-2. **¿Cómo pones guardrails a agentes de frameworks distintos?** Con un punto de paso obligatorio
-   que controlas: todas las tools por tu ejecutor y todos los turnos por tu contrato. Aquí, siete
-   sabores con el mismo harness y los mismos tests de ataque.
-3. **¿Cómo demuestras que funciona?** Tests de ataque con un modelo que obedece al atacante, con y
-   sin harness, más controles benignos para medir falsos positivos, y un gate en CI.
-4. **¿Qué no resuelve ningún guardrail?** Que un modelo con poder haga daño si lo engañan. Por eso la
-   capa decisiva es de arquitectura: identidad fuera del modelo, mínimos privilegios, acciones
-   irreversibles con aprobación humana.
+Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
+[preguntas de entrevista · fase 8](preguntas-entrevista.md#fase-8).
