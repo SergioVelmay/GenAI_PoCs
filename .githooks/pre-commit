@@ -1,0 +1,4 @@
+#!/bin/sh
+# Bloquea el commit si lo preparado contiene términos prohibidos (.secrets/forbidden_terms.txt).
+# Activación (una vez por clon): git config core.hooksPath .githooks
+exec uv run --quiet python scripts/check_forbidden_terms.py

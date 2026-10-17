@@ -134,7 +134,7 @@ uv run python scripts/provision_foundry_agent.py           # definición del age
 
 ## 9. Pendiente de validación con coste
 
-Ver "Desde la fase 7" en `.github/copilot-instructions.md`: suite con LLM real
+Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md): suite con LLM real
 (`--mode llm --budget-usd`), agente en Foundry (`--apply`), imagen del Runtime en ECR (fase 13) con
 `agentcore_enabled=true`, y estrategias de extracción de AgentCore Memory frente a la tool explícita.
 

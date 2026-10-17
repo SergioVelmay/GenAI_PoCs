@@ -414,7 +414,7 @@ los padres privados, hits con score cero y el bloqueo de los modelos por defecto
 | 4.3, SDK AI Search y Bedrock | Publicado (`c1cb588`) | Validacion real |
 | Carril A Azure (Foundry IQ + Agent Service) | Publicado (`a9b9fc1`) | Crear KS/KB/agente y validacion real |
 | Composicion cloud, rutas `/managed/*`, aprovisionamiento e IaC | Implementado y probado en local | Validacion real |
-| Comparativa cloud A/B/C | Pendiente (nube, con coste) | Ver pendientes en `.github/copilot-instructions.md` |
+| Comparativa cloud A/B/C | Pendiente (nube, con coste) | Ver [pendientes con coste](pendientes-cloud.md) |
 
 Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval estan implementadas,
 probadas con dobles de `LLMPort` y conectadas al gateway con `RETRIEVAL__LLM=gateway`;
