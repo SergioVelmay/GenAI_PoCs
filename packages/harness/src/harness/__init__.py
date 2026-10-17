@@ -5,8 +5,17 @@ Tres puntos de intercepción que no dependen del framework:
 - `check_sql`: SQL generado por LLM validado con un parser y allow-lists, con LIMIT forzado.
 - `GuardedExecutor`: cada tool que pide el modelo pasa por guardas antes de ejecutarse.
 - `GuardedRuntime`: guardas de entrada y de salida alrededor de cualquier `AgentRuntime`.
+- `ApprovalGate` + `ApprovalService`: las acciones irreversibles esperan a una persona.
 """
 
+from harness.approvals import (
+    APPROVAL_REQUESTED,
+    APPROVAL_REQUIRED,
+    ApprovalError,
+    ApprovalGate,
+    ApprovalService,
+    always,
+)
 from harness.correction import Attempt, CorrectionResult, correction_feedback, generate_validated
 from harness.executor import (
     POLICY_DENIED,
@@ -34,8 +43,13 @@ from harness.validation import (
 )
 
 __all__ = [
+    "APPROVAL_REQUESTED",
+    "APPROVAL_REQUIRED",
     "BLOCKED_INPUT_ANSWER",
     "POLICY_DENIED",
+    "ApprovalError",
+    "ApprovalGate",
+    "ApprovalService",
     "ArgumentRules",
     "Attempt",
     "CorrectionResult",
@@ -50,6 +64,7 @@ __all__ = [
     "TurnTrace",
     "Validator",
     "Violation",
+    "always",
     "check_sql",
     "correction_feedback",
     "current_trace",

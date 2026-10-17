@@ -39,6 +39,12 @@ from headache_core.ports import (
     ToolConfig,
     VectorRecord,
 )
+from headache_core.ports.approvals import (
+    OPEN_STATUSES,
+    ApprovalConflictError,
+    ApprovalRequest,
+    ApprovalStatus,
+)
 from headache_core.ports.memory import CheckpointConflictError, ThreadState
 
 
@@ -403,6 +409,56 @@ class InMemoryPreferenceStore:
 
     async def put(self, customer_id: str, key: str, value: str) -> None:
         self.values.setdefault(customer_id, {})[key] = value
+
+
+class InMemoryApprovalStore:
+    """Mismas garantías que PostgreSQL: una sola solicitud abierta por acción y transiciones
+    atómicas (sin `await` entre leer y escribir, nadie se cuela en el bucle de eventos)."""
+
+    def __init__(self) -> None:
+        self.items: dict[str, ApprovalRequest] = {}
+
+    async def add(self, request: ApprovalRequest) -> None:
+        if request.id in self.items or await self.find_open(request.fingerprint):
+            raise ApprovalConflictError(f"Ya hay una solicitud abierta para {request.tool}.")
+        self.items[request.id] = request
+
+    async def get(self, approval_id: str) -> ApprovalRequest | None:
+        return self.items.get(approval_id)
+
+    async def find_open(self, fingerprint: str) -> ApprovalRequest | None:
+        return next(
+            (
+                r
+                for r in self.items.values()
+                if r.fingerprint == fingerprint and r.status in OPEN_STATUSES
+            ),
+            None,
+        )
+
+    async def list_requests(
+        self,
+        *,
+        status: ApprovalStatus | None = None,
+        customer_id: str | None = None,
+        limit: int = 50,
+    ) -> list[ApprovalRequest]:
+        found = [
+            r
+            for r in self.items.values()
+            if (status is None or r.status is status)
+            and (customer_id is None or r.customer_id == customer_id)
+        ]
+        return sorted(found, key=lambda r: r.created_at)[:limit]
+
+    async def transition(
+        self, approval_id: str, expected: ApprovalStatus, updated: ApprovalRequest
+    ) -> bool:
+        current = self.items.get(approval_id)
+        if current is None or current.status is not expected:
+            return False
+        self.items[approval_id] = updated
+        return True
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:

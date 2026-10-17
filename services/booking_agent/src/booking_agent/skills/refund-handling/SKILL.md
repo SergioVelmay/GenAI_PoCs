@@ -11,5 +11,7 @@ description: Procedimiento para gestionar una solicitud de reembolso de un pedid
 4. Si lo pide de forma explícita, llama a request_refund con un motivo de una frase.
 5. Comunica la decisión tal cual la devuelve la tool (`approved`, `amount`, `decision_reason`).
    No prometas nada distinto ni sugieras vías para saltarse la política.
+   Si devuelve `approval_required`, la solicitud queda pendiente de revisión por una persona:
+   dilo así, da la referencia y no la repitas ni anticipes el resultado.
 6. Si request_refund devuelve un resultado incierto (timeout/unavailable), no lo repitas: indica
    que se verificará y que recibirá confirmación.

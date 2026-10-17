@@ -14,12 +14,13 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from harness.approvals import DEFAULT_TTL, ApprovalGate, always
 from harness.correction import CorrectionResult, generate_validated
 from harness.executor import ArgumentRules, MaxCallsPerTurn, ToolGuard
 from harness.rules.patterns import CONTACT_DATA, claims_refund, money_amounts
@@ -36,6 +37,7 @@ from headache_core.domain import (
     check_refund_resolution,
 )
 from headache_core.ports import ChatMessage, LLMPort, Role
+from headache_core.ports.approvals import ApprovalStore
 
 REFUND_TOOL = "request_refund"
 
@@ -50,6 +52,21 @@ def refund_tool_guards() -> list[ToolGuard]:
         MaxCallsPerTurn(frozenset({REFUND_TOOL})),
         ArgumentRules({REFUND_TOOL: [forbidden_patterns(_reason, CONTACT_DATA, path="reason")]}),
     ]
+
+
+def refund_summary(args: BaseModel) -> str:
+    order_id = getattr(args, "order_id", "?")
+    return f"Reembolso del pedido {order_id}. Motivo indicado por el cliente: «{_reason(args)}»."
+
+
+def refund_approval_gate(store: ApprovalStore, *, ttl: timedelta = DEFAULT_TTL) -> ApprovalGate:
+    """Todo reembolso pasa por una persona: mueve dinero y no se puede deshacer."""
+    return ApprovalGate(
+        store,
+        {REFUND_TOOL: always("Reembolso: mueve dinero y no se puede deshacer.")},
+        summaries={REFUND_TOOL: refund_summary},
+        ttl=ttl,
+    )
 
 
 def _json_object(text: str) -> dict[str, Any]:

@@ -30,6 +30,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from headache_core.domain import EventCategory, OrderStatus, RefundStatus
+from headache_core.ports.approvals import ApprovalStatus
 
 NAMING_CONVENTION = {
     "ix": "ix_%(table_name)s_%(column_0_N_name)s",
@@ -221,3 +222,34 @@ class IngestionLedgerRow(Base):
     chunk_ids: Mapped[list[str]] = mapped_column(ARRAY(Text))
     pipeline_version: Mapped[str] = mapped_column(Text)
     indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ApprovalRow(Base):
+    __tablename__ = "approval_requests"
+    __table_args__ = (
+        CheckConstraint("expires_at > created_at", name="expires_after_creation"),
+        # Una sola solicitud abierta por acción, aunque dos réplicas la pidan a la vez.
+        Index(
+            "uq_approval_requests_open",
+            "fingerprint",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'approved')"),
+        ),
+        # Cola del revisor: pendientes por antigüedad.
+        Index("ix_approval_requests_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    tool: Mapped[str] = mapped_column(Text)
+    arguments: Mapped[str] = mapped_column(Text)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    customer_id: Mapped[str] = mapped_column(Text)
+    summary: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(Text)
+    status: Mapped[ApprovalStatus] = mapped_column(_str_enum(ApprovalStatus, "approval_status"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewer: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str] = mapped_column(Text)
+    result: Mapped[str | None] = mapped_column(Text)

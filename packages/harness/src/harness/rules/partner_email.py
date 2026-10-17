@@ -9,7 +9,8 @@
 - Tono: reglas deterministas (exclamaciones, mayúsculas, emojis, culpas, promesas) y, solo si
   pasan, un juez LLM opcional con rúbrica. Los importes citados tienen que estar en los hechos.
 
-Enviar es irreversible: aquí solo se redacta. El envío pasa por aprobación humana (fase 8.5).
+Enviar es irreversible: `submit_partner_email` deja el email validado pendiente de aprobación y
+solo `ApprovalService` lo envía cuando otra persona lo aprueba (fase 8.5).
 """
 
 from __future__ import annotations
@@ -17,18 +18,21 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from harness.approvals import ApprovalService
 from harness.correction import CorrectionResult, generate_validated
 from harness.rules.patterns import CONTACT_DATA, money_amounts
 from harness.validation import Validator, Violation, staged
 from headache_core.application.llm import complete_structured
+from headache_core.application.tools import Tool, ToolContext, ToolRegistry
 from headache_core.ports import ChatMessage, LLMPort, Role
+from headache_core.ports.approvals import ApprovalRequest
 
 type Language = Literal["es", "en"]
 
@@ -329,3 +333,60 @@ async def draft_partner_email(
     )
     email = None if correction.value is None else render_partner_email(correction.value, case)
     return PartnerEmailResult(correction, email)
+
+
+SEND_PARTNER_EMAIL = "send_partner_email"
+
+
+class SendPartnerEmailArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    to: str = Field(pattern=r"^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$", max_length=254)
+    reference: str = Field(max_length=40)
+    subject: str = Field(max_length=200)
+    body: str = Field(max_length=6000)
+
+
+type EmailSender = Callable[[SendPartnerEmailArgs], Awaitable[str]]
+
+
+def build_partner_email_tools(send: EmailSender) -> ToolRegistry:
+    """Tool de envío: nunca la ve un modelo; solo la ejecuta `ApprovalService` tras aprobarla."""
+
+    async def send_partner_email(args: SendPartnerEmailArgs, _: ToolContext) -> dict[str, str]:
+        return {"message_id": await send(args), "reference": args.reference}
+
+    return ToolRegistry(
+        [
+            Tool(
+                SEND_PARTNER_EMAIL,
+                "Envía un email ya validado y aprobado a un partner.",
+                SendPartnerEmailArgs,
+                send_partner_email,
+                read_only=False,
+            )
+        ]
+    )
+
+
+async def submit_partner_email(
+    approvals: ApprovalService,
+    result: PartnerEmailResult,
+    case: PartnerEmailCase,
+    *,
+    to: str,
+    requested_by: str,
+) -> ApprovalRequest:
+    """Deja el email validado pendiente de aprobación (cuatro ojos: otra persona lo envía)."""
+    if result.email is None:
+        raise ValueError("El borrador no superó la validación: no se puede enviar.")
+    args = SendPartnerEmailArgs(
+        to=to, reference=case.reference, subject=result.email.subject, body=result.email.body
+    )
+    return await approvals.request(
+        SEND_PARTNER_EMAIL,
+        args,
+        ToolContext(customer_id=requested_by, request_id=case.reference),
+        reason="Comunicación externa: un email enviado no se puede retirar.",
+        summary=f"Email a {case.partner_name} <{to}>: {result.email.subject}",
+    )

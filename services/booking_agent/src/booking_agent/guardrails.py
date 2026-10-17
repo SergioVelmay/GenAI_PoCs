@@ -9,9 +9,14 @@ from booking_agent.runtime import AgentRuntime, JournaledExecutor
 from booking_agent.spec import AgentSpec
 from harness import GuardedExecutor, GuardedRuntime
 from harness.pii import PiiDetector, RegexPiiDetector, pii_filter
-from harness.rules.refunds import refund_claims_grounded, refund_tool_guards
+from harness.rules.refunds import (
+    refund_approval_gate,
+    refund_claims_grounded,
+    refund_tool_guards,
+)
 from harness.security import DocumentShield, HeuristicShield, output_guard, prompt_guard
 from headache_core.config import Settings
+from headache_core.ports.approvals import ApprovalStore
 from headache_core.ports.guardrails import ContentShieldPort
 
 # Tools que devuelven texto de terceros (documentos del RAG, descripciones de partners).
@@ -19,10 +24,16 @@ UNTRUSTED_TOOLS = frozenset({"search_knowledge", "get_event", "search_events"})
 
 
 def guarded_executor(
-    spec: AgentSpec, shield: ContentShieldPort | None = None, *, fail_open: bool = False
+    spec: AgentSpec,
+    approvals: ApprovalStore,
+    shield: ContentShieldPort | None = None,
+    *,
+    fail_open: bool = False,
 ) -> JournaledExecutor:
+    """Las aprobaciones son obligatorias: sin almacén no hay ejecutor de producción."""
     documents = DocumentShield(shield or HeuristicShield(), UNTRUSTED_TOOLS, fail_open=fail_open)
-    inner = GuardedExecutor(spec.tools, refund_tool_guards(), output_guards=[documents])
+    guards = [*refund_tool_guards(), refund_approval_gate(approvals)]
+    inner = GuardedExecutor(spec.tools, guards, output_guards=[documents])
     return JournaledExecutor(spec.tools, inner=inner)
 
 
