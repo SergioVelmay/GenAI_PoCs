@@ -12,6 +12,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Un commit no se hizo aunque el comando "terminó" (fase 6) | El mismo carácter espurio rompió `git add` | Tras un comando de git, comprobar con `git status` / `git log -1` |
 | Cada conexión local tardaba ~2 s (fase 1) | `localhost` intenta antes IPv6 en Windows | Desde el código, `127.0.0.1` (PostgreSQL, RabbitMQ, Langfuse) |
 | PowerShell 5.1 rechaza `&&`, `\|\|` y heredocs | No es PowerShell 7 | Usar `;` con `if ($?) { ... }` y `@' ... '@ \| python -` |
+| `az` apuntaba a la suscripción de otra organización con un proceso activo (checkpoint 8→9) | La CLI guarda una sola sesión por defecto para todo el equipo; cambiar de tenant o suscripción afecta a cualquier proceso que pida tokens a la CLI | Perfil aislado con `AZURE_CONFIG_DIR` para este repo; comprobar `az account show` antes de cualquier `plan`/`apply` |
 | Texto con tildes mal mostrado en la consola | PowerShell 5.1 lee UTF-8 sin BOM como ANSI | Solo es visual: el fichero está bien. Leer con `view` o Python |
 
 ## Verificación y CI

@@ -65,6 +65,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   #
 - Windows + **PowerShell 5.1** (sin `&&`, `||`, heredocs), Docker Desktop (WSL2), `gh` autenticado como `SergioVelmay`. Repo privado `SergioVelmay/GenAI_PoCs`.
 - El terminal integrado a veces mete un **carácter espurio** al inicio de un comando: no encadenar acciones destructivas detrás de pasos que puedan fallar y verificar el resultado (`git log -1`, `git status`).
 - Desde el código, `127.0.0.1` y no `localhost` (IPv6 añade ~2 s por conexión).
+- **Azure CLI aislada**: el perfil por defecto de `az` tiene sesiones de otra organización. En este repo, cada comando de Azure, Terraform o scripts con Entra ID se ejecuta con `$env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-headache"`, y antes se comprueba `az account show`. Nunca `az login`/`az account set` sin esa variable.
 - Verificar con **los mismos comandos que la CI** (p. ej. `terraform fmt -check -recursive`).
 - Si aparecen ficheros con cambios que no son de esta sesión: no guardarlos ni descartarlos sin analizarlos con Sergio.
 - Más casos y su porqué: `docs/lecciones-aprendidas.md`.

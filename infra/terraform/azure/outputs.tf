@@ -1,6 +1,6 @@
 output "search_endpoint" {
-  description = "Valor para AZURE_SEARCH__ENDPOINT."
-  value       = "https://${azurerm_search_service.main.name}.search.windows.net"
+  description = "Valor para AZURE_SEARCH__ENDPOINT (estable; solo responde con search_enabled = true)."
+  value       = "https://${local.search_name}.search.windows.net"
 }
 
 output "servicebus_namespace" {
@@ -33,4 +33,26 @@ output "mcp_apim_urls" {
 output "content_safety_endpoint" {
   description = "Valor para CONTENT_SAFETY__ENDPOINT (null si content_safety_enabled = false)."
   value       = var.content_safety_enabled ? azurerm_cognitive_account.content_safety[0].endpoint : null
+}
+
+# ---------- Fase 2: Azure AI Foundry (null si foundry_enabled = false) ----------
+
+output "azure_openai_endpoint" {
+  description = "Valor para AZURE_OPENAI__ENDPOINT (inferencia con Entra ID)."
+  value       = var.foundry_enabled ? "https://${local.foundry_subdomain}.openai.azure.com/" : null
+}
+
+output "foundry_project_endpoint" {
+  description = "Valor para FOUNDRY_IQ__PROJECT_ENDPOINT (agentes y knowledge bases)."
+  value       = var.foundry_enabled ? "https://${local.foundry_subdomain}.services.ai.azure.com/api/projects/${azurerm_cognitive_account_project.main[0].name}" : null
+}
+
+output "foundry_project_resource_id" {
+  description = "Valor para FOUNDRY_IQ__PROJECT_RESOURCE_ID."
+  value       = var.foundry_enabled ? azurerm_cognitive_account_project.main[0].id : null
+}
+
+output "foundry_deployments" {
+  description = "Nombres para AZURE_OPENAI__CHAT_DEPLOYMENT, __CHEAP_CHAT_DEPLOYMENT y __EMBEDDING_DEPLOYMENT."
+  value       = { for k, m in var.foundry_models : k => m.name }
 }

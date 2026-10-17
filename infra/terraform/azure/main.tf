@@ -1,5 +1,6 @@
-# Fase 3, carril B en Azure: cola de indexación (Service Bus) + AI Search (tier Free).
-# Coste en reposo ~0 €: AI Search Free y Service Bus Basic (pago por operación).
+# Fase 3, carril B en Azure: cola de indexación (Service Bus) + AI Search.
+# Coste en reposo ~0 €: Service Bus Basic (pago por operación) y AI Search apagado
+# (search_enabled = false). AI Search Basic (~70 €/mes) solo existe mientras se usa.
 # Sin claves: autenticación local desactivada y permisos por RBAC (Entra ID).
 
 locals {
@@ -10,6 +11,9 @@ locals {
     managed_by  = "terraform"
   }
   search_managed_identity = var.search_sku != "free"
+  search                  = var.search_enabled ? 1 : 0
+  # Nombre estable (sufijo fijo): al recrear el servicio, el endpoint del .env no cambia.
+  search_name = "srch-${local.name}-${random_string.suffix.result}"
 }
 
 data "azurerm_client_config" "current" {}
@@ -48,9 +52,12 @@ resource "azurerm_servicebus_queue" "knowledge" {
 }
 
 # ---------- Almacén vectorial (carril B) ----------
+# Efímero: se crea para las sesiones de trabajo y se borra al terminar (search_enabled).
+# Al recrearlo hay que volver a crear el índice e indexar (ver docs/pendientes-cloud.md).
 
 resource "azurerm_search_service" "main" {
-  name                = "srch-${local.name}-${random_string.suffix.result}"
+  count               = local.search
+  name                = local.search_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = var.search_sku
@@ -75,14 +82,16 @@ resource "azurerm_search_service" "main" {
 # En la nube estos roles se asignarán a la Managed Identity del worker (fase 14).
 
 resource "azurerm_role_assignment" "me_search_data" {
-  scope                = azurerm_search_service.main.id
+  count                = local.search
+  scope                = azurerm_search_service.main[0].id
   role_definition_name = "Search Index Data Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
 resource "azurerm_role_assignment" "me_search_service" {
   # Crear y actualizar índices (scripts/provision_search_index.py).
-  scope                = azurerm_search_service.main.id
+  count                = local.search
+  scope                = azurerm_search_service.main[0].id
   role_definition_name = "Search Service Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
 }
@@ -105,12 +114,16 @@ resource "azurerm_consumption_budget_resource_group" "monthly" {
     start_date = var.budget_start_date
   }
 
-  notification {
-    enabled        = true
-    threshold      = 50
-    operator       = "GreaterThan"
-    threshold_type = "Actual"
-    contact_emails = [var.budget_email]
+  # Gasto real (50 %, 75 %, 100 % por defecto) + previsión de superar el límite a fin de mes.
+  dynamic "notification" {
+    for_each = toset(var.budget_alert_thresholds)
+    content {
+      enabled        = true
+      threshold      = notification.value
+      operator       = "GreaterThan"
+      threshold_type = "Actual"
+      contact_emails = [var.budget_email]
+    }
   }
 
   notification {

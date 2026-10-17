@@ -37,25 +37,25 @@ resource "azurerm_role_assignment" "me_blob" {
 # ---------- Permisos de la identidad del servicio de AI Search (tier Basic o superior) ----------
 
 resource "azurerm_role_assignment" "search_reads_blob" {
-  count                = local.search_managed_identity ? 1 : 0
+  count                = var.search_enabled && local.search_managed_identity ? 1 : 0
   scope                = azurerm_storage_account.docs.id
   role_definition_name = "Storage Blob Data Reader"
-  principal_id         = azurerm_search_service.main.identity[0].principal_id
+  principal_id         = azurerm_search_service.main[0].identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "search_calls_openai" {
-  count                = local.search_managed_identity && var.openai_resource_id != null ? 1 : 0
-  scope                = var.openai_resource_id
+  count                = var.search_enabled && local.search_managed_identity && (var.foundry_enabled || var.openai_resource_id != null) ? 1 : 0
+  scope                = local.openai_resource_id
   role_definition_name = "Cognitive Services OpenAI User"
-  principal_id         = azurerm_search_service.main.identity[0].principal_id
+  principal_id         = azurerm_search_service.main[0].identity[0].principal_id
 }
 
 # ---------- Fase 4, carril A: Foundry IQ + Agent Service ----------
 # El agente invoca la knowledge base por MCP con la identidad gestionada del proyecto.
 
 resource "azurerm_role_assignment" "foundry_project_reads_search" {
-  count                = var.foundry_project_principal_id != null ? 1 : 0
-  scope                = azurerm_search_service.main.id
+  count                = var.search_enabled && (var.foundry_enabled || var.foundry_project_principal_id != null) ? 1 : 0
+  scope                = azurerm_search_service.main[0].id
   role_definition_name = "Search Index Data Reader"
-  principal_id         = var.foundry_project_principal_id
+  principal_id         = local.foundry_project_principal_id
 }

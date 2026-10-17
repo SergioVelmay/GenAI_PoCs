@@ -1,0 +1,28 @@
+# Copiar a terraform.tfvars (ignorado por Git) y rellenar. Valores = decisiones del proyecto:
+# tiers gratuitos siempre que se pueda; el crédito, para los modelos. Lo que tiene coste fijo
+# está apagado y se revisa en el plan antes del apply.
+
+subscription_id = "00000000-0000-0000-0000-000000000000" # az account show --query id -o tsv
+location        = "swedencentral"                        # región UE con más modelos y cuota
+
+# Presupuesto del grupo de recursos de este proyecto (independiente de los de la suscripción).
+budget_email            = "tu-correo@example.com" # recibe las alertas (no corta el gasto)
+budget_limit_eur        = 100
+budget_alert_thresholds = [50, 75, 100] # gasto real; además, previsión al 100 %
+
+# AI Search Basic (~70 €/mes, coste fijo aunque no se use): identidad gestionada, Semantic
+# Ranker (plan gratuito) y Foundry IQ. Free solo admite 1 por suscripción y sin esas capacidades.
+search_sku = "basic"
+# Efímero: true al empezar una sesión de trabajo y false al terminar (se cobra por hora).
+# Al recrearlo: provision_search_index.py --apply y reindexar (ver docs/pendientes-cloud.md).
+search_enabled = false
+
+# Fase 2: Foundry (cuenta AI Services + proyecto + despliegues). Sin coste fijo, pago por token.
+foundry_enabled        = true
+foundry_deployment_sku = "DataZoneStandard" # procesamiento dentro de la UE (RGPD)
+
+# Fase 8.4: Content Safety F0 (gratuito, cuota mensual limitada; 1 por suscripción).
+content_safety_enabled = true
+
+# Fase 6.4: APIM como MCP gateway (~50 $/mes). Requiere los servidores MCP en HTTPS (fase 14).
+apim_enabled = false

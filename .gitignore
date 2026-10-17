@@ -27,6 +27,9 @@ data/benchmarks/
 *.tfstate
 *.tfstate.*
 *.tfplan
+# Valores personales (suscripción, email): se versiona solo la plantilla.
+*.tfvars
+!*.tfvars.example
 
 # IDE / SO
 .vscode/*

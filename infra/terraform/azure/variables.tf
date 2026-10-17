@@ -4,8 +4,9 @@ variable "subscription_id" {
 }
 
 variable "location" {
-  type    = string
-  default = "westeurope"
+  description = "Región de la UE con más modelos y cuota en Foundry."
+  type        = string
+  default     = "swedencentral"
 }
 
 variable "project" {
@@ -24,6 +25,12 @@ variable "max_deliveries" {
   default     = 5
 }
 
+variable "search_enabled" {
+  description = "Crea AI Search. Basic tiene coste fijo (~70 €/mes): encenderlo solo en las sesiones de trabajo."
+  type        = bool
+  default     = false
+}
+
 variable "search_sku" {
   description = "free (0 €, sin identidad gestionada) o basic (~70 €/mes, identidad gestionada)."
   type        = string
@@ -35,20 +42,64 @@ variable "search_sku" {
 }
 
 variable "openai_resource_id" {
-  description = "Id del recurso de Azure OpenAI/Foundry con el despliegue de embeddings (fase 2)."
+  description = "Id de un recurso de Foundry externo con el despliegue de embeddings. Se ignora si foundry_enabled = true."
   type        = string
   default     = null
 }
 
 variable "foundry_project_principal_id" {
-  description = "Object id de la identidad gestionada del proyecto de Foundry (carril A, fase 4)."
+  description = "Object id de la identidad de un proyecto de Foundry externo (carril A, fase 4). Se ignora si foundry_enabled = true."
   type        = string
   default     = null
 }
 
+# ---------- Fase 2: Azure AI Foundry (foundry.tf) ----------
+
+variable "foundry_enabled" {
+  description = "Crea la cuenta AI Services, el proyecto y los despliegues de modelos. Sin coste fijo (pago por token)."
+  type        = bool
+  default     = false
+}
+
+variable "foundry_deployment_sku" {
+  description = "GlobalStandard (más cuota y modelos), DataZoneStandard (procesamiento dentro de la UE) o Standard (región)."
+  type        = string
+  default     = "GlobalStandard"
+  validation {
+    condition     = contains(["GlobalStandard", "DataZoneStandard", "Standard"], var.foundry_deployment_sku)
+    error_message = "foundry_deployment_sku debe ser GlobalStandard, DataZoneStandard o Standard."
+  }
+}
+
+variable "foundry_models" {
+  description = "Despliegues. `name` debe coincidir con AZURE_OPENAI__*_DEPLOYMENT; capacidad en miles de TPM."
+  type = object({
+    chat       = object({ name = string, model = string, version = string, capacity_k_tpm = number })
+    cheap_chat = object({ name = string, model = string, version = string, capacity_k_tpm = number })
+    embedding  = object({ name = string, model = string, version = string, capacity_k_tpm = number })
+  })
+  default = {
+    chat       = { name = "gpt-4.1-mini", model = "gpt-4.1-mini", version = "2025-04-14", capacity_k_tpm = 50 }
+    cheap_chat = { name = "gpt-4.1-nano", model = "gpt-4.1-nano", version = "2025-04-14", capacity_k_tpm = 50 }
+    embedding  = { name = "text-embedding-3-small", model = "text-embedding-3-small", version = "1", capacity_k_tpm = 50 }
+  }
+}
+
 variable "budget_limit_eur" {
-  type    = number
-  default = 20
+  description = "Presupuesto mensual del grupo de recursos (solo avisa, no corta el gasto)."
+  type        = number
+  default     = 100
+}
+
+variable "budget_alert_thresholds" {
+  description = "Porcentajes de gasto real que envían alerta (además de la previsión al 100 %)."
+  type        = list(number)
+  default     = [50, 75, 100]
+  validation {
+    # Azure admite 5 notificaciones por presupuesto; una es la de previsión.
+    condition     = length(var.budget_alert_thresholds) <= 4 && alltrue([for t in var.budget_alert_thresholds : t > 0 && t <= 1000])
+    error_message = "Hasta 4 umbrales, entre 1 y 1000 (%)."
+  }
 }
 
 variable "budget_email" {

@@ -6,10 +6,30 @@ Al completar uno, se marca `[x]` y se documenta el resultado en el doc de su fas
 
 Orden recomendado: primero la fase 2 (credenciales y modelos), que desbloquea el resto.
 
+**Decisión de Azure (checkpoint 8→9):** región `swedencentral`, tiers gratuitos donde no recorten
+capacidades (Content Safety F0, plan gratuito del Semantic Ranker) y **AI Search Basic** (~70 €/mes
+de coste fijo) para tener identidad gestionada, Semantic Ranker y Foundry IQ. Presupuesto del grupo
+de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
+
+**AI Search es efímero** (`search_enabled`): se cobra por hora aunque no se use, así que solo existe
+durante las sesiones de trabajo (p. ej., de viernes a domingo). El nombre y el endpoint no cambian.
+
+```powershell
+$env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-headache"; az account show -o table
+# Al empezar: search_enabled = true en terraform.tfvars y después
+terraform -chdir=infra/terraform/azure apply
+uv run python scripts/provision_search_index.py --apply   # índice del carril B
+# ... reindexar (indexer con INDEXER__VECTOR_STORE=azure_search), y si se usan:
+#     scripts/managed_ingestion.py azure --apply (carril A) y scripts/provision_foundry_iq.py --apply
+# Al terminar: search_enabled = false y
+terraform -chdir=infra/terraform/azure apply
+```
+
 ## Fase 2 · Capa de modelos ([doc](fase-2-modelos.md))
 
-- [ ] Instalar y autenticar **Azure CLI** (`az login`) y **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
-- [ ] **Azure AI Foundry**: desplegar `gpt-4.1-mini` (potente) y `gpt-4.1-nano` (barato); rellenar `AZURE_OPENAI__ENDPOINT` y dar el rol *Cognitive Services OpenAI User* al usuario (Entra ID, sin clave).
+- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-headache`), suscripción *MSDN - Sergio Velasco* (17-10-2026).
+- [ ] **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
+- [x] **Azure AI Foundry** como código (`foundry.tf`): cuenta AI Services, proyecto `headache` y despliegues `gpt-4.1-mini`, `gpt-4.1-nano` y `text-embedding-3-small` en `swedencentral`, **DataZoneStandard** (50 K TPM), con *Cognitive Services OpenAI User* y *Foundry User* para el usuario. `terraform apply` del grupo `rg-headache-dev` (17 recursos; AI Search apagado) el 17-10-2026. Prueba de humo: `gpt-4.1-nano` responde con Entra ID (16 + 2 tokens, 0,0000024 $) y el embedding devuelve 1024 dimensiones. Hallazgos: el proyecto debe crearse en serie con los despliegues (409) y el rol "Azure AI User" se llama ahora "Foundry User".
 - [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
 - [ ] Ejecutar `scripts/llm_cache_benchmark.py --provider azure|aws` y `scripts/llm_gateway_demo.py` (motores `native` y `litellm`) y revisar las trazas en Langfuse.
 - [ ] Langfuse local sigue en la imagen `langfuse:3` (OSS v3, parches de seguridad hasta 31-01-2027). El SDK Python v4 es compatible (servidor ≥ 3.63.0). Valorar migrar a la imagen v4 en la fase 11.
@@ -19,7 +39,7 @@ Orden recomendado: primero la fase 2 (credenciales y modelos), que desbloquea el
 - [ ] `terraform plan`/`apply` en `infra/terraform/aws` y `infra/terraform/azure` (crear `terraform.tfvars` con `budget_email` y, en Azure, `subscription_id`). Decidir `search_sku` (free con claves o basic ~70 €/mes con identidad gestionada).
 - [ ] Copiar los outputs de Terraform al `.env` (`AZURE_SEARCH__*`, `S3_VECTORS__*`, `AZURE_MANAGED__*`, `BEDROCK_KB__*`, colas SQS/Service Bus).
 - [ ] Carril B: `scripts/provision_search_index.py --apply` e indexar con `INDEXER__EMBEDDINGS=azure|bedrock` y `INDEXER__VECTOR_STORE=azure_search|s3_vectors` (también con `INDEXER__BROKER=sqs|servicebus`).
-- [ ] Carril A: `scripts/managed_ingestion.py aws --apply` y `azure --apply`; comprobar que el vectorizador de Azure usa 1024 dimensiones.
+- [ ] Carril A: `scripts/managed_ingestion.py aws --apply` y `azure --apply` (Azure: con `search_sku = "basic"`, el indexer usa identidad gestionada); comprobar que el vectorizador de Azure usa 1024 dimensiones.
 - [ ] Medir por carril (ingesta completa, incremental, coste real, latencia) y completar `docs/fase-3-comparativa.md`.
 
 ## Fase 4 · Retrieval ([doc](fase-4-retrieval.md))
@@ -28,7 +48,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 - [ ] Clasificar el corpus con `acl` explícita y reingerir: `provision_search_index.py --apply` (el esquema añade `title`, `acl` y configuración semántica) y resincronizar Bedrock KB con los sidecars nuevos. Sin `acl`, los adaptadores cloud deniegan.
 - [ ] AI Search en tier `basic` para Semantic Ranker y Foundry IQ (plan semántico gratuito, ya en Terraform). Revisar el coste antes del `apply`.
-- [ ] Foundry IQ: crear el proyecto de Foundry en el portal, rellenar `FOUNDRY_IQ__*`, pasar `foundry_project_principal_id` a Terraform (rol *Search Index Data Reader*) y ejecutar `scripts/provision_foundry_iq.py --apply` (verifica el `baseFilter` de la audiencia).
+- [ ] Foundry IQ: con `foundry_enabled = true` el proyecto y su rol *Search Index Data Reader* ya los crea Terraform; rellenar `FOUNDRY_IQ__*` con los outputs y ejecutar `scripts/provision_foundry_iq.py --apply` (verifica el `baseFilter` de la audiencia).
 - [ ] Bedrock: habilitar Cohere Rerank y rellenar `BEDROCK__RERANK_MODEL_ARN` y `BEDROCK_KB__GENERATION_MODEL_ARN`.
 - [ ] Ejecutar el servicio con `RETRIEVAL__BACKEND=azure_search`, `RETRIEVAL__LLM=gateway`, `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb|foundry_iq`; comparar A/B/C con el mismo corpus y las mismas preguntas (coste, latencia, citas y abstención) y documentarlo.
 
