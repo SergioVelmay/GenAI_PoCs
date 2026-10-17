@@ -8,8 +8,12 @@ on:
 permissions:
   contents: read
 
+# Acciones fijadas por SHA de commit (un tag se puede mover; un SHA no): defensa ante ataques a la
+# cadena de suministro. Dependabot (.github/dependabot.yml) propone las subidas.
+# Runner fijado (ubuntu-26.04) en lugar de ubuntu-latest: la imagen cambia solo cuando lo decidimos.
+
 env:
-  # NLTK (pathsec) rechaza ficheros con st_nlink > 1; uv en Linux instala con hardlinks a su caché.
+  # NLTK (pathsec) rechaza ficheros con st_nlink > 1; uv en Linux instala con hardlinks a su cachÃ©.
   UV_LINK_MODE: copy
 
 concurrency:
@@ -18,11 +22,11 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -41,19 +45,19 @@ jobs:
       - name: Tests
         run: uv run pytest
 
-      - name: Generador de datos sintéticos (smoke test)
+      - name: Generador de datos sintÃ©ticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
 
       - name: Informe de chunking (smoke test)
         run: uv run python scripts/chunking_report.py --source /tmp/synthetic/knowledge/documents.jsonl
 
   evals:
-    # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquí.
-    runs-on: ubuntu-latest
+    # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquÃ­.
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -66,7 +70,7 @@ jobs:
       - name: Evals de retrieval (B y C, todas las estrategias)
         run: uv run python -m rag_evals.retrieval_eval --out /tmp/evals
 
-      - name: Evals de generación (extractivo)
+      - name: Evals de generaciÃ³n (extractivo)
         run: >-
           uv run python -m rag_evals.generation_eval --out /tmp/evals
           --strategy hybrid --strategy bm25 --strategy parent-child
@@ -81,7 +85,7 @@ jobs:
 
       - name: Publicar informes
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: eval-reports
           path: /tmp/evals/
@@ -89,9 +93,9 @@ jobs:
 
   mcp-image:
     # Los servidores MCP se despliegan como contenedores: la imagen debe construir y arrancar.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build -f services/mcp_servers/Dockerfile -t headache-mcp:ci .
       - name: Smoke test (health de catalog)
         run: |
@@ -100,7 +104,7 @@ jobs:
           docker logs mcp; exit 1
 
   terraform:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         module: [aws, azure]
@@ -108,15 +112,15 @@ jobs:
       run:
         working-directory: infra/terraform/${{ matrix.module }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       # Sin credenciales ni backend: solo sintaxis, tipos y referencias. El plan llega con OIDC.
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false -input=false
       - run: terraform validate
 
   integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -154,9 +158,9 @@ jobs:
       RABBITMQ__PASSWORD: headache-ci
       SQS__ENDPOINT_URL: http://127.0.0.1:9324
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -172,7 +176,7 @@ jobs:
       - name: El modelo ORM coincide con las migraciones
         run: uv run alembic -c packages/headache_core/alembic.ini check
 
-      - name: Tests de integración (concurrencia, bloqueos, idempotencia)
+      - name: Tests de integraciÃ³n (concurrencia, bloqueos, idempotencia)
         run: uv run pytest -m integration
 
       - name: Carga masiva y benchmark (smoke test)

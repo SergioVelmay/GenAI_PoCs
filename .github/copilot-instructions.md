@@ -41,6 +41,7 @@
 - Configuración con Pydantic Settings y variables anidadas con `__` (p. ej. `BEDROCK__REGION`). Los secretos van como `SecretStr`.
 - Calidad (debe pasar antes de cada commit; lo mismo ejecuta la CI):
   `uv run ruff check .` · `uv run ruff format --check .` · `uv run mypy` (strict) · `uv run pytest`.
+- CI (`.github/workflows/ci.yml`): acciones fijadas por **SHA de commit** con la versión en un comentario (`setup-uv` ya no publica tags mayores) y runner fijado `ubuntu-26.04` (no `ubuntu-latest`). Dependabot (`.github/dependabot.yml`) propone las subidas de acciones en una PR mensual agrupada.
 - Tests con adaptadores en memoria: deterministas y sin red ni coste. `pytest-asyncio` en modo `auto`.
 - Tests de integración (marcador `integration`, excluidos por defecto): `uv run pytest -m integration`. Requieren PostgreSQL migrado.
 - Migraciones: `uv run alembic -c packages/headache_core/alembic.ini upgrade head` (0001 esquema, 0002 índices `CONCURRENTLY`, 0003 pgvector `knowledge_chunks` + `ingestion_ledger`, vector(1024), 0004 vistas `analytics` + rol `headache_analyst`, 0005 `approval_requests`). Carga masiva: `scripts/load_seed.py --truncate`; benchmark de índices: `scripts/sql_benchmark.py`.
@@ -77,9 +78,9 @@
 
 | Fase | Tema | Estado |
 |---|---|---|
-| 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha |
-| 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ✅ Hecha |
-| 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ✅ Hecha* (validación en cloud pendiente, ver abajo) |
+| 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha (`docs/fase-0-cimientos.md`) |
+| 1 | SQL avanzado (PostgreSQL, Alembic, SQLAlchemy async, índices, `EXPLAIN`) + `ticketing_api` (FastAPI) | ✅ Hecha (`docs/fase-1-sql.md`) |
+| 2 | Capa de modelos: Azure OpenAI vs Bedrock Converse, LLM Gateway (LiteLLM), model routing, prompt caching, coste por tokens | ✅ Hecha* (validación en cloud pendiente, ver abajo; `docs/fase-2-modelos.md`) |
 | 3 | Indexación event-driven (RabbitMQ/SQS/Service Bus) en 3 carriles × 2 nubes (AI Search, Bedrock KB, LlamaIndex) | ✅ Hecha* (validación en cloud pendiente; comparativa en `docs/fase-3-comparativa.md`) |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, servicio RAG | ✅ Hecha* (validación en cloud pendiente; carril A Azure = Foundry IQ + Agent Service por retirada de On Your Data el 14-10-2026; `docs/fase-4-retrieval.md`) |
 | 5 | Evals de RAG: golden dataset, RAGAS/DeepEval, hit rate/MRR, gate en CI | ✅ Hecha* (validación con LLM/cloud pendiente; comparativa en `docs/fase-5-evals.md`) |
