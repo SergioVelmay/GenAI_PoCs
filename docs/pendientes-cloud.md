@@ -62,7 +62,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [x] Juez con modelo distinto del generador (`gpt-4.1`, despliegue `judge` en Terraform) y embeddings reales (`text-embedding-3-small`) para `AnswerRelevancy` de RAGAS.
 - [ ] Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.
 - [x] Evals de retrieval con embeddings reales y Semantic Ranker en Azure (`--engine azure --engine azure-semantic`, 18-10-2026): informe en `evals/reports/azure/`. El baseline de la CI sigue siendo el local (coste 0); el de nube se compara a mano.
-- [ ] Juez de fidelidad sobre el `answer` de Foundry IQ (detectar sobre-respuestas como `acl-schedule-change-en`).
+- [x] Juez de fidelidad sobre el `answer` de Foundry IQ (18-10-2026, `rag_evals.managed_eval`): 19/21 fieles; detecta la sobre-respuesta y una respuesta que añade condiciones no citadas. Informe en `evals/reports/azure/managed-foundry_iq.md`.
 - [ ] Pasar el job `evals` de CI a `--mode enforce` tras varias ejecuciones estables.
 
 ## Fase 6 · Tools y MCP ([doc](fase-6-tools-mcp.md))

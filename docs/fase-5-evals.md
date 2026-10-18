@@ -188,6 +188,35 @@ afirmaciones" y el juez "no fiel"; para un gate da igual, porque ambas cosas blo
 Limitaciones: 20 muestras y un solo anotador; antes de bloquear merges, ampliar el conjunto y
 sumar un segundo anotador.
 
+### Fidelidad de las respuestas de Foundry IQ (18-10-2026)
+
+Las respuestas del carril A son texto redactado por el agente, no citas literales: aquí la
+fidelidad sí hay que medirla. `rag_evals.managed_eval` pregunta al agente y el juez nativo
+calibrado juzga cada respuesta frente a los textos que ella misma cita (sin citas = no fiel).
+Muestra de 30 preguntas (20 con respuesta y 10 sin ella, sin filtros), ~0,05 $ de juez.
+Informe en [managed-foundry_iq.md](../evals/reports/azure/managed-foundry_iq.md).
+
+| Respondidas | Fieles | Faithfulness media | Abstenciones correctas | Fugas ACL | p50 |
+|---:|---:|---:|---:|---:|---:|
+| 21 | **19/21** | 0,96 | 9/10 | 0 | 3,2 s |
+
+- El juez detecta la **sobre-respuesta** que ya se vio en la fase 4 (`acl-schedule-change-es`,
+  0,57): el agente compone un plazo con políticas de varias categorías que no responden a la
+  pregunta.
+- Y una que nadie había visto: `policy-cancelled-food_drink-es` (0,60) acierta en lo
+  principal pero **añade condiciones** («sin importar el tiempo previo», «los gastos de gestión no
+  son reembolsables») que no están en el texto citado. Es justo el fallo que una métrica de
+  evidencia literal no ve.
+- Dos defensas actuaron antes del juez y cuentan como abstención: **Prompt Shields** bloqueó
+  `acl-prompt-injection-es` (filtro de contenido del despliegue, `LLMContentFilterError`) y el
+  guardarraíl de citas del adaptador rechazó `acl-companion-entry-es` (texto sin cita).
+
+Hallazgos (con su test): un filtro de contenido y un rechazo del guardarraíl abortaban la eval
+(ahora son estados `blocked` y `rejected`); el adaptador de Foundry IQ dejaba escapar los
+errores del SDK de OpenAI (ahora se traducen como en el gateway); y el ledger del indexer seguía
+dando por indexados los documentos de un AI Search recreado vacío (ahora
+`provision_search_index --apply` olvida el ledger de ese destino cuando el índice es nuevo).
+
 ## 5. Gate en CI
 
 El job `evals` de la CI regenera los informes en Linux y los compara con

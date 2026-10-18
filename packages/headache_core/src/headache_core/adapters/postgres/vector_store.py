@@ -133,3 +133,12 @@ class PostgresIngestionLedger:
                     IngestionLedgerRow.document_id == document_id,
                 )
             )
+
+    async def forget_index(self, index_name: str) -> int:
+        async with self._session_factory() as session, session.begin():
+            result = await session.execute(
+                delete(IngestionLedgerRow)
+                .where(IngestionLedgerRow.index_name == index_name)
+                .returning(IngestionLedgerRow.document_id)
+            )
+            return len(result.scalars().all())

@@ -111,6 +111,23 @@ async def test_redelivery_of_same_document_is_a_free_no_op(
     assert len(store) == 3
 
 
+async def test_recreated_empty_destination_is_reindexed_after_forgetting_the_ledger(
+    document: KnowledgeDocument,
+    embeddings: CountingEmbedding,
+    ledger: InMemoryIngestionLedger,
+) -> None:
+    await _indexer(embeddings, InMemoryVectorStore(), ledger).index(document)
+    # AI Search efímero: el índice se destruye y se recrea vacío; el ledger aún lo da por hecho.
+    recreated = InMemoryVectorStore()
+    stale = await _indexer(embeddings, recreated, ledger).index(document)
+    assert stale.outcome is IndexingOutcome.UNCHANGED and len(recreated) == 0
+
+    assert await ledger.forget_index(INDEX) == 1
+    result = await _indexer(embeddings, recreated, ledger).index(document)
+
+    assert result.outcome is IndexingOutcome.INDEXED and len(recreated) == 3
+
+
 async def test_shorter_new_version_removes_stale_chunks(
     document: KnowledgeDocument,
     embeddings: CountingEmbedding,

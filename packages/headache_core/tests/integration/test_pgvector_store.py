@@ -86,3 +86,17 @@ async def test_ledger_roundtrip(factory: async_sessionmaker[AsyncSession], index
     assert await ledger.get(index_name, "doc-1") == entry
     await ledger.delete(index_name, "doc-1")
     assert await ledger.get(index_name, "doc-1") is None
+
+
+async def test_ledger_forgets_a_whole_destination(
+    factory: async_sessionmaker[AsyncSession], index_name: str
+) -> None:
+    ledger = PostgresIngestionLedger(factory)
+    other = f"{index_name}@azure_search"
+    for target, document in ((index_name, "a"), (index_name, "b"), (other, "a")):
+        await ledger.save(LedgerEntry(target, document, "a" * 64, (f"{document}::0000",), "v1"))
+
+    assert await ledger.forget_index(index_name) == 2
+    assert await ledger.get(index_name, "a") is None
+    assert await ledger.get(other, "a") is not None
+    assert await ledger.forget_index(other) == 1

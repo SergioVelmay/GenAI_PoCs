@@ -240,6 +240,12 @@ class InMemoryIngestionLedger:
     async def delete(self, index_name: str, document_id: str) -> None:
         self._entries.pop((index_name, document_id), None)
 
+    async def forget_index(self, index_name: str) -> int:
+        keys = [key for key in self._entries if key[0] == index_name]
+        for key in keys:
+            del self._entries[key]
+        return len(keys)
+
 
 class InMemoryCustomerRepository:
     def __init__(self, customers: Sequence[Customer] = ()) -> None:

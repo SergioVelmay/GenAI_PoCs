@@ -28,5 +28,6 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 - Con coste: `--mode llm` y `--judge native|ragas|deepeval` exigen `--budget-usd` (`CostMeter` corta antes de cada llamada) y `--limit N` (muestra estratificada). Pedir confirmación.
 - El juez va fijo y fuera del router (`build_judge_llm`, despliegue `AZURE_OPENAI__JUDGE_DEPLOYMENT=gpt-4.1`): nunca el mismo modelo que genera. Un veredicto incoherente cuenta como `judge_errors` (no se puntúa ni aborta). Informes con coste en `evals/reports/azure/`.
 - Calibración: `uv run python -m rag_evals.calibration build|judge --judge X --budget-usd N|agreement`. El conjunto `evals/calibration/calibration-v1.jsonl` es determinista (test de reproducibilidad); las etiquetas humanas (`labels-v1.csv`) las pone Sergio, nunca el agente.
+- Fidelidad del carril A: `uv run python -m rag_evals.managed_eval --budget-usd N` (AI Search encendido y Foundry IQ aprovisionado). Filtro de contenido y guardarraíl de citas son estados (`blocked`, `rejected`), no errores.
 - RAGAS/DeepEval en el extra `evals` (`uv sync --all-packages --extra evals`); la CI no lo instala y sus tests se saltan por `skipif`.
 - Los embeddings `hashing` locales validan el arnés, no la calidad semántica: no sacar conclusiones de calidad sin embeddings reales.

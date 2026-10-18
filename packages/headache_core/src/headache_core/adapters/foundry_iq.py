@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
+import openai
 from azure.search.documents.knowledgebases.models import (
     KnowledgeBaseRetrievalRequest,
     KnowledgeBaseSearchIndexReference,
@@ -29,6 +30,7 @@ from azure.search.documents.knowledgebases.models import (
 from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 from openai.types.responses.response_output_item import McpCall
 
+from headache_core.adapters.azure_openai import to_llm_error
 from headache_core.adapters.azure_retrieval import SOURCE_FIELDS, access_filter, to_record
 from headache_core.adapters.azure_search import SEMANTIC_CONFIGURATION, document_key
 from headache_core.application.retrieval import InvalidCitationError, RetrievalUnavailableError
@@ -440,10 +442,14 @@ class FoundryIQKnowledge:
             raise RetrievalUnavailableError(
                 "El agente no admite filtros por peticion: usa una knowledge source dedicada"
             )
-        response = await self._responses.responses.create(
-            input=query,
-            extra_body={"agent_reference": {"name": self._agent, "type": "agent_reference"}},
-        )
+        try:
+            response = await self._responses.responses.create(
+                input=query,
+                extra_body={"agent_reference": {"name": self._agent, "type": "agent_reference"}},
+            )
+        except openai.OpenAIError as exc:
+            # Mismo contrato que el gateway: p. ej., Prompt Shields -> LLMContentFilterError.
+            raise to_llm_error(exc) from exc
         return parse_agent_answer(
             response,
             server_label=self._label,

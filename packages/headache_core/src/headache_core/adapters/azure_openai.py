@@ -24,6 +24,7 @@ from openai.types.shared_params import ResponseFormatJSONSchema
 from headache_core.config import AzureOpenAISettings
 from headache_core.ports import (
     ChatMessage,
+    LLMContentFilterError,
     LLMError,
     LLMRateLimitError,
     LLMResponse,
@@ -48,6 +49,8 @@ def to_llm_error(exc: openai.OpenAIError) -> LLMError:
         exc.status_code >= 500 or exc.status_code == 408
     ):
         return LLMTransientError(str(exc))
+    if isinstance(exc, openai.BadRequestError) and exc.code == "content_filter":
+        return LLMContentFilterError(str(exc))
     return LLMError(str(exc))
 
 

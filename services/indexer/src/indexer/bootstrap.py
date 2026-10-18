@@ -86,6 +86,11 @@ class Pipeline:
     searcher: Searcher
 
 
+def cloud_ledger_index(index_name: str, vector_store: str) -> str:
+    """Un registro por destino: indexado en pgvector no implica indexado en la nube."""
+    return f"{index_name}@{vector_store}"
+
+
 @asynccontextmanager
 async def open_pipeline(settings: Settings, config: IndexerSettings) -> AsyncIterator[Pipeline]:
     embeddings, model_name = build_embeddings(settings, config)
@@ -117,8 +122,7 @@ async def open_pipeline(settings: Settings, config: IndexerSettings) -> AsyncIte
             ledger_index = config.index_name
         else:
             store = build_cloud_store(settings, config)
-            # Un registro por destino: indexado en pgvector no implica indexado en la nube.
-            ledger_index = f"{config.index_name}@{config.vector_store}"
+            ledger_index = cloud_ledger_index(config.index_name, config.vector_store)
         indexer = DocumentIndexer(
             index_name=ledger_index,
             chunker=chunker,

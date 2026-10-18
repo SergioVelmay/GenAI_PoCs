@@ -109,6 +109,10 @@ class LLMError(Exception):
     """Fallo no recuperable (petición inválida, credenciales, filtro de contenido...)."""
 
 
+class LLMContentFilterError(LLMError):
+    """El filtro de contenido del proveedor bloqueó la petición (p. ej., Prompt Shields)."""
+
+
 class LLMTransientError(LLMError):
     """Fallo pasajero (timeout, 5xx): se puede reintentar o saltar a otro proveedor."""
 

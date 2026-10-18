@@ -2,6 +2,7 @@ from headache_core.ports.ingestion import IngestionLedgerPort, LedgerEntry
 from headache_core.ports.llm import (
     ChatMessage,
     GenerationObservation,
+    LLMContentFilterError,
     LLMError,
     LLMPort,
     LLMRateLimitError,
@@ -54,6 +55,7 @@ __all__ = [
     "EventRepository",
     "GenerationObservation",
     "IngestionLedgerPort",
+    "LLMContentFilterError",
     "LLMError",
     "LLMPort",
     "LLMRateLimitError",
