@@ -108,10 +108,10 @@ async def open_pipeline(settings: Settings, config: IndexerSettings) -> AsyncIte
         return
 
     engine = create_engine(settings.postgres, application_name="indexer")
+    store: VectorStorePort | None = None
     try:
         factory = create_session_factory(engine)
         chunker = config.build_chunker()
-        store: VectorStorePort
         if config.vector_store == "pgvector":
             store = PgVectorStore(factory, index_name=config.index_name)
             ledger_index = config.index_name
@@ -129,4 +129,8 @@ async def open_pipeline(settings: Settings, config: IndexerSettings) -> AsyncIte
         )
         yield Pipeline(indexer, NativeSearcher(embeddings, store))
     finally:
+        # Los almacenes de la nube abren clientes y credenciales asíncronos que hay que cerrar.
+        close = getattr(store, "close", None)
+        if close is not None:
+            await close()
         await engine.dispose()

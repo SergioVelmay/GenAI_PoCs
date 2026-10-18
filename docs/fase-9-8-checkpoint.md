@@ -138,7 +138,29 @@ confirmación previa del coste estimado. El detalle y las cifras quedan en el do
 por `RateLimitedLLM`, con el límite en cliente a 150 K (margen del 25 %). Detalle en
 [fase 2](fase-2-modelos.md#resultados-en-azure-18-10-2026).
 
+### Fases 3 y 4 · Indexación y retrieval (18-10-2026)
+
+Una sola sesión de AI Search Basic (efímero), creado en `francecentral` porque `swedencentral`
+no admite servicios nuevos. El corpus de evals se clasificó con **ACL explícita**
+(`scripts/classify_corpus.py`, regla única `classify_acl` en el dominio) y se ingirió una sola vez.
+
+| Validación | Resultado |
+|---|---|
+| Carril B: Service Bus + worker + Foundry + AI Search | 116 docs → 131 chunks en 25 s; republicar = 0 embeddings; 1 cambio = 1 embedding |
+| Carril A: indexer + skillset | 116 docs → 118 chunks en 10 s (tras corregir la entrada del skillset) |
+| Retrieval con el golden dataset (144 preguntas) | Vector recall@5 0,95 (local 0,76); híbrida + Semantic Ranker la mejor (recall@5 0,974, nDCG 0,980); **0 fugas de ACL** |
+| Foundry IQ `retrieve` | hit@5 1,0 · MRR 0,993 · p50 100 ms |
+| Foundry IQ `answer` (agente, 15 preguntas) | 10/10 con cita correcta, 4/5 abstenciones, p50 2,6 s |
+
+Hallazgos que solo aparecieron en la nube (todos con su test de regresión): skillset leyendo un
+campo vacío (indexer en verde con 0 chunks), endpoint MCP solo en preview, esfuerzo de
+razonamiento que exige modelo, formato real de las citas del agente, `POST /agents` no
+idempotente y credenciales asíncronas sin cerrar. Abiertos: el indexer del carril A reprocesa
+todos los blobs y una sobre-respuesta del agente que exige un juez de fidelidad. Detalle en
+[fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026) y
+[fase 4](fase-4-retrieval.md#resultados-en-azure-18-10-2026).
+
 ## 6. Pendiente en este checkpoint
 
-- Pendientes de Azure de las fases 3 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
+- Pendientes de Azure de las fases 5 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

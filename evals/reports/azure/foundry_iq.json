@@ -1,0 +1,161 @@
+{
+  "retrieve": {
+    "questions": 144,
+    "answerable": 114,
+    "hit_at_5": 1.0,
+    "mrr": 0.993,
+    "forbidden_docs_returned": 0,
+    "errors": 0,
+    "latency_p50_ms": 100,
+    "latency_p95_ms": 151
+  },
+  "answer": {
+    "sample": 15,
+    "errors": 0,
+    "answered_with_citations": 10,
+    "answerable": 10,
+    "cites_relevant_doc": 10,
+    "evidence_in_answer": 8,
+    "correct_abstentions": 4,
+    "unanswerable": 5,
+    "latency_p50_ms": 2625,
+    "latency_p95_ms": 4347,
+    "rows": [
+      {
+        "id": "event-price-evt_000007-en",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "A ticket for \"Monet: Gardens of Light\" at Rivas Palace in Barcelona costs 32 EUR. The tickets are refundable up to 24 hours before the start of the event."
+      },
+      {
+        "id": "policy-cancelled-food_drink-es",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "Si el organizador cancela la sesión de una entrada de «Gastronomía y bebidas», se reembolsa el 100 % automáticamente. El importe se devuelve al método de pago o"
+      },
+      {
+        "id": "policy-payout-candlelit-en",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": false,
+        "answer": "If your 'Candlelit concerts' ticket is refunded, the money is returned to the original payment method within 5 to 10 business days. Note that booking fees are n"
+      },
+      {
+        "id": "event-price-evt_000050-es",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "Una entrada para el «Street Art Tour» en Martin Studio, Chicago cuesta 45 USD por ticket. Además, las entradas son reembolsables hasta 24 horas antes del inicio"
+      },
+      {
+        "id": "faq-doors-lisbon-es",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "En Lisbon, las puertas abren con 30 minutos de antelación antes del inicio del evento."
+      },
+      {
+        "id": "faq-age-barcelona-es",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": false,
+        "answer": "La edad mínima para el ocio nocturno en Barcelona es de 18 años o más. Para el resto de actividades, los menores deben estar acompañados. Esto se indica clarame"
+      },
+      {
+        "id": "policy-cancelled-tours-es",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "Si el organizador cancela la sesión de una entrada de «Tours y visitas», se reembolsa el 100 % del importe de manera automática. Este reembolso se hace al métod"
+      },
+      {
+        "id": "policy-cancelled-nightlife-en",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "If the organiser cancels the 'Nightlife' session, a full refund is issued automatically for your ticket. These tickets are otherwise non-refundable, but one dat"
+      },
+      {
+        "id": "policy-payout-food_drink-en",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "If your \"Food and drink\" ticket is refunded, the money is returned to the original payment method within 5-10 business days. Refunds are refundable up to 72 hou"
+      },
+      {
+        "id": "event-price-evt_000024-es",
+        "answerable": true,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": true,
+        "evidence_in_answer": true,
+        "answer": "El costo de una entrada para el evento «Silent Disco» en De Sousa Palace, París, es de 26 euros por ticket. Esta entrada no es reembolsable, pero permite un cam"
+      },
+      {
+        "id": "acl-schedule-change-en",
+        "answerable": false,
+        "abstained": false,
+        "citations": 1,
+        "cites_relevant": null,
+        "evidence_in_answer": null,
+        "answer": "If the session time changes, the policy does not specify a particular number of days for requesting a refund. However, for related categories such as Theatre an"
+      },
+      {
+        "id": "acl-gift-card-cash-en",
+        "answerable": false,
+        "abstained": true,
+        "citations": 0,
+        "cites_relevant": null,
+        "evidence_in_answer": null,
+        "answer": ""
+      },
+      {
+        "id": "none-pets-es",
+        "answerable": false,
+        "abstained": true,
+        "citations": 0,
+        "cites_relevant": null,
+        "evidence_in_answer": null,
+        "answer": ""
+      },
+      {
+        "id": "acl-companion-entry-es",
+        "answerable": false,
+        "abstained": true,
+        "citations": 0,
+        "cites_relevant": null,
+        "evidence_in_answer": null,
+        "answer": ""
+      },
+      {
+        "id": "none-crypto-en",
+        "answerable": false,
+        "abstained": true,
+        "citations": 0,
+        "cites_relevant": null,
+        "evidence_in_answer": null,
+        "answer": ""
+      }
+    ]
+  }
+}

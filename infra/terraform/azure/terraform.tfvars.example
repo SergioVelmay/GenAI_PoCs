@@ -12,7 +12,8 @@ budget_alert_thresholds = [50, 75, 100] # gasto real; además, previsión al 100
 
 # AI Search Basic (~70 €/mes, coste fijo aunque no se use): identidad gestionada, Semantic
 # Ranker (plan gratuito) y Foundry IQ. Free solo admite 1 por suscripción y sin esas capacidades.
-search_sku = "basic"
+search_sku      = "basic"
+search_location = "francecentral" # swedencentral no admite servicios nuevos de AI Search
 # Efímero: true al empezar una sesión de trabajo y false al terminar (se cobra por hora).
 # Al recrearlo: provision_search_index.py --apply y reindexar (ver docs/pendientes-cloud.md).
 search_enabled = false

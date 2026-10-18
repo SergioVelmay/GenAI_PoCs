@@ -1,0 +1,431 @@
+{
+  "dataset": {
+    "version": 1,
+    "corpus": "evals/corpus/knowledge.jsonl",
+    "corpus_sha256": "4bbd46f0ee6ab06970b55bbf39ccbbef5aaaadc63103b4bf91defa2fa5e6f4d3",
+    "documents": 116,
+    "items": 144,
+    "by_type": {
+      "acl_adversarial": 14,
+      "cross_lingual": 19,
+      "factual": 78,
+      "filtered": 17,
+      "unanswerable": 16
+    }
+  },
+  "top_k": 5,
+  "candidate_k": 20,
+  "embeddings": "azure:text-embedding-3-small-1024",
+  "documents": 116,
+  "chunks": 131,
+  "runs": [
+    {
+      "engine": "azure",
+      "strategy": "bm25",
+      "overall": {
+        "questions": 114,
+        "hit_at_1": 0.9825,
+        "hit_at_k": 1.0,
+        "recall_at_k": 0.7456,
+        "mrr": 0.9898,
+        "ndcg_at_k": 0.9045,
+        "evidence_at_k": 1.0
+      },
+      "segments": {
+        "doc_type=event_sheet": {
+          "questions": 18,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=faq": {
+          "questions": 40,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.6375,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.874,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=policy": {
+          "questions": 36,
+          "hit_at_1": 0.9722,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.5972,
+          "mrr": 0.9861,
+          "ndcg_at_k": 0.8516,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=venue_guide": {
+          "questions": 20,
+          "hit_at_1": 0.95,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 0.9667,
+          "ndcg_at_k": 0.975,
+          "evidence_at_k": 1.0
+        },
+        "language=en": {
+          "questions": 57,
+          "hit_at_1": 0.9825,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.7544,
+          "mrr": 0.9912,
+          "ndcg_at_k": 0.9093,
+          "evidence_at_k": 1.0
+        },
+        "language=es": {
+          "questions": 57,
+          "hit_at_1": 0.9825,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.7368,
+          "mrr": 0.9883,
+          "ndcg_at_k": 0.8998,
+          "evidence_at_k": 1.0
+        },
+        "question_type=cross_lingual": {
+          "questions": 19,
+          "hit_at_1": 0.9474,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 0.9649,
+          "ndcg_at_k": 0.9737,
+          "evidence_at_k": 1.0
+        },
+        "question_type=factual": {
+          "questions": 78,
+          "hit_at_1": 0.9872,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.6282,
+          "mrr": 0.9936,
+          "ndcg_at_k": 0.8669,
+          "evidence_at_k": 1.0
+        },
+        "question_type=filtered": {
+          "questions": 17,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        }
+      },
+      "acl_leaks": 0,
+      "unanswerable": 30,
+      "unanswerable_empty": 2,
+      "latency_p50_ms": 54.45,
+      "latency_p95_ms": 91.71,
+      "missed": []
+    },
+    {
+      "engine": "azure",
+      "strategy": "vector",
+      "overall": {
+        "questions": 114,
+        "hit_at_1": 1.0,
+        "hit_at_k": 1.0,
+        "recall_at_k": 0.9518,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9788,
+        "evidence_at_k": 1.0
+      },
+      "segments": {
+        "doc_type=event_sheet": {
+          "questions": 18,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=faq": {
+          "questions": 40,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9931,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=policy": {
+          "questions": 36,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.8472,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9406,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=venue_guide": {
+          "questions": 20,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "language=en": {
+          "questions": 57,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9945,
+          "evidence_at_k": 1.0
+        },
+        "language=es": {
+          "questions": 57,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9035,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9631,
+          "evidence_at_k": 1.0
+        },
+        "question_type=cross_lingual": {
+          "questions": 19,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "question_type=factual": {
+          "questions": 78,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9295,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9691,
+          "evidence_at_k": 1.0
+        },
+        "question_type=filtered": {
+          "questions": 17,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        }
+      },
+      "acl_leaks": 0,
+      "unanswerable": 30,
+      "unanswerable_empty": 2,
+      "latency_p50_ms": 173.4,
+      "latency_p95_ms": 257.4,
+      "missed": []
+    },
+    {
+      "engine": "azure",
+      "strategy": "hybrid",
+      "overall": {
+        "questions": 114,
+        "hit_at_1": 1.0,
+        "hit_at_k": 1.0,
+        "recall_at_k": 0.7895,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9225,
+        "evidence_at_k": 1.0
+      },
+      "segments": {
+        "doc_type=event_sheet": {
+          "questions": 18,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=faq": {
+          "questions": 40,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.7625,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9051,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=policy": {
+          "questions": 36,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.5972,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.86,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=venue_guide": {
+          "questions": 20,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "language=en": {
+          "questions": 57,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.8158,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9303,
+          "evidence_at_k": 1.0
+        },
+        "language=es": {
+          "questions": 57,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.7632,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9147,
+          "evidence_at_k": 1.0
+        },
+        "question_type=cross_lingual": {
+          "questions": 19,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "question_type=factual": {
+          "questions": 78,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.6923,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.8867,
+          "evidence_at_k": 1.0
+        },
+        "question_type=filtered": {
+          "questions": 17,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        }
+      },
+      "acl_leaks": 0,
+      "unanswerable": 30,
+      "unanswerable_empty": 2,
+      "latency_p50_ms": 190.93,
+      "latency_p95_ms": 262.32,
+      "missed": []
+    },
+    {
+      "engine": "azure-semantic",
+      "strategy": "hybrid",
+      "overall": {
+        "questions": 114,
+        "hit_at_1": 0.9912,
+        "hit_at_k": 1.0,
+        "recall_at_k": 0.9737,
+        "mrr": 0.9934,
+        "ndcg_at_k": 0.9804,
+        "evidence_at_k": 1.0
+      },
+      "segments": {
+        "doc_type=event_sheet": {
+          "questions": 18,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=faq": {
+          "questions": 40,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9875,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9939,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=policy": {
+          "questions": 36,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9306,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9605,
+          "evidence_at_k": 1.0
+        },
+        "doc_type=venue_guide": {
+          "questions": 20,
+          "hit_at_1": 0.95,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 0.9625,
+          "ndcg_at_k": 0.9715,
+          "evidence_at_k": 1.0
+        },
+        "language=en": {
+          "questions": 57,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9825,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9939,
+          "evidence_at_k": 1.0
+        },
+        "language=es": {
+          "questions": 57,
+          "hit_at_1": 0.9825,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9649,
+          "mrr": 0.9868,
+          "ndcg_at_k": 0.9669,
+          "evidence_at_k": 1.0
+        },
+        "question_type=cross_lingual": {
+          "questions": 19,
+          "hit_at_1": 0.9474,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 0.9605,
+          "ndcg_at_k": 0.97,
+          "evidence_at_k": 1.0
+        },
+        "question_type=factual": {
+          "questions": 78,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 0.9615,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9786,
+          "evidence_at_k": 1.0
+        },
+        "question_type=filtered": {
+          "questions": 17,
+          "hit_at_1": 1.0,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "evidence_at_k": 1.0
+        }
+      },
+      "acl_leaks": 0,
+      "unanswerable": 30,
+      "unanswerable_empty": 2,
+      "latency_p50_ms": 228.19,
+      "latency_p95_ms": 417.72,
+      "missed": []
+    }
+  ]
+}

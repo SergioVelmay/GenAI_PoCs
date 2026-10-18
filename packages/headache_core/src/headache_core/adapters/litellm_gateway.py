@@ -11,6 +11,9 @@ import os
 
 # Usa el mapa de precios local de LiteLLM: sin descargas de red al importar (tests deterministas).
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+# En modo DEV (por defecto), `import litellm` vuelca el `.env` en `os.environ` de todo el
+# proceso: pisaba la configuración (Pydantic Settings) y rompía el aislamiento de los tests.
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 
 import time
 from collections.abc import Sequence

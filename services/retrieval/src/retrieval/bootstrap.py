@@ -15,12 +15,11 @@ from headache_core.application.ingestion.indexer import chunk_id
 from headache_core.application.retrieval import RetrievalService
 from headache_core.config import Settings
 from headache_core.domain import DocumentType
+from headache_core.domain.retrieval import classify_acl
 from headache_core.ports.llm import LLMPort
 from headache_core.ports.retrieval import ManagedKnowledgePort, RerankerPort, RetrievalPort
 from headache_core.ports.vector_store import EmbeddingPort, MetadataValue, VectorRecord
 from retrieval.settings import RetrievalSettings
-
-PUBLIC_TYPES = frozenset({"policy", "faq", "venue_guide", "event_sheet"})
 
 
 class SyntheticDocument(BaseModel):
@@ -52,7 +51,7 @@ class Runtime:
 def access_metadata(metadata: dict[str, MetadataValue]) -> dict[str, MetadataValue]:
     acl = metadata.get("acl")
     if acl is None:
-        acl = "public" if metadata.get("doc_type") in PUBLIC_TYPES else "internal"
+        acl = classify_acl(str(metadata.get("doc_type", "")))
     return {**metadata, "acl": acl}
 
 

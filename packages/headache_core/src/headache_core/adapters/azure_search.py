@@ -138,8 +138,10 @@ def odata_filter(filters: Mapping[str, MetadataValue]) -> str:
 
 
 class AzureAISearchVectorStore:
-    def __init__(self, client: SearchClient) -> None:
+    def __init__(self, client: SearchClient, *, owned_credential: Any = None) -> None:
         self._client = client
+        # La credencial asíncrona abre su propia sesión HTTP: quien la crea, la cierra.
+        self._owned_credential = owned_credential
 
     @classmethod
     def from_settings(cls, settings: AzureSearchSettings) -> Self:
@@ -148,12 +150,15 @@ class AzureAISearchVectorStore:
         if settings.api_key is not None:
             from azure.core.credentials import AzureKeyCredential
 
-            credential: Any = AzureKeyCredential(settings.api_key.get_secret_value())
-        else:
-            from azure.identity.aio import DefaultAzureCredential
+            key = AzureKeyCredential(settings.api_key.get_secret_value())
+            return cls(SearchClient(settings.endpoint, settings.index_name, key))
+        from azure.identity.aio import DefaultAzureCredential
 
-            credential = DefaultAzureCredential()
-        return cls(SearchClient(settings.endpoint, settings.index_name, credential))
+        credential = DefaultAzureCredential()
+        return cls(
+            SearchClient(settings.endpoint, settings.index_name, credential),
+            owned_credential=credential,
+        )
 
     async def upsert(self, records: Sequence[VectorRecord]) -> None:
         documents = [to_document(r) for r in records]
@@ -209,3 +214,5 @@ class AzureAISearchVectorStore:
 
     async def close(self) -> None:
         await self._client.close()
+        if self._owned_credential is not None:
+            await self._owned_credential.close()

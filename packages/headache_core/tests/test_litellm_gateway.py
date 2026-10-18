@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from pydantic import SecretStr
 
 from headache_core.adapters.litellm_gateway import LiteLLMGateway, build_router_config
@@ -77,3 +82,18 @@ async def test_gateway_falls_back_when_primary_is_rate_limited() -> None:
 
     assert response.content == "Hola"
     assert response.provider.startswith("litellm:")
+
+
+def test_importing_the_adapter_does_not_load_dotenv(tmp_path: Path) -> None:
+    # Regresion: en modo DEV, `import litellm` vuelca el .env en os.environ de todo el proceso.
+    (tmp_path / ".env").write_text("HEADACHE_DOTENV_PROBE=leaked\n", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("LITELLM_")}
+    code = (
+        "import os, headache_core.adapters.litellm_gateway; "
+        "print(os.environ.get('HEADACHE_DOTENV_PROBE'))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "None"

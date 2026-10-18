@@ -19,8 +19,13 @@ $env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-headache"; az account show -o t
 # Al empezar: search_enabled = true en terraform.tfvars y después
 terraform -chdir=infra/terraform/azure apply
 uv run python scripts/provision_search_index.py --apply   # índice del carril B
-# ... reindexar (indexer con INDEXER__VECTOR_STORE=azure_search), y si se usan:
-#     scripts/managed_ingestion.py azure --apply (carril A) y scripts/provision_foundry_iq.py --apply
+uv run python scripts/classify_corpus.py                  # corpus de evals con ACL explícita
+# Carril B (worker en otra terminal con INDEXER__BROKER=servicebus, INDEXER__EMBEDDINGS=azure,
+# INDEXER__VECTOR_STORE=azure_search; PostgreSQL arrancado para el ledger):
+uv run python -m indexer.producer --source data/synthetic/knowledge-classified.jsonl
+# Si se usan: carril A y Foundry IQ
+uv run python scripts/managed_ingestion.py azure --source data/synthetic/knowledge-classified.jsonl --apply
+uv run python scripts/provision_foundry_iq.py --apply
 # Al terminar: search_enabled = false y
 terraform -chdir=infra/terraform/azure apply
 ```
@@ -37,21 +42,18 @@ terraform -chdir=infra/terraform/azure apply
 
 ## Fase 3 · Indexación ([doc](fase-3-comparativa.md))
 
-- [ ] `terraform plan`/`apply` en `infra/terraform/aws` y `infra/terraform/azure` (crear `terraform.tfvars` con `budget_email` y, en Azure, `subscription_id`). Decidir `search_sku` (free con claves o basic ~70 €/mes con identidad gestionada).
-- [ ] Copiar los outputs de Terraform al `.env` (`AZURE_SEARCH__*`, `S3_VECTORS__*`, `AZURE_MANAGED__*`, `BEDROCK_KB__*`, colas SQS/Service Bus).
-- [ ] Carril B: `scripts/provision_search_index.py --apply` e indexar con `INDEXER__EMBEDDINGS=azure|bedrock` y `INDEXER__VECTOR_STORE=azure_search|s3_vectors` (también con `INDEXER__BROKER=sqs|servicebus`).
-- [ ] Carril A: `scripts/managed_ingestion.py aws --apply` y `azure --apply` (Azure: con `search_sku = "basic"`, el indexer usa identidad gestionada); comprobar que el vectorizador de Azure usa 1024 dimensiones.
-- [ ] Medir por carril (ingesta completa, incremental, coste real, latencia) y completar `docs/fase-3-comparativa.md`.
+- [x] Azure (18-10-2026): Terraform aplicado (AI Search Basic en `francecentral`), outputs en el `.env`, corpus clasificado con ACL (`scripts/classify_corpus.py`), carril B con Service Bus + Foundry + AI Search y carril A con indexer + skillset (vectorizador verificado). Medidas y hallazgos en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026).
+- [ ] Investigar por qué el indexer del carril A reprocesa todos los blobs en cada ejecución (hallazgo abierto).
+- [ ] AWS: `terraform apply` en `infra/terraform/aws`, carril B con `INDEXER__EMBEDDINGS=bedrock`, `INDEXER__VECTOR_STORE=s3_vectors` e `INDEXER__BROKER=sqs`, y carril A con `scripts/managed_ingestion.py aws --apply`.
+- [ ] Coste real por carril con Cost Management / Cost Explorer tras unos días de uso.
 
 ## Fase 4 · Retrieval ([doc](fase-4-retrieval.md))
 
 Requiere antes los pendientes de las fases 2 y 3.
 
-- [ ] Clasificar el corpus con `acl` explícita y reingerir: `provision_search_index.py --apply` (el esquema añade `title`, `acl` y configuración semántica) y resincronizar Bedrock KB con los sidecars nuevos. Sin `acl`, los adaptadores cloud deniegan.
-- [ ] AI Search en tier `basic` para Semantic Ranker y Foundry IQ (plan semántico gratuito, ya en Terraform). Revisar el coste antes del `apply`.
-- [ ] Foundry IQ: con `foundry_enabled = true` el proyecto y su rol *Search Index Data Reader* ya los crea Terraform; rellenar `FOUNDRY_IQ__*` con los outputs y ejecutar `scripts/provision_foundry_iq.py --apply` (verifica el `baseFilter` de la audiencia).
-- [ ] Bedrock: habilitar Cohere Rerank y rellenar `BEDROCK__RERANK_MODEL_ARN` y `BEDROCK_KB__GENERATION_MODEL_ARN`.
-- [ ] Ejecutar el servicio con `RETRIEVAL__BACKEND=azure_search`, `RETRIEVAL__LLM=gateway`, `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb|foundry_iq`; comparar A/B/C con el mismo corpus y las mismas preguntas (coste, latencia, citas y abstención) y documentarlo.
+- [x] Azure (18-10-2026): corpus clasificado con ACL explícita e ingerido en el índice `knowledge`; AI Search Basic con Semantic Ranker; Foundry IQ aprovisionado (KB en preview con esfuerzo `minimal`, salida extractiva y 5 documentos) y comparativa A/B/C con el golden dataset completo. Resultados y hallazgos en [fase 4](fase-4-retrieval.md#resultados-en-azure-18-10-2026).
+- [ ] AWS: resincronizar Bedrock KB con los sidecars con ACL, habilitar Cohere Rerank (`BEDROCK__RERANK_MODEL_ARN`, `BEDROCK_KB__GENERATION_MODEL_ARN`) y repetir la comparativa con `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb`.
+- [ ] Estrategias con LLM (rewrite, HyDE, subpreguntas, router, auto) con `RETRIEVAL__LLM=gateway` y modelos reales, medidas con el golden dataset.
 
 ## Fase 5 · Evals ([doc](fase-5-evals.md))
 
@@ -59,7 +61,8 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] Calibrar los jueces: Sergio etiqueta ~20 respuestas a mano y se mide el acuerdo humano-juez antes de usar el juez como gate.
 - [ ] Juez con modelo distinto del generador (sesgo de autopreferencia) y embeddings reales para `AnswerRelevancy` de RAGAS (en local son hashing, léxicos).
 - [ ] Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.
-- [ ] Repetir las evals de retrieval con embeddings reales y reranker de nube, fijar un baseline nuevo y completar el doc.
+- [x] Evals de retrieval con embeddings reales y Semantic Ranker en Azure (`--engine azure --engine azure-semantic`, 18-10-2026): informe en `evals/reports/azure/`. El baseline de la CI sigue siendo el local (coste 0); el de nube se compara a mano.
+- [ ] Juez de fidelidad sobre el `answer` de Foundry IQ (detectar sobre-respuestas como `acl-schedule-change-en`).
 - [ ] Pasar el job `evals` de CI a `--mode enforce` tras varias ejecuciones estables.
 
 ## Fase 6 · Tools y MCP ([doc](fase-6-tools-mcp.md))

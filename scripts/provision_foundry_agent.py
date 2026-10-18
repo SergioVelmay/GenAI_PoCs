@@ -17,6 +17,7 @@ from typing import Any
 
 from booking_agent.managed.foundry import agent_definition
 from booking_agent.spec import build_booking_spec
+from headache_core.adapters.foundry_iq import publish_agent
 from headache_core.adapters.local_retrieval import LocalRetrieval
 from headache_core.adapters.memory import (
     HashingEmbedding,
@@ -57,13 +58,8 @@ async def apply(settings: Settings) -> None:
         raise SystemExit("Falta FOUNDRY_IQ__PROJECT_ENDPOINT.")
     async with DefaultAzureCredential() as credential, httpx.AsyncClient(timeout=60) as http:
         token = await credential.get_token("https://ai.azure.com/.default")
-        response = await http.post(
-            f"{endpoint.rstrip('/')}/agents?api-version=v1",
-            headers={"Authorization": f"Bearer {token.token}"},
-            json=definition(settings),
-        )
-        response.raise_for_status()
-    print(f"Agente '{AGENT_NAME}' versión {response.json().get('version')} creado.")
+        version = await publish_agent(http, endpoint, token.token, definition(settings))
+    print(f"Agente '{AGENT_NAME}' versión {version} publicado.")
 
 
 def main() -> None:

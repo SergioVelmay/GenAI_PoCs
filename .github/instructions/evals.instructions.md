@@ -15,7 +15,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 
 ## Ejecutar (coste 0)
 
-- Retrieval: `uv run python -m rag_evals.retrieval_eval [--engine native] [--strategy bm25]` → `evals/reports/retrieval.{md,json}`.
+- Retrieval: `uv run python -m rag_evals.retrieval_eval [--engine native] [--strategy bm25]` → `evals/reports/retrieval.{md,json}`. Con coste y solo explícito: `--engine azure --engine azure-semantic` (AI Search encendido, perfil de `az` aislado) → `evals/reports/azure/`; nunca en la CI ni en el baseline.
 - Generación extractiva: `uv run python -m rag_evals.generation_eval [--strategy hybrid]` → citas auditadas, abstención, fugas ACL.
 - Agentes: `uv run python -m rag_evals.agents [--flavor X] [--scenario ID]` (modo `scripted`, `ScenarioLLM` con marcadores `{tool:..}`, `{memory:..}`, `{seen:..}`; mundo determinista `rag_evals/agents/world.py`).
 - Ataques: `uv run python -m rag_evals.attacks [--flavor X] [--check]` (modelo comprometido, con y sin harness, controles benignos).

@@ -16,7 +16,9 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote, urlsplit
 
 from azure.search.documents.knowledgebases.models import (
     KnowledgeBaseRetrievalRequest,
@@ -40,15 +42,18 @@ from headache_core.ports.retrieval import (
 from headache_core.ports.vector_store import MetadataValue
 
 if TYPE_CHECKING:
+    import httpx
     from azure.search.documents.knowledgebases.aio import KnowledgeBaseRetrievalClient
     from openai import AsyncOpenAI
     from openai.types.responses import Response
 
 KB_TOOL = "knowledge_base_retrieve"
-# GA: retrieval minimal y extractivo; la knowledge base no invoca ningun LLM.
-MCP_API_VERSION = "2026-04-01"
 # `baseFilter` en la knowledge source solo existe en preview.
 PREVIEW_API_VERSION = "2026-08-01-preview"
+# El endpoint MCP de la knowledge base solo existe en versiones preview: con la GA
+# (2026-04-01, valida para gestionar y para `retrieve`) responde "api-version does not exist"
+# y el agente falla al enumerar herramientas (validado en Azure, checkpoint 8→9).
+MCP_API_VERSION = PREVIEW_API_VERSION
 ABSTENTION = "I don't know"
 CITATION = re.compile(r"【(\d+):(\d+)†([^】]*)】")
 AGENT_INSTRUCTIONS = (
@@ -77,9 +82,45 @@ def knowledge_source_definition(
     }
 
 
-def knowledge_base_definition(name: str, *, knowledge_source: str) -> dict[str, Any]:
-    """Sin `models`: sin planificacion ni sintesis con LLM dentro de la knowledge base."""
-    return {"name": name, "knowledgeSources": [{"name": knowledge_source}]}
+def knowledge_base_definition(
+    name: str, *, knowledge_source: str, max_output_documents: int = 5
+) -> dict[str, Any]:
+    """Cuerpo REST (preview). Sin `models`: sin planificacion ni sintesis con LLM en la KB.
+
+    El esfuerzo `minimal` y la salida extractiva se declaran explicitamente: el endpoint MCP
+    (solo preview) aplica por defecto un esfuerzo que exige un modelo en la KB y falla con
+    "A Knowledge Base model must be specified" (validado en Azure, checkpoint 8→9).
+    """
+    return {
+        "name": name,
+        "knowledgeSources": [{"name": knowledge_source}],
+        "retrievalReasoningEffort": {"kind": "minimal"},
+        "outputMode": "extractiveData",
+        # Sin limite devolvia 30+ documentos por llamada: mas tokens y citas de relleno.
+        "retrieveDefaults": {"maxOutputDocuments": max_output_documents},
+    }
+
+
+async def publish_agent(
+    http: httpx.AsyncClient, project_endpoint: str, token: str, agent: Mapping[str, Any]
+) -> str:
+    """Crea el agente o, si ya existe (409), publica una versión nueva. Devuelve la versión.
+
+    Foundry Agent Service versiona los agentes: `POST /agents` no es idempotente.
+    """
+    base = f"{project_endpoint.rstrip('/')}/agents"
+    headers = {"Authorization": f"Bearer {token}"}
+    response = await http.post(f"{base}?api-version=v1", headers=headers, json=dict(agent))
+    if response.status_code == 409:
+        response = await http.post(
+            f"{base}/{agent['name']}/versions?api-version=v1",
+            headers=headers,
+            json={"definition": agent["definition"]},
+        )
+    response.raise_for_status()
+    body = response.json()
+    version = body.get("version") or body.get("versions", {}).get("latest", {}).get("version")
+    return str(version)
 
 
 def mcp_endpoint(search_endpoint: str, knowledge_base: str) -> str:
@@ -129,29 +170,105 @@ def agent_definition(
     }
 
 
+def _is_abstention(text: str) -> bool:
+    # El modelo a veces anade puntuacion final: "I don't know." sigue siendo abstencion.
+    return text.strip().rstrip(".!").casefold() == ABSTENTION.casefold()
+
+
 def _has_words(text: str) -> bool:
     return any(character.isalnum() for character in text)
 
 
-def _mcp_results(output: str) -> dict[str, tuple[str, str]]:
+@dataclass(frozen=True, slots=True)
+class McpDocument:
+    """Un resultado de la llamada MCP del agente a la knowledge base."""
+
+    title: str
+    text: str
+    chunk_id: str = ""
+    document_id: str = ""
+    acl: str | None = None
+
+
+def _agent_documents(documents: list[Any]) -> dict[str, McpDocument]:
+    """Formato real de Foundry Agent Service: `{"documents": [{"id", "content"}]}`.
+
+    `content` es un JSON con los `sourceDataFields` de la knowledge source (chunk_id, text,
+    title, metadata_json). La clave es la del indice: la misma que traen las anotaciones.
+    """
+    results: dict[str, McpDocument] = {}
+    for document in documents:
+        try:
+            fields = json.loads(document["content"])
+            metadata = json.loads(fields.get("metadata_json") or "{}")
+        except (KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise InvalidCitationError("Documento MCP del agente invalido") from exc
+        chunk_id, text = fields.get("chunk_id"), fields.get("text")
+        if not isinstance(chunk_id, str) or not chunk_id or not isinstance(text, str) or not text:
+            raise InvalidCitationError("Documento MCP del agente sin chunk_id o texto")
+        acl = metadata.get("acl")
+        results[document_key(chunk_id)] = McpDocument(
+            str(fields.get("title", "")),
+            text,
+            chunk_id,
+            str(metadata.get("document_id", "")),
+            acl if isinstance(acl, str) else None,
+        )
+    return results
+
+
+def _mcp_results(output: str) -> dict[str, McpDocument]:
+    if not output.strip():
+        return {}  # Sin resultados: el agente debe abstenerse.
     try:
         items = json.loads(output)
     except json.JSONDecodeError as exc:
         raise InvalidCitationError("Salida MCP de la knowledge base no es JSON") from exc
+    if isinstance(items, dict) and isinstance(items.get("documents"), list):
+        return _agent_documents(items["documents"])
     if not isinstance(items, list):
         raise InvalidCitationError("Salida MCP de la knowledge base inesperada")
-    results: dict[str, tuple[str, str]] = {}
+    results: dict[str, McpDocument] = {}
     for item in items:
         text = item.get("text") if isinstance(item, dict) else None
         if not isinstance(text, str) or not text or "ref_id" not in item:
             raise InvalidCitationError("Resultado MCP sin ref_id o texto")
-        results[str(item["ref_id"])] = (str(item.get("title", "")), text)
+        results[str(item["ref_id"])] = McpDocument(str(item.get("title", "")), text)
     return results
 
 
-def parse_agent_answer(response: Response, *, server_label: str, origin: str) -> ManagedRagResponse:
-    calls: list[dict[str, tuple[str, str]]] = []
+def _citation_key(url: str) -> str:
+    """Clave del documento en el indice a partir de la URL de una anotacion `url_citation`."""
+    return unquote(urlsplit(url).path.rsplit("/", 1)[-1])
+
+
+def _reference(
+    document: McpDocument, *, origin: str, audience: AccessScope | None
+) -> ManagedReference:
+    if not document.chunk_id:
+        identity = json.dumps([origin, document.title, document.text], ensure_ascii=False)
+        # Formato sin chunk_id ni document_id: identidad estable por contenido.
+        source_id = hashlib.sha256(identity.encode()).hexdigest()
+        return ManagedReference(source_id, "", document.title, document.text, origin)
+    # La salida del agente trae la ACL: se vuelve a comprobar (sin ACL se deniega).
+    if audience is not None and not audience.permits({"acl": document.acl}):
+        raise InvalidCitationError("El agente cito un documento fuera de su audiencia")
+    return ManagedReference(
+        document.chunk_id, document.document_id, document.title, document.text, origin
+    )
+
+
+def parse_agent_answer(
+    response: Response,
+    *,
+    server_label: str,
+    origin: str,
+    audience: AccessScope | None = None,
+) -> ManagedRagResponse:
+    calls: list[dict[str, McpDocument]] = []
     parts: list[str] = []
+    # Anotaciones url_citation: posicion de la marca en el texto -> clave del documento.
+    annotated: dict[int, str] = {}
     for item in response.output:
         if isinstance(item, McpCall):
             if item.server_label != server_label or item.name != KB_TOOL:
@@ -160,12 +277,26 @@ def parse_agent_answer(response: Response, *, server_label: str, origin: str) ->
                 raise RetrievalUnavailableError("La llamada del agente a la knowledge base fallo")
             calls.append(_mcp_results(item.output))
         elif isinstance(item, ResponseOutputMessage):
-            parts.extend(part.text for part in item.content if isinstance(part, ResponseOutputText))
-    raw = "".join(parts).strip()
-    if not raw or raw == ABSTENTION:
+            for part in item.content:
+                if isinstance(part, ResponseOutputText):
+                    offset = sum(len(p) for p in parts)
+                    for note in part.annotations or []:
+                        url = getattr(note, "url", None)
+                        if note.type == "url_citation" and isinstance(url, str):
+                            annotated[offset + note.start_index] = _citation_key(url)
+                    parts.append(part.text)
+    joined = "".join(parts)
+    raw = joined.strip()
+    lead = len(joined) - len(joined.lstrip())
+    if not raw or _is_abstention(raw):
         return ManagedRagResponse("", (), True)
     if not calls:
         raise InvalidCitationError("El agente respondio sin consultar la knowledge base")
+    if not any(calls) and not CITATION.search(raw):
+        # La KB no devolvio nada: no hay respuesta fundamentada posible. Se descarta el texto
+        # del modelo (p. ej. "No dispongo de informacion..." en vez de la frase pactada).
+        return ManagedRagResponse("", (), True)
+    by_key = {key: doc for call in calls for key, doc in call.items() if doc.chunk_id}
 
     answer = ""
     citations: list[ManagedCitation] = []
@@ -173,13 +304,18 @@ def parse_agent_answer(response: Response, *, server_label: str, origin: str) ->
     for match in CITATION.finditer(raw):
         segment = raw[position : match.start()]
         position = match.end()
-        call, ref_id = int(match.group(1)), match.group(2)
-        if call >= len(calls) or ref_id not in calls[call]:
-            raise InvalidCitationError("Cita del agente a un resultado inexistente")
-        title, text = calls[call][ref_id]
-        identity = json.dumps([origin, title, text], ensure_ascii=False).encode()
-        # La salida MCP no trae chunk_id ni document_id: identidad estable por contenido.
-        reference = ManagedReference(hashlib.sha256(identity).hexdigest(), "", title, text, origin)
+        key = annotated.get(match.start() + lead)
+        if key is not None:
+            # Formato real: la anotacion identifica el documento en el indice.
+            if key not in by_key:
+                raise InvalidCitationError("Cita del agente a un documento que no devolvio la KB")
+            document = by_key[key]
+        else:
+            call, ref_id = int(match.group(1)), match.group(2)
+            if call >= len(calls) or ref_id not in calls[call]:
+                raise InvalidCitationError("Cita del agente a un resultado inexistente")
+            document = calls[call][ref_id]
+        reference = _reference(document, origin=origin, audience=audience)
         if _has_words(segment):
             stripped = segment.strip()
             start = len(answer) + len(segment) - len(segment.lstrip())
@@ -309,5 +445,8 @@ class FoundryIQKnowledge:
             extra_body={"agent_reference": {"name": self._agent, "type": "agent_reference"}},
         )
         return parse_agent_answer(
-            response, server_label=self._label, origin=f"foundry-iq://{self._source}"
+            response,
+            server_label=self._label,
+            origin=f"foundry-iq://{self._source}",
+            audience=self._audience,
         )

@@ -1,13 +1,14 @@
 """Carril A en Azure: knowledge source/base de Foundry IQ, conexion MCP y agente.
 
-Terraform crea AI Search y los permisos; el proyecto de Foundry y el despliegue del modelo
-se crean en el portal (fase 2). Estos objetos no los gestiona azurerm.
+Terraform crea AI Search, el proyecto de Foundry, los despliegues de modelos y los permisos
+(`foundry.tf`). Estos objetos no los gestiona azurerm.
 
 Uso:
     uv run python scripts/provision_foundry_iq.py            # dry-run: imprime las definiciones
     uv run python scripts/provision_foundry_iq.py --apply    # crea/actualiza (nube, con coste)
 
-Orden: knowledge source (preview, `baseFilter` = audiencia) -> knowledge base (GA) ->
+Orden: knowledge source (preview, `baseFilter` = audiencia) -> knowledge base (preview,
+esfuerzo `minimal` y salida extractiva) ->
 conexion `RemoteTool` del proyecto (ARM) -> agente con la herramienta MCP de la KB.
 """
 
@@ -25,6 +26,7 @@ from headache_core.adapters.foundry_iq import (
     knowledge_source_definition,
     mcp_connection_definition,
     mcp_endpoint,
+    publish_agent,
 )
 from headache_core.config import Settings, get_settings
 from headache_core.domain.retrieval import AccessScope
@@ -88,7 +90,15 @@ async def apply(settings: Settings) -> None:
         # Sin baseFilter el agente veria todo el indice: se verifica en vez de suponerlo.
         if stored.json()["searchIndexParameters"].get("baseFilter") != expected:
             raise SystemExit("La knowledge source no conserva el baseFilter de la audiencia.")
-        await search.create_or_update_knowledge_base(body["knowledge_base"])
+        # Preview (como la knowledge source): la GA no conoce el esfuerzo ni el modo de salida
+        # y el endpoint MCP (solo preview) los necesita explicitos.
+        base = body["knowledge_base"]
+        kb_path = f"/knowledgebases('{base['name']}')?api-version={PREVIEW_API_VERSION}"
+        (await search.send_request(HttpRequest("PUT", kb_path, json=base))).raise_for_status()
+        stored_kb = await search.send_request(HttpRequest("GET", kb_path))
+        stored_kb.raise_for_status()
+        if stored_kb.json().get("retrievalReasoningEffort") != base["retrievalReasoningEffort"]:
+            raise SystemExit("La knowledge base no conserva el esfuerzo de razonamiento minimal.")
 
         arm = await credential.get_token("https://management.azure.com/.default")
         connection = await http.put(
@@ -100,13 +110,13 @@ async def apply(settings: Settings) -> None:
         connection.raise_for_status()
 
         foundry_token = await credential.get_token("https://ai.azure.com/.default")
-        agent = await http.post(
-            f"{foundry.project_endpoint.rstrip('/')}/agents?api-version=v1",
-            headers={"Authorization": f"Bearer {foundry_token.token}"},
-            json=body["agent"],
+        version = await publish_agent(
+            http, foundry.project_endpoint, foundry_token.token, body["agent"]
         )
-        agent.raise_for_status()
-    print(f"Foundry IQ listo: KB '{foundry.knowledge_base}', agente '{foundry.agent_name}'.")
+    print(
+        f"Foundry IQ listo: KB '{foundry.knowledge_base}', "
+        f"agente '{foundry.agent_name}' versión {version}."
+    )
 
 
 def main() -> None:

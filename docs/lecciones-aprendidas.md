@@ -34,6 +34,17 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Al volver a una sesión había 4 ficheros sin guardar que no se reconocían (fase 4) | Cambio de sesión y de modelo a mitad de trabajo: eran restos de otra sesión | Si aparecen cambios sin guardar desconocidos: *File: Revert File*, no guardarlos. Si ya están guardados: diff, copia en `%TEMP%` y decidir |
 | Los pasos se hacían en contextos muy largos (una fase por sesión) | El rendimiento del modelo cae cuando el contexto se llena | Una sesión por fase; si se alarga, cerrar la subfase, hacer commit y abrir sesión nueva con la skill `iniciar-fase` |
 
+## Validación en la nube (checkpoint 8→9)
+
+| Qué pasó | Causa | Regla |
+|---|---|---|
+| Un indexer de AI Search terminaba `success` con 0 chunks | El skillset leía `/document/content`, que el parser de Markdown `oneToOne` deja vacío | Un estado en verde no prueba nada: verificar el **resultado** (número de documentos en el índice) |
+| Adaptadores de la fase 4 (Foundry IQ) que pasaban todos sus tests fallaron al primer uso real | Versión de API, valores por defecto y formato de respuesta supuestos sin poder probarlos | Los dobles de test se construyen a partir de **respuestas reales capturadas**; tras la primera validación en la nube, se actualizan y se fija un test de regresión por hallazgo |
+| La API GA servía para gestionar la KB pero no para su endpoint MCP | Las capacidades nuevas llegan antes a preview | Comprobar la disponibilidad de cada operación por versión de API, no solo del servicio |
+| No se pudo crear AI Search en la región elegida | Regiones de alta demanda bloquean servicios nuevos | Consultar la tabla de regiones del servicio antes de fijar la región; separar la región de cada recurso cuando haga falta |
+| 2 tests fallaban solo en la suite completa al rellenar el `.env` con Azure | `import litellm` (modo DEV) vuelca el `.env` en `os.environ` de todo el proceso | `LITELLM_MODE=PRODUCTION` antes de importarlo y test de regresión en un proceso limpio. Ante un fallo que solo ocurre en la suite completa, buscar estado global compartido (variables de entorno, singletons) |
+| `POST /agents` falló al repetir el aprovisionamiento | Los agentes de Foundry se versionan | Todo aprovisionamiento debe ser idempotente: crear o actualizar, y probarlo ejecutándolo dos veces |
+
 ## Dominio y diseño
 
 | Qué pasó | Causa | Regla |

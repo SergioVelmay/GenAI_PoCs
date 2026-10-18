@@ -1,8 +1,11 @@
 """Carril A Azure (Foundry IQ + Agent Service) con dobles locales: sin red ni coste."""
 
 import json
+import re
 from typing import Any
+from urllib.parse import quote
 
+import httpx
 import pytest
 from azure.search.documents.knowledgebases.models import (
     KnowledgeBaseRetrievalRequest,
@@ -10,6 +13,7 @@ from azure.search.documents.knowledgebases.models import (
 )
 from openai.types.responses import Response, ResponseOutputMessage, ResponseOutputText
 from openai.types.responses.response_output_item import McpCall
+from openai.types.responses.response_output_text import AnnotationURLCitation
 
 from headache_core.adapters.azure_search import document_key
 from headache_core.adapters.foundry_iq import (
@@ -21,6 +25,7 @@ from headache_core.adapters.foundry_iq import (
     knowledge_source_definition,
     mcp_connection_definition,
     mcp_endpoint,
+    publish_agent,
 )
 from headache_core.application.retrieval import InvalidCitationError, RetrievalUnavailableError
 from headache_core.domain.retrieval import AccessScope
@@ -246,12 +251,19 @@ def test_definitions_bind_audience_and_disable_kb_models() -> None:
     parameters = source["searchIndexParameters"]
     assert parameters["baseFilter"] == "(acl eq 'public')"
     assert parameters["semanticConfigurationName"] == "knowledge-semantic"
+    # Sin modelo: el esfuerzo minimal y la salida extractiva deben ir explicitos (MCP preview).
     assert knowledge_base_definition("kb", knowledge_source=SOURCE) == {
         "name": "kb",
         "knowledgeSources": [{"name": SOURCE}],
+        "retrievalReasoningEffort": {"kind": "minimal"},
+        "outputMode": "extractiveData",
+        "retrieveDefaults": {"maxOutputDocuments": 5},
     }
     url = mcp_endpoint("https://svc.search.windows.net/", "kb")
-    assert url == "https://svc.search.windows.net/knowledgebases/kb/mcp?api-version=2026-04-01"
+    # Preview: el endpoint MCP no existe en la versión GA (regresión validada en Azure).
+    assert url == (
+        "https://svc.search.windows.net/knowledgebases/kb/mcp?api-version=2026-08-01-preview"
+    )
     tool = agent_definition("a", model="gpt-4.1-mini", mcp_url=url, connection="c")["definition"][
         "tools"
     ][0]
@@ -260,3 +272,141 @@ def test_definitions_bind_audience_and_disable_kb_models() -> None:
     assert connection["authType"] == "ProjectManagedIdentity" and connection["target"] == url
     with pytest.raises(ValueError):
         knowledge_source_definition(SOURCE, index_name="knowledge", audience=AccessScope(()))
+
+
+AGENT = {"name": "agent", "definition": {"kind": "prompt", "model": "m"}}
+
+
+async def test_publish_agent_creates_then_versions_on_conflict() -> None:
+    # POST /agents no es idempotente: si el agente existe (409), se publica una versi?n nueva.
+    calls: list[tuple[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.url.path, json.loads(request.content)))
+        if request.url.path.endswith("/agents"):
+            return httpx.Response(409, json={"error": "exists"})
+        return httpx.Response(200, json={"version": "2"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        version = await publish_agent(http, "https://p.ai/api/projects/x/", "t", AGENT)
+
+    assert version == "2"
+    assert calls == [
+        ("/api/projects/x/agents", AGENT),
+        ("/api/projects/x/agents/agent/versions", {"definition": AGENT["definition"]}),
+    ]
+
+
+async def test_publish_agent_creates_new_agent() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer t"
+        return httpx.Response(200, json={"versions": {"latest": {"version": "1"}}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        assert await publish_agent(http, "https://p.ai/api/projects/x", "t", AGENT) == "1"
+
+
+# --- Formato real de Foundry Agent Service (capturado en Azure, checkpoint 8->9) ---
+
+
+def agent_document(chunk_id: str, text: str, acl: str | None = "public") -> dict[str, str]:
+    metadata = {"document_id": chunk_id.split("::")[0]} | ({"acl": acl} if acl else {})
+    fields = {
+        "chunk_id": chunk_id,
+        "text": text,
+        "title": "T",
+        "metadata_json": json.dumps(metadata),
+    }
+    return {"id": "uuid", "content": json.dumps(fields)}
+
+
+def annotated_message(text: str, cited: list[str]) -> ResponseOutputMessage:
+    """Una anotacion url_citation por marca, con la clave del chunk en el indice."""
+    starts = [match.start() for match in re.finditer("\u3010", text)]
+    annotations = [
+        AnnotationURLCitation(
+            type="url_citation",
+            start_index=start,
+            end_index=text.index("\u3011", start) + 1,
+            title="t",
+            url=f"https://svc.search.windows.net/indexes/knowledge/docs/"
+            f"{quote(document_key(chunk_id))}?$select=text",
+        )
+        for start, chunk_id in zip(starts, cited, strict=True)
+    ]
+    content = [ResponseOutputText(text=text, annotations=annotations, type="output_text")]
+    return ResponseOutputMessage(
+        id="msg-1", content=content, role="assistant", status="completed", type="message"
+    )
+
+
+AGENT_OUTPUT = {
+    "documents": [
+        agent_document("policy-nightlife-en::0000", "Nightlife tickets are non-refundable."),
+        agent_document("event-evt_000024::0000", "Concert on Friday."),
+    ]
+}
+
+
+async def test_agent_real_format_maps_annotations_to_chunks() -> None:
+    # message_idx (4) no corresponde a nada observable: manda la anotacion.
+    marks = "\u30104:0\u2020source\u3011\u30104:1\u2020source\u3011"
+    text = f"Nightlife tickets are non-refundable.{marks}"
+    responses = ResponsesDouble(
+        mcp_call([], output=json.dumps(AGENT_OUTPUT)),
+        annotated_message(text, ["policy-nightlife-en::0000", "event-evt_000024::0000"]),
+    )
+    result = await agent(responses).answer("refund", top_k=5, filters={}, scope=AccessScope())
+    (citation,) = result.citations
+    assert result.answer == "Nightlife tickets are non-refundable."
+    assert [r.source_id for r in citation.references] == [
+        "policy-nightlife-en::0000",
+        "event-evt_000024::0000",
+    ]
+    assert citation.references[0].document_id == "policy-nightlife-en"
+
+
+@pytest.mark.parametrize(
+    ("documents", "cited"),
+    [
+        # Cita a un chunk que la knowledge base no devolvio en esta llamada.
+        ([agent_document("policy-nightlife-en::0000", "x")], "handbook-help-center-en::0001"),
+        # Documento fuera de la audiencia del agente.
+        (
+            [agent_document("handbook-help-center-en::0001", "x", acl="internal")],
+            "handbook-help-center-en::0001",
+        ),
+        # Sin ACL se deniega.
+        ([agent_document("policy-nightlife-en::0000", "x", acl=None)], "policy-nightlife-en::0000"),
+    ],
+)
+async def test_agent_real_format_fails_closed(documents: list[dict[str, str]], cited: str) -> None:
+    text = "Answer.\u30104:0\u2020source\u3011"
+    responses = ResponsesDouble(
+        mcp_call([], output=json.dumps({"documents": documents})),
+        annotated_message(text, [cited]),
+    )
+    with pytest.raises(InvalidCitationError):
+        await agent(responses).answer("refund", top_k=5, filters={}, scope=AccessScope())
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        ABSTENTION,
+        "I don't know.",
+        "No dispongo de información sobre mascotas. ¿Puedes concretar?",
+    ],
+)
+async def test_agent_real_format_without_results_abstains(text: str) -> None:
+    # Sin resultados, el MCP devuelve "\n": nada fundamentado, se descarta el texto del modelo.
+    responses = ResponsesDouble(mcp_call([], output="\n"), message(text))
+    result = await agent(responses).answer("pets", top_k=5, filters={}, scope=AccessScope())
+    assert result.abstained and result.answer == "" and not result.citations
+
+
+async def test_agent_without_results_cannot_cite() -> None:
+    text = "Pets are welcome.\u30104:0\u2020source\u3011"
+    responses = ResponsesDouble(mcp_call([], output="\n"), message(text))
+    with pytest.raises(InvalidCitationError):
+        await agent(responses).answer("pets", top_k=5, filters={}, scope=AccessScope())

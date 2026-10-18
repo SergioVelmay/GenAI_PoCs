@@ -16,6 +16,23 @@ from headache_core.domain import (
     check_refund_resolution,
     evaluate_refund,
 )
+from headache_core.domain.retrieval import classify_acl
+
+
+@pytest.mark.parametrize(
+    ("doc_type", "acl"),
+    [
+        ("policy", "public"),
+        ("faq", "public"),
+        ("venue_guide", "public"),
+        ("event_sheet", "public"),
+        ("handbook", "internal"),
+        ("unknown", "internal"),  # Tipo nuevo o desconocido: cerrado por defecto.
+        ("", "internal"),
+    ],
+)
+def test_classify_acl_is_closed_by_default(doc_type: str, acl: str) -> None:
+    assert classify_acl(doc_type) == acl
 
 
 def test_refund_approved_within_window(order: Order, session: Session, event: Event) -> None:

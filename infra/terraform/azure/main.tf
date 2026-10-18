@@ -23,8 +23,10 @@ locals {
     spaincentral  = "spc"
     francecentral = "frc"
   }
-  caf_suffix   = "${local.name}-${local.region_abbr[var.location]}-${var.instance}"
-  search_name  = "srch-${local.caf_suffix}" # Estable: al recrear AI Search, el endpoint no cambia.
+  caf_suffix = "${local.name}-${local.region_abbr[var.location]}-${var.instance}"
+  # AI Search puede vivir en otra región (ver var.search_location): su nombre lleva la suya.
+  # Estable: al recrear AI Search, el endpoint no cambia.
+  search_name  = "srch-${local.name}-${local.region_abbr[var.search_location]}-${var.instance}"
   storage_name = replace("st${local.caf_suffix}", "-", "")
 }
 
@@ -64,7 +66,7 @@ resource "azurerm_search_service" "main" {
   count               = local.search
   name                = local.search_name
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = var.search_location
   sku                 = var.search_sku
   # Plan gratuito del Semantic Ranker (1000 consultas/mes): lo usan el carril B y Foundry IQ.
   # azurerm no admite fijarlo en el tier Free.

@@ -40,6 +40,16 @@ variable "max_deliveries" {
   default     = 5
 }
 
+variable "search_location" {
+  description = "Región de AI Search. Sweden/West/North Europe y Germany West Central son de alta demanda y no admiten servicios nuevos; France Central sí (UE, con enriquecimiento, Semantic Ranker y agentic retrieval)."
+  type        = string
+  default     = "francecentral"
+  validation {
+    condition     = contains(["swedencentral", "westeurope", "northeurope", "spaincentral", "francecentral"], var.search_location)
+    error_message = "Región sin abreviatura CAF: añádela a local.region_abbr en main.tf."
+  }
+}
+
 variable "search_enabled" {
   description = "Crea AI Search. Basic tiene coste fijo (~70 €/mes): encenderlo solo en las sesiones de trabajo."
   type        = bool

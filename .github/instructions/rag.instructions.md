@@ -20,5 +20,8 @@ Docs: `docs/fase-3-comparativa.md`, `docs/fase-4-retrieval.md`.
 
 - `uv run uvicorn retrieval.app:create_app --factory --host 127.0.0.1 --port 8010`; comparativa B/C: `uv run python -m retrieval.compare "consulta"`.
 - 100 % local por defecto; la nube se compone solo de forma explícita con `RETRIEVAL__BACKEND|EMBEDDINGS|SEMANTIC_RANKER|RERANKER|LLM|MANAGED` (`retrieval/cloud.py`).
-- Carril A en `/managed/*`: `bedrock_kb` o `foundry_iq` (On Your Data se retiró el 14-10-2026). Aprovisionamiento: `scripts/provision_foundry_iq.py [--apply]`.
+- Carril A en `/managed/*`: `bedrock_kb` o `foundry_iq` (On Your Data se retiró el 14-10-2026). Aprovisionamiento idempotente: `scripts/provision_foundry_iq.py [--apply]` (knowledge source y knowledge base en **preview**: `baseFilter`, esfuerzo `minimal`, salida extractiva y 5 documentos; el endpoint MCP solo existe en preview; agentes con `publish_agent`).
+- Foundry IQ `answer`: el parser mapea cada cita por su anotación `url_citation` a un documento devuelto por la KB y comprueba su ACL. Los dobles de test reproducen el formato real capturado en Azure (`{"documents": [...]}`).
+- Nube: ingerir siempre el corpus **clasificado con ACL explícita** (`scripts/classify_corpus.py` → `--source data/synthetic/knowledge-classified.jsonl`); la regla está en `domain/retrieval.classify_acl`. AI Search vive en `francecentral` (`search_location`) y es efímero (`search_enabled`).
+- Carril A de Azure (indexer + skillset): con `parsingMode=markdown/oneToOne` el texto está en `/document/document_content`. Comprobar el número de chunks del índice, no solo el estado del indexer.
 - La ACL se aplica como filtro del servidor **y** se vuelve a comprobar en cada resultado; sin `acl` explícita, los adaptadores cloud deniegan. Citas obligatorias y verificables; abstenerse antes que inventar.

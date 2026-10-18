@@ -414,7 +414,7 @@ los padres privados, hits con score cero y el bloqueo de los modelos por defecto
 | 4.3, SDK AI Search y Bedrock | Publicado (`c1cb588`) | Validacion real |
 | Carril A Azure (Foundry IQ + Agent Service) | Publicado (`a9b9fc1`) | Crear KS/KB/agente y validacion real |
 | Composicion cloud, rutas `/managed/*`, aprovisionamiento e IaC | Implementado y probado en local | Validacion real |
-| Comparativa cloud A/B/C | Pendiente (nube, con coste) | Ver [pendientes con coste](pendientes-cloud.md) |
+| Comparativa cloud A/B/C | Azure hecha (18-10-2026, ver resultados abajo) | AWS: ver [pendientes con coste](pendientes-cloud.md) |
 
 Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval estan implementadas,
 probadas con dobles de `LLMPort` y conectadas al gateway con `RETRIEVAL__LLM=gateway`;
@@ -432,6 +432,63 @@ Pendientes en la nube (aplazados, como en las fases 2 y 3; todos con coste y con
 
 Las evals sistematicas con golden dataset, hit rate/MRR y gates de calidad son la fase 5;
 los tests actuales validan contratos, no la calidad del retrieval.
+
+## Resultados en Azure (18-10-2026)
+
+Corpus de evals clasificado con ACL explícita (114 chunks `public` y 17 `internal` en el índice
+`knowledge` del carril B), embeddings `text-embedding-3-small` (1024), AI Search Basic en
+`francecentral` con Semantic Ranker (plan gratuito) y Foundry IQ + Agent Service en el proyecto
+`headache`. Golden dataset completo: 144 preguntas (114 con respuesta, 30 sin ella o internas).
+
+**Carriles B y C frente a la nube** (`python -m rag_evals.retrieval_eval --engine azure
+--engine azure-semantic`, informe en `evals/reports/azure/`):
+
+| Carril / estrategia | hit@1 | MRR | nDCG@5 | recall@5 | Fugas ACL | Latencia p50 / p95 |
+|---|---|---|---|---|---|---|
+| Local nativo · vector (`hashing`) | 0,947 | 0,974 | 0,897 | 0,759 | 0 | 0 ms / 0 ms |
+| Local nativo · híbrida (`hashing`) | 0,912 | 0,953 | 0,875 | 0,741 | 0 | 2 ms / 2 ms |
+| Azure · BM25 | 0,983 | 0,990 | 0,904 | 0,746 | 0 | 54 ms / 92 ms |
+| Azure · vector | **1,000** | **1,000** | 0,979 | 0,952 | 0 | 173 ms / 257 ms |
+| Azure · híbrida (RRF) | **1,000** | **1,000** | 0,922 | 0,789 | 0 | 191 ms / 262 ms |
+| Azure · híbrida + Semantic Ranker | 0,991 | 0,993 | **0,980** | **0,974** | 0 | 228 ms / 418 ms |
+
+- Los embeddings reales suben el recall@5 del vector de 0,76 a 0,95: las cifras locales con
+  `hashing` validaban el arnés, no la calidad semántica (como avisaba la fase 5).
+- **La híbrida RRF rinde peor que el vector solo** con embeddings buenos: la parte BM25 diluye
+  el orden (nDCG 0,922 frente a 0,979). El Semantic Ranker lo recupera y da el mejor recall
+  (0,974) a cambio de ~40 ms de p50. Conclusión para Headache: vector, o híbrida **con** ranker;
+  no híbrida a secas.
+- 0 fugas de ACL en todas las estrategias: la ACL viaja como filtro del servidor y se vuelve a
+  comprobar en la aplicación.
+
+**Carril A · Foundry IQ** (`retrieve` en las 144 preguntas; `answer` con el agente en una
+muestra de 15 sin filtros: 10 con respuesta y 5 sin ella):
+
+| Medida | Resultado |
+|---|---|
+| `retrieve` (determinista) | hit@5 **1,000** · MRR 0,993 · 0 documentos prohibidos · p50 100 ms / p95 151 ms |
+| `answer` · con respuesta | **10/10** respondidas con cita al documento correcto; el literal esperado aparece en 8/10 (las otras 2 parafrasean) |
+| `answer` · sin respuesta | **4/5** abstenciones correctas; 1 sobre-respuesta (ver hallazgos) |
+| `answer` · latencia | p50 2,6 s / p95 4,3 s (agente + MCP + `gpt-4.1-mini`) |
+| Coste | ~0,02 $ los 15 `answer`; `retrieve` sin LLM (Semantic Ranker en plan gratuito) |
+
+Las referencias del agente ya traen `chunk_id` y `document_id` reales: el carril A **sí es
+comparable 1:1** con B y C, y la ACL de cada documento citado se vuelve a comprobar.
+
+### Hallazgos en la nube
+
+| Hallazgo | Causa | Solución |
+|---|---|---|
+| El agente no podía enumerar herramientas (400) | El endpoint MCP de la knowledge base **solo existe en versiones preview**; con la GA (`2026-04-01`, válida para gestionar y para `retrieve`) responde "api-version does not exist" | `MCP_API_VERSION = PREVIEW_API_VERSION` y test de regresión |
+| La herramienta fallaba con "A Knowledge Base model must be specified" | En preview, el esfuerzo de razonamiento por defecto exige un modelo en la KB; la nuestra no tiene (retrieval extractivo, sin LLM) | KB creada en preview con `retrievalReasoningEffort: minimal` y `outputMode: extractiveData`, verificados tras el `PUT` |
+| El formato real del agente no era el supuesto | Agent Service devuelve `{"documents": [{"id", "content"}]}` con los `sourceDataFields` en `content`; las marcas `【4:0†source】` no se pueden mapear por `message_idx`, pero cada una trae una anotación `url_citation` con la clave del chunk | El parser mapea cada cita por su anotación a un documento devuelto por la KB, comprueba su ACL (sin ACL se deniega) y falla cerrado ante cualquier otra cosa |
+| Abstenciones rechazadas | `"I don't know."` con punto; en español, el modelo no repetía la frase pactada | Abstención tolerante a la puntuación; si la KB no devolvió nada y no hay citas, se descarta el texto del modelo y cuenta como abstención |
+| Hasta 34 documentos por llamada y citas de relleno | La KB no tenía límite de salida | `retrieveDefaults.maxOutputDocuments = 5`, coherente con el `top_k` de B y C |
+| `POST /agents` falla con 409 al reaprovisionar | Foundry versiona los agentes | `publish_agent`: crea o publica una versión nueva (también en `provision_foundry_agent.py`) |
+| Sobre-respuesta en una pregunta interna (`acl-schedule-change-en`) | El agente respondió con políticas públicas cercanas (cambios de fecha) en lugar de abstenerse; cita bien, pero no responde a lo preguntado | Ningún validador estructural lo detecta: necesita un juez de fidelidad (pendiente de la fase 5) |
+
+Pendiente: AWS (Bedrock KB y Bedrock Rerank), las estrategias con LLM (rewrite, HyDE,
+subpreguntas, router, auto) con modelos reales y el juez de fidelidad sobre `answer`.
 
 ## Checkpoint de entrevista
 

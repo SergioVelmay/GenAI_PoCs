@@ -217,6 +217,10 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 5. **¿Qué estrategia de chunking?** Por frases y sin títulos huérfanos (el chunker inicial dejaba
    un 29 % de cortes en guías largas; ahora un 0 %). La elección final se decide con evals de
    retrieval (fase 5), no a ojo.
+6. **¿Cómo sabes que la ingesta incremental funciona en producción?** Midiéndola: en Azure,
+   republicar los 116 documentos generó **0** llamadas de embeddings (hash en el ledger) y cambiar
+   uno generó **1**. En cambio, el indexer gestionado reprocesaba todo en cada ejecución: un
+   hallazgo abierto con impacto directo en el coste a escala.
 
 ### Negocio y stakeholders
 
@@ -238,7 +242,10 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ### Técnicas
 
 1. **¿Por qué RRF y no sumar scores?** BM25 y coseno tienen escalas distintas. RRF combina
-   posiciones y evita calibrarlas; el recall sigue dependiendo de la ventana de candidatos.
+   posiciones y evita calibrarlas; el recall sigue dependiendo de la ventana de candidatos. Y
+   no es gratis: medido en Azure con 144 preguntas, la híbrida RRF rindió **peor** que el vector
+   solo (recall@5 0,79 frente a 0,95), porque la parte léxica diluía el orden. Con el Semantic
+   Ranker encima fue la mejor (0,97). La híbrida se valida con datos; no se asume.
 2. **¿Dónde se aplica la ACL?** Antes del ranking y del top-k, en el backend, y de nuevo en la
    aplicación. El LLM no puede ampliar el alcance ni generar la ACL como filtro.
 3. **¿HyDE no introduce alucinaciones?** Su texto es hipotético y solo guía la búsqueda; la
@@ -277,11 +284,18 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    KPI es la tasa de respuestas con cita válida y la de abstenciones correctas.
 2. **¿Por qué es mejor "no lo sé" que una respuesta?** Porque una política de reembolso inventada
    cuesta dinero, reclamaciones y confianza. Un "no lo sé" bien gestionado escala a una persona; es
-   un coste conocido y acotado.
+   un coste conocido y acotado. En la prueba con el agente gestionado de Azure: 10/10 respuestas
+   con la cita correcta y 4/5 abstenciones; la quinta respondió con una política cercana que no
+   contestaba a lo preguntado. Por eso, además de exigir citas, hace falta un juez de fidelidad.
 3. **Un proveedor retira el servicio en el que te apoyabas. ¿Cómo lo gestionas?** Como con *On Your
    Data*, retirado el 14-10-2026: comprobar el ciclo de vida antes de diseñar, documentar la
    decisión y su alternativa (Foundry Agent Service + Foundry IQ) y, gracias a los puertos, cambiar
    un adaptador en lugar del producto.
+4. **¿Cómo valida un equipo que un servicio gestionado hace lo que promete?** Con el mismo dataset
+   y las mismas métricas que el resto, en la nube y no solo con simulaciones. En la primera
+   validación real del carril gestionado aparecieron seis fallos que los tests locales no podían
+   ver (versión de API, valores por defecto, formato de citas). Cada uno quedó con su test de
+   regresión basado en la respuesta real capturada.
 
 <a id="fase-5"></a>
 

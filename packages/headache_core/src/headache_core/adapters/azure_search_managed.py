@@ -51,6 +51,8 @@ from headache_core.domain import KnowledgeDocument
 
 # Metadatos del blob que el indexer expone como /document/<clave>. Deben ser ASCII.
 BLOB_METADATA = ("document_id", "doc_type", "language", "category", "city")
+# Salida del parser de Markdown en modo oneToOne (validado en Azure, checkpoint 8→9).
+MARKDOWN_TEXT_SOURCE = "/document/document_content"
 
 
 @dataclass(frozen=True)
@@ -171,7 +173,9 @@ def skillset(
         text_split_mode="pages",
         maximum_page_length=page_length,
         page_overlap_length=page_overlap,
-        inputs=[InputFieldMappingEntry(name="text", source="/document/content")],
+        # Con parsingMode=markdown/oneToOne el texto completo está en `document_content`
+        # (y la estructura en `sections`); `/document/content` queda vacío.
+        inputs=[InputFieldMappingEntry(name="text", source=MARKDOWN_TEXT_SOURCE)],
         outputs=[OutputFieldMappingEntry(name="textItems", target_name="pages")],
     )
     embed = AzureOpenAIEmbeddingSkill(

@@ -122,16 +122,39 @@ mismo corpus y un golden dataset.
 - **Carril C** como **laboratorio**: probar estrategias de troceo y retrieval avanzadas
   (jerárquico, auto-merging) antes de llevarlas al carril B o descartarlas.
 
-## 6. Pendiente de validar en la nube (con coste, requiere confirmación)
+## 6. Resultados en Azure (18-10-2026)
 
-- `terraform plan`/`apply` en `infra/terraform/aws` y `infra/terraform/azure`.
-- Carril B: `scripts/provision_search_index.py --apply` e indexar con `INDEXER__EMBEDDINGS=azure|bedrock`
-  e `INDEXER__VECTOR_STORE=azure_search|s3_vectors`.
-- Carril A: `scripts/managed_ingestion.py aws --apply` y `... azure --apply`. Verificar en Azure que el
-  vectorizador del índice usa las mismas 1024 dimensiones que el skillset (el vectorizador no
-  expone el parámetro `dimensions`).
-- Medir por carril: tiempo de ingesta del corpus completo, tiempo de una actualización incremental,
-  coste real (Cost Explorer / Cost Management) y latencia de consulta. Completar esta comparativa.
+Corpus congelado de evals (116 documentos) **clasificado con ACL explícita**
+(`scripts/classify_corpus.py`: 114 `public`, 2 `internal`). Foundry y Service Bus en
+`swedencentral`; AI Search **Basic en `francecentral`** (Sweden, West y North Europe no admiten
+servicios nuevos de AI Search por alta demanda). Entra ID en todo, sin claves.
+
+| Medida | Carril A · Gestionado (indexer + skillset) | Carril B · SDK nativo (Service Bus + worker) |
+|---|---|---|
+| Ingesta completa | 116 docs → **118 chunks** (páginas de 2 000 caracteres); 10 s en el servicio, 36 s con la subida de blobs | 116 docs → **131 chunks** (frases, 80 palabras); 7,6 s en el worker, 25 s de extremo a extremo; 0 reintentos, 0 en DLQ |
+| Republicar sin cambios | ⚠️ El indexer **reprocesa los 116** blobs en cada ejecución (ver hallazgos) | **0** embeddings: 116 `unchanged` por el hash del ledger |
+| 1 documento modificado | — | **1** embedding; solo se reindexa ese documento |
+| Latencia de consulta (p50 / p95) | 165 ms / 694 ms (la p95 es la primera, en frío); AI Search vectoriza la consulta dentro de Azure | 205–213 ms / 227–270 ms; el cliente embebe en Suecia y busca en Francia |
+| Coste de la ingesta | Céntimos de céntimo en embeddings (~12 K tokens); el indexer va incluido en Basic | Igual; Service Bus por operación (~0) |
+| Coste fijo | AI Search Basic ~0,10 $/h mientras existe (efímero, `search_enabled`) | El mismo servicio de AI Search |
+
+**Calidad (muestra de 5 preguntas):** ambos carriles devuelven el documento esperado en 4 de 5.
+En "¿es accesible el recinto en silla de ruedas?", A devuelve una guía de recinto (pública) y B el
+manual interno (`handbook`): la búsqueda vectorial cruda no aplica ACL. Por eso el servicio de
+retrieval de la fase 4 filtra por ACL en el servidor antes del top-k. La comparación rigurosa se
+hace con el golden dataset (fase 5).
+
+### Hallazgos en la nube
+
+| Hallazgo | Causa | Solución |
+|---|---|---|
+| Carril A: el indexer terminaba `success` con **0 chunks** (232 avisos) | Con `parsingMode=markdown` y `oneToOne`, el texto queda en `/document/document_content`, no en `/document/content`; el SplitSkill no recibía nada | Entrada del SplitSkill corregida (`MARKDOWN_TEXT_SOURCE`) y test de regresión. Un indexer en verde no prueba nada: hay que contar los documentos del índice |
+| Carril A: el indexer reprocesa todos los blobs aunque no cambien | Abierto. Los blobs son anteriores a la marca de agua del indexer y la documentación dice que una ejecución sin cambios procesa 0/0. Sospechosos: la política de borrado nativo (soft delete) o las proyecciones de índice | Investigar antes de producción: a escala, cada ejecución vuelve a pagar todos los embeddings |
+| Avisos `Unclosed client session` en el indexer | Los adaptadores de AI Search y Service Bus no cerraban la credencial asíncrona que creaban, y la composición no cerraba el almacén | Cada adaptador cierra lo que crea y `open_pipeline` cierra el almacén de la nube |
+| 58 avisos de proyección en el carril A | Documentos sin `category` o `city` en los metadatos del blob | Benignos: el campo queda vacío |
+| AI Search no se puede crear en `swedencentral` | `InsufficientResourcesAvailable`: región de alta demanda | `search_location = "francecentral"`; Foundry y el resto siguen en Suecia |
+
+Pendiente: AWS (Bedrock KB + S3 Vectors y SQS) y coste real con Cost Management tras unos días.
 
 ## 7. Checkpoint de entrevista
 

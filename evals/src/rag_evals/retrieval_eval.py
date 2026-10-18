@@ -34,13 +34,22 @@ from rag_evals.golden import verify_corpus as verify_corpus_hash
 from retrieval.bootstrap import build_local_service, load_synthetic
 from retrieval.settings import RetrievalSettings
 
-Engine = Literal["native", "llamaindex"]
+Engine = Literal["native", "llamaindex", "azure", "azure-semantic"]
+LOCAL_ENGINES: tuple[Engine, ...] = ("native", "llamaindex")
+# Con coste (embeddings de Foundry por consulta) y solo si se piden con --engine: nunca en CI.
+CLOUD_ENGINES: tuple[Engine, ...] = ("azure", "azure-semantic")
 ENGINE_STRATEGIES: dict[Engine, tuple[RetrievalStrategy, ...]] = {
     "native": ("bm25", "vector", "hybrid", "rerank", "parent-child"),
     "llamaindex": ("bm25", "vector", "hybrid", "rerank", "parent-child", "auto-merge"),
+    # Índice `knowledge` del carril B en AI Search (corpus clasificado con ACL explícita).
+    "azure": ("bm25", "vector", "hybrid"),
+    # Híbrida + Semantic Ranker (reordena hasta 50 candidatos dentro del servicio).
+    "azure-semantic": ("hybrid",),
 }
 REPORTS_DIR = EVALS_DIR / "reports"
+CLOUD_REPORTS_DIR = REPORTS_DIR / "azure"
 EMBEDDINGS = "hashing-1024"
+CLOUD_EMBEDDINGS = "azure:text-embedding-3-small-1024"
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,12 +231,23 @@ def local_settings(corpus: Path) -> RetrievalSettings:
     )
 
 
+def cloud_settings(corpus: Path, engine: Engine) -> RetrievalSettings:
+    # Composición explícita: solo el backend de AI Search con embeddings de Foundry.
+    return local_settings(corpus).model_copy(
+        update={
+            "backend": "azure_search",
+            "embeddings": "azure",
+            "semantic_ranker": engine == "azure-semantic",
+        }
+    )
+
+
 async def run_retrieval_eval(
     items: Sequence[GoldenItem],
     meta: DatasetMeta,
     *,
     corpus: Path = CORPUS_PATH,
-    engines: Sequence[Engine] = ("native", "llamaindex"),
+    engines: Sequence[Engine] = LOCAL_ENGINES,
     strategies: Sequence[RetrievalStrategy] | None = None,
     top_k: int = 5,
     candidate_k: int = 20,
@@ -240,22 +260,41 @@ async def run_retrieval_eval(
     records, parents = await load_synthetic(settings, embeddings)
     runs: list[RunSummary] = []
     for engine in engines:
+        selected = [s for s in ENGINE_STRATEGIES[engine] if not strategies or s in strategies]
+        if not selected:
+            continue
+        if engine in CLOUD_ENGINES:
+            from retrieval.bootstrap import build_runtime
+
+            runtime = await build_runtime(cloud_settings(corpus, engine))
+            try:
+                for strategy in selected:
+                    outcomes = await evaluate_service(
+                        runtime.service,
+                        items,
+                        strategy=strategy,
+                        top_k=top_k,
+                        candidate_k=candidate_k,
+                    )
+                    runs.append(summarize(engine, strategy, outcomes, top_k))
+            finally:
+                await runtime.aclose()
+            continue
         service = build_local_service(
             settings.model_copy(update={"engine": engine}),
             records=records,
             parents=parents,
             embeddings=embeddings,
         )
-        for strategy in ENGINE_STRATEGIES[engine]:
-            if strategies and strategy not in strategies:
-                continue
+        for strategy in selected:
             outcomes = await evaluate_service(
                 service, items, strategy=strategy, top_k=top_k, candidate_k=candidate_k
             )
             runs.append(summarize(engine, strategy, outcomes, top_k))
     if not runs:
         raise ValueError("Ninguna combinacion motor/estrategia seleccionada")
-    return RetrievalReport(meta, top_k, candidate_k, EMBEDDINGS, len(parents), len(records), runs)
+    label = CLOUD_EMBEDDINGS if all(e in CLOUD_ENGINES for e in engines) else EMBEDDINGS
+    return RetrievalReport(meta, top_k, candidate_k, label, len(parents), len(records), runs)
 
 
 def render_markdown(report: RetrievalReport) -> str:
@@ -330,25 +369,35 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
     parser.add_argument("--corpus", type=Path, default=CORPUS_PATH)
-    parser.add_argument("--out", type=Path, default=REPORTS_DIR)
-    parser.add_argument("--engine", action="append", choices=list(ENGINE_STRATEGIES))
+    parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--engine",
+        action="append",
+        choices=list(ENGINE_STRATEGIES),
+        help="Por defecto, solo los locales. azure y azure-semantic consultan la nube (coste).",
+    )
     parser.add_argument("--strategy", action="append", choices=ENGINE_STRATEGIES["llamaindex"])
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=20)
     args = parser.parse_args()
+    engines: list[Engine] = args.engine or list(LOCAL_ENGINES)
+    cloud = any(engine in CLOUD_ENGINES for engine in engines)
     meta, items = load_golden(args.dataset)
     report = asyncio.run(
         run_retrieval_eval(
             items,
             meta,
             corpus=args.corpus,
-            engines=args.engine or list(ENGINE_STRATEGIES),
+            engines=engines,
             strategies=args.strategy,
             top_k=args.top_k,
             candidate_k=args.candidate_k,
         )
     )
-    json_path, md_path = write_report(report, args.out)
+    # Los informes de la nube van aparte: no sustituyen al baseline local que usa la CI.
+    json_path, md_path = write_report(
+        report, args.out or (CLOUD_REPORTS_DIR if cloud else REPORTS_DIR)
+    )
     print(f"Informe: {md_path} y {json_path}")
     for run in report.runs:
         s = run.overall

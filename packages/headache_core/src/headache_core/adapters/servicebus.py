@@ -29,8 +29,17 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceBusMessageBus:
-    def __init__(self, client: ServiceBusClient, *, prefetch: int = 8, max_wait_s: int = 5) -> None:
+    def __init__(
+        self,
+        client: ServiceBusClient,
+        *,
+        prefetch: int = 8,
+        max_wait_s: int = 5,
+        owned_credential: Any = None,
+    ) -> None:
         self._client = client
+        # La credencial asíncrona abre su propia sesión HTTP: quien la crea, la cierra.
+        self._owned_credential = owned_credential
         self._prefetch = prefetch
         self._max_wait_s = max_wait_s
         self._senders: dict[str, ServiceBusSender] = {}
@@ -43,15 +52,20 @@ class ServiceBusMessageBus:
             client = ServiceBusClient.from_connection_string(
                 settings.connection_string.get_secret_value()
             )
-        elif settings.fully_qualified_namespace:
-            from azure.identity.aio import DefaultAzureCredential
-
-            client = ServiceBusClient(settings.fully_qualified_namespace, DefaultAzureCredential())
-        else:
+            return cls(client, prefetch=prefetch, max_wait_s=settings.max_wait_s)
+        if not settings.fully_qualified_namespace:
             raise ValueError(
                 "Falta SERVICE_BUS__FULLY_QUALIFIED_NAMESPACE (o la connection string local)."
             )
-        return cls(client, prefetch=prefetch, max_wait_s=settings.max_wait_s)
+        from azure.identity.aio import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        return cls(
+            ServiceBusClient(settings.fully_qualified_namespace, credential),
+            prefetch=prefetch,
+            max_wait_s=settings.max_wait_s,
+            owned_credential=credential,
+        )
 
     async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
         message = Message(topic=topic, payload=payload)
@@ -83,6 +97,8 @@ class ServiceBusMessageBus:
         for handle in [*self._receivers, *self._senders.values()]:
             await handle.close()
         await self._client.close()
+        if self._owned_credential is not None:
+            await self._owned_credential.close()
 
     async def _consume(
         self, topic: str, receiver: ServiceBusReceiver, handler: MessageHandler

@@ -72,6 +72,21 @@ def test_skillset_projects_pages_to_chunk_index() -> None:
     )
 
 
+def test_split_reads_the_field_produced_by_the_markdown_parser() -> None:
+    # Regresión (Azure, checkpoint 8→9): con markdown/oneToOne, `/document/content` llega vacío,
+    # el SplitSkill no produce páginas y el indexer termina "success" con 0 chunks.
+    indexer = azure_lane.indexer(NAMES).as_dict()
+    configuration = indexer["parameters"]["configuration"]
+    assert (configuration["parsingMode"], configuration["markdownParsingSubmode"]) == (
+        "markdown",
+        "oneToOne",
+    )
+    split = next(
+        s for s in azure_lane.skillset(NAMES, TARGET).as_dict()["skills"] if s["name"] == "split"
+    )
+    assert split["inputs"] == [{"name": "text", "source": "/document/document_content"}]
+
+
 def test_chunk_index_has_keyword_key_and_vectorizer() -> None:
     index = azure_lane.chunk_index(NAMES, TARGET).as_dict()
     fields = {f["name"]: f for f in index["fields"]}
