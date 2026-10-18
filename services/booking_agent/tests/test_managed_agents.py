@@ -39,7 +39,7 @@ from headache_core.adapters.memory import (
 from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
 from headache_core.application.retrieval import RetrievalService
 from headache_core.application.tools import ToolContext, build_ticketing_tools
-from headache_core.ports import Role, ToolCall
+from headache_core.ports import Role, TokenUsage, ToolCall
 from headache_core.ports.memory import ThreadAccessError
 
 ANA = ToolContext(customer_id="cus_1")
@@ -132,9 +132,22 @@ async def test_foundry_service_speaks_the_responses_api() -> None:
             "arguments": '{"order_id": "o1"}',
             "status": "completed",
         }
+        usage = {
+            "input_tokens": 1200,
+            "input_tokens_details": {"cached_tokens": 1024},
+            "output_tokens": 15,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 1215,
+        }
         return httpx.Response(
             200,
-            json={"id": "resp_1", "object": "response", "status": "completed", "output": [call]},
+            json={
+                "id": "resp_1",
+                "object": "response",
+                "status": "completed",
+                "output": [call],
+                "usage": usage,
+            },
         )
 
     client = AsyncOpenAI(
@@ -151,6 +164,8 @@ async def test_foundry_service_speaks_the_responses_api() -> None:
 
     assert conversation == "conv_1"
     assert reply.calls == (ToolCall("c1", "get_order", '{"order_id": "o1"}'),)
+    # Los tokens que factura el servicio: base para comparar su historial con el nuestro.
+    assert reply.usage == TokenUsage(1200, 15, cached_input_tokens=1024)
     body = json.loads(requests[1].content)
     assert body["conversation"] == "conv_1"
     assert body["agent_reference"] == {"name": "headache-booking-agent", "type": "agent_reference"}

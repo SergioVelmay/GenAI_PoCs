@@ -20,7 +20,7 @@ from itertools import count
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from headache_core.application.tools import ToolRegistry
-from headache_core.ports import ChatMessage, LLMPort, Role, ToolCall, ToolConfig
+from headache_core.ports import ChatMessage, LLMPort, Role, TokenUsage, ToolCall, ToolConfig
 from headache_core.ports.llm import ToolSpec
 
 if TYPE_CHECKING:
@@ -35,6 +35,8 @@ RESPONSE_KEY = "response_id"
 class ServiceReply:
     text: str
     calls: tuple[ToolCall, ...]
+    # Tokens que facturó el servicio en esta respuesta (el historial lo gestiona él).
+    usage: TokenUsage | None = None
 
 
 class AgentServiceClient(Protocol):
@@ -145,7 +147,11 @@ class LocalAgentService:
             }
             for c in response.tool_calls
         )
-        return ServiceReply(response.content, response.tool_calls)
+        return ServiceReply(response.content, response.tool_calls, response.usage)
+
+
+AI_FOUNDRY_SCOPE = "https://ai.azure.com/.default"
+BOOKING_AGENT_NAME = "headache-booking-agent"
 
 
 class FoundryAgentService:
@@ -154,6 +160,23 @@ class FoundryAgentService:
     def __init__(self, client: AsyncOpenAI, agent_name: str) -> None:
         self._client = client
         self._agent = {"name": agent_name, "type": "agent_reference"}
+
+    @classmethod
+    def from_project(
+        cls, project_endpoint: str, credential: Any, agent_name: str = BOOKING_AGENT_NAME
+    ) -> FoundryAgentService:
+        """`credential`: credencial asíncrona de `azure.identity.aio` (la cierra quien la crea)."""
+        from azure.identity.aio import get_bearer_token_provider
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            base_url=f"{project_endpoint.rstrip('/')}/openai/v1",
+            api_key=get_bearer_token_provider(credential, AI_FOUNDRY_SCOPE),
+        )
+        return cls(client, agent_name)
+
+    async def close(self) -> None:
+        await self._client.close()
 
     async def create_conversation(self) -> str:
         return (await self._client.conversations.create()).id
@@ -172,4 +195,12 @@ class FoundryAgentService:
             for item in response.output
             if item.type == "function_call"
         )
-        return ServiceReply(response.output_text, calls)
+        usage = None
+        if response.usage is not None:
+            details = response.usage.input_tokens_details
+            usage = TokenUsage(
+                response.usage.input_tokens,
+                response.usage.output_tokens,
+                cached_input_tokens=details.cached_tokens if details is not None else 0,
+            )
+        return ServiceReply(response.output_text, calls, usage)

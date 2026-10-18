@@ -436,6 +436,15 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 5. **¿Cómo detectas que un framework cambia el comportamiento?** Con un diario de tools propio y
    tests de paridad contra una referencia. Aquí cazaron un orden de mensajes no determinista
    (LlamaIndex), una lista mutada en sitio (Strands) y JSON inválido silenciado (MAF y Strands).
+6. **¿Por qué tu suite de agentes daba 5 de 12 con un modelo real?** Porque estaba diseñada para
+   un modelo guionizado: comprobaba la trayectoria exacta y literales. Leyendo los fallos uno a
+   uno, la mitad eran respuestas correctas con otro formato. Con modelos reales se mide el
+   resultado (estado final, escrituras, invariantes) y el contenido con un juez calibrado. Los
+   fallos reales (un bucle, el idioma, una memoria guardada sin pedirla) eran los importantes.
+7. **¿Gestionar la conversación tú o dejarla al servicio (Foundry)?** Medido en 14 turnos: el
+   servicio guarda también las salidas de las tools y cuesta un 33 % más, y no recorta hasta
+   acercarse a la ventana del modelo. Gestionarla tú da control de coste y de qué se recuerda; el
+   servicio da menos código. En soporte con conversaciones largas, lo haría yo.
 
 ### Negocio y stakeholders
 
@@ -449,6 +458,11 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 3. **¿Cómo personalizas el asistente sin problemas de privacidad?** Memoria de preferencias de
    lista cerrada (idioma, ciudad, categorías), guardada cuando el usuario lo pide y nunca inferida
    de datos sensibles. Transparente, borrable y fácil de explicar a Legal.
+4. **Un directivo ve "el agente acierta el 42 %" en un informe. ¿Qué le explicas?** Que ese número
+   mide al comprobador, no al agente: la mitad de los "fallos" eran respuestas correctas con otro
+   formato. Le daría tres cifras separadas: tareas resueltas, errores reales con su impacto y
+   errores bloqueados por las defensas (aquí, un reembolso ajeno que frenó el backend). Y un plan
+   para medir mejor antes de decidir nada con ese dato.
 
 <a id="fase-8"></a>
 

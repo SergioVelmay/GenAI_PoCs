@@ -188,7 +188,7 @@ Content Safety...) no depende de él.
 | F3 · Indexer del carril A que reprocesaba todo | No era el servicio: nuestro script resubía los 116 blobs. Con comprobación de MD5: 0 cambios = 0 procesados; 1 cambio = 1 |
 | F3 · Reindexar tras recrear AI Search | El ledger del carril B daba por indexado lo que ya no existía; `provision_search_index --apply` lo olvida al crear el índice |
 | F4 · Estrategias con LLM (5 × 2 motores × 144 preguntas, 0,10 $) | Ninguna mejora a la híbrida + Semantic Ranker y todas triplican la latencia; auto pierde un 20 % por filtros mal inferidos. Dos fallos de esquema corregidos |
-| F7 · `booking_agent` de extremo a extremo (sabores `native` y `foundry`) | Respuestas correctas con `search_knowledge` contra AI Search y tools MCP; agente de Foundry publicado |
+| F7 · `booking_agent` de extremo a extremo (sabores `native` y `foundry`) | Respuestas correctas con `search_knowledge` contra AI Search y tools MCP; agente de Foundry publicado (el sabor `foundry` usaba aún el emulador local: corregido después) |
 
 Detalle en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026),
 [fase 4](fase-4-retrieval.md#estrategias-con-llm-sobre-ai-search-18-10-2026) y
@@ -215,10 +215,19 @@ Detalle en [fase 6](fase-6-tools-mcp.md#7-resultados-en-azure-18-10-2026).
 Entra ID + OBO: aplazado a la fase 14 para no crear App Registrations a mano en el tenant
 corporativo; queda listo `EntraOboExchanger` con tests.
 
+### Fase 7 · Agentes con LLM real y Foundry Agent Service (18-10-2026, ~0,10 $)
+
+| Validación | Resultado |
+|---|---|
+| Suite de agentes en modo `llm` (7 sabores) | 4-6 de 12; casi todos los fallos son del comprobador por literales (fechas, idioma, sinónimos). Reales: un bucle, una respuesta en otro idioma y una escritura de memoria no pedida. Ninguna fuga: el reembolso de un pedido ajeno lo frenó la tool |
+| Prompt del agente | Con "carga la skill" y "para reembolsar basta `request_refund`", el reembolso sale bien en todos los sabores |
+| Foundry Agent Service real | El sabor `foundry` usaba el emulador local; ahora `--foundry-service` usa el servicio. En 14 turnos gasta un 33 % más que nuestro historial (guarda las salidas de las tools) y ninguno trunca |
+
+Detalle en [fase 7](fase-7-agentes.md#suite-de-agentes-con-llm-real-18-10-2026).
+
 ## 6. Pendiente en este checkpoint
 
-- Fase 7: suite de agentes con LLM real; truncado de Foundry frente a nuestra compactación;
-  memoria de Foundry frente a `remember_preference`.
+- Fase 7: memoria de Foundry frente a `remember_preference`.
 - Fase 8: `analytics_sql_demo`; Content Safety frente al escudo heurístico; ataques con LLM real.
 - Aplazados (no son de este checkpoint): APIM, MCP en HTTPS y Entra ID + OBO (fase 14), Langfuse v4 (fase 11),
   tool de compra con `Idempotency-Key` (fase 9), coste real por carril (al cierre).

@@ -64,5 +64,12 @@ class FoundryAgent:
 
 
 def create(deps: AgentDeps) -> FoundryAgent:
+    """Por defecto, el emulador local (sin nube): mismo bucle y misma definición del agente."""
     definition = agent_definition(deps.spec.system_prompt, deps.spec.tools, model=LOCAL_MODEL)
     return FoundryAgent(deps, LocalAgentService(deps.llm, definition))
+
+
+def create_cloud(deps: AgentDeps, service: AgentServiceClient) -> FoundryAgent:
+    """Contra Foundry Agent Service real (`FoundryAgentService`): el agente ya debe estar
+    publicado con `scripts/provision_foundry_agent.py --apply` desde el mismo `AgentSpec`."""
+    return FoundryAgent(deps, service)

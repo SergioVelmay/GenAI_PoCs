@@ -28,7 +28,8 @@ Doc: `docs/fase-7-agentes.md`.
 
 ## Carril A (`booking_agent/managed/`)
 
-- `foundry`: function tools ejecutadas en el cliente, historial en una `conversation` del servicio; `LocalAgentService` emula el servicio en local. `scripts/provision_foundry_agent.py [--apply]` (dry-run por defecto).
+- `foundry`: function tools ejecutadas en el cliente, historial en una `conversation` del servicio; `LocalAgentService` emula el servicio en local (`create`); el servicio real se usa con `create_cloud` / `booking_agent --flavor foundry --foundry-service`. `scripts/provision_foundry_agent.py [--apply]` (dry-run por defecto): volver a publicar tras cambiar el prompt o las tools.
+- Suite en modo `llm`: se evalúa el resultado (escrituras esperadas, estado, invariantes, contenido); la trayectoria exacta, las skills y los errores guionizados solo en `scripted`, y los escenarios `harness` no corren con modelo real.
 - `agentcore`: contrato `POST /invocations` + `GET /ping` (`create_runtime_app(sabor)`), identidad = `runtimeUserId`, sesión = `runtime_session_id(cliente, hilo)` (sha256, ≥ 33 chars). Memoria en `adapters/agentcore_memory.py`. Terraform `aws/agentcore.tf` desactivado por defecto.
 
 ## CLI (con coste)

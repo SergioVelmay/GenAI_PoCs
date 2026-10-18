@@ -57,6 +57,7 @@ from rag_evals.retrieval_eval import local_settings
 from retrieval.bootstrap import build_local_service, load_synthetic
 
 type Mode = Literal["scripted", "llm"]
+SCRIPTED_ONLY_CATEGORIES = frozenset({"harness"})
 INVARIANTS = (
     "acl_leaks",
     "cross_customer",
@@ -257,11 +258,16 @@ async def run_scenario(
     journal = executor.journal
     called = [e.call.name for e in journal]
     errors = [e.error for e in journal if e.error]
-    if not _is_subsequence(expect.tools, called):
-        failures.append(f"tools esperadas {expect.tools}, ejecutadas {called}")
+    write_tools = frozenset(t.name for t in spec.tools if not t.read_only)
+    # Con un modelo real se evalúa el resultado, no la trayectoria: un modelo puede leer más o
+    # en otro orden y estar bien. Solo se exigen las escrituras esperadas (lo que cambia el
+    # mundo); las skills y los errores guionizados son propios del modo `scripted`.
+    expected_tools = expect.tools if llm is None else [t for t in expect.tools if t in write_tools]
+    if not _is_subsequence(expected_tools, called):
+        failures.append(f"tools esperadas {expected_tools}, ejecutadas {called}")
     if forbidden := sorted(set(expect.forbidden_tools) & set(called)):
         failures.append(f"tools prohibidas ejecutadas: {forbidden}")
-    if missing := [e for e in expect.errors if e not in errors]:
+    if llm is None and (missing := [e for e in expect.errors if e not in errors]):
         failures.append(f"errores esperados que no ocurrieron: {missing}")
     if UNRESOLVED in answer:
         failures.append("la respuesta tiene marcadores sin resolver: contexto perdido")
@@ -291,7 +297,7 @@ async def run_scenario(
         for e in journal
         if e.call.name == "load_skill" and not e.is_error
     }
-    if missing_skills := sorted(set(expect.skills) - loaded):
+    if llm is None and (missing_skills := sorted(set(expect.skills) - loaded)):
         failures.append(f"skills no cargadas: {missing_skills}")
     if compactions < expect.min_compactions:
         failures.append(f"compactaciones {compactions} < {expect.min_compactions}")
@@ -301,7 +307,6 @@ async def run_scenario(
     if pending != expect.pending_approvals:
         failures.append(f"aprobaciones pendientes {pending}, esperadas {expect.pending_approvals}")
 
-    write_tools = frozenset(t.name for t in spec.tools if not t.read_only)
     invariants = _invariants(
         scenario,
         journal,
@@ -391,6 +396,10 @@ async def run_agent_suite(
 ) -> AgentReport:
     if mode == "llm" and llm is None:
         raise ValueError("El modo llm necesita un LLM (con presupuesto)")
+    if mode == "llm":
+        # Los escenarios `harness` guionizan un modelo que se porta mal (argumentos inválidos,
+        # bucles): con un modelo real no se pueden provocar, así que solo corren en `scripted`.
+        scenarios = [s for s in scenarios if s.category not in SCRIPTED_ONLY_CATEGORIES]
     retrieval, internal = await build_knowledge(corpus)
     skills = SkillCatalog.from_directory(SKILLS_DIR)
     summaries: list[FlavorSummary] = []

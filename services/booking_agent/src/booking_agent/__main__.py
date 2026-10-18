@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, asynccontextmanager
 from decimal import Decimal
 
 from booking_agent.flavors import FLAVORS, create_agent
@@ -34,9 +36,10 @@ from headache_core.adapters.memory import (
     InMemoryPreferenceStore,
     RecordingTracer,
 )
+from headache_core.application.agents.runtime import AgentRuntime
 from headache_core.application.llm import CompositeTracer
 from headache_core.application.tools import ToolContext
-from headache_core.config import get_settings
+from headache_core.config import Settings, get_settings
 from retrieval.bootstrap import build_runtime
 from retrieval.settings import RetrievalSettings
 from support_agent.toolset import McpToolset, mcp_clients
@@ -51,7 +54,14 @@ async def main() -> None:
     parser.add_argument("--flavor", choices=sorted(FLAVORS), default="native")
     parser.add_argument("--thread", default="cli")
     parser.add_argument("--gateway", action="store_true", help="Tools por el MCP Gateway")
+    parser.add_argument(
+        "--foundry-service",
+        action="store_true",
+        help="Con --flavor foundry: Foundry Agent Service real (si no, el emulador local)",
+    )
     args = parser.parse_args()
+    if args.foundry_service and args.flavor != "foundry":
+        parser.error("--foundry-service solo tiene sentido con --flavor foundry")
 
     settings = get_settings()
     ledger = RecordingTracer()
@@ -63,18 +73,25 @@ async def main() -> None:
     try:
         clients = mcp_clients(settings, args.customer, gateway=args.gateway)
         fail_open = settings.guardrails.fail_open
-        async with McpToolset(clients) as ticketing, build_shield(settings) as shield:
+        async with (
+            McpToolset(clients) as ticketing,
+            build_shield(settings) as shield,
+            AsyncExitStack() as stack,
+        ):
             spec = build_booking_spec(
                 ticketing_tools=ticketing, retrieval=knowledge.service, preferences=preferences
             )
             approvals = InMemoryApprovalStore()
             reviewer = ApprovalService(approvals, spec.tools)
             executor = guarded_executor(spec, approvals, shield, fail_open=fail_open)
+            deps = AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences)
+            inner = (
+                await stack.enter_async_context(_foundry_cloud(deps, settings))
+                if args.foundry_service
+                else create_agent(args.flavor, deps)
+            )
             agent = guarded_agent(
-                create_agent(
-                    args.flavor,
-                    AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences),
-                ),
+                inner,
                 shield=shield,
                 pii=build_pii_detector(settings),
                 fail_open=fail_open,
@@ -108,6 +125,25 @@ async def main() -> None:
     flush = getattr(tracer, "flush", None)
     if callable(flush):
         flush()
+
+
+@asynccontextmanager
+async def _foundry_cloud(deps: AgentDeps, settings: Settings) -> AsyncIterator[AgentRuntime]:
+    """Sabor foundry contra Foundry Agent Service real (agente publicado con --apply)."""
+    from azure.identity.aio import DefaultAzureCredential
+
+    from booking_agent.flavors.foundry import create_cloud
+    from booking_agent.managed.foundry import FoundryAgentService
+
+    endpoint = settings.foundry_iq.project_endpoint
+    if not endpoint:
+        raise SystemExit("Falta FOUNDRY_IQ__PROJECT_ENDPOINT.")
+    async with DefaultAzureCredential() as credential:
+        service = FoundryAgentService.from_project(endpoint, credential)
+        try:
+            yield create_cloud(deps, service)
+        finally:
+            await service.close()
 
 
 async def review(service: ApprovalService, command: str) -> None:

@@ -76,9 +76,9 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 ## Fase 7 · Agentes ([doc](fase-7-agentes.md))
 
-- [ ] Suite de agentes con LLM real: `python -m rag_evals.agents --mode llm --budget-usd ...` (sabores de framework y carril A); comparar coste, latencia y aciertos.
-- [x] Foundry: `scripts/provision_foundry_agent.py --apply` (agente `headache-booking-agent` v1) y sabor `foundry` de extremo a extremo con `search_knowledge` contra AI Search y tools MCP (18-10-2026).
-- [ ] Medir el truncado del servicio de Foundry frente a nuestra compactación (conversación larga).
+- [x] Suite de agentes con LLM real en Azure (18-10-2026, ~0,08 $): 4-6 de 12 por sabor, pero la mayoría de fallos son del comprobador por literales; fallos reales: idioma, bucle en una pregunta informativa y una escritura de memoria no pedida. Criterios de modo `llm` basados en el resultado; juez de respuestas para la fase 12.
+- [x] Foundry: agente `headache-booking-agent` publicado (v2) y sabor `foundry` contra **Foundry Agent Service real** (`--foundry-service`, `create_cloud`); el primer recorrido de extremo a extremo usó el emulador local sin saberlo.
+- [x] Conversación larga: compactación propia frente a Foundry (`scripts/context_growth_demo.py`, 18-10-2026): Foundry guarda las salidas de las tools y gasta un 33 % más a los 14 turnos; ninguno trunca.
 - [ ] AgentCore: imagen ARM64 del Runtime en ECR (entrypoint con `create_runtime_app`, fase 13), `agentcore_enabled=true` + `agentcore_container_uri`, cablear `AgentCoreCheckpointStore`/`AgentCorePreferenceStore` con `AGENTCORE__MEMORY_ID` e invocar con `BotoRuntimeInvoker` (rol con `InvokeAgentRuntimeForUser`).
 - [ ] Valorar las estrategias de extracción de AgentCore Memory (`USER_PREFERENCE`) y la memoria de Foundry frente a la tool explícita `remember_preference`.
 

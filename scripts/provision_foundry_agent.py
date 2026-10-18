@@ -15,7 +15,7 @@ import asyncio
 import json
 from typing import Any
 
-from booking_agent.managed.foundry import agent_definition
+from booking_agent.managed.foundry import BOOKING_AGENT_NAME, agent_definition
 from booking_agent.spec import build_booking_spec
 from headache_core.adapters.foundry_iq import publish_agent
 from headache_core.adapters.local_retrieval import LocalRetrieval
@@ -29,7 +29,7 @@ from headache_core.application.retrieval import RetrievalService
 from headache_core.application.tools import build_ticketing_tools
 from headache_core.config import Settings, get_settings
 
-AGENT_NAME = "headache-booking-agent"
+AGENT_NAME = BOOKING_AGENT_NAME
 
 
 def definition(settings: Settings) -> dict[str, Any]:

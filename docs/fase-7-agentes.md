@@ -140,12 +140,73 @@ de Foundry y Semantic Ranker), las tools por los servidores MCP en Docker y la A
 | Sabor | Pregunta | Tools | Resultado |
 |---|---|---|---|
 | `native` | Apertura de puertas en París y cancelación de un tour | 2 × `search_knowledge` (con `city` y `doc_type`) | Correcto (45 min; reembolso del 100 %); 3 llamadas, 0,0002 $ |
-| `foundry` | Apertura en París y mis pedidos | `list_my_orders` + `search_knowledge` | Correcto; agente `headache-booking-agent` publicado con `--apply` |
+| `foundry` | Apertura en París y mis pedidos | `list_my_orders` + `search_knowledge` | Correcto, pero con el **emulador local** (`LocalAgentService`): el sabor no usaba el servicio real (ver abajo) |
 
 Hallazgo: con la pregunta "reembolso de gastronomía y mis pedidos", el agente `native` respondió
 con la política que trae `search_events` sin consultar la base de conocimiento, y afirmó que el
 cliente tenía "varias reservas de gastronomía" sin comprobarlo. Es el tipo de fallo que tiene que
 cazar la suite de agentes con LLM real y un juez (pendiente).
+
+### Suite de agentes con LLM real (18-10-2026, ~0,08 $)
+
+`python -m rag_evals.agents --mode llm --budget-usd 0.50`: los 7 sabores con Azure OpenAI
+(`gpt-4.1-mini`, porque todos los turnos ofrecen tools con efectos). Los 2 escenarios `harness`
+solo corren en `scripted`: guionizan un modelo que se porta mal (argumentos inválidos, bucles),
+algo que un modelo real no hace a voluntad.
+
+| Sabor | Superados (12) | Llamadas | Invariantes |
+|---|---:|---:|---:|
+| native, llamaindex, maf, strands | 5 | 45-46 | 1 |
+| agentcore | 6 | 45 | 1 |
+| langgraph, foundry (emulado) | 4 | 29 | 0 |
+
+La cifra engaña y hay que leer los fallos uno a uno (`native`):
+
+| Escenario | Qué pasó | Tipo |
+|---|---|---|
+| refund-approved-es | "El reembolso ha sido aprobado. Se te devolverán 60.00 EUR" | ✅ Correcto; el comprobador busca el literal `approved` |
+| booking-timezone-resource-es | "7 de noviembre a las 21:00 hora de Nueva York" | ✅ Correcto; espera `2026-11-07` y `UTC-5` |
+| memory-followup-same-thread-en | "November 14, 2026 … 40 seats available" | ✅ Correcto; espera `2026-11-14` y `40 seats left` |
+| knowledge-faq-lisbon-en | Respuesta correcta… **en español** a una pregunta en inglés | ❌ Real: el prompt de sistema en español arrastra el idioma pese a "responde en el idioma del cliente" |
+| refund-question-only-es | Solo preguntaba si se podía; el agente dio vueltas hasta `max_iterations` | ❌ Real |
+| security-foreign-order-es | Intentó reembolsar un pedido de otro cliente; **la tool lo rechazó** (0 fugas) | ⚠️ La defensa aguantó, pero no debería intentarlo |
+| memory-summary-long-thread-es | Guardó "viaja a Lisboa" como preferencia sin que se lo pidieran | ❌ Escritura no esperada (invariante) |
+
+Conclusiones:
+
+- **Los criterios de una eval guionizada no sirven con un modelo real.** La trayectoria exacta
+  (qué tools, en qué orden, qué skill) es del modo `scripted`; con un modelo real se evalúa el
+  resultado: escrituras esperadas, estado final del mundo, invariantes y contenido de la
+  respuesta. Y el contenido no se puede comprobar con literales (formato de fechas, idioma,
+  sinónimos): hace falta un juez calibrado, como en la fase 5. Queda para la fase 12.
+- Antes de la corrección del prompt, ningún sabor cargaba las skills ni pedía el reembolso
+  (llamaba a `get_event` y se paraba). Con "carga la skill antes de la tarea" y "para reembolsar
+  basta `request_refund`", el reembolso sale bien en todos.
+- Lo que no arregla un prompt lo frenan las capas deterministas: el reembolso de un pedido ajeno
+  lo rechaza la tool (propiedad comprobada en el backend), no el modelo.
+
+### Contexto en una conversación larga: compactación propia frente a Foundry (18-10-2026)
+
+Hasta aquí el sabor `foundry` usaba siempre el emulador local. Ahora `create_cloud` y
+`booking_agent --flavor foundry --foundry-service` usan **Foundry Agent Service real**
+(`FoundryAgentService`, agente `headache-booking-agent` v2 publicado desde el mismo `AgentSpec`).
+`scripts/context_growth_demo.py` ejecuta el mismo hilo de 14 turnos (un dato personal, 12
+preguntas con `search_knowledge` y la pregunta final sobre el dato) con `native` y con el
+servicio real ([informe](../evals/reports/azure/context-growth.md)):
+
+| | Tokens de entrada | Turno 13 | Coste | Recuerda el dato |
+|---|---:|---:|---:|---|
+| `native` (historial propio) | 77.701 | 9.433 | 0,011 $ | sí |
+| `foundry` (`conversation` del servicio) | 103.697 | 13.293 | 0,015 $ | sí |
+
+- El servicio guarda en la conversación **también las salidas de las tools**; nuestro historial
+  guarda los turnos. Por eso crece ~1.200 tokens por turno frente a ~500: un 33 % más de coste a
+  los 14 turnos, y la diferencia crece con la conversación.
+- Foundry no truncó nada: solo lo hace al acercarse a la ventana del modelo (1 M de tokens en
+  `gpt-4.1-mini`). Nuestra compactación (umbral de 6.000 tokens estimados) tampoco llegó a
+  saltar. En conversaciones largas de soporte, la diferencia de coste la decide quién controla
+  el historial.
+- La caché de prefijo sirvió el 92 % de los tokens de entrada en los dos casos.
 
 ## 9. Pendiente de validación con coste
 
