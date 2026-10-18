@@ -123,7 +123,12 @@ async def test_extractive_citations_are_verifiable(backend: RetrievalPort) -> No
 
 @pytest.mark.parametrize("strategy", ["rewrite", "hyde", "subquestions", "router", "auto"])
 async def test_llm_strategies_use_port(backend: RetrievalPort, strategy: RetrievalStrategy) -> None:
-    llm = FakeLLM(['{"queries":["Refund"],"filters":{"doc_type":"policy"}}'])
+    plan = (
+        '{"queries":["Refund"],"filters":{"doc_type":"policy"}}'
+        if strategy == "subquestions"
+        else '{"query":"Refund","filters":{"doc_type":"policy"}}'
+    )
+    llm = FakeLLM([plan])
     response = await RetrievalService(backend, llm=llm).retrieve(
         RetrievalRequest("Refund", strategy=strategy)
     )
@@ -133,8 +138,41 @@ async def test_llm_strategies_use_port(backend: RetrievalPort, strategy: Retriev
         await RetrievalService(backend).retrieve(RetrievalRequest("Refund", strategy=strategy))
 
 
+@pytest.mark.parametrize("strategy", ["rewrite", "hyde", "router", "auto"])
+async def test_single_query_strategies_cannot_return_several_queries(
+    strategy: RetrievalStrategy,
+) -> None:
+    # Regresión (Azure): con una lista, nano devolvía varias consultas y la pregunta se perdía.
+    from headache_core.application.retrieval import QueryPlan, SingleQueryPlan
+
+    llm = FakeLLM(['{"query":"Refund","filters":{}}'])
+    backend = LocalRetrieval([], embeddings=HashingEmbedding(64))
+    await RetrievalService(backend, llm=llm).retrieve(RetrievalRequest("Refund", strategy=strategy))
+    schema = llm.schemas[0]
+    assert schema is not None and schema.name == SingleQueryPlan.__name__
+    assert "queries" not in schema.json_schema["properties"]
+    assert QueryPlan.__name__ != schema.name
+
+
+async def test_plan_filters_only_accept_domain_codes(backend: RetrievalPort) -> None:
+    # Regresión (Azure): el modelo copiaba la etiqueta visible en vez del código del dominio.
+    from headache_core.application.llm.structured import StructuredOutputError
+
+    label = '{"query":"Refund","filters":{"category":"Gastronomía y bebidas"}}'
+    with pytest.raises(StructuredOutputError):
+        await RetrievalService(backend, llm=FakeLLM([label, label])).retrieve(
+            RetrievalRequest("Refund", strategy="auto")
+        )
+    code = '{"query":"Refund","filters":{"category":"food_drink","doc_type":"policy"}}'
+    response = await RetrievalService(backend, llm=FakeLLM([code])).retrieve(
+        RetrievalRequest("Refund", strategy="auto")
+    )
+    assert response.filters == {"category": "food_drink", "doc_type": "policy"}
+    assert all(type(value) is str for value in response.filters.values())
+
+
 async def test_auto_cannot_override_explicit_filters(backend: RetrievalPort) -> None:
-    llm = FakeLLM(['{"queries":["Refund"],"filters":{"language":"en"}}'])
+    llm = FakeLLM(['{"query":"Refund","filters":{"language":"en"}}'])
     with pytest.raises(ValueError, match="reemplazar"):
         await RetrievalService(backend, llm=llm).retrieve(
             RetrievalRequest("Refund", strategy="auto", filters={"language": "es"})
@@ -179,7 +217,7 @@ async def test_subquestions_fuse_and_deduplicate(backend: RetrievalPort) -> None
 
 
 async def test_plan_cannot_inject_acl(backend: RetrievalPort) -> None:
-    invalid = '{"queries":["Refund"],"filters":{"acl":"internal"}}'
+    invalid = '{"query":"Refund","filters":{"acl":"internal"}}'
     llm = FakeLLM([invalid, invalid])
     from headache_core.application.llm.structured import StructuredOutputError
 

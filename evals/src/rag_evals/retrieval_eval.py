@@ -10,12 +10,14 @@ import json
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 from pathlib import Path
 from statistics import fmean
 from time import perf_counter
 from typing import Literal
 
 from headache_core.adapters.memory import HashingEmbedding
+from headache_core.application.llm.structured import StructuredOutputError
 from headache_core.application.retrieval import RetrievalRequest, RetrievalService
 from headache_core.domain.evals import (
     hit_at_k,
@@ -26,11 +28,13 @@ from headache_core.domain.evals import (
     unique_in_order,
 )
 from headache_core.domain.retrieval import AccessScope
+from headache_core.ports.llm import LLMContentFilterError, LLMPort
 from headache_core.ports.retrieval import RetrievalStrategy
 from headache_core.ports.vector_store import MetadataValue, VectorRecord
 from rag_evals import EVALS_DIR
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, DatasetMeta, GoldenItem, load_golden
 from rag_evals.golden import verify_corpus as verify_corpus_hash
+from rag_evals.metering import CostMeter
 from retrieval.bootstrap import build_local_service, load_synthetic
 from retrieval.settings import RetrievalSettings
 
@@ -46,6 +50,15 @@ ENGINE_STRATEGIES: dict[Engine, tuple[RetrievalStrategy, ...]] = {
     # Híbrida + Semantic Ranker (reordena hasta 50 candidatos dentro del servicio).
     "azure-semantic": ("hybrid",),
 }
+# Estrategias que planifican la consulta con un LLM (fase 4): solo en la nube y con
+# `--budget-usd`, sobre la busqueda hibrida de cada motor de AI Search.
+LLM_STRATEGIES: tuple[RetrievalStrategy, ...] = (
+    "rewrite",
+    "hyde",
+    "subquestions",
+    "router",
+    "auto",
+)
 REPORTS_DIR = EVALS_DIR / "reports"
 CLOUD_REPORTS_DIR = REPORTS_DIR / "azure"
 EMBEDDINGS = "hashing-1024"
@@ -59,6 +72,8 @@ class Outcome:
     texts: tuple[str, ...]
     latency_ms: float
     leaks: tuple[str, ...]
+    # Plan del LLM invalido o rechazado (fail-closed): la pregunta se queda sin resultados.
+    error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +99,7 @@ class RunSummary:
     latency_p50_ms: float
     latency_p95_ms: float
     missed: list[str] = field(default_factory=list)
+    plan_errors: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,7 +150,15 @@ async def evaluate_service(
             scope=effective_scope,
         )
         started = perf_counter()
-        response = await service.retrieve(request)
+        try:
+            response = await service.retrieve(request)
+        except (ValueError, StructuredOutputError, LLMContentFilterError) as exc:
+            # Prompt Shields bloquea el planificador ante una inyeccion: sin resultados (seguro).
+            if strategy not in LLM_STRATEGIES:
+                raise
+            elapsed = (perf_counter() - started) * 1000
+            outcomes.append(Outcome(item, (), (), elapsed, (), str(exc)[:200]))
+            continue
         elapsed = (perf_counter() - started) * 1000
         records = [result.record for result in response.results]
         # La eval no confia en el codigo evaluado: revisa la ACL de cada resultado.
@@ -209,6 +233,7 @@ def summarize(engine: str, strategy: str, outcomes: Sequence[Outcome], top_k: in
             if outcome.item.answerable
             and not hit_at_k(outcome.documents, outcome.item.relevance, top_k)
         ],
+        plan_errors=sum(outcome.error is not None for outcome in outcomes),
     )
 
 
@@ -251,26 +276,40 @@ async def run_retrieval_eval(
     strategies: Sequence[RetrievalStrategy] | None = None,
     top_k: int = 5,
     candidate_k: int = 20,
+    llm: LLMPort | None = None,
 ) -> RetrievalReport:
+    """Con `llm` (gateway con presupuesto), los motores de la nube suman `LLM_STRATEGIES`."""
     verify_corpus_hash(meta, corpus)
     if not engines:
         raise ValueError("Se necesita al menos un motor")
+    if llm is not None and not any(engine in CLOUD_ENGINES for engine in engines):
+        raise ValueError("Las estrategias con LLM solo se evaluan sobre AI Search")
     settings = local_settings(corpus)
     embeddings = HashingEmbedding(1024)
     records, parents = await load_synthetic(settings, embeddings)
     runs: list[RunSummary] = []
     for engine in engines:
-        selected = [s for s in ENGINE_STRATEGIES[engine] if not strategies or s in strategies]
+        available = ENGINE_STRATEGIES[engine]
+        if engine in CLOUD_ENGINES and llm is not None:
+            available = available + LLM_STRATEGIES
+        selected = [s for s in available if not strategies or s in strategies]
         if not selected:
             continue
         if engine in CLOUD_ENGINES:
-            from retrieval.bootstrap import build_runtime
+            from headache_core.adapters.local_retrieval import TokenCoverageReranker
+            from headache_core.config import Settings
+            from retrieval.cloud import build_cloud_parts
 
-            runtime = await build_runtime(cloud_settings(corpus, engine))
+            parts = await build_cloud_parts(cloud_settings(corpus, engine), Settings())
             try:
+                if parts.backend is None:
+                    raise ValueError("AI Search no esta configurado")
+                service = RetrievalService(
+                    parts.backend, reranker=parts.reranker or TokenCoverageReranker(), llm=llm
+                )
                 for strategy in selected:
                     outcomes = await evaluate_service(
-                        runtime.service,
+                        service,
                         items,
                         strategy=strategy,
                         top_k=top_k,
@@ -278,7 +317,7 @@ async def run_retrieval_eval(
                     )
                     runs.append(summarize(engine, strategy, outcomes, top_k))
             finally:
-                await runtime.aclose()
+                await parts.aclose()
             continue
         service = build_local_service(
             settings.model_copy(update={"engine": engine}),
@@ -314,8 +353,8 @@ def render_markdown(report: RetrievalReport) -> str:
         "## Resumen (preguntas con respuesta)",
         "",
         f"| Motor | Estrategia | Hit@1 | Hit@{k} | Recall@{k} | MRR | nDCG@{k} | Evidencia@{k} "
-        "| Fugas ACL | Sin resultados (sin respuesta) | p50 ms | p95 ms |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Fugas ACL | Sin resultados (sin respuesta) | Planes fallidos | p50 ms | p95 ms |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for run in report.runs:
         s = run.overall
@@ -323,7 +362,7 @@ def render_markdown(report: RetrievalReport) -> str:
             f"| {run.engine} | {run.strategy} | {s.hit_at_1:.3f} | {s.hit_at_k:.3f} | "
             f"{s.recall_at_k:.3f} | {s.mrr:.3f} | {s.ndcg_at_k:.3f} | {s.evidence_at_k:.3f} | "
             f"{run.acl_leaks} | {run.unanswerable_empty}/{run.unanswerable} | "
-            f"{run.latency_p50_ms:.1f} | {run.latency_p95_ms:.1f} |"
+            f"{run.plan_errors} | {run.latency_p50_ms:.1f} | {run.latency_p95_ms:.1f} |"
         )
     segments = sorted({key for run in report.runs for key in run.segments})
     lines += [
@@ -353,9 +392,11 @@ def render_markdown(report: RetrievalReport) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_report(report: RetrievalReport, out_dir: Path = REPORTS_DIR) -> tuple[Path, Path]:
+def write_report(
+    report: RetrievalReport, out_dir: Path = REPORTS_DIR, name: str = "retrieval"
+) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    json_path, md_path = out_dir / "retrieval.json", out_dir / "retrieval.md"
+    json_path, md_path = out_dir / f"{name}.json", out_dir / f"{name}.md"
     json_path.write_text(
         json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
@@ -363,6 +404,16 @@ def write_report(report: RetrievalReport, out_dir: Path = REPORTS_DIR) -> tuple[
     )
     md_path.write_text(render_markdown(report), encoding="utf-8", newline="\n")
     return json_path, md_path
+
+
+def _planner(budget: Decimal) -> tuple[LLMPort, CostMeter]:
+    """Gateway enrutado (el planificador de consultas va al modelo barato) con presupuesto."""
+    from headache_core.adapters.llm_factory import build_gateway, build_tracer
+    from headache_core.config import Settings
+
+    settings = Settings()
+    meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))
+    return build_gateway(settings, tracer=meter), meter
 
 
 def main() -> None:
@@ -376,12 +427,24 @@ def main() -> None:
         choices=list(ENGINE_STRATEGIES),
         help="Por defecto, solo los locales. azure y azure-semantic consultan la nube (coste).",
     )
-    parser.add_argument("--strategy", action="append", choices=ENGINE_STRATEGIES["llamaindex"])
+    parser.add_argument(
+        "--strategy",
+        action="append",
+        choices=[*ENGINE_STRATEGIES["llamaindex"], *LLM_STRATEGIES],
+    )
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=20)
+    parser.add_argument(
+        "--budget-usd",
+        type=Decimal,
+        help="Activa las estrategias con LLM en los motores de AI Search (con coste).",
+    )
     args = parser.parse_args()
     engines: list[Engine] = args.engine or list(LOCAL_ENGINES)
     cloud = any(engine in CLOUD_ENGINES for engine in engines)
+    if args.budget_usd is not None and not cloud:
+        parser.error("--budget-usd solo tiene sentido con --engine azure o azure-semantic")
+    llm, meter = _planner(args.budget_usd) if args.budget_usd is not None else (None, None)
     meta, items = load_golden(args.dataset)
     report = asyncio.run(
         run_retrieval_eval(
@@ -392,13 +455,19 @@ def main() -> None:
             strategies=args.strategy,
             top_k=args.top_k,
             candidate_k=args.candidate_k,
+            llm=llm,
         )
     )
     # Los informes de la nube van aparte: no sustituyen al baseline local que usa la CI.
     json_path, md_path = write_report(
-        report, args.out or (CLOUD_REPORTS_DIR if cloud else REPORTS_DIR)
+        report,
+        args.out or (CLOUD_REPORTS_DIR if cloud else REPORTS_DIR),
+        "retrieval-llm" if llm is not None else "retrieval",
     )
     print(f"Informe: {md_path} y {json_path}")
+    if meter is not None:
+        snapshot = meter.snapshot()
+        print(f"Coste LLM: {snapshot.cost_usd} USD en {snapshot.calls} llamadas")
     for run in report.runs:
         s = run.overall
         print(

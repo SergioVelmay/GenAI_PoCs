@@ -487,8 +487,40 @@ comparable 1:1** con B y C, y la ACL de cada documento citado se vuelve a compro
 | `POST /agents` falla con 409 al reaprovisionar | Foundry versiona los agentes | `publish_agent`: crea o publica una versión nueva (también en `provision_foundry_agent.py`) |
 | Sobre-respuesta en una pregunta interna (`acl-schedule-change-en`) | El agente respondió con políticas públicas cercanas (cambios de fecha) en lugar de abstenerse; cita bien, pero no responde a lo preguntado | Ningún validador estructural lo detecta: necesita un juez de fidelidad (pendiente de la fase 5) |
 
-Pendiente: AWS (Bedrock KB y Bedrock Rerank), las estrategias con LLM (rewrite, HyDE,
-subpreguntas, router, auto) con modelos reales y el juez de fidelidad sobre `answer`.
+### Estrategias con LLM sobre AI Search (18-10-2026)
+
+`python -m rag_evals.retrieval_eval --engine azure --engine azure-semantic --budget-usd 0.50`
+(informe en `evals/reports/azure/retrieval-llm.md`). El planificador va por el gateway (router →
+`gpt-4.1-nano`): 1.444 llamadas, **0,10 $** y ~23 min con 144 preguntas × 5 estrategias × 2
+motores. Sobre la híbrida + Semantic Ranker (la mejor sin LLM):
+
+| Estrategia | hit@1 | nDCG@5 | recall@5 | Planes fallidos | p50 |
+|---|---:|---:|---:|---:|---:|
+| Híbrida + Semantic Ranker (sin LLM) | 0,991 | **0,980** | **0,974** | — | **223 ms** |
+| rewrite | 0,991 | 0,981 | 0,969 | 2 | 897 ms |
+| HyDE | 0,982 | 0,975 | 0,974 | 2 | 729 ms |
+| subpreguntas | 0,912 | 0,902 | 0,925 | 2 | 1.192 ms |
+| router (`doc_type`) | 0,947 | 0,938 | 0,934 | 4 | 734 ms |
+| auto (filtros inferidos) | 0,781 | 0,757 | 0,750 | 2 | 828 ms |
+
+- **Ninguna estrategia con LLM mejora a la búsqueda sin LLM**, y todas multiplican la latencia
+  por 3–5. Con preguntas bien formadas (las del golden dataset lo son) no hay nada que reescribir.
+  Pueden compensar con preguntas reales ambiguas o largas; habría que medirlo con tráfico real
+  antes de pagarlas. Decisión para Headache: sin planificación con LLM por defecto.
+- **auto es peligrosa**: inferir filtros convierte un error del modelo en 0 resultados (un filtro
+  equivocado excluye la respuesta correcta). Pierde sobre todo en fichas de evento (ciudad o
+  evento escritos de otra forma).
+- Los "planes fallidos" son las preguntas de inyección de prompt: **Prompt Shields** bloquea al
+  planificador y la pregunta se queda sin resultados (lo seguro).
+
+Hallazgos (con su test de regresión):
+
+| Hallazgo | Arreglo |
+|---|---|
+| Con un esquema de "lista de 1 a 4 consultas", `nano` devolvía varias en rewrite, HyDE, router y auto (10–35 % de las preguntas), y el código las rechazaba: la primera medición daba hit@5 de 0,61 en router | Esquema propio de una sola consulta (`SingleQueryPlan`) para esas estrategias: el modo *strict* hace imposible devolver varias. **El esquema es el guardarraíl**, no la validación posterior |
+| auto copiaba la etiqueta visible («Gastronomía y bebidas») en vez del código (`food_drink`) y filtraba por un valor inexistente | `category` y `doc_type` como enumeraciones del dominio en el esquema; el idioma de la pregunta deja de ser un filtro. auto sube de 0,69 a 0,83 de hit@5 |
+
+Pendiente: AWS (Bedrock KB y Bedrock Rerank).
 
 ## Checkpoint de entrevista
 

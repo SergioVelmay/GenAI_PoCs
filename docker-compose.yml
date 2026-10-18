@@ -115,7 +115,8 @@ services:
     restart: unless-stopped
     command: ["catalog"]
     environment:
-      TICKETING_API__BASE_URL: http://host.docker.internal:8000
+      # Configurable por si el 8000 del host está ocupado: MCP_TICKETING_API_URL=http://host.docker.internal:8010
+      TICKETING_API__BASE_URL: ${MCP_TICKETING_API_URL:-http://host.docker.internal:8000}
       ENVIRONMENT: local
       # jwt: tokens del emisor de desarrollo (python -m headache_mcp.auth). none: identidad fija.
       MCP__AUTH: ${MCP__AUTH:-none}

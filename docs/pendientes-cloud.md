@@ -43,7 +43,7 @@ terraform -chdir=infra/terraform/azure apply
 ## Fase 3 · Indexación ([doc](fase-3-comparativa.md))
 
 - [x] Azure (18-10-2026): Terraform aplicado (AI Search Basic en `francecentral`), outputs en el `.env`, corpus clasificado con ACL (`scripts/classify_corpus.py`), carril B con Service Bus + Foundry + AI Search y carril A con indexer + skillset (vectorizador verificado). Medidas y hallazgos en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026).
-- [ ] Investigar por qué el indexer del carril A reprocesa todos los blobs en cada ejecución (hallazgo abierto).
+- [x] Indexer del carril A que reprocesaba todos los blobs (18-10-2026): era `managed_ingestion.py`, que los resubía siempre. Ahora solo sube si cambia el MD5 o los metadatos; sin cambios = 0 procesados.
 - [ ] AWS: `terraform apply` en `infra/terraform/aws`, carril B con `INDEXER__EMBEDDINGS=bedrock`, `INDEXER__VECTOR_STORE=s3_vectors` e `INDEXER__BROKER=sqs`, y carril A con `scripts/managed_ingestion.py aws --apply`.
 - [ ] Coste real por carril con Cost Management / Cost Explorer tras unos días de uso.
 
@@ -53,7 +53,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 - [x] Azure (18-10-2026): corpus clasificado con ACL explícita e ingerido en el índice `knowledge`; AI Search Basic con Semantic Ranker; Foundry IQ aprovisionado (KB en preview con esfuerzo `minimal`, salida extractiva y 5 documentos) y comparativa A/B/C con el golden dataset completo. Resultados y hallazgos en [fase 4](fase-4-retrieval.md#resultados-en-azure-18-10-2026).
 - [ ] AWS: resincronizar Bedrock KB con los sidecars con ACL, habilitar Cohere Rerank (`BEDROCK__RERANK_MODEL_ARN`, `BEDROCK_KB__GENERATION_MODEL_ARN`) y repetir la comparativa con `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb`.
-- [ ] Estrategias con LLM (rewrite, HyDE, subpreguntas, router, auto) con `RETRIEVAL__LLM=gateway` y modelos reales, medidas con el golden dataset.
+- [x] Estrategias con LLM (rewrite, HyDE, subpreguntas, router, auto) sobre AI Search con el golden dataset (18-10-2026, 0,10 $): ninguna mejora a la híbrida + Semantic Ranker y todas triplican la latencia. Informe en `evals/reports/azure/retrieval-llm.md`.
 
 ## Fase 5 · Evals ([doc](fase-5-evals.md))
 
@@ -75,7 +75,8 @@ Requiere antes los pendientes de las fases 2 y 3.
 ## Fase 7 · Agentes ([doc](fase-7-agentes.md))
 
 - [ ] Suite de agentes con LLM real: `python -m rag_evals.agents --mode llm --budget-usd ...` (sabores de framework y carril A); comparar coste, latencia y aciertos.
-- [ ] Foundry: `scripts/provision_foundry_agent.py --apply`, ejecutar el sabor `foundry` con `FoundryAgentService` (`AsyncOpenAI` sobre `{proyecto}/openai/v1` con token de Entra ID) y medir el truncado del servicio frente a nuestra compactación.
+- [x] Foundry: `scripts/provision_foundry_agent.py --apply` (agente `headache-booking-agent` v1) y sabor `foundry` de extremo a extremo con `search_knowledge` contra AI Search y tools MCP (18-10-2026).
+- [ ] Medir el truncado del servicio de Foundry frente a nuestra compactación (conversación larga).
 - [ ] AgentCore: imagen ARM64 del Runtime en ECR (entrypoint con `create_runtime_app`, fase 13), `agentcore_enabled=true` + `agentcore_container_uri`, cablear `AgentCoreCheckpointStore`/`AgentCorePreferenceStore` con `AGENTCORE__MEMORY_ID` e invocar con `BotoRuntimeInvoker` (rol con `InvokeAgentRuntimeForUser`).
 - [ ] Valorar las estrategias de extracción de AgentCore Memory (`USER_PREFERENCE`) y la memoria de Foundry frente a la tool explícita `remember_preference`.
 

@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from headache_core.application.llm.structured import complete_structured
+from headache_core.domain.models import DocumentType, EventCategory
 from headache_core.domain.retrieval import AccessScope
 from headache_core.ports.llm import ChatMessage, LLMPort, Role
 from headache_core.ports.retrieval import RerankerPort, RetrievalPort, RetrievalStrategy, SearchMode
@@ -29,18 +30,37 @@ class QueryFilters(BaseModel):
     city: str | None = Field(default=None, max_length=100)
     event_id: str | None = Field(default=None, max_length=100)
     language: Literal["es", "en"] | None = None
-    category: str | None = Field(default=None, max_length=100)
-    doc_type: str | None = Field(default=None, max_length=100)
+    # Vocabulario cerrado del dominio: con texto libre, el modelo copiaba la etiqueta visible
+    # («Gastronomía y bebidas») en vez del código (`food_drink`) y el filtro dejaba 0 resultados
+    # (validado en Azure: la estrategia `auto` perdía un 30 % de las preguntas).
+    category: EventCategory | None = None
+    doc_type: DocumentType | None = None
     document_id: str | None = Field(default=None, max_length=200)
 
     def as_metadata(self) -> dict[str, MetadataValue]:
-        return {key: value for key, value in self.model_dump().items() if value is not None}
+        values = self.model_dump(mode="json")
+        return {key: value for key, value in values.items() if value is not None}
 
 
 class QueryPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     queries: list[str] = Field(min_length=1, max_length=4)
     filters: QueryFilters = Field(default_factory=QueryFilters)
+
+
+class SingleQueryPlan(BaseModel):
+    """Plan de una sola consulta: el esquema impide devolver varias (validado en Azure).
+
+    Con `QueryPlan` (lista de 1 a 4), gpt-4.1-nano devolvia varias consultas en rewrite, hyde,
+    router y auto en el 10-35 % de las preguntas, y esas preguntas se quedaban sin resultados.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    query: str
+    filters: QueryFilters = Field(default_factory=QueryFilters)
+
+    def as_plan(self) -> QueryPlan:
+        return QueryPlan(queries=[self.query], filters=self.filters)
 
 
 class EvidenceSelection(BaseModel):
@@ -183,7 +203,11 @@ class RetrievalService:
             "hyde": "Genera un unico pasaje hipotetico para buscar por vector, no una fuente real.",
             "subquestions": "Descompone la pregunta en un maximo de 4 consultas independientes.",
             "router": "Selecciona doc_type (indice logico). Conserva la pregunta original.",
-            "auto": "Infiere solo filtros mencionados explicitamente. Conserva la pregunta.",
+            "auto": (
+                "Infiere solo filtros mencionados explicitamente. Conserva la pregunta. El idioma "
+                "en que esta escrita la pregunta no es un filtro: language solo si se piden "
+                "documentos en un idioma concreto."
+            ),
         }
         messages = [
             ChatMessage(Role.SYSTEM, instructions[request.strategy] + " Nunca propongas ACL."),
@@ -191,11 +215,13 @@ class RetrievalService:
                 Role.USER, json.dumps({"query": request.query, "filters": request.filters})
             ),
         ]
-        plan = (await complete_structured(self._llm, messages, QueryPlan, max_tokens=700)).value
+        if request.strategy == "subquestions":
+            plan = (await complete_structured(self._llm, messages, QueryPlan, max_tokens=700)).value
+        else:
+            single = await complete_structured(self._llm, messages, SingleQueryPlan, max_tokens=700)
+            plan = single.value.as_plan()
         if any(not query.strip() or len(query) > 2000 for query in plan.queries):
             raise ValueError("Plan de consultas invalido")
-        if request.strategy != "subquestions" and len(plan.queries) != 1:
-            raise ValueError("Esta estrategia requiere una sola consulta")
         return plan
 
     async def answer(self, request: RetrievalRequest, *, generate: bool = False) -> RagResponse:

@@ -3,9 +3,10 @@ from pathlib import Path
 import pytest
 
 from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import HashingEmbedding
+from headache_core.adapters.memory import FakeLLM, HashingEmbedding
 from headache_core.application.retrieval import RetrievalService
 from headache_core.domain.retrieval import AccessScope
+from headache_core.ports.llm import LLMContentFilterError, LLMResponse
 from headache_core.ports.vector_store import VectorRecord
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
 from rag_evals.retrieval_eval import (
@@ -82,6 +83,42 @@ async def test_eval_flags_internal_results_even_if_backend_leaks() -> None:
         service, [item], strategy="bm25", top_k=5, candidate_k=20, scope=leaky
     )
     assert outcomes[0].leaks == ("handbook",)
+
+
+async def test_failed_llm_plans_are_counted_not_fatal() -> None:
+    embeddings = HashingEmbedding(32)
+    policy = VectorRecord(
+        "policy::0000",
+        "Refundable up to 48 hours before.",
+        await embeddings.embed_query("Refundable up to 48 hours before."),
+        {"document_id": "policy", "acl": "public"},
+    )
+    good = '{"query": "refund hours", "filters": {}}'
+    service = RetrievalService(
+        LocalRetrieval([policy], embeddings=embeddings),
+        llm=FakeLLM([good, "no es json", "tampoco"]),
+    )
+    items = [_item("ok", {"policy": 2}), _item("bad", {"policy": 2})]
+    ok, bad = await evaluate_service(service, items, strategy="rewrite", top_k=5, candidate_k=20)
+    assert ok.error is None and ok.documents == ("policy",)
+    assert bad.error is not None and bad.documents == ()
+    assert summarize("azure", "rewrite", [ok, bad], top_k=5).plan_errors == 1
+
+    class Shielded:
+        async def complete(self, *args: object, **kwargs: object) -> LLMResponse:
+            raise LLMContentFilterError("content_filter: jailbreak")
+
+    blocked = RetrievalService(LocalRetrieval([policy], embeddings=embeddings), llm=Shielded())
+    [shielded] = await evaluate_service(
+        blocked, items[:1], strategy="hyde", top_k=5, candidate_k=20
+    )
+    assert shielded.documents == () and "jailbreak" in (shielded.error or "")
+
+
+async def test_llm_strategies_need_a_cloud_engine() -> None:
+    meta, items = load_golden(DATASET_PATH)
+    with pytest.raises(ValueError, match="AI Search"):
+        await run_retrieval_eval(items[:3], meta, engines=["native"], llm=FakeLLM([]))
 
 
 @pytest.mark.parametrize("engine", ["native", "llamaindex"])

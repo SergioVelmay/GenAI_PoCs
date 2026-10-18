@@ -132,7 +132,7 @@ servicios nuevos de AI Search por alta demanda). Entra ID en todo, sin claves.
 | Medida | Carril A · Gestionado (indexer + skillset) | Carril B · SDK nativo (Service Bus + worker) |
 |---|---|---|
 | Ingesta completa | 116 docs → **118 chunks** (páginas de 2 000 caracteres); 10 s en el servicio, 36 s con la subida de blobs | 116 docs → **131 chunks** (frases, 80 palabras); 7,6 s en el worker, 25 s de extremo a extremo; 0 reintentos, 0 en DLQ |
-| Republicar sin cambios | ⚠️ El indexer **reprocesa los 116** blobs en cada ejecución (ver hallazgos) | **0** embeddings: 116 `unchanged` por el hash del ledger |
+| Republicar sin cambios | **0** procesados tras el arreglo (antes, 116 de 116: ver hallazgos); 1 documento cambiado = 1 procesado | **0** embeddings: 116 `unchanged` por el hash del ledger |
 | 1 documento modificado | — | **1** embedding; solo se reindexa ese documento |
 | Latencia de consulta (p50 / p95) | 165 ms / 694 ms (la p95 es la primera, en frío); AI Search vectoriza la consulta dentro de Azure | 205–213 ms / 227–270 ms; el cliente embebe en Suecia y busca en Francia |
 | Coste de la ingesta | Céntimos de céntimo en embeddings (~12 K tokens); el indexer va incluido en Basic | Igual; Service Bus por operación (~0) |
@@ -149,7 +149,7 @@ hace con el golden dataset (fase 5).
 | Hallazgo | Causa | Solución |
 |---|---|---|
 | Carril A: el indexer terminaba `success` con **0 chunks** (232 avisos) | Con `parsingMode=markdown` y `oneToOne`, el texto queda en `/document/document_content`, no en `/document/content`; el SplitSkill no recibía nada | Entrada del SplitSkill corregida (`MARKDOWN_TEXT_SOURCE`) y test de regresión. Un indexer en verde no prueba nada: hay que contar los documentos del índice |
-| Carril A: el indexer reprocesa todos los blobs aunque no cambien | Abierto. Los blobs son anteriores a la marca de agua del indexer y la documentación dice que una ejecución sin cambios procesa 0/0. Sospechosos: la política de borrado nativo (soft delete) o las proyecciones de índice | Investigar antes de producción: a escala, cada ejecución vuelve a pagar todos los embeddings |
+| Carril A: el indexer reprocesaba todos los blobs aunque no cambiaran | Resuelto (18-10-2026). No era el indexer: era **nuestro script**, que resubía los 116 blobs con `overwrite=True`; resubir cambia la fecha de modificación, que es lo que usa el indexer para detectar cambios. Medido: relanzar el indexer sin subir nada procesa 0. Además, la marca de agua va ~30 s por detrás del inicio de cada ejecución, así que un blob subido justo antes se procesa dos veces | `managed_ingestion.py` solo sube si cambia el MD5 del contenido o los metadatos (`needs_upload`). Validado: sin cambios = 0 subidos y 0 procesados; 1 cambio = 1 y 1. Igual que el ledger del carril B: la idempotencia es responsabilidad de quien publica |
 | Avisos `Unclosed client session` en el indexer | Los adaptadores de AI Search y Service Bus no cerraban la credencial asíncrona que creaban, y la composición no cerraba el almacén | Cada adaptador cierra lo que crea y `open_pipeline` cierra el almacén de la nube |
 | 58 avisos de proyección en el carril A | Documentos sin `category` o `city` en los metadatos del blob | Benignos: el campo queda vacío |
 | AI Search no se puede crear en `swedencentral` | `InsufficientResourcesAvailable`: región de alta demanda | `search_location = "francecentral"`; Foundry y el resto siguen en Suecia |

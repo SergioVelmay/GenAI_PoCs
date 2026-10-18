@@ -137,6 +137,7 @@ Uso en local (sin coste):
 ```powershell
 uv run python -m headache_mcp.auth --customer cus_0121338 --server gateway   # crea .secrets/
 $env:MCP__AUTH="jwt"; docker compose --profile mcp up -d --build              # 3 servidores + gateway
+# Si el 8000 del host está ocupado: API en otro puerto y MCP_TICKETING_API_URL=http://host.docker.internal:8010
 # Agente (tiene coste): uv run python -m support_agent --gateway --customer cus_0121338 "..."
 ```
 

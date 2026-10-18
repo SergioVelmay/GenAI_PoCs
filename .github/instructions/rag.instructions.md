@@ -14,7 +14,9 @@ Docs: `docs/fase-3-comparativa.md`, `docs/fase-4-retrieval.md`.
 - Garantías comunes en `packages/headache_core/tests/integration/test_message_bus_contract.py` (cada broker se salta si su emulador no está arrancado). Un broker nuevo debe pasar ese contrato.
 - Carriles con el mismo `KnowledgeIndexer`: `INDEXER__ENGINE=native` (B: `knowledge_chunks` + ledger) o `llamaindex` (C: `IngestionPipeline`, esquema `llamaindex`). Chunking `fixed`, `sentence` y, solo en LlamaIndex, `semantic` y `hierarchical`. Comparativa sin coste: `uv run python scripts/chunking_report.py [--doc-type handbook]`.
 - Nube (carril B): `INDEXER__EMBEDDINGS=hashing|azure|bedrock` (1024 dims) y `INDEXER__VECTOR_STORE=pgvector|azure_search|s3_vectors`; el ledger sigue en PostgreSQL con `index_name@store`. El índice de AI Search no lo gestiona azurerm: `scripts/provision_search_index.py [--apply]`.
-- Idempotencia por hash de contenido en el ledger; los mensajes envenenados acaban en la DLQ, no en bucle.
+- Idempotencia por hash de contenido en el ledger; los mensajes envenenados acaban en la DLQ, no en bucle. Si el destino se recrea vacío (AI Search efímero), se olvida su ledger (`forget_index`; lo hace `provision_search_index --apply` al crear el índice).
+- Carril A: `managed_ingestion.py` solo sube un blob si cambia su MD5 o sus metadatos (`needs_upload`); resubir cambia la fecha de modificación y el indexer reprocesa el documento.
+- Estrategias con LLM: una sola consulta con `SingleQueryPlan` (solo `subquestions` admite varias) y filtros con enumeraciones del dominio. Medidas en Azure: no mejoran a la híbrida + Semantic Ranker.
 
 ## Retrieval (`services/retrieval`)
 

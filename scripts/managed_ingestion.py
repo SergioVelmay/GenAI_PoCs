@@ -89,16 +89,25 @@ async def azure_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None
     managed = settings.azure_managed
     target, credentials = azure_inputs(settings)
     names = azure_lane.ManagedLaneNames(managed.prefix)
+    from azure.core.exceptions import ResourceNotFoundError
+
+    uploaded = 0
     async with DefaultAzureCredential() as credential:
         async with BlobServiceClient(managed.storage_account_url, credential) as blobs:
             container = blobs.get_container_client(managed.container)
             for doc in docs:
-                await container.upload_blob(
-                    azure_lane.blob_name(doc),
-                    doc.content.encode(),
-                    overwrite=True,
-                    metadata=azure_lane.blob_metadata(doc),
+                blob = container.get_blob_client(azure_lane.blob_name(doc))
+                try:
+                    properties = await blob.get_blob_properties()
+                    md5, metadata = properties.content_settings.content_md5, properties.metadata
+                except ResourceNotFoundError:
+                    md5, metadata = None, None
+                if not azure_lane.needs_upload(doc, md5, metadata):
+                    continue
+                await blob.upload_blob(
+                    doc.content.encode(), overwrite=True, metadata=azure_lane.blob_metadata(doc)
                 )
+                uploaded += 1
         endpoint = settings.azure_search.endpoint
         async with (
             SearchIndexClient(endpoint, credential) as indexes,
@@ -111,7 +120,10 @@ async def azure_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None
             await indexers.create_or_update_skillset(azure_lane.skillset(names, target))
             await indexers.create_or_update_indexer(azure_lane.indexer(names))
             await indexers.run_indexer(names.indexer)
-    print(f"{len(docs)} blobs subidos; indexer '{names.indexer}' lanzado.")
+    print(
+        f"{uploaded} de {len(docs)} blobs subidos (el resto, sin cambios); "
+        f"indexer '{names.indexer}' lanzado."
+    )
 
 
 def aws_dry_run(settings: Settings, docs: list[KnowledgeDocument]) -> None:

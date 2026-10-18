@@ -132,6 +132,21 @@ uv run python scripts/provision_foundry_agent.py           # definición del age
 # Con coste (confirmar antes): uv run python -m booking_agent --flavor strands --customer cus_... "pregunta"
 ```
 
+### De extremo a extremo en Azure (18-10-2026)
+
+`booking_agent` con el conocimiento en AI Search (`RETRIEVAL__BACKEND=azure_search`, embeddings
+de Foundry y Semantic Ranker), las tools por los servidores MCP en Docker y la API de ticketing:
+
+| Sabor | Pregunta | Tools | Resultado |
+|---|---|---|---|
+| `native` | Apertura de puertas en París y cancelación de un tour | 2 × `search_knowledge` (con `city` y `doc_type`) | Correcto (45 min; reembolso del 100 %); 3 llamadas, 0,0002 $ |
+| `foundry` | Apertura en París y mis pedidos | `list_my_orders` + `search_knowledge` | Correcto; agente `headache-booking-agent` publicado con `--apply` |
+
+Hallazgo: con la pregunta "reembolso de gastronomía y mis pedidos", el agente `native` respondió
+con la política que trae `search_events` sin consultar la base de conocimiento, y afirmó que el
+cliente tenía "varias reservas de gastronomía" sin comprobarlo. Es el tipo de fallo que tiene que
+cazar la suite de agentes con LLM real y un juez (pendiente).
+
 ## 9. Pendiente de validación con coste
 
 Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md): suite con LLM real

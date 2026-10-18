@@ -155,8 +155,9 @@ no admite servicios nuevos. El corpus de evals se clasificó con **ACL explícit
 Hallazgos que solo aparecieron en la nube (todos con su test de regresión): skillset leyendo un
 campo vacío (indexer en verde con 0 chunks), endpoint MCP solo en preview, esfuerzo de
 razonamiento que exige modelo, formato real de las citas del agente, `POST /agents` no
-idempotente y credenciales asíncronas sin cerrar. Abiertos: el indexer del carril A reprocesa
-todos los blobs y una sobre-respuesta del agente que exige un juez de fidelidad. Detalle en
+idempotente y credenciales asíncronas sin cerrar. Resueltos después: el indexer del carril A
+reprocesaba todos los blobs (era nuestro script, que los resubía siempre) y la sobre-respuesta
+del agente (la detecta el juez de fidelidad de la fase 5). Detalle en
 [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026) y
 [fase 4](fase-4-retrieval.md#resultados-en-azure-18-10-2026).
 
@@ -169,18 +170,37 @@ AI Search se destruyó al terminar (de 11:17 a 12:08, ~0,09 $) y `terraform plan
 | Juez separado del generador | Nuevo despliegue `gpt-4.1` fuera del router; antes generador y juez eran el mismo `mini` |
 | Nativo frente a RAGAS y DeepEval (misma muestra de 20) | Juez nativo ×5–7 más barato (0,029 $ frente a 0,208 $ y 0,138 $) y el más rápido; mismas precision y recall de contexto; `answer_relevancy` no comparable entre jueces |
 | Fugas de ACL y citas | 0 fugas, citas 100 % válidas, 4/4 abstenciones correctas |
-
 | Calibración (20 muestras, 12 estropeadas a propósito, ~0,96 $) | Juez nativo: kappa 0,82 en fidelidad y 1,0 en relevancia (etiquetas adjudicadas); **DeepEval no detecta ninguna afirmación inventada** (0/4). El nativo queda como candidato a gate |
-
 | Fidelidad de Foundry IQ (30 preguntas, AI Search encendido de nuevo) | 19/21 respuestas fieles, 0 fugas; el juez detecta la sobre-respuesta conocida y una respuesta que añade condiciones no citadas; Prompt Shields bloquea la inyección de prompt |
 
 Hallazgos: un veredicto incoherente abortaba la eval (ahora *fail-closed* por muestra), DeepEval
 degeneraba en espacios con el modo *strict* y su plugin de pytest cargaba el `.env`. Detalle en
 [fase 5](fase-5-evals.md#resultados-en-azure-18-10-2026).
 
+### Pendientes que necesitan AI Search (segunda sesión, 18-10-2026, ~0,25 $ de modelos)
+
+Antes de apagar AI Search se repasaron los pendientes de Azure de las fases 2 a 8 y se hicieron
+los que lo necesitan; el resto (Foundry Evaluation, MCP con Entra ID, suite de agentes con LLM,
+Content Safety...) no depende de él.
+
+| Validación | Resultado |
+|---|---|
+| F3 · Indexer del carril A que reprocesaba todo | No era el servicio: nuestro script resubía los 116 blobs. Con comprobación de MD5: 0 cambios = 0 procesados; 1 cambio = 1 |
+| F3 · Reindexar tras recrear AI Search | El ledger del carril B daba por indexado lo que ya no existía; `provision_search_index --apply` lo olvida al crear el índice |
+| F4 · Estrategias con LLM (5 × 2 motores × 144 preguntas, 0,10 $) | Ninguna mejora a la híbrida + Semantic Ranker y todas triplican la latencia; auto pierde un 20 % por filtros mal inferidos. Dos fallos de esquema corregidos |
+| F7 · `booking_agent` de extremo a extremo (sabores `native` y `foundry`) | Respuestas correctas con `search_knowledge` contra AI Search y tools MCP; agente de Foundry publicado |
+
+Detalle en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026),
+[fase 4](fase-4-retrieval.md#estrategias-con-llm-sobre-ai-search-18-10-2026) y
+[fase 7](fase-7-agentes.md#de-extremo-a-extremo-en-azure-18-10-2026).
+
 ## 6. Pendiente en este checkpoint
 
-- Fase 5: Foundry Evaluation y CI en
-  `enforce`.
-- Pendientes de Azure de las fases 6 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
+- Fase 5: Foundry Evaluation y CI en `enforce`.
+- Fase 6: `tool_loop_demo` y `support_agent` con Azure OpenAI; MCP con Entra ID y OBO.
+- Fase 7: suite de agentes con LLM real; truncado de Foundry frente a nuestra compactación;
+  memoria de Foundry frente a `remember_preference`.
+- Fase 8: `analytics_sql_demo`; Content Safety frente al escudo heurístico; ataques con LLM real.
+- Aplazados (no son de este checkpoint): APIM y MCP en HTTPS (fase 14), Langfuse v4 (fase 11),
+  tool de compra con `Idempotency-Key` (fase 9), coste real por carril (al cierre).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

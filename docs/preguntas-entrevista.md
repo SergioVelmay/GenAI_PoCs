@@ -219,8 +219,10 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    retrieval (fase 5), no a ojo.
 6. **¿Cómo sabes que la ingesta incremental funciona en producción?** Midiéndola: en Azure,
    republicar los 116 documentos generó **0** llamadas de embeddings (hash en el ledger) y cambiar
-   uno generó **1**. En cambio, el indexer gestionado reprocesaba todo en cada ejecución: un
-   hallazgo abierto con impacto directo en el coste a escala.
+   uno generó **1**. En el carril gestionado, el indexer reprocesaba todo en cada ejecución y
+   la causa no era el servicio sino nuestro script: resubía todos los blobs y eso cambia su
+   fecha de modificación. Con una comprobación de MD5 antes de subir, 0 cambios = 0 procesados.
+   Lección: "gestionado" no te quita la responsabilidad de la idempotencia.
 
 ### Negocio y stakeholders
 
@@ -275,6 +277,12 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 11. **¿Cómo evitas activar la nube sin querer?** Composición explícita: cada pieza cloud es una
     variable con valor local por defecto, las combinaciones incoherentes fallan al arrancar y
     `/health` declara qué está activo. Falta de configuración = error, no fallback silencioso.
+12. **¿Usarías reescritura de consultas, HyDE o filtros inferidos por LLM?** Solo si lo demuestran
+    las evals. En Azure, con el golden dataset, ninguna mejoró a la híbrida + Semantic Ranker y
+    todas triplicaron la latencia (de ~220 ms a 700–1.200 ms). Y la primera medición fue
+    engañosa: los fallos venían del esquema (permitía varias consultas y texto libre en los
+    filtros), no de la técnica. Lo arreglé haciendo imposible el error en el esquema y volví a
+    medir antes de decidir.
 
 ### Negocio y stakeholders
 

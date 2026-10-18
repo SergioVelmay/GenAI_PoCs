@@ -46,6 +46,20 @@ def test_blob_metadata_keeps_only_ascii_declared_fields() -> None:
     assert azure_lane.blob_name(DOC) == "faq/faq-mexico-city-es.md"
 
 
+def test_unchanged_blobs_are_not_reuploaded() -> None:
+    # Resubir cambia la fecha de modificación y el indexer reprocesa (validado en Azure).
+    md5, metadata = azure_lane.content_md5(DOC), azure_lane.blob_metadata(DOC)
+    edited = KnowledgeDocument(
+        DOC.id, DOC.title, DOC.doc_type, DOC.language, DOC.content + " 30 min.", DOC.metadata
+    )
+    retagged = KnowledgeDocument(DOC.id, DOC.title, DOC.doc_type, "en", DOC.content, DOC.metadata)
+
+    assert not azure_lane.needs_upload(DOC, bytearray(md5), metadata)
+    assert azure_lane.needs_upload(DOC, None, None)
+    assert azure_lane.needs_upload(edited, md5, metadata)
+    assert azure_lane.needs_upload(retagged, md5, metadata)
+
+
 def test_managed_identity_mode_has_no_secrets() -> None:
     source = azure_lane.data_source(
         NAMES, credentials="ResourceId=/subscriptions/x/storageAccounts/y;", container="docs"

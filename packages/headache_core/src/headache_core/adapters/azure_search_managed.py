@@ -15,7 +15,8 @@ Autenticación saliente del servicio de AI Search:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import hashlib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from azure.search.documents.indexes.models import (
@@ -97,6 +98,29 @@ def blob_metadata(document: KnowledgeDocument) -> dict[str, str]:
         **document.metadata,
     }
     return {k: v for k, v in values.items() if k in BLOB_METADATA and v.isascii()}
+
+
+def content_md5(document: KnowledgeDocument) -> bytes:
+    """El MD5 que Azure Storage calcula y guarda (Content-MD5) al subir un blob de una vez."""
+    return hashlib.md5(document.content.encode(), usedforsecurity=False).digest()
+
+
+def needs_upload(
+    document: KnowledgeDocument,
+    existing_md5: bytes | bytearray | None,
+    existing_metadata: Mapping[str, str] | None,
+) -> bool:
+    """Ingesta incremental: el indexer detecta cambios por la fecha de modificación del blob.
+
+    Resubir un blob idéntico cambia esa fecha y fuerza a re-trocear y re-vectorizar el
+    documento (validado en Azure: 116 de 116 en cada ejecución). Solo se sube si cambia el
+    contenido o los metadatos, o si el blob no existe.
+    """
+    if existing_md5 is None or existing_metadata is None:
+        return True
+    return bytes(existing_md5) != content_md5(document) or dict(existing_metadata) != (
+        blob_metadata(document)
+    )
 
 
 def data_source(
