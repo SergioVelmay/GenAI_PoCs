@@ -99,7 +99,7 @@ ignore_missing_imports = true
 # Extra opcional `evals`: puede no estar instalado (CI). Se tratan como Any en ambos casos
 # para que mypy de el mismo resultado con y sin el extra.
 [[tool.mypy.overrides]]
-module = ["ragas", "ragas.*", "deepeval", "deepeval.*"]
+module = ["ragas", "ragas.*", "deepeval", "deepeval.*", "azure.ai.evaluation", "azure.ai.evaluation.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 

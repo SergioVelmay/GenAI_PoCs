@@ -194,9 +194,16 @@ Detalle en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026),
 [fase 4](fase-4-retrieval.md#estrategias-con-llm-sobre-ai-search-18-10-2026) y
 [fase 7](fase-7-agentes.md#de-extremo-a-extremo-en-azure-18-10-2026).
 
+### Fase 5 · Foundry Evaluation y gate bloqueante (18-10-2026, 0,17 $)
+
+| Validación | Resultado |
+|---|---|
+| Foundry Evaluation (`GroundednessEvaluator` + `RelevanceEvaluator`) sobre la calibración | Kappa 0,82 en fidelidad (igual que el juez nativo) y 0,86 en relevancia, a ~3 veces el coste; ejecución visible en el portal de Foundry |
+| Umbral de Foundry | Exigir un 5 daba kappa 0 (puntúa 3-4 a las correctas escuetas); con su aprobado (≥ 3), 0,82 |
+| Gate de evals en la CI | `--mode enforce` tras 15 ejecuciones seguidas con 0 regresiones |
+
 ## 6. Pendiente en este checkpoint
 
-- Fase 5: Foundry Evaluation y CI en `enforce`.
 - Fase 6: `tool_loop_demo` y `support_agent` con Azure OpenAI; MCP con Entra ID y OBO.
 - Fase 7: suite de agentes con LLM real; truncado de Foundry frente a nuestra compactación;
   memoria de Foundry frente a `remember_preference`.

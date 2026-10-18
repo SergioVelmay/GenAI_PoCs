@@ -75,9 +75,10 @@ jobs:
           uv run python -m rag_evals.generation_eval --out /tmp/evals
           --strategy hybrid --strategy bm25 --strategy parent-child
 
-      # report: las regresiones se informan en el resumen; los invariantes (ACL, citas) bloquean.
+      # enforce: bloquean los invariantes (ACL, citas) y las regresiones de más de 0,01 respecto
+      # al baseline. Activado en el checkpoint 8→9 tras 15 ejecuciones seguidas con 0 regresiones.
       - name: Gate contra el baseline
-        run: uv run python -m rag_evals.gate --reports /tmp/evals --mode report
+        run: uv run python -m rag_evals.gate --reports /tmp/evals --mode enforce
 
       # Bloquea siempre: un ataque no contenido o un falso positivo es un fallo de seguridad.
       - name: Tests de ataque del harness (7 sabores, modelo comprometido)

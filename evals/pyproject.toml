@@ -17,6 +17,7 @@ evals = [
     # ragas 0.4.3 importa langchain_community.chat_models.vertexai, eliminado en 0.4.2
     # (paquete archivado). Quitar el tope cuando ragas deje de importarlo.
     "langchain-community>=0.4.1,<0.4.2",
+    "azure-ai-evaluation>=1.18.9",
 ]
 
 [tool.uv.sources]

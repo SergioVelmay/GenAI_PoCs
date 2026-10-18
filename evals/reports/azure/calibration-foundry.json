@@ -1,0 +1,231 @@
+{
+  "judge": "foundry",
+  "cost": {
+    "input_tokens": "66605",
+    "output_tokens": "3976",
+    "cost_usd": "0.165018"
+  },
+  "items": [
+    {
+      "id": "cal-01",
+      "kind": "non_answer",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.25,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-02",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-03",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-04",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-05",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-06",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-07",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-08",
+      "kind": "non_answer",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.5,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-09",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-10",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.5,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-11",
+      "kind": "off_topic",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-12",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-13",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-14",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-15",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-16",
+      "kind": "off_topic",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.0,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-17",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-18",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-19",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 1.0,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    },
+    {
+      "id": "cal-20",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.75,
+        "context_precision": null,
+        "context_recall": null
+      },
+      "error": null
+    }
+  ],
+  "mapping": "groundedness >= 3 (umbral de aprobado de Foundry) = fiel"
+}

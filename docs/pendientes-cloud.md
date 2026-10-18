@@ -60,10 +60,11 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [x] `generation_eval --mode llm --judge native|ragas|deepeval --limit 20 --budget-usd 0.50` con la misma muestra (18-10-2026, ~0,39 $ en total): informes en `evals/reports/azure/`.
 - [x] Calibrar los jueces (18-10-2026, ~0,96 $): conjunto `evals/calibration/calibration-v1`, etiquetas a ciegas y adjudicadas; juez nativo kappa 0,82 (fidelidad) y 1,0 (relevancia). Informe en `evals/reports/azure/calibration.md`.
 - [x] Juez con modelo distinto del generador (`gpt-4.1`, despliegue `judge` en Terraform) y embeddings reales (`text-embedding-3-small`) para `AnswerRelevancy` de RAGAS.
-- [ ] Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.
+- [x] Carril A en Azure: Foundry Evaluation (`rag_evals.foundry_eval`, 18-10-2026, 0,17 $) sobre el conjunto de calibración; kappa 0,82 en fidelidad con su umbral de aprobado. Ejecución registrada en el proyecto de Foundry.
+- [ ] Carril A en AWS: Amazon Bedrock Evaluations con el mismo conjunto.
 - [x] Evals de retrieval con embeddings reales y Semantic Ranker en Azure (`--engine azure --engine azure-semantic`, 18-10-2026): informe en `evals/reports/azure/`. El baseline de la CI sigue siendo el local (coste 0); el de nube se compara a mano.
 - [x] Juez de fidelidad sobre el `answer` de Foundry IQ (18-10-2026, `rag_evals.managed_eval`): 19/21 fieles; detecta la sobre-respuesta y una respuesta que añade condiciones no citadas. Informe en `evals/reports/azure/managed-foundry_iq.md`.
-- [ ] Pasar el job `evals` de CI a `--mode enforce` tras varias ejecuciones estables.
+- [x] Job `evals` de la CI en `--mode enforce` (18-10-2026), tras 15 ejecuciones seguidas con 0 regresiones.
 
 ## Fase 6 · Tools y MCP ([doc](fase-6-tools-mcp.md))
 

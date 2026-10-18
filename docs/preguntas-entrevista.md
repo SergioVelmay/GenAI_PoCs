@@ -356,6 +356,14 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    framework conocido) que dejaba pasar justo el fallo más peligroso para Headache: respuestas que
    inventan condiciones. Además, hasta el humano se equivoca (2 despistes de 20): por eso se
    etiqueta a ciegas y se adjudica de forma documentada.
+5. **¿Cuándo conviertes un control de calidad en bloqueante?** Cuando ha demostrado ser estable:
+   primero informa (no frena a nadie y se ve si da falsos positivos) y, tras un periodo sin ruido,
+   bloquea. Aquí, 15 ejecuciones seguidas sin regresiones antes de pasarlo a `enforce`. Un gate
+   que falla por ruido lo acaba desactivando el equipo; uno que nunca bloquea no protege nada.
+6. **¿Por qué no usar directamente el evaluador del proveedor (Foundry Evaluation)?** Lo usé y
+   lo calibré: acierta igual que nuestro juez en fidelidad, pero cuesta ~3 veces más y, con su
+   escala 1-5, el umbral importa (exigiendo la nota máxima no servía para nada). Lo dejo para
+   revisiones periódicas en el portal, que es lo que ve negocio, y el juez propio para la CI.
 
 <a id="fase-6"></a>
 

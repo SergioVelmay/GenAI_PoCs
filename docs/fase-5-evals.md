@@ -188,6 +188,33 @@ afirmaciones" y el juez "no fiel"; para un gate da igual, porque ambas cosas blo
 Limitaciones: 20 muestras y un solo anotador; antes de bloquear merges, ampliar el conjunto y
 sumar un segundo anotador.
 
+### Carril A: Azure AI Foundry Evaluation (18-10-2026)
+
+`rag_evals.foundry_eval` pasa el mismo conjunto de calibración por los evaluadores gestionados
+`GroundednessEvaluator` y `RelevanceEvaluator` (SDK `azure-ai-evaluation`, mismo juez `gpt-4.1`) y
+sube la ejecución al proyecto de Foundry (`--log-to-foundry`), donde se ve fila a fila con su
+razonamiento. Así queda comparado 1:1 con los otros tres jueces y con las etiquetas humanas:
+
+| Juez | Fiel: kappa (adjudicadas) | Relevante: kappa | Coste (20 muestras) | Llamadas |
+|---|---:|---:|---:|---:|
+| Nativo (carril B) | 0,82 | **1,00** | **0,06 $** | 20 |
+| Foundry Evaluation (carril A) | 0,82 | 0,86 | 0,17 $ | 40 |
+| RAGAS (carril C) | 0,82 | 0,03 | 0,31 $ | ~190 |
+| DeepEval (carril C) | 0,30 | 0,47 | 0,29 $ | ~140 |
+
+- **El umbral también se calibra**: Foundry puntúa de 1 a 5 y nunca da un 5 a respuestas correctas
+  pero escuetas (les da 3-4). Exigiendo un 5 para "fiel", su kappa era **0**; con su propio
+  aprobado (≥ 3), 0,82. Sin etiquetas humanas, habríamos descartado un buen evaluador por un mal
+  umbral.
+- Foundry Evaluation detecta las mismas respuestas estropeadas que el juez nativo y aporta el
+  portal (historial, razonamiento por fila, comparación entre ejecuciones) a cambio de ~3 veces el
+  coste: dos evaluadores con prompts largos frente a una llamada estructurada.
+- El lote corre en paralelo y una fila fallaba siempre por conexión (APIConnectionError al abrir
+  TLS); sola funciona. Se reintenta esa fila en serie llamando a los evaluadores directamente.
+
+Decisión: el juez nativo para el gate (más barato y kappa más alto en relevancia); Foundry
+Evaluation para revisiones periódicas que vean personas no técnicas en el portal.
+
 ### Fidelidad de las respuestas de Foundry IQ (18-10-2026)
 
 Las respuestas del carril A son texto redactado por el agente, no citas literales: aquí la
@@ -225,11 +252,12 @@ El job `evals` de la CI regenera los informes en Linux y los compara con
 | Regla | Ejemplos | Efecto |
 |---|---|---|
 | Invariantes | 0 fugas de ACL, citas 100 % válidas, 0 rechazos en extractivo, mismo dataset y corpus | Bloquean siempre |
-| Regresiones | Hit@1, MRR, nDCG, evidencia o abstención empeoran más de 0.01 | Informativas (`report`); bloquean con `enforce` |
+| Regresiones | Hit@1, MRR, nDCG, evidencia o abstención empeoran más de 0.01 | **Bloquean** (`enforce`, desde el checkpoint 8→9) |
 | Mejoras | Suben más de 0.01 | Se sugiere subir el baseline (trinquete) |
 
 Primera ejecución en Linux: **0 diferencias** con el baseline generado en Windows (evals
-deterministas). Pasar a `enforce` es un cambio de una línea cuando haya varias ejecuciones estables.
+deterministas). En el checkpoint 8→9, tras **15 ejecuciones seguidas con 0 regresiones** (del
+11-10 al 18-10-2026), el gate pasó a `enforce`: una regresión ya no es un aviso, impide el merge.
 Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como cualquier otro cambio.
 
 ## 6. Equivalencias Azure ↔ AWS ↔ framework
@@ -251,7 +279,8 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
    relevancia).
 3. ~~Juez con un modelo distinto del generador y embeddings reales para RAGAS~~ (hecho: `gpt-4.1`
    y `text-embedding-3-small`).
-4. Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.
+4. Carril A: ~~Azure AI Foundry Evaluation~~ (hecho, kappa 0,82) y Amazon Bedrock Evaluations
+   con el mismo conjunto.
 5. Repetir el retrieval con embeddings reales y reranker de nube (fase 4) y fijar un baseline nuevo.
 
 ## 8. Checkpoint de entrevista

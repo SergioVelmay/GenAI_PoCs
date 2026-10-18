@@ -29,5 +29,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 - El juez va fijo y fuera del router (`build_judge_llm`, despliegue `AZURE_OPENAI__JUDGE_DEPLOYMENT=gpt-4.1`): nunca el mismo modelo que genera. Un veredicto incoherente cuenta como `judge_errors` (no se puntúa ni aborta). Informes con coste en `evals/reports/azure/`.
 - Calibración: `uv run python -m rag_evals.calibration build|judge --judge X --budget-usd N|agreement`. El conjunto `evals/calibration/calibration-v1.jsonl` es determinista (test de reproducibilidad); las etiquetas humanas (`labels-v1.csv`) las pone Sergio, nunca el agente.
 - Fidelidad del carril A: `uv run python -m rag_evals.managed_eval --budget-usd N` (AI Search encendido y Foundry IQ aprovisionado). Filtro de contenido y guardarraíl de citas son estados (`blocked`, `rejected`), no errores.
-- RAGAS/DeepEval en el extra `evals` (`uv sync --all-packages --extra evals`); la CI no lo instala y sus tests se saltan por `skipif`.
+- Carril A (Foundry Evaluation): `uv run python -m rag_evals.foundry_eval [--log-to-foundry]` puntúa `calibration-v1` con `GroundednessEvaluator` y `RelevanceEvaluator` (juez `gpt-4.1`) y deja `calibration-foundry.json` para `calibration agreement`. Fiel = groundedness ≥ 3 (su aprobado; calibrado).
+- La CI ejecuta el gate en `--mode enforce`: una regresión > 0,01 respecto al baseline bloquea el merge.
+- RAGAS/DeepEval/azure-ai-evaluation en el extra `evals` (`uv sync --all-packages --extra evals`); la CI no lo instala y sus tests se saltan por `skipif`.
 - Los embeddings `hashing` locales validan el arnés, no la calidad semántica: no sacar conclusiones de calidad sin embeddings reales.
