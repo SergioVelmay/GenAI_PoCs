@@ -277,10 +277,16 @@ class SpyExchanger(DevTokenExchanger):
     def __init__(self, issuer: DevTokenIssuer) -> None:
         super().__init__(issuer)
         self.calls: list[tuple[str, str, tuple[str, ...]]] = []
+        self.assertions: list[str] = []
 
-    async def exchange(self, *, subject: str, audience: str, scopes: Sequence[str]) -> str:
+    async def exchange(
+        self, *, subject: str, assertion: str, audience: str, scopes: Sequence[str]
+    ) -> str:
         self.calls.append((subject, audience, tuple(scopes)))
-        return await super().exchange(subject=subject, audience=audience, scopes=scopes)
+        self.assertions.append(assertion)
+        return await super().exchange(
+            subject=subject, assertion=assertion, audience=audience, scopes=scopes
+        )
 
 
 @asynccontextmanager
@@ -320,10 +326,11 @@ async def test_gateway_aggregates_servers_and_exchanges_tokens(
     ticketing: UnitOfWorkTicketing, issuer: DevTokenIssuer, tmp_path: Path
 ) -> None:
     exchanger = SpyExchanger(issuer)
+    user_token = _gateway_token(issuer)
 
     async with (
         _gateway(ticketing, tmp_path, exchanger) as running,
-        running.client(auth=_gateway_token(issuer)) as client,
+        running.client(auth=user_token) as client,
     ):
         tools = {t.name for t in await client.list_tools()}
         mine = await client.call_tool("list_my_orders", {"limit": 5})
@@ -345,6 +352,8 @@ async def test_gateway_aggregates_servers_and_exchanges_tokens(
     assert {audience for _, audience, _ in exchanger.calls} <= {
         f"api://headache-mcp/{name}" for name in SERVER_SCOPES
     }
+    # El exchanger recibe el token de entrada (lo que necesita un OBO real), no solo el sujeto.
+    assert exchanger.assertions and set(exchanger.assertions) == {user_token}
 
 
 async def test_gateway_rejects_tokens_without_all_its_scopes(

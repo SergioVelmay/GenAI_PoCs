@@ -70,7 +70,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 - [x] Azure (18-10-2026): `tool_loop_demo.py` y `support_agent` (con y sin `--gateway`, `MCP__AUTH=jwt`) con Azure OpenAI; trazas y coste en Langfuse. Tres fallos de diseño de tools corregidos y regla de routing para escrituras.
 - [ ] AWS: los mismos agentes con Bedrock.
-- [ ] Registrar los servidores MCP en Entra ID (App ID URI y scopes; revisar el formato de `scp`) y en Cognito (resource server + scopes); probar OBO de extremo a extremo y sustituir `DevTokenExchanger`.
+- [ ] Registrar los servidores MCP en Entra ID (App ID URI y scopes; revisar el formato de `scp`) y en Cognito (resource server + scopes); probar OBO de extremo a extremo. **Aplazado a la fase 14** (decisión del 18-10-2026: las App Registrations van como código con `azuread`, no a mano en el tenant corporativo). Ya está `EntraOboExchanger` (`headache_mcp.entra`) con tests y el gateway pasa el token de entrada al exchanger; falta el mapeo `oid` → `customer_id`.
 - [ ] Con los servidores MCP en HTTPS (fases 13/14): `mcp_gateway_enabled=true` (AgentCore Gateway) y `apim_enabled=true` (APIM); comparar latencia y coste con el gateway propio.
 - [ ] Tool de compra con `Idempotency-Key` estable y aprobación humana.
 

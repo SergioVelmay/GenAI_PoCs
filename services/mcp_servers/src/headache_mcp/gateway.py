@@ -42,18 +42,24 @@ type BackendConnector = Callable[[str, str], Client[Any]]
 
 
 class TokenExchanger(Protocol):
-    async def exchange(self, *, subject: str, audience: str, scopes: Sequence[str]) -> str: ...
+    async def exchange(
+        self, *, subject: str, assertion: str, audience: str, scopes: Sequence[str]
+    ) -> str:
+        """`assertion`: el token de entrada (lo que necesita un OBO real); `subject`: su cliente."""
+        ...
 
 
 class DevTokenExchanger:
-    """Solo local: el emisor de desarrollo actúa también como STS. En la nube, Entra OBO o
-    el token exchange de AgentCore Identity / Cognito."""
+    """Solo local: el emisor de desarrollo actúa también como STS. En la nube,
+    `EntraOboExchanger` (headache_mcp.entra) o el token exchange de AgentCore Identity."""
 
     def __init__(self, issuer: DevTokenIssuer, *, ttl_s: int = 300) -> None:
         self._issuer = issuer
         self._ttl_s = ttl_s
 
-    async def exchange(self, *, subject: str, audience: str, scopes: Sequence[str]) -> str:
+    async def exchange(
+        self, *, subject: str, assertion: str, audience: str, scopes: Sequence[str]
+    ) -> str:
         return self._issuer.mint(
             subject=subject, audience=audience, scopes=list(scopes), expires_in_seconds=self._ttl_s
         )
@@ -120,10 +126,14 @@ def create_gateway(
     def factory(server: str) -> Callable[[], Any]:
         async def client() -> Client[Any]:
             subject = _subject(claim)
-            if subject is None:
+            incoming = get_access_token()
+            if subject is None or incoming is None:
                 raise ToolError("Petición no autenticada.", kind="unauthenticated")
             token = await exchanger.exchange(
-                subject=subject, audience=settings.audience(server), scopes=SERVER_SCOPES[server]
+                subject=subject,
+                assertion=incoming.token,
+                audience=settings.audience(server),
+                scopes=SERVER_SCOPES[server],
             )
             return connect(server, token)
 

@@ -212,12 +212,14 @@ Detalle en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026),
 
 Detalle en [fase 6](fase-6-tools-mcp.md#7-resultados-en-azure-18-10-2026).
 
+Entra ID + OBO: aplazado a la fase 14 para no crear App Registrations a mano en el tenant
+corporativo; queda listo `EntraOboExchanger` con tests.
+
 ## 6. Pendiente en este checkpoint
 
-- Fase 6: MCP con Entra ID y OBO.
 - Fase 7: suite de agentes con LLM real; truncado de Foundry frente a nuestra compactación;
   memoria de Foundry frente a `remember_preference`.
 - Fase 8: `analytics_sql_demo`; Content Safety frente al escudo heurístico; ataques con LLM real.
-- Aplazados (no son de este checkpoint): APIM y MCP en HTTPS (fase 14), Langfuse v4 (fase 11),
+- Aplazados (no son de este checkpoint): APIM, MCP en HTTPS y Entra ID + OBO (fase 14), Langfuse v4 (fase 11),
   tool de compra con `Idempotency-Key` (fase 9), coste real por carril (al cierre).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

@@ -178,7 +178,11 @@ Lo que no se ve con modelos falsos (cada uno con su test):
 
 - Ejecutar los mismos agentes con Bedrock (AWS).
 - Registrar los servidores MCP en Entra ID (App ID URI y scopes; `scp` admite otros formatos de
-  nombre) y en Cognito (resource server + scopes); probar OBO de extremo a extremo.
+  nombre) y en Cognito (resource server + scopes); probar OBO de extremo a extremo. Aplazado a
+  la fase 14 (App Registrations como código con `azuread`). Preparado: `EntraOboExchanger`
+  (`OnBehalfOfCredential` por petición, scopes `<App ID URI>/<scope>`) y el gateway ya entrega al
+  exchanger el token de entrada, que es lo que exige un OBO real. Falta decidir cómo llega el
+  `customer_id` (claim de extensión o tabla `oid` → cliente).
 - Publicar los servidores por HTTPS (fases 13 y 14) y aplicar `mcp_gateway_enabled` (AWS) y
   `apim_enabled` (Azure) con confirmación; medir latencia y coste frente al gateway propio.
 - Tool de compra con `Idempotency-Key` estable y aprobación humana (fase 8).
