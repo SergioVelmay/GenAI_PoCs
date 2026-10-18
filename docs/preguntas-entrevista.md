@@ -486,6 +486,11 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    directa, PII (anonimiza o bloquea) y temas vetados; Prompt Shields está diseñado específicamente
    para inyección indirecta en documentos. Ambos van detrás de un puerto, así que se comparan con
    los mismos ataques.
+6. **¿Basta con Azure Content Safety para frenar inyecciones?** No. Lo medí con 24 textos: detecta
+   7 de 12 ataques, igual que mi escudo heurístico gratuito, pero **otros 7**; juntos llegan a 9
+   de 12, sin falsos positivos. Los tres que pasan los para la arquitectura: las escrituras
+   requieren aprobación y la autorización está en el backend. Además, Content Safety F0 tarda ~2 s
+   por llamada: hay que pensar en el tier y en paralelizarlo.
 
 ### Negocio y stakeholders
 
@@ -500,3 +505,8 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 3. **¿Cómo comunicarías un incidente de seguridad del agente?** Rápido y con hechos: qué pasó, a
    quién afectó, cómo se contuvo (desactivar la tool o el agente) y qué cambia. Después, un
    postmortem sin culpables y el ataque convertido en un test de regresión que corre en la CI.
+4. **Operaciones quiere preguntar en lenguaje natural a la base de datos. ¿Lo abrirías?** Sí, con
+   límites: solo lectura sobre vistas sin datos personales, consulta validada antes de ejecutar y
+   tiempo máximo. Al probarlo con 3 M de pedidos, 3 de 5 preguntas superaron los 3 s y se
+   escalaron a un analista: la seguridad funcionaba, pero la base transaccional no es el sitio.
+   La propuesta a negocio: réplica de lectura o almacén con vistas agregadas antes de abrirlo.

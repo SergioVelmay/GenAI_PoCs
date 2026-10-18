@@ -24,5 +24,6 @@ Doc: `docs/fase-8-harness.md`. El modelo **propone**; el código determinista **
 
 - El feedback al modelo nunca repite el dato sensible: describe el problema por código o categoría.
 - Las violaciones de ataque (`correctable=False`) escalan al primer intento: reintentar enseña a esquivar.
-- Toda guarda nueva lleva tests de ataque **y** controles benignos; `uv run python -m rag_evals.attacks --check` debe seguir contenido 100 % en los 7 sabores.
+- Toda guarda nueva lleva tests de ataque **y** controles benignos; `uv run python -m rag_evals.attacks --check` debe seguir contenido 100 % en los 7 sabores. Con modelo real: `--mode llm --budget-usd N` (informe en `evals/reports/azure/llm/`).
+- `GuardedRuntime` convierte `LLMContentFilterError` del proveedor en un bloqueo (`provider_content_filter`), nunca en un error. Escudos frente a frente: `uv run python -m rag_evals.shields [--shield azure]` sobre `evals/datasets/shield-cases-v1.jsonl`.
 - Acciones irreversibles (reembolsos, envíos a partners, compras) solo con aprobación humana.

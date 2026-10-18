@@ -225,10 +225,19 @@ corporativo; queda listo `EntraOboExchanger` con tests.
 
 Detalle en [fase 7](fase-7-agentes.md#suite-de-agentes-con-llm-real-18-10-2026).
 
+### Fase 8 · Harness y guardrails con Azure (18-10-2026, ~0,07 $)
+
+| Validación | Resultado |
+|---|---|
+| Text-to-SQL de operaciones | Escrituras rechazadas y PII inalcanzable por diseño; 3 de 5 preguntas canceladas por el timeout de 3 s sobre 3 M de pedidos: la analítica va a una réplica o un almacén |
+| Content Safety frente al heurístico (24 textos) | 7/12 cada uno, **9/12 en capas**, 0 falsos positivos; detectan ataques distintos; Content Safety F0 a ~2 s |
+| Ataques con modelo real | Con harness, 0 invariantes en los 7 sabores; el bloqueo del filtro del proveedor ya no tumba el turno |
+
+Detalle en [fase 8](fase-8-harness.md#7-resultados-en-azure-18-10-2026).
+
 ## 6. Pendiente en este checkpoint
 
 - Fase 7: memoria de Foundry frente a `remember_preference`.
-- Fase 8: `analytics_sql_demo`; Content Safety frente al escudo heurístico; ataques con LLM real.
 - Aplazados (no son de este checkpoint): APIM, MCP en HTTPS y Entra ID + OBO (fase 14), Langfuse v4 (fase 11),
   tool de compra con `Idempotency-Key` (fase 9), coste real por carril (al cierre).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

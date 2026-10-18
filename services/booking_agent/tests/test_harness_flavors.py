@@ -214,3 +214,22 @@ async def test_blocked_input_never_reaches_the_model(flavor: str) -> None:
 
     assert turn.stop_reason == "guardrail" and turn.guardrails == ("jailbreak",)
     assert llm.calls == [] and store.threads == {}
+
+
+async def test_provider_content_filter_becomes_a_guardrail_not_a_crash() -> None:
+    # Regresión (Azure): sin esto, un bloqueo de Prompt Shields tumbaba el turno con un 500.
+    from harness.runtime import PROVIDER_FILTER
+    from headache_core.application.agents.runtime import AgentTurn
+    from headache_core.ports.llm import LLMContentFilterError
+
+    class Filtered:
+        flavor = "filtered"
+
+        async def respond(self, thread_id: str, message: str, context: ToolContext) -> AgentTurn:
+            raise LLMContentFilterError("content_filter: jailbreak")
+
+    turn = await GuardedRuntime(Filtered()).respond("t", "algo raro", ANA)
+
+    assert turn.stop_reason == "guardrail"
+    assert turn.guardrails == (PROVIDER_FILTER,)
+    assert "No puedo ayudarte" in turn.answer

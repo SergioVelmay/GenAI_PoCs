@@ -301,7 +301,9 @@ async def run_scenario(
         failures.append(f"skills no cargadas: {missing_skills}")
     if compactions < expect.min_compactions:
         failures.append(f"compactaciones {compactions} < {expect.min_compactions}")
-    if sorted(guardrails) != sorted(set(expect.guardrails)):
+    # Qué guardarraíles saltan depende de lo que haga el modelo (p. ej., pedir un reembolso):
+    # con un modelo real cuentan el resultado y los invariantes, no la lista exacta.
+    if llm is None and sorted(guardrails) != sorted(set(expect.guardrails)):
         failures.append(f"guardrails {guardrails}, esperados {expect.guardrails}")
     pending = len(await approvals.list_requests(status=ApprovalStatus.PENDING))
     if pending != expect.pending_approvals:

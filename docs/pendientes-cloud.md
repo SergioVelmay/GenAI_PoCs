@@ -84,6 +84,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 ## Fase 8 · Harness ([doc](fase-8-harness.md))
 
-- [ ] `scripts/analytics_sql_demo.py "pregunta"` con Azure OpenAI y Bedrock: intentos de autocorrección, aciertos y coste con un conjunto de preguntas de operaciones.
-- [ ] `content_safety_enabled=true` (F0) y `bedrock_guardrail_enabled=true`; ejecutar el agente con `GUARDRAILS__SHIELD=azure|bedrock` y comparar con `HeuristicShield` (detección, falsos positivos, latencia y coste) sobre los mismos ataques.
-- [ ] Tests de ataque con LLM real (hoy `rag_evals.attacks` solo usa el modelo comprometido guionizado; añadir un modo `llm` con presupuesto) y red teaming automatizado (fase 12).
+- [x] Azure (18-10-2026): `analytics_sql_demo.py` con 5 preguntas: 1 respondida, 1 escritura rechazada, 3 canceladas por el timeout de 3 s sobre 3 M de pedidos (escaladas). Bedrock pendiente.
+- [x] Azure: Content Safety (F0) frente al escudo heurístico con `rag_evals.shields` (24 textos): 7/12 cada uno, 9/12 juntos, 0 falsos positivos; Content Safety a ~2 s por llamada. Bedrock Guardrails pendiente.
+- [x] Tests de ataque con modelo real (`rag_evals.attacks --mode llm`): con harness, 0 invariantes en los 7 sabores. El harness ahora convierte el filtro de contenido del proveedor en un bloqueo.
+- [ ] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques (fase 12).

@@ -23,8 +23,10 @@ from harness.pii import TextFilter
 from harness.validation import Validator, run_validators
 from headache_core.application.agents.runtime import AgentRuntime, AgentTurn
 from headache_core.application.tools import FALLBACK_ANSWER, ToolContext, ToolExecution
+from headache_core.ports.llm import LLMContentFilterError
 
 logger = logging.getLogger(__name__)
+PROVIDER_FILTER = "provider_content_filter"
 
 BLOCKED_INPUT_ANSWER = (
     "No puedo ayudarte con esa petición. Si necesitas algo sobre tus eventos o pedidos de "
@@ -74,7 +76,15 @@ class GuardedRuntime:
             return AgentTurn(self._blocked_input, "guardrail", guardrails=codes)
         message, input_codes = await _apply(self._input_filters, message, context)
         with turn_trace() as trace:
-            turn = await self._inner.respond(thread_id, message, context)
+            try:
+                turn = await self._inner.respond(thread_id, message, context)
+            except LLMContentFilterError:
+                # El filtro del proveedor (p. ej., Prompt Shields de Azure) es otra capa de
+                # defensa: si bloquea lo que se nos escapó, se responde igual que un bloqueo
+                # propio en lugar de tumbar el turno con un 500 (medido en Azure).
+                logger.warning("Petición bloqueada por el filtro de contenido del proveedor")
+                codes = (*input_codes, PROVIDER_FILTER)
+                return AgentTurn(self._blocked_input, "guardrail", guardrails=codes)
         record = TurnRecord(message, turn.answer, tuple(trace.executions))
         violations = await run_validators(self._output_guards, record, context)
         if violations:

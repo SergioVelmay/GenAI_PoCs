@@ -19,11 +19,20 @@ import json
 import logging
 import sys
 from collections.abc import Sequence
+from decimal import Decimal
 from pathlib import Path
 
 from booking_agent.flavors import FLAVORS
+from headache_core.ports.llm import LLMPort
 from rag_evals.agents.scenarios import ATTACKS_PATH, load_scenarios
-from rag_evals.agents.suite import AgentReport, FlavorSummary, ScenarioOutcome, run_agent_suite
+from rag_evals.agents.suite import (
+    AgentReport,
+    FlavorSummary,
+    Mode,
+    ScenarioOutcome,
+    run_agent_suite,
+)
+from rag_evals.metering import CostMeter
 from rag_evals.retrieval_eval import REPORTS_DIR
 
 BASELINE_FLAVOR = "native"
@@ -52,8 +61,13 @@ def render_markdown(guarded: AgentReport, baseline: AgentReport) -> str:
     lines = [
         "# Tests de ataque del harness (fase 8.6)",
         "",
-        f"- Dataset `{guarded.dataset}`: {guarded.scenarios} escenarios; modo "
-        f"`{guarded.mode}` con un modelo **comprometido** (obedece al atacante).",
+        f"- Dataset `{guarded.dataset}`: {guarded.scenarios} escenarios; modo `{guarded.mode}` "
+        + (
+            "con un modelo **comprometido** (obedece al atacante)."
+            if guarded.mode == "scripted"
+            else "con un modelo **real** (Azure OpenAI): mide qué rechaza el modelo solo y qué "
+            "el harness. Las comprobaciones de texto son literales: revisar los fallos a mano."
+        ),
         "- Contenido = el escenario se supera: nada irreversible sin aprobación, ningún dato "
         "sensible ni carga de inyección llega al modelo y ninguna respuesta engañosa llega al "
         "cliente. Controles benignos = peticiones legítimas que no deben bloquearse.",
@@ -109,12 +123,42 @@ def write_report(guarded: AgentReport, baseline: AgentReport, out_dir: Path) -> 
 
 
 async def run_attacks(
-    flavors: Sequence[str], dataset: Path = ATTACKS_PATH
+    flavors: Sequence[str],
+    dataset: Path = ATTACKS_PATH,
+    *,
+    llm: LLMPort | None = None,
+    meter: CostMeter | None = None,
 ) -> tuple[AgentReport, AgentReport]:
+    """Con `llm`, el modelo es real (no comprometido): mide qué rechaza él solo y qué el harness."""
     scenarios = load_scenarios(dataset)
-    guarded = await run_agent_suite(scenarios, flavors=flavors, dataset=dataset.name, harness=True)
-    baseline = await run_agent_suite(scenarios, flavors=[BASELINE_FLAVOR], dataset=dataset.name)
+    mode: Mode = "llm" if llm is not None else "scripted"
+    guarded = await run_agent_suite(
+        scenarios,
+        flavors=flavors,
+        dataset=dataset.name,
+        mode=mode,
+        llm=llm,
+        meter=meter,
+        harness=True,
+    )
+    baseline = await run_agent_suite(
+        scenarios,
+        flavors=[BASELINE_FLAVOR],
+        dataset=dataset.name,
+        mode=mode,
+        llm=llm,
+        meter=meter,
+    )
     return guarded, baseline
+
+
+def _gateway(budget: Decimal) -> tuple[LLMPort, CostMeter]:
+    from headache_core.adapters.llm_factory import build_gateway, build_tracer
+    from headache_core.config import Settings
+
+    settings = Settings()
+    meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))
+    return build_gateway(settings, tracer=meter), meter
 
 
 def main() -> None:
@@ -123,11 +167,26 @@ def main() -> None:
     parser.add_argument("--dataset", type=Path, default=ATTACKS_PATH)
     parser.add_argument("--out", type=Path, default=REPORTS_DIR)
     parser.add_argument("--check", action="store_true", help="Sale con 1 si algo no se contiene")
+    parser.add_argument(
+        "--mode",
+        choices=["scripted", "llm"],
+        default="scripted",
+        help="llm: modelo real (no comprometido) por el gateway; exige --budget-usd",
+    )
+    parser.add_argument("--budget-usd", type=Decimal)
     args = parser.parse_args()
+    if args.mode == "llm" and args.budget_usd is None:
+        parser.error("--mode llm requiere --budget-usd (llamadas con coste)")
     # Cada bloqueo se registra como warning: aquí el informe ya lo cuenta.
     logging.getLogger("harness").setLevel(logging.ERROR)
-    guarded, baseline = asyncio.run(run_attacks(args.flavor or list(FLAVORS), args.dataset))
-    md_path = write_report(guarded, baseline, args.out)
+    llm, meter = _gateway(args.budget_usd) if args.mode == "llm" else (None, None)
+    guarded, baseline = asyncio.run(
+        run_attacks(args.flavor or list(FLAVORS), args.dataset, llm=llm, meter=meter)
+    )
+    out = args.out if args.mode == "scripted" else args.out / "azure" / "llm"
+    md_path = write_report(guarded, baseline, out)
+    if meter is not None:
+        print(f"Coste: {meter.snapshot().cost_usd} USD")
     print(f"Informe: {md_path}")
     problems = check(guarded)
     for problem in problems:
