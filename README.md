@@ -83,6 +83,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅* | [fase-6](docs/fase-6-tools-mcp.md) |
 | 7 | Un agente en 7 sabores (LangGraph, LlamaIndex, MAF, Strands, Foundry, AgentCore...) | ✅* | [fase-7](docs/fase-7-agentes.md) |
 | 8 | Agentic harness: validación, SQL seguro, PII, prompt injection, human-in-the-loop | ✅* | [fase-8](docs/fase-8-harness.md) |
+| 8→9 | Checkpoint: CI, documentación, desarrollo con IA y conexión con Azure | 🚧 | [checkpoint](docs/fase-8-9-checkpoint.md) |
 | 9 | Orquestación multi-agente, A2A y asíncrono | Siguiente | |
 | 10–15 | Escala, observabilidad, red teaming y LLMOps, despliegue en AWS y en Azure, extras | Plan | |
 
