@@ -9,12 +9,12 @@ locals {
 
 resource "azurerm_cognitive_account" "content_safety" {
   count                 = local.content_safety
-  name                  = "cs-${local.name}-${random_string.suffix.result}"
+  name                  = "cs-${local.caf_suffix}"
   resource_group_name   = azurerm_resource_group.main.name
   location              = azurerm_resource_group.main.location
   kind                  = "ContentSafety"
   sku_name              = var.content_safety_sku
-  custom_subdomain_name = "cs-${local.name}-${random_string.suffix.result}" # Exigido por Entra ID.
+  custom_subdomain_name = "cs-${local.caf_suffix}" # Exigido por Entra ID.
   local_auth_enabled    = false
   tags                  = local.tags
 }

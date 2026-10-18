@@ -2,7 +2,7 @@
 # El índice, el skillset y el indexer no los gestiona azurerm: scripts/managed_ingestion.py.
 
 resource "azurerm_storage_account" "docs" {
-  name                            = "st${var.project}${random_string.suffix.result}"
+  name                            = local.storage_name
   resource_group_name             = azurerm_resource_group.main.name
   location                        = azurerm_resource_group.main.location
   account_tier                    = "Standard"

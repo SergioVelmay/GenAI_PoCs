@@ -12,18 +12,23 @@ locals {
   }
   search_managed_identity = var.search_sku != "free"
   search                  = var.search_enabled ? 1 : 0
-  # Nombre estable (sufijo fijo): al recrear el servicio, el endpoint del .env no cambia.
-  search_name = "srch-${local.name}-${random_string.suffix.result}"
+
+  # Convención de nombres del Cloud Adoption Framework: <tipo>-<carga>-<entorno>-<región>-<instancia>.
+  # Varios nombres son globales en Azure (forman parte de una URL pública): comprobar que están
+  # libres antes del apply. Storage no admite guiones y tiene un máximo de 24 caracteres.
+  region_abbr = {
+    swedencentral = "swc"
+    westeurope    = "weu"
+    northeurope   = "neu"
+    spaincentral  = "spc"
+    francecentral = "frc"
+  }
+  caf_suffix   = "${local.name}-${local.region_abbr[var.location]}-${var.instance}"
+  search_name  = "srch-${local.caf_suffix}" # Estable: al recrear AI Search, el endpoint no cambia.
+  storage_name = replace("st${local.caf_suffix}", "-", "")
 }
 
 data "azurerm_client_config" "current" {}
-
-# Los nombres de AI Search y Service Bus son globales: sufijo aleatorio estable.
-resource "random_string" "suffix" {
-  length  = 6
-  upper   = false
-  special = false
-}
 
 resource "azurerm_resource_group" "main" {
   name     = "rg-${local.name}"
@@ -34,7 +39,7 @@ resource "azurerm_resource_group" "main" {
 # ---------- Cola de indexación (equivale a knowledge.documents de RabbitMQ) ----------
 
 resource "azurerm_servicebus_namespace" "main" {
-  name                = "sb-${local.name}-${random_string.suffix.result}"
+  name                = "sb-${local.caf_suffix}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = "Basic" # Colas sí; topics, sesiones y duplicados exigen Standard.

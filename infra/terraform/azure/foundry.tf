@@ -8,7 +8,7 @@
 
 locals {
   foundry           = var.foundry_enabled ? 1 : 0
-  foundry_subdomain = "aif-${local.name}-${random_string.suffix.result}"
+  foundry_subdomain = "aif-${local.caf_suffix}"
   # Si Foundry vive en este módulo, sus ids sustituyen a las variables de entrada.
   openai_resource_id           = var.foundry_enabled ? azurerm_cognitive_account.foundry[0].id : var.openai_resource_id
   foundry_project_principal_id = var.foundry_enabled ? azurerm_cognitive_account_project.main[0].identity[0].principal_id : var.foundry_project_principal_id

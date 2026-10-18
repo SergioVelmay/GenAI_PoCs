@@ -7,6 +7,21 @@ variable "location" {
   description = "Región de la UE con más modelos y cuota en Foundry."
   type        = string
   default     = "swedencentral"
+  validation {
+    # Debe tener abreviatura en local.region_abbr (convención de nombres CAF).
+    condition     = contains(["swedencentral", "westeurope", "northeurope", "spaincentral", "francecentral"], var.location)
+    error_message = "Región sin abreviatura CAF: añádela a local.region_abbr en main.tf."
+  }
+}
+
+variable "instance" {
+  description = "Número de instancia de la convención CAF (001, 002...). Cambiarlo recrea los recursos con nombre."
+  type        = string
+  default     = "001"
+  validation {
+    condition     = can(regex("^[0-9]{3}$", var.instance))
+    error_message = "instance debe tener 3 dígitos (p. ej. 001)."
+  }
 }
 
 variable "project" {
