@@ -136,12 +136,55 @@ local con `docker compose --profile observability up -d`.
 Tests sin red: adaptadores con clientes falsos, gateway (fallback, backoff, 429, token bucket con
 reloj inyectado), precios, routing, structured outputs y factoría.
 
+### Resultados en Azure (18-10-2026)
+
+Foundry en `swedencentral`, despliegues **DataZoneStandard** de 200 K TPM, Entra ID sin claves
+(checkpoint 8→9). Trazas en Langfuse local (107 *generations* con uso y coste). Gasto total: ~0,06 $.
+
+**Prompt caching** (`llm_cache_benchmark.py`, manual de ~9 K tokens, 5 llamadas por modo):
+
+| Tier | Modo | Tokens cacheados | Coste | Latencia p50 |
+|---|---|---|---|---|
+| `strong` (`gpt-4.1-mini`) | sin caché | 0 % | 0,0183 $ | 897 ms |
+| `strong` (`gpt-4.1-mini`) | con caché | 78,7 % (98 % desde la 2.ª llamada) | 0,0077 $ (**−58 %**) | 654 ms (−27 %) |
+| `cheap` (`gpt-4.1-nano`) | sin caché | 0 % | 0,0046 $ | 496 ms |
+| `cheap` (`gpt-4.1-nano`) | con caché | 78,7 % (98 % desde la 2.ª llamada) | 0,0019 $ (**−59 %**) | 462 ms (−7 %) |
+
+- Azure cachea solo, sin marcar nada y sin coste de escritura: la 1.ª llamada con caché ya es
+  "normal" y las siguientes leen 8 832 tokens cacheados (bloques de 128 tras los primeros 1 024).
+- El ahorro de latencia es mayor en el modelo grande: el prefijo pesa más en su tiempo de proceso.
+
+**Gateway** (`llm_gateway_demo.py`, triaje de 20 emails de soporte):
+
+| Motor | Router | Acierto | Llamadas | `nano` / `mini` | Coste |
+|---|---|---|---|---|---|
+| `native` | heurístico | 20/20 | 20 | 18 / 2 | 0,00152 $ |
+| `litellm` | heurístico | 20/20 | 20 | 18 / 2 | 0,00149 $ |
+| `native` | LLM | 20/20 | 40 | 38 / 2 | 0,00217 $ (+42 %) |
+
+- Los dos motores son equivalentes en calidad, enrutado y coste: la elección es de control y
+  operación, no de resultados.
+- El router LLM llega a la misma decisión que la heurística (las 2 quejas van a `mini`) con el doble
+  de llamadas: en este caso **no compensa**. Se justificaría si la heurística enrutara mal.
+
+**Hallazgo: 429 con 50 K TPM.** Con ~10 K tokens por petición, 50 K TPM son ~5 peticiones por
+minuto: las 5 llamadas sin caché agotaron el minuto y la siguiente devolvió 429. Dos correcciones:
+
+1. **Dimensionar la capacidad según la carga** (200 K TPM). En los despliegues Standard la capacidad
+   no se paga: solo limita, dentro de la cuota de la suscripción.
+2. **Todo cliente pasa por el limitador** (`RateLimitedLLM`), también el benchmark, con
+   `LLM_GATEWAY__TOKENS_PER_MINUTE` por debajo de la capacidad (150 K, 25 % de margen): el *token
+   bucket* admite una ráfaga del tamaño del cubo **más** la recarga, y Azure cuenta por ventana.
+
 ## 10. Pendiente con coste (validación en cloud)
 
-- `az login` y `aws configure sso`; desplegar `gpt-4.1-mini` y `gpt-4.1-nano` en Foundry con el rol
-  *Cognitive Services OpenAI User*; habilitar Claude Haiku 4.5 y Nova Lite en Bedrock (`eu-west-1`).
-- Ejecutar ambos scripts con los dos proveedores y los dos motores y revisar las trazas en Langfuse.
-- Valorar migrar Langfuse a la imagen v4 en la fase 11.
+- [x] Azure: Foundry con `gpt-4.1-mini` y `gpt-4.1-nano`, benchmark de caché, demo del gateway con
+  los dos motores y trazas en Langfuse (resultados arriba).
+- [ ] AWS: `aws configure sso`, habilitar Claude Haiku 4.5 y Nova Lite en Bedrock (`eu-west-1`) y
+  repetir ambos scripts con `--provider aws` (comparar `cachePoint` explícito frente a la caché
+  automática de Azure y el coste de escritura de Claude).
+- [ ] Fallback real entre proveedores (`LLM_GATEWAY__FALLBACK_PROVIDER=aws`), cuando haya AWS.
+- [ ] Valorar migrar Langfuse a la imagen v4 en la fase 11.
 
 ## 11. Decisiones (para defenderlas)
 

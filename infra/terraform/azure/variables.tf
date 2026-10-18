@@ -87,6 +87,9 @@ variable "foundry_deployment_sku" {
 }
 
 variable "foundry_models" {
+  # Capacidad = límite de TPM (en Standard no se paga, solo limita). Dimensionarla según la carga:
+  # con un prompt de ~10 K tokens, 50 K TPM son ~5 peticiones/min (429 en el benchmark de caché).
+  # LLM_GATEWAY__TOKENS_PER_MINUTE debe quedar por debajo, con margen.
   description = "Despliegues. `name` debe coincidir con AZURE_OPENAI__*_DEPLOYMENT; capacidad en miles de TPM."
   type = object({
     chat       = object({ name = string, model = string, version = string, capacity_k_tpm = number })
@@ -94,8 +97,8 @@ variable "foundry_models" {
     embedding  = object({ name = string, model = string, version = string, capacity_k_tpm = number })
   })
   default = {
-    chat       = { name = "gpt-4.1-mini", model = "gpt-4.1-mini", version = "2025-04-14", capacity_k_tpm = 50 }
-    cheap_chat = { name = "gpt-4.1-nano", model = "gpt-4.1-nano", version = "2025-04-14", capacity_k_tpm = 50 }
+    chat       = { name = "gpt-4.1-mini", model = "gpt-4.1-mini", version = "2025-04-14", capacity_k_tpm = 200 }
+    cheap_chat = { name = "gpt-4.1-nano", model = "gpt-4.1-nano", version = "2025-04-14", capacity_k_tpm = 200 }
     embedding  = { name = "text-embedding-3-small", model = "text-embedding-3-small", version = "1", capacity_k_tpm = 50 }
   }
 }

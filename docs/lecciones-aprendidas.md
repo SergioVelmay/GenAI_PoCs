@@ -23,6 +23,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Un "sin coincidencias" en la búsqueda del nombre real era falso (fase 0) | La búsqueda falló por el orden de los argumentos y no devolvió error visible | Comprobar el código de salida de las búsquedas de seguridad. Ahora lo hace el hook de pre-commit |
 | NLTK fallaba en la CI de Linux (fase 5) | uv instala con hardlinks y NLTK rechaza ficheros con `st_nlink > 1` | `UV_LINK_MODE=copy` en la CI |
 | Tests de extras opcionales que "pasaban" sin ejecutarse | `pytest.importorskip` también salta si el import falla por un bug | `skipif` explícito según si el paquete está instalado; con el extra instalado, una rotura falla |
+| 429 en el benchmark de caché de Azure (checkpoint 8→9) | Despliegue de 50 K TPM con prompts de ~10 K tokens (~5 peticiones/min) y un script que no pasaba por el limitador; además, un *token bucket* del tamaño de la capacidad admite ráfaga + recarga en el primer minuto | Dimensionar la capacidad según la carga (en Standard no se paga); todo cliente por `RateLimitedLLM`; límite en cliente por debajo de la capacidad (25 % de margen) |
 | Avisos de Node.js 20 y del cambio de `ubuntu-latest` (fase 8) | Acciones antiguas e imagen flotante | Acciones fijadas por SHA, runner fijado, Dependabot mensual |
 
 ## Sesiones de chat

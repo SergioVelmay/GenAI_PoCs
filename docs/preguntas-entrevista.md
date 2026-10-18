@@ -166,12 +166,18 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    con prefijos estables, salidas estructuradas cortas y medir el coste por petición.
 3. **Prompt caching en Bedrock frente a Azure.** Bedrock: explícito con `cachePoint` al final del
    prefijo estable; en Claude la escritura cuesta un 25 % más y la lectura un 90 % menos. Azure:
-   automático para prefijos ≥ 1024 tokens, sin coste de escritura.
+   automático para prefijos ≥ 1024 tokens, sin coste de escritura. Medido en Azure con un manual de
+   ~9 K tokens: el 98 % del prompt sale de caché desde la segunda llamada, el coste baja un 58 % y
+   la latencia p50 un 27 % en `gpt-4.1-mini`.
 4. **¿Qué haces ante un 429?** No reintentar contra el mismo despliegue: limitar en cliente (token
    bucket por TPM) y saltar a otro proveedor o región. En AWS, perfiles de inferencia entre regiones
    y, si el volumen es estable, throughput aprovisionado; en Azure, APIM con backends balanceados.
+   Y revisar la capacidad: me pasó con 50 K TPM y prompts de 10 K tokens (5 peticiones por minuto).
+   La capacidad de un despliegue Standard no se paga, así que se dimensiona según la carga y el
+   límite en cliente se deja por debajo, con margen.
 5. **¿LiteLLM o gateway propio?** LiteLLM da rapidez y cobertura de proveedores; el propio da control
-   y tests deterministas. Aquí conviven tras el mismo puerto y se comparan con las mismas trazas.
+   y tests deterministas. Aquí conviven tras el mismo puerto y, medidos con los mismos 20 emails,
+   dan la misma calidad (20/20), el mismo enrutado y el mismo coste: se elige por control y operación.
 
 ### Negocio y stakeholders
 
@@ -185,7 +191,9 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    evals que permiten validar un modelo nuevo en horas y precios en una tabla versionada.
 3. **¿Por qué no usar siempre el mejor modelo?** Porque la mayoría de peticiones (clasificar,
    extraer, FAQ) no lo necesitan y el modelo grande multiplica coste y latencia. El routing envía
-   lo difícil al potente y las evals confirman que la calidad no baja.
+   lo difícil al potente y las evals confirman que la calidad no baja. En el triaje de soporte, 18
+   de 20 emails fueron al modelo barato con un 100 % de acierto. Y un router "inteligente" con otro
+   LLM tomó las mismas decisiones a un 42 % más de coste: lo sencillo ganó, y lo demuestro con datos.
 
 <a id="fase-3"></a>
 

@@ -70,7 +70,7 @@ no reescribirlo.
 |---|---|
 | Suscripción *MSDN - Sergio Velasco*, perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-headache`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
 | Región `swedencentral` | La región de la UE con más modelos y cuota |
-| Modelos en **DataZoneStandard** (50 K TPM) | Procesamiento dentro de la UE (RGPD) con cuota suficiente (16 M TPM disponibles) |
+| Modelos en **DataZoneStandard** (chat 200 K TPM, embeddings 50 K) | Procesamiento dentro de la UE (RGPD) con cuota suficiente (16 M TPM disponibles). La capacidad no se paga: se dimensiona según la carga (ver §5) |
 | Foundry **en Terraform** (`foundry.tf`) | Cuenta AI Services + proyecto + despliegues como código, en lugar del portal |
 | AI Search **Basic y efímero** (`search_enabled`) | Basic da identidad gestionada, Semantic Ranker y Foundry IQ, pero cuesta ~70 €/mes aunque no se use: solo existe en las sesiones de trabajo |
 | Tiers gratuitos donde no recortan (Content Safety F0) | El crédito se reserva para los modelos |
@@ -120,8 +120,25 @@ terraform -chdir=infra/terraform/azure apply
 | La redirección `>` de PowerShell 5.1 escribe UTF-16 | Redirigir con `cmd /c` o llamar a `az` desde Python |
 | Un nombre global ocupado | Si es nuestro en la papelera (soft-delete), purgar; si es de otro, subir `instance` para todos los recursos. Un sufijo aleatorio, solo con consonantes y dígitos |
 
-## 5. Pendiente en este checkpoint
+## 5. Pendientes de Azure por fase
 
-- Abordar los pendientes de Azure fase a fase ([pendientes-cloud.md](pendientes-cloud.md)),
-  empezando por la fase 2 (benchmark de prompt caching y demo del gateway con trazas en Langfuse).
+Cada fase se valida con los mismos scripts que ya existían, con el perfil de `az` aislado y
+confirmación previa del coste estimado. El detalle y las cifras quedan en el doc de cada fase.
+
+### Fase 2 · Modelos y gateway (18-10-2026, ~0,06 $)
+
+| Validación | Resultado |
+|---|---|
+| Prompt caching en Azure (`gpt-4.1-mini` y `nano`) | 98 % de tokens cacheados desde la 2.ª llamada; **−58 %** de coste; −27 % de latencia p50 en `mini` |
+| Gateway `native` frente a `litellm` (20 emails) | 20/20 en ambos, mismo enrutado (18 `nano` / 2 `mini`) y mismo coste |
+| Router heurístico frente a router LLM | Misma decisión; el router LLM duplica las llamadas (+42 % de coste): no compensa aquí |
+| Trazas en Langfuse | 107 *generations* con uso (incluidos tokens cacheados) y coste |
+
+**Hallazgo:** 429 con 50 K TPM. Se subió la capacidad a 200 K (sin coste) y el benchmark pasa ahora
+por `RateLimitedLLM`, con el límite en cliente a 150 K (margen del 25 %). Detalle en
+[fase 2](fase-2-modelos.md#resultados-en-azure-18-10-2026).
+
+## 6. Pendiente en este checkpoint
+
+- Pendientes de Azure de las fases 3 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

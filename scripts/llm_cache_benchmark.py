@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from headache_core.adapters.llm_factory import build_provider_llm, build_tracer
-from headache_core.application.llm import ModelTier, ObservedLLM, PriceTable
+from headache_core.application.llm import ModelTier, ObservedLLM, PriceTable, RateLimitedLLM
 from headache_core.config import LLMProvider, get_settings
 from headache_core.ports import ChatMessage, LLMPort, Role, TokenUsage
 
@@ -122,8 +122,15 @@ async def main() -> None:
     manual = build_manual(args.knowledge_dir)
     prices = PriceTable()
     tracer = build_tracer(settings)
-    llm = ObservedLLM(
+    # Mismo límite en cliente que el gateway: ~10 K tokens por llamada agotan rápido el TPM del
+    # despliegue. La espera no cuenta en la latencia (la mide el adaptador).
+    limited = RateLimitedLLM(
         build_provider_llm(settings, args.provider, args.tier),
+        requests_per_minute=settings.llm_gateway.requests_per_minute,
+        tokens_per_minute=settings.llm_gateway.tokens_per_minute,
+    )
+    llm = ObservedLLM(
+        limited,
         tracer=tracer,
         prices=prices,
         name=f"cache-benchmark:{args.provider}:{args.tier}",
