@@ -22,6 +22,7 @@ from time import perf_counter
 from typing import Literal
 
 from headache_core.adapters.memory import HashingEmbedding
+from headache_core.application.llm.structured import StructuredOutputError
 from headache_core.application.retrieval import (
     InvalidCitationError,
     RetrievalRequest,
@@ -31,10 +32,10 @@ from headache_core.domain.evals import percentile, ratio
 from headache_core.domain.retrieval import AccessScope
 from headache_core.ports.llm import LLMPort
 from headache_core.ports.retrieval import RetrievalStrategy
-from headache_core.ports.vector_store import MetadataValue
+from headache_core.ports.vector_store import EmbeddingPort, MetadataValue
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, DatasetMeta, GoldenItem, load_golden
 from rag_evals.golden import verify_corpus as verify_corpus_hash
-from rag_evals.judges import JudgeSample, JudgeScores, NativeJudge, RagJudge
+from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, NativeJudge, RagJudge
 from rag_evals.metering import CostMeter, MeterSnapshot
 from rag_evals.retrieval_eval import EMBEDDINGS, REPORTS_DIR, Engine, local_settings
 from retrieval.bootstrap import build_local_service, load_synthetic
@@ -67,6 +68,20 @@ class GenerationOutcome:
     leaks: tuple[str, ...]
     latency_ms: float
     judge: JudgeScores | None = None
+    answer: str = ""
+    judge_error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class JudgedSample:
+    """Una muestra juzgada, para auditar el veredicto y calibrarlo con etiquetas humanas."""
+
+    id: str
+    question_type: str
+    question: str
+    answer: str
+    scores: JudgeScores | None
+    judge_error: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +114,8 @@ class GenerationSummary:
     judge_scores: dict[str, float | None]
     cost: MeterSnapshot | None = None
     missed: list[str] = field(default_factory=list)
+    judge_errors: int = 0
+    samples: list[JudgedSample] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,17 +187,21 @@ async def evaluate_generation(
                 valid += 1
                 relevant += document in item.relevance
         judged: JudgeScores | None = None
+        judge_error: str | None = None
         if judge is not None and not response.abstained:
             # Los contextos son los mismos top_k que vio el generador (retrieval determinista).
             retrieved = await service.retrieve(request)
-            judged = await judge.score(
-                JudgeSample(
-                    question=item.question,
-                    answer=response.answer,
-                    contexts=tuple(result.record.text for result in retrieved.results),
-                    reference=item.expected_answer if item.answerable else None,
-                )
+            sample = JudgeSample(
+                question=item.question,
+                answer=response.answer,
+                contexts=tuple(result.record.text for result in retrieved.results),
+                reference=item.expected_answer if item.answerable else None,
             )
+            try:
+                judged = await judge.score(sample)
+            except (JudgeError, StructuredOutputError) as error:
+                # Fail-closed por muestra: un veredicto incoherente no se puntua, se cuenta.
+                judge_error = str(error)
         outcomes.append(
             GenerationOutcome(
                 item,
@@ -193,6 +214,8 @@ async def evaluate_generation(
                 tuple(sorted(leaks)),
                 elapsed,
                 judged,
+                response.answer,
+                judge_error,
             )
         )
     return outcomes
@@ -263,10 +286,25 @@ def summarize_generation(
         },
         cost=cost,
         missed=[o.item.id for o in answerable if not o.has_evidence],
+        judge_errors=sum(o.judge_error is not None for o in outcomes),
+        samples=[
+            JudgedSample(
+                o.item.id,
+                o.item.question_type,
+                o.item.question,
+                o.answer,
+                o.judge,
+                o.judge_error,
+            )
+            for o in outcomes
+            if o.judge is not None or o.judge_error is not None
+        ],
     )
 
 
-def build_judge(name: JudgeName, llm: LLMPort) -> RagJudge | None:
+def build_judge(
+    name: JudgeName, llm: LLMPort, embeddings: EmbeddingPort | None = None
+) -> RagJudge | None:
     if name == "none":
         return None
     if name == "native":
@@ -274,8 +312,8 @@ def build_judge(name: JudgeName, llm: LLMPort) -> RagJudge | None:
     if name == "ragas":
         from rag_evals.frameworks.ragas_judge import RagasJudge
 
-        # Limitacion local: embeddings hashing (lexicos) en AnswerRelevancy de RAGAS.
-        return RagasJudge(llm, HashingEmbedding(1024))
+        # Sin embeddings reales, hashing (lexicos): AnswerRelevancy de RAGAS pierde la semantica.
+        return RagasJudge(llm, embeddings or HashingEmbedding(1024))
     from rag_evals.frameworks.deepeval_judge import DeepEvalJudge
 
     return DeepEvalJudge(llm)
@@ -294,7 +332,10 @@ async def run_generation_eval(
     judge: JudgeName = "none",
     llm: LLMPort | None = None,
     meter: CostMeter | None = None,
+    judge_llm: LLMPort | None = None,
+    judge_embeddings: EmbeddingPort | None = None,
 ) -> GenerationReport:
+    """`judge_llm` fija el modelo del juez; si falta, juzga el mismo `llm` que genera."""
     verify_corpus_hash(meta, corpus)
     if (mode == "llm" or judge != "none") and llm is None:
         raise ValueError("El modo llm y los jueces necesitan un LLM (con presupuesto)")
@@ -305,7 +346,10 @@ async def run_generation_eval(
     settings = local_settings(corpus)
     embeddings = HashingEmbedding(1024)
     records, parents = await load_synthetic(settings, embeddings)
-    rag_judge = build_judge(judge, llm) if llm is not None else None
+    judge_model = judge_llm or llm
+    rag_judge = (
+        build_judge(judge, judge_model, judge_embeddings) if judge_model is not None else None
+    )
     runs: list[GenerationSummary] = []
     for engine in engines:
         service = build_local_service(
@@ -390,14 +434,28 @@ def render_markdown(report: GenerationReport) -> str:
             "",
             "## Jueces LLM",
             "",
-            "| Motor | Estrategia | Juez | Muestras | " + " | ".join(JUDGE_METRICS) + " |",
-            "|---|---|---|---:|" + "---:|" * len(JUDGE_METRICS),
+            "| Motor | Estrategia | Juez | Muestras | Errores juez | "
+            + " | ".join(JUDGE_METRICS)
+            + " |",
+            "|---|---|---|---:|---:|" + "---:|" * len(JUDGE_METRICS),
         ]
         for run in judged:
             scores = " | ".join(_fmt(run.judge_scores[metric]) for metric in JUDGE_METRICS)
             lines.append(
-                f"| {run.engine} | {run.strategy} | {run.judge} | {run.judged} | {scores} |"
+                f"| {run.engine} | {run.strategy} | {run.judge} | {run.judged} | "
+                f"{run.judge_errors} | {scores} |"
             )
+        usages = [
+            (run, run.cost) for run in judged if run.cost is not None and run.cost.calls_by_model
+        ]
+        if usages:
+            lines += ["", "Llamadas y coste por modelo (acumulado):", ""]
+        for run, snapshot in usages:
+            usage = ", ".join(
+                f"`{model}` {calls} llamadas / {snapshot.cost_by_model.get(model, '?')} USD"
+                for model, calls in snapshot.calls_by_model.items()
+            )
+            lines.append(f"- {run.engine} / {run.strategy}: {usage}")
     return "\n".join(lines) + "\n"
 
 
@@ -429,13 +487,28 @@ def stratified_sample(items: Sequence[GoldenItem], limit: int) -> list[GoldenIte
     return sample[:limit]
 
 
-def _gateway(budget: Decimal) -> tuple[LLMPort, CostMeter]:
-    from headache_core.adapters.llm_factory import build_gateway, build_tracer
+def _gateway(budget: Decimal) -> tuple[LLMPort, LLMPort, CostMeter]:
+    """Generador enrutado y juez fijo (otro modelo), medidos por el mismo presupuesto."""
+    from headache_core.adapters.llm_factory import build_gateway, build_judge_llm, build_tracer
     from headache_core.config import Settings
 
     settings = Settings()
     meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))
-    return build_gateway(settings, tracer=meter), meter
+    return build_gateway(settings, tracer=meter), build_judge_llm(settings, tracer=meter), meter
+
+
+def _judge_embeddings() -> EmbeddingPort:
+    """Embeddings reales del proveedor para AnswerRelevancy de RAGAS (fuera del CostMeter)."""
+    from headache_core.adapters.cloud_embeddings import (
+        AzureOpenAIEmbedding,
+        BedrockTitanEmbedding,
+    )
+    from headache_core.config import LLMProvider, Settings
+
+    settings = Settings()
+    if settings.llm_provider is LLMProvider.AZURE:
+        return AzureOpenAIEmbedding.from_settings(settings.azure_openai)
+    return BedrockTitanEmbedding.from_settings(settings.bedrock)
 
 
 def main() -> None:
@@ -458,7 +531,7 @@ def main() -> None:
     meta, items = load_golden(args.dataset)
     if args.limit is not None:
         items = stratified_sample(items, args.limit)
-    llm, meter = _gateway(args.budget_usd) if needs_llm else (None, None)
+    llm, judge_llm, meter = _gateway(args.budget_usd) if needs_llm else (None, None, None)
     report = asyncio.run(
         run_generation_eval(
             items,
@@ -472,6 +545,8 @@ def main() -> None:
             judge=args.judge,
             llm=llm,
             meter=meter,
+            judge_llm=judge_llm,
+            judge_embeddings=_judge_embeddings() if args.judge == "ragas" else None,
         )
     )
     name = "generation" if not needs_llm else f"generation-{args.mode}-{args.judge}"
@@ -481,7 +556,8 @@ def main() -> None:
         print(
             f"{run.engine:>10} {run.strategy:>12} {run.mode:>10}  "
             f"evidencia={_fmt(run.answer_evidence)} abst_ok={_fmt(run.correct_abstention)} "
-            f"prec_citas={_fmt(run.citation_precision)} fugas={run.acl_leaks}"
+            f"prec_citas={_fmt(run.citation_precision)} fugas={run.acl_leaks} "
+            f"juzgadas={run.judged} errores_juez={run.judge_errors}"
         )
 
 

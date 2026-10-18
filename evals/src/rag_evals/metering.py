@@ -5,8 +5,9 @@ mismas llamadas que se facturan (incluidas las de correccion de structured outpu
 clasificador del router). Puede reenviar cada *generation* a otro tracer (Langfuse).
 """
 
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from headache_core.ports.llm import ChatMessage, GenerationObservation, LLMResponse, LLMTracer
@@ -26,6 +27,8 @@ class MeterSnapshot:
     output_tokens: int
     cost_usd: str
     budget_usd: str | None
+    calls_by_model: dict[str, int] = field(default_factory=dict)
+    cost_by_model: dict[str, str] = field(default_factory=dict)
 
 
 class CostMeter:
@@ -45,6 +48,9 @@ class CostMeter:
         self.cached_input_tokens = 0
         self.output_tokens = 0
         self.cost_usd = Decimal(0)
+        # Por modelo: demuestra qué modelo generó y cuál juzgó (sesgo de autopreferencia).
+        self.calls_by_model: Counter[str] = Counter()
+        self.cost_by_model: defaultdict[str, Decimal] = defaultdict(Decimal)
 
     def start_generation(
         self,
@@ -77,6 +83,8 @@ class CostMeter:
             output_tokens=self.output_tokens,
             cost_usd=str(self.cost_usd),
             budget_usd=None if self._budget is None else str(self._budget),
+            calls_by_model=dict(sorted(self.calls_by_model.items())),
+            cost_by_model={model: str(cost) for model, cost in sorted(self.cost_by_model.items())},
         )
 
 
@@ -91,10 +99,12 @@ class _MeteredGeneration:
         meter.input_tokens += response.usage.input_tokens
         meter.cached_input_tokens += response.usage.cached_input_tokens
         meter.output_tokens += response.usage.output_tokens
+        meter.calls_by_model[response.model] += 1
         if cost_usd is None:
             meter.unpriced_calls += 1
         else:
             meter.cost_usd += cost_usd
+            meter.cost_by_model[response.model] += cost_usd
         if self._forwarded is not None:
             self._forwarded.finish(response, cost_usd=cost_usd)
 

@@ -100,6 +100,47 @@ Decisiones:
   injection).
 - Ningún juez decide un merge todavía: primero hay que **calibrarlo** contra etiquetas humanas.
 
+### Resultados en Azure (18-10-2026)
+
+Misma muestra estratificada de 20 preguntas (`--limit 20`, motor `native`, híbrida), generador
+enrutado (`gpt-4.1-mini` / `nano`) y **juez fijo `gpt-4.1`**, fuera del router: con el router
+heurístico, generador y juez acababan los dos en `mini` (sesgo de autopreferencia). Se juzgan las
+10 respuestas no abstenidas. Informes en [evals/reports/azure/](../evals/reports/azure/).
+
+| | Nativo | RAGAS | DeepEval |
+|---|---:|---:|---:|
+| Llamadas al juez por muestra | **1** | 9,4 (+ embeddings reales) | 7 |
+| Coste del juez (10 muestras) | **0,029 $** | 0,208 $ (×7,3) | 0,138 $ (×4,8) |
+| Duración total (20 preguntas) | **35 s** | 152 s | 95 s |
+| faithfulness | 1,00 | 1,00 | 1,00 |
+| answer_relevancy | 1,00 | 0,58 | 0,88 |
+| context_precision | 0,74 | 0,74 | 0,74 |
+| context_recall | 1,00 | 1,00 | 1,00 |
+| Errores del juez | 0 | 0 | 0 (tras el arreglo) |
+
+Lectura:
+
+- **faithfulness = 1 en los tres**: en modo `llm` la respuesta son citas literales validadas por el
+  servicio, así que es fiel por construcción. La métrica no discrimina aquí; tendrá sentido con
+  respuestas redactadas (Foundry IQ, agentes).
+- **answer_relevancy no es comparable entre jueces**: el nativo (escala 0–3) da 1,0 a todo
+  (demasiado indulgente); RAGAS la calcula con la similitud coseno entre la pregunta y preguntas
+  regeneradas, que comprime la escala (0,36–0,84); DeepEval penaliza 2 respuestas con frases de
+  relleno. **Por eso hay que calibrar** con etiquetas humanas antes de fijar umbrales.
+- context_precision y context_recall coinciden en los tres: con contextos cortos y claros los
+  jueces están de acuerdo.
+- Coste: el juez nativo es ~5–7 veces más barato y rápido por diseño (una sola llamada
+  estructurada).
+
+Hallazgos (con su test):
+
+| Hallazgo | Arreglo |
+|---|---|
+| Un veredicto incoherente del juez abortaba la eval entera | *Fail-closed* por muestra: se cuenta como `judge_errors`, no se puntúa y la eval sigue |
+| DeepEval con `gpt-4.1`: `{"verdict":"yes"` seguido de espacios hasta `max_tokens` | Sus prompts piden `reason` solo para los "no", pero el modo *strict* exige todas las claves: el modelo no puede cerrar el objeto. Se añade una nota al prompt (rellenar con `null`) |
+| Con el extra `evals`, 2 tests de retrieval fallaban | El plugin de pytest de DeepEval importa `deepeval`, que vuelca el `.env` en `os.environ`: `-p no:deepeval` y `DEEPEVAL_DISABLE_DOTENV=1` |
+| No se sabía qué modelo juzgaba | El `CostMeter` desglosa llamadas y coste por modelo; el informe guarda cada muestra juzgada (para calibrar) |
+
 ## 5. Gate en CI
 
 El job `evals` de la CI regenera los informes en Linux y los compara con
@@ -129,11 +170,11 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 
 (Con confirmación previa; requiere los pendientes de la fase 2.)
 
-1. `generation_eval --mode llm --judge native --limit 20 --budget-usd 0.50` y después `--judge ragas`
-   y `--judge deepeval` sobre la misma muestra: coste, latencia y acuerdo entre jueces.
+1. ~~`generation_eval --mode llm` con los tres jueces sobre la misma muestra~~ (hecho, ver arriba).
 2. Calibración: unas 20 respuestas etiquetadas a mano y acuerdo humano-juez antes de usar el juez
    como gate.
-3. Juez con un modelo distinto del generador y embeddings reales para la AnswerRelevancy de RAGAS.
+3. ~~Juez con un modelo distinto del generador y embeddings reales para RAGAS~~ (hecho: `gpt-4.1`
+   y `text-embedding-3-small`).
 4. Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.
 5. Repetir el retrieval con embeddings reales y reranker de nube (fase 4) y fijar un baseline nuevo.
 

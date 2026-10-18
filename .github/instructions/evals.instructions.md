@@ -26,5 +26,6 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 - Invariantes siempre 0 y siempre bloqueantes: `acl_leaks`, `cross_customer`, `identity_args`, `unexpected_writes`, `payload_to_model`, `unapproved_irreversible`; citas 100 % válidas; mismo corpus.
 - Subir el baseline es deliberado: `--update-baseline` y revisión en el commit.
 - Con coste: `--mode llm` y `--judge native|ragas|deepeval` exigen `--budget-usd` (`CostMeter` corta antes de cada llamada) y `--limit N` (muestra estratificada). Pedir confirmación.
+- El juez va fijo y fuera del router (`build_judge_llm`, despliegue `AZURE_OPENAI__JUDGE_DEPLOYMENT=gpt-4.1`): nunca el mismo modelo que genera. Un veredicto incoherente cuenta como `judge_errors` (no se puntúa ni aborta). Informes con coste en `evals/reports/azure/`.
 - RAGAS/DeepEval en el extra `evals` (`uv sync --all-packages --extra evals`); la CI no lo instala y sus tests se saltan por `skipif`.
 - Los embeddings `hashing` locales validan el arnés, no la calidad semántica: no sacar conclusiones de calidad sin embeddings reales.

@@ -19,7 +19,7 @@ from rag_evals.generation_eval import (
     summarize_generation,
 )
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
-from rag_evals.judges import JudgeScores
+from rag_evals.judges import JudgeError, JudgeSample, JudgeScores
 from rag_evals.metering import BudgetExceededError, CostMeter
 
 POLICY = "Refundable: yes, up to 48 hours before the session."
@@ -99,6 +99,44 @@ async def test_llm_mode_counts_invented_quotes_as_rejected() -> None:
     assert bad.rejected and not bad.has_evidence
 
 
+class _BrokenJudge:
+    name = "broken"
+
+    async def score(self, sample: JudgeSample) -> JudgeScores:
+        raise JudgeError("El juez debe etiquetar cada contexto exactamente una vez")
+
+
+async def test_incoherent_judge_verdict_is_counted_not_scored_nor_fatal() -> None:
+    service = await _service()
+    [outcome] = await evaluate_generation(
+        service, [_item()], strategy="bm25", top_k=3, candidate_k=10, judge=_BrokenJudge()
+    )
+    assert outcome.judge is None and outcome.judge_error is not None
+    assert outcome.answer
+    summary = summarize_generation("native", "bm25", "extractive", "broken", [outcome])
+    assert (summary.judged, summary.judge_errors) == (0, 1)
+    [sample] = summary.samples
+    assert sample.id == "q" and sample.scores is None
+
+
+async def test_judge_llm_is_separate_from_the_generator() -> None:
+    meta, items = load_golden(DATASET_PATH)
+    sample = stratified_sample(items, 3)
+    verdict = '{"answer_claims": [], "relevance": 3, "contexts": [], "reference_claims": []}'
+    generator, judge = FakeLLM(["{}"] * 3), FakeLLM([verdict] * 3)
+    report = await run_generation_eval(
+        sample,
+        meta,
+        corpus=CORPUS_PATH,
+        engines=("native",),
+        judge="native",
+        llm=generator,
+        judge_llm=judge,
+    )
+    assert generator.calls == [] and judge.calls
+    assert report.runs[0].judge_errors == len(judge.calls)
+
+
 def test_summary_separates_abstention_types_and_judge_means() -> None:
     answered = _item("ok")
     abstained = _item("abst")
@@ -165,6 +203,8 @@ async def test_cost_meter_accumulates_and_stops_at_budget() -> None:
     assert snapshot.calls == 1 and snapshot.unpriced_calls == 0
     assert Decimal(snapshot.cost_usd) > 0
     assert forwarded.records[0].cost_usd == Decimal(snapshot.cost_usd)
+    assert snapshot.calls_by_model == {"gpt-4.1-nano": 1}
+    assert snapshot.cost_by_model == {"gpt-4.1-nano": snapshot.cost_usd}
     with pytest.raises(BudgetExceededError):
         await llm.complete([ChatMessage(Role.USER, "otra")])
 

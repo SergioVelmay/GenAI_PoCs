@@ -83,7 +83,7 @@ no reescribirlo.
 | Recurso | Nombre | Coste |
 |---|---|---|
 | Foundry (AI Services) + proyecto `headache` | `aif-headache-dev-swc-001` | Por token |
-| Despliegues | `gpt-4.1-mini`, `gpt-4.1-nano`, `text-embedding-3-small` | Por token |
+| Despliegues | `gpt-4.1-mini`, `gpt-4.1-nano`, `text-embedding-3-small` y `gpt-4.1` (juez de evals) | Por token |
 | Content Safety F0 | `cs-headache-dev-swc-001` | 0 € (cuota mensual) |
 | Service Bus Basic + cola `knowledge.documents` | `sb-headache-dev-swc-001` | Por operación |
 | Storage + contenedor `knowledge-docs` | `stheadachedevswc001` | Por uso |
@@ -160,7 +160,23 @@ todos los blobs y una sobre-respuesta del agente que exige un juez de fidelidad.
 [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026) y
 [fase 4](fase-4-retrieval.md#resultados-en-azure-18-10-2026).
 
+AI Search se destruyó al terminar (de 11:17 a 12:08, ~0,09 $) y `terraform plan` quedó sin cambios.
+
+### Fase 5 · Jueces LLM (18-10-2026, ~0,39 $)
+
+| Validación | Resultado |
+|---|---|
+| Juez separado del generador | Nuevo despliegue `gpt-4.1` fuera del router; antes generador y juez eran el mismo `mini` |
+| Nativo frente a RAGAS y DeepEval (misma muestra de 20) | Juez nativo ×5–7 más barato (0,029 $ frente a 0,208 $ y 0,138 $) y el más rápido; mismas precision y recall de contexto; `answer_relevancy` no comparable entre jueces |
+| Fugas de ACL y citas | 0 fugas, citas 100 % válidas, 4/4 abstenciones correctas |
+
+Hallazgos: un veredicto incoherente abortaba la eval (ahora *fail-closed* por muestra), DeepEval
+degeneraba en espacios con el modo *strict* y su plugin de pytest cargaba el `.env`. Detalle en
+[fase 5](fase-5-evals.md#resultados-en-azure-18-10-2026).
+
 ## 6. Pendiente en este checkpoint
 
-- Pendientes de Azure de las fases 5 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
+- Fase 5: calibración humano-juez, juez de fidelidad sobre Foundry IQ, Foundry Evaluation y CI en
+  `enforce`.
+- Pendientes de Azure de las fases 6 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

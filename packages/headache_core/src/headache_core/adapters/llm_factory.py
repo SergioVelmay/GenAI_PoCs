@@ -83,6 +83,45 @@ def _litellm_routes(
     }
 
 
+def build_judge_provider_llm(settings: Settings, provider: LLMProvider) -> LLMPort:
+    """Modelo juez de evals de un proveedor (sin capas)."""
+    if provider is LLMProvider.AZURE:
+        from headache_core.adapters.azure_openai import AzureOpenAILLM
+
+        azure = settings.azure_openai
+        return AzureOpenAILLM.from_settings(azure, deployment=azure.judge_deployment)
+
+    from headache_core.adapters.bedrock import BedrockConverseLLM
+
+    return BedrockConverseLLM.from_settings(
+        settings.bedrock, model_id=settings.bedrock.judge_model_id
+    )
+
+
+def build_judge_llm(settings: Settings, *, tracer: LLMTracer | None = None) -> LLMPort:
+    """Juez fijo, fuera del router: si lo enrutara, juzgaría el mismo modelo que genera."""
+    gateway = settings.llm_gateway
+    tracer = tracer or build_tracer(settings)
+    prices = PriceTable()
+    return FallbackLLM(
+        [
+            ObservedLLM(
+                RateLimitedLLM(
+                    build_judge_provider_llm(settings, provider),
+                    requests_per_minute=gateway.requests_per_minute,
+                    tokens_per_minute=gateway.tokens_per_minute,
+                ),
+                tracer=tracer,
+                prices=prices,
+                name=f"{provider}:judge",
+                metadata={"engine": "native", "provider": provider, "tier": "judge"},
+            )
+            for provider in settings.provider_chain()
+        ],
+        max_retries=gateway.max_retries,
+    )
+
+
 def build_gateway(settings: Settings, *, tracer: LLMTracer | None = None) -> LLMPort:
     """Gateway completo: routing barato/potente + fallback + rate limit + trazas y coste."""
     tracer = tracer or build_tracer(settings)

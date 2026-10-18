@@ -25,6 +25,8 @@ class AzureOpenAISettings(BaseModel):
     chat_deployment: str = "gpt-4.1-mini"
     cheap_chat_deployment: str = "gpt-4.1-nano"
     embedding_deployment: str = "text-embedding-3-small"
+    # Juez de evals: modelo distinto y más capaz que el generador (sesgo de autopreferencia).
+    judge_deployment: str = "gpt-4.1"
 
 
 class BedrockSettings(BaseModel):
@@ -33,6 +35,7 @@ class BedrockSettings(BaseModel):
     chat_model_id: str = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
     cheap_chat_model_id: str = "eu.amazon.nova-lite-v1:0"
     embedding_model_id: str = "amazon.titan-embed-text-v2:0"
+    judge_model_id: str = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
     # Bedrock Rerank (p. ej. Cohere Rerank 3.5); la disponibilidad depende de la region.
     rerank_model_arn: str = ""
 

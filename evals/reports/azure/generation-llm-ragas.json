@@ -1,0 +1,230 @@
+{
+  "dataset": {
+    "version": 1,
+    "corpus": "evals/corpus/knowledge.jsonl",
+    "corpus_sha256": "4bbd46f0ee6ab06970b55bbf39ccbbef5aaaadc63103b4bf91defa2fa5e6f4d3",
+    "documents": 116,
+    "items": 144,
+    "by_type": {
+      "acl_adversarial": 14,
+      "cross_lingual": 19,
+      "factual": 78,
+      "filtered": 17,
+      "unanswerable": 16
+    }
+  },
+  "top_k": 5,
+  "candidate_k": 20,
+  "embeddings": "hashing-1024",
+  "runs": [
+    {
+      "engine": "native",
+      "strategy": "hybrid",
+      "mode": "llm",
+      "judge": "ragas",
+      "answerable": 12,
+      "unanswerable": 8,
+      "answer_evidence": 0.8333,
+      "false_abstention": 0.0,
+      "correct_abstention": 1.0,
+      "citation_validity": 1.0,
+      "citation_precision": 0.9286,
+      "citations_per_answer": 1.4,
+      "rejected": 2,
+      "acl_leaks": 0,
+      "latency_p50_ms": 684.92,
+      "latency_p95_ms": 2471.66,
+      "by_type": {
+        "acl_adversarial": {
+          "questions": 4,
+          "abstention_rate": 1.0,
+          "evidence_rate": 0.0
+        },
+        "cross_lingual": {
+          "questions": 4,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "factual": {
+          "questions": 4,
+          "abstention_rate": 0.0,
+          "evidence_rate": 0.5
+        },
+        "filtered": {
+          "questions": 4,
+          "abstention_rate": 0.0,
+          "evidence_rate": 1.0
+        },
+        "unanswerable": {
+          "questions": 4,
+          "abstention_rate": 1.0,
+          "evidence_rate": 0.0
+        }
+      },
+      "judged": 10,
+      "judge_scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.5756,
+        "context_precision": 0.7367,
+        "context_recall": 1.0
+      },
+      "cost": {
+        "calls": 114,
+        "failed_calls": 0,
+        "unpriced_calls": 0,
+        "input_tokens": 104527,
+        "cached_input_tokens": 13568,
+        "output_tokens": 6351,
+        "cost_usd": "0.2135830",
+        "budget_usd": "0.50",
+        "calls_by_model": {
+          "gpt-4.1-2025-04-14": 94,
+          "gpt-4.1-mini-2025-04-14": 15,
+          "gpt-4.1-nano-2025-04-14": 5
+        },
+        "cost_by_model": {
+          "gpt-4.1-2025-04-14": "0.207936",
+          "gpt-4.1-mini-2025-04-14": "0.0054244",
+          "gpt-4.1-nano-2025-04-14": "0.0002226"
+        }
+      },
+      "missed": [
+        "policy-window-candlelit-es",
+        "policy-payout-candlelit-es"
+      ],
+      "judge_errors": 0,
+      "samples": [
+        {
+          "id": "venue-capacity-ven_00002-es",
+          "question_type": "cross_lingual",
+          "question": "¿Cuál es el aforo del recinto Bonet Hall en Madrid?",
+          "answer": "# Venue guide: Bonet Hall (Madrid)\nAddress: Plaza Ciro Gil 18 Puerta 3 , Madrid.\nCapacity: 80 people.\nAccessibility: Access via stairs only; contact support for assistance.\nCloakroom available.\nFood and drinks from outside are not allowed. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.6563612540393138,
+            "context_precision": 0.3333333333,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "policy-filtered-candlelit-en",
+          "question_type": "filtered",
+          "question": "Can I cancel these tickets and get my money back?",
+          "answer": "Refundable: yes, up to 48 hours before the start. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.4893124107666158,
+            "context_precision": 0.9999999999,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "venue-access-ven_00004-es",
+          "question_type": "cross_lingual",
+          "question": "¿Se puede acceder sin escalones al recinto Lobo Palace de Barcelona?",
+          "answer": "Accessibility: Access via stairs only; contact support for assistance. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.3683461867721676,
+            "context_precision": 0.49999999995,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "policy-filtered-exhibition-es",
+          "question_type": "filtered",
+          "question": "¿Puedo cancelar estas entradas y recuperar el dinero?",
+          "answer": "Reembolsable: sí, hasta 24 horas antes del inicio. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.681980722015878,
+            "context_precision": 0.9999999999,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "venue-capacity-ven_00006-es",
+          "question_type": "cross_lingual",
+          "question": "¿Cuál es el aforo del recinto Fisher Rooftop en London?",
+          "answer": "# Venue guide: Fisher Rooftop (London)\nAddress: Studio 31\nIrene Forks, London.\nCapacity: 350 people.\nAccessibility: Step-free access and accessible toilets.\nCloakroom available.\nFood and drinks from outside are not allowed. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.7700628013815513,
+            "context_precision": 0.3333333333,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "policy-window-candlelit-en",
+          "question_type": "factual",
+          "question": "Can I get a refund for 'Candlelit concerts' tickets, and until when?",
+          "answer": "- Refundable: yes, up to 48 hours before the start. [1]\n\n- Money is returned to the original payment method within 5-10 business days. [2]\n\n- Booking fees are non-refundable. [3]\n\n- If the organiser cancels the session, a full refund is issued automatically. [4]\n\nRefunds: Refundable up to 48 hours before the start. [5]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.5398939173915304,
+            "context_precision": 0.699999999965,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "policy-filtered-food_drink-en",
+          "question_type": "filtered",
+          "question": "Can I cancel these tickets and get my money back?",
+          "answer": "Refundable: yes, up to 72 hours before the start. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.4893124107666158,
+            "context_precision": 0.9999999999,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "venue-access-ven_00008-es",
+          "question_type": "cross_lingual",
+          "question": "¿Se puede acceder sin escalones al recinto De Sousa Palace de Paris?",
+          "answer": "Accessibility: Access via stairs only; contact support for assistance. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.3644137504981409,
+            "context_precision": 0.49999999995,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "policy-payout-candlelit-en",
+          "question_type": "factual",
+          "question": "If my 'Candlelit concerts' ticket is refunded, how long until I get the money back?",
+          "answer": "Money is returned to the original payment method within 5-10 business days. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.5603418948403781,
+            "context_precision": 0.9999999999,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        },
+        {
+          "id": "policy-filtered-nightlife-es",
+          "question_type": "filtered",
+          "question": "¿Puedo cancelar estas entradas y recuperar el dinero?",
+          "answer": "Estas entradas no admiten reembolso. [1]",
+          "scores": {
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.8355986588682872,
+            "context_precision": 0.9999999999,
+            "context_recall": 1.0
+          },
+          "judge_error": null
+        }
+      ]
+    }
+  ]
+}

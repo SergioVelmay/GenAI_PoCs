@@ -118,7 +118,9 @@ testpaths = ["packages", "services", "evals"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # Los tests de integración necesitan PostgreSQL: uv run pytest -m integration
-addopts = "--import-mode=importlib -m 'not integration'"
+# Con el extra `evals`, el plugin de pytest de DeepEval importa `deepeval`, que vuelca el `.env`
+# en `os.environ` y rompe el aislamiento de los tests: se desactiva (no se usa).
+addopts = "--import-mode=importlib -m 'not integration' -p no:deepeval"
 markers = ["integration: requiere docker compose up -d (PostgreSQL migrado y RabbitMQ)"]
 # llama-index-workflows recorre el agente (modelo Pydantic) con inspect.getmembers y toca
 # atributos deprecados: ruido de la librería, no de nuestro código.

@@ -43,6 +43,9 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | La API GA servía para gestionar la KB pero no para su endpoint MCP | Las capacidades nuevas llegan antes a preview | Comprobar la disponibilidad de cada operación por versión de API, no solo del servicio |
 | No se pudo crear AI Search en la región elegida | Regiones de alta demanda bloquean servicios nuevos | Consultar la tabla de regiones del servicio antes de fijar la región; separar la región de cada recurso cuando haga falta |
 | 2 tests fallaban solo en la suite completa al rellenar el `.env` con Azure | `import litellm` (modo DEV) vuelca el `.env` en `os.environ` de todo el proceso | `LITELLM_MODE=PRODUCTION` antes de importarlo y test de regresión en un proceso limpio. Ante un fallo que solo ocurre en la suite completa, buscar estado global compartido (variables de entorno, singletons) |
+| Con el extra `evals` instalado, 2 tests de retrieval volvieron a fallar | El plugin de pytest de DeepEval (`pytest11`) importa `deepeval`, que también vuelca el `.env` | Al instalar una librería, revisar sus *entry points* de pytest y si carga `.env` al importarse; desactivar con `-p no:<plugin>` y su variable de entorno |
+| DeepEval con `gpt-4.1` devolvía espacios hasta `max_tokens` | Su prompt pide omitir `reason`, pero el modo *strict* obliga a escribirlo | Si el prompt y el esquema estricto se contradicen, el modelo degenera: alinear el prompt con el esquema. `finish_reason=length` con JSON a medias es la pista |
+| Generador y juez eran el mismo modelo sin saberlo | El router heurístico manda los prompts largos (los dos) al modelo potente | El juez va fijo, fuera del router, y el informe desglosa llamadas y coste por modelo |
 | `POST /agents` falló al repetir el aprovisionamiento | Los agentes de Foundry se versionan | Todo aprovisionamiento debe ser idempotente: crear o actualizar, y probarlo ejecutándolo dos veces |
 
 ## Dominio y diseño

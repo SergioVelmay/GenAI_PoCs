@@ -105,6 +105,25 @@ resource "azurerm_cognitive_deployment" "embedding" {
   depends_on = [azurerm_cognitive_deployment.cheap_chat]
 }
 
+resource "azurerm_cognitive_deployment" "judge" {
+  count                = local.foundry
+  name                 = var.foundry_models.judge.name
+  cognitive_account_id = azurerm_cognitive_account.foundry[0].id
+
+  model {
+    format  = "OpenAI"
+    name    = var.foundry_models.judge.model
+    version = var.foundry_models.judge.version
+  }
+
+  sku {
+    name     = var.foundry_deployment_sku
+    capacity = var.foundry_models.judge.capacity_k_tpm
+  }
+
+  depends_on = [azurerm_cognitive_deployment.embedding]
+}
+
 # ---------- Permisos para desarrollar en local con `az login` ----------
 
 resource "azurerm_role_assignment" "me_foundry_openai" {

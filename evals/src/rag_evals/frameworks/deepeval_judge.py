@@ -1,5 +1,11 @@
 """Juez DeepEval 4.x sobre nuestro `LLMPort` (modelo propio via `DeepEvalBaseLLM`)."""
 
+import os
+
+# `import deepeval` vuelca el `.env` en `os.environ` de todo el proceso (como litellm en modo
+# DEV): pisaba la configuracion y rompia el aislamiento de los tests de otros paquetes.
+os.environ.setdefault("DEEPEVAL_DISABLE_DOTENV", "1")
+
 from typing import Any
 
 from deepeval.metrics import (
@@ -15,6 +21,15 @@ from pydantic import BaseModel
 from headache_core.application.llm.structured import complete_structured
 from headache_core.ports.llm import ChatMessage, LLMPort, Role
 from rag_evals.judges import JudgeSample, JudgeScores
+
+# Los prompts de DeepEval piden "reason" solo para los "no", pero structured outputs en modo
+# strict exige todas las claves: gpt-4.1 no puede cerrar el objeto y degenera en espacios en
+# blanco hasta `max_tokens` (medido en Azure). Se le dice explicitamente como rellenarlas.
+STRICT_SCHEMA_NOTE = (
+    "\n\nIMPORTANT: your output is validated against a strict JSON schema. Always include "
+    'every key of the schema in every object; when a "reason" is not needed, set it to null '
+    '(or "" if null is not allowed). Never pad the output with whitespace.'
+)
 
 
 class PortDeepEvalLLM(DeepEvalBaseLLM):
@@ -35,12 +50,15 @@ class PortDeepEvalLLM(DeepEvalBaseLLM):
         raise RuntimeError("Solo async: usa a_measure() con async_mode=True")
 
     async def a_generate(self, prompt: str, schema: type[BaseModel] | None = None) -> Any:
-        messages = [ChatMessage(Role.USER, prompt)]
         if schema is not None:
             result = await complete_structured(
-                self._llm, messages, schema, max_tokens=self._max_tokens
+                self._llm,
+                [ChatMessage(Role.USER, prompt + STRICT_SCHEMA_NOTE)],
+                schema,
+                max_tokens=self._max_tokens,
             )
             return result.value
+        messages = [ChatMessage(Role.USER, prompt)]
         return (await self._llm.complete(messages, max_tokens=self._max_tokens)).content
 
 

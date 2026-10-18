@@ -105,11 +105,14 @@ variable "foundry_models" {
     chat       = object({ name = string, model = string, version = string, capacity_k_tpm = number })
     cheap_chat = object({ name = string, model = string, version = string, capacity_k_tpm = number })
     embedding  = object({ name = string, model = string, version = string, capacity_k_tpm = number })
+    judge      = object({ name = string, model = string, version = string, capacity_k_tpm = number })
   })
   default = {
     chat       = { name = "gpt-4.1-mini", model = "gpt-4.1-mini", version = "2025-04-14", capacity_k_tpm = 200 }
     cheap_chat = { name = "gpt-4.1-nano", model = "gpt-4.1-nano", version = "2025-04-14", capacity_k_tpm = 200 }
     embedding  = { name = "text-embedding-3-small", model = "text-embedding-3-small", version = "1", capacity_k_tpm = 50 }
+    # Juez de evals (fase 5): distinto y más capaz que el generador; solo se usa en evals con coste.
+    judge = { name = "gpt-4.1", model = "gpt-4.1", version = "2025-04-14", capacity_k_tpm = 100 }
   }
 }
 
