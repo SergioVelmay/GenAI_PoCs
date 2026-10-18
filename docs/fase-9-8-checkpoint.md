@@ -202,9 +202,19 @@ Detalle en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026),
 | Umbral de Foundry | Exigir un 5 daba kappa 0 (puntúa 3-4 a las correctas escuetas); con su aprobado (≥ 3), 0,82 |
 | Gate de evals en la CI | `--mode enforce` tras 15 ejecuciones seguidas con 0 regresiones |
 
+### Fase 6 · Tools y MCP con Azure OpenAI (18-10-2026, < 0,01 $)
+
+| Validación | Resultado |
+|---|---|
+| `tool_loop_demo` (consulta y reembolso) | La consulta funcionaba; el reembolso fallaba con `nano` (IDs deducidos o copiados del ejemplo). Corregido el diseño de las tools y el prompt; ahora `list_my_orders` → `request_refund` → decide el dominio |
+| Routing | Nueva regla: turno con tools con efectos ⇒ modelo potente (`nano` 0/2, `mini` 2/2 en el reembolso) |
+| `support_agent` sin y con MCP Gateway (JWT + token exchange) | Mismo resultado correcto por los dos caminos; trazas en Langfuse |
+
+Detalle en [fase 6](fase-6-tools-mcp.md#7-resultados-en-azure-18-10-2026).
+
 ## 6. Pendiente en este checkpoint
 
-- Fase 6: `tool_loop_demo` y `support_agent` con Azure OpenAI; MCP con Entra ID y OBO.
+- Fase 6: MCP con Entra ID y OBO.
 - Fase 7: suite de agentes con LLM real; truncado de Foundry frente a nuestra compactación;
   memoria de Foundry frente a `remember_preference`.
 - Fase 8: `analytics_sql_demo`; Content Safety frente al escudo heurístico; ataques con LLM real.

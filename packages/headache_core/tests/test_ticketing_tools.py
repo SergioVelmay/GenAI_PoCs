@@ -146,7 +146,9 @@ def test_tool_catalog_exposes_strict_schemas() -> None:
     }
     refund = specs["request_refund"].json_schema
     assert refund["required"] == ["order_id", "reason"]
-    assert refund["properties"]["order_id"]["pattern"].startswith("^[a-z]{3}_")
+    # Prefijo exacto por tipo de ID (regresión: nano pasó un ses_... a get_event).
+    assert refund["properties"]["order_id"]["pattern"].startswith("^ord_")
+    assert specs["get_event"].json_schema["properties"]["event_id"]["pattern"].startswith("^evt_")
     assert "maxLength" not in refund["properties"]["reason"]
     # Ninguna tool deja elegir al modelo a qué cliente suplantar.
     assert all("customer_id" not in s.json_schema["properties"] for s in specs.values())

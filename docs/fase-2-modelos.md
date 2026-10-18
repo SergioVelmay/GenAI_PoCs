@@ -72,6 +72,13 @@ intención, idioma, `order_id`, urgencia); qué hacer después lo decide el domi
   `reclamación`...) ⇒ `strong`; si no, `cheap`.
 - `LLMClassifier` (`LLM_GATEWAY__ROUTER=llm`): un modelo barato decide con salida estructurada
   (`RoutingVerdict`). Más preciso, pero añade una llamada. Si falla, elige `strong` (prima la calidad).
+- Regla previa a cualquier clasificador (checkpoint 8→9): si el turno ofrece una tool **con
+  efectos** (`read_only=False`, p. ej. `request_refund`), va a `strong`. Medido en Azure: con
+  "quiero el reembolso de mi último pedido" (corto ⇒ `cheap`), `gpt-4.1-nano` inventó IDs y no
+  llegó a pedir el reembolso (0/2); `gpt-4.1-mini` lo resolvió (2/2). Un error en una escritura
+  cuesta más que la diferencia de precio (~0,001 $ por turno). Para que los turnos de solo
+  lectura sigan yendo a `cheap`, el agente debe ofrecer las tools de escritura solo cuando la
+  intención las necesita.
 
 ## 5. Coste por petición
 

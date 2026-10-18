@@ -115,6 +115,17 @@ class LLMClassifier:
         return result.value.tier
 
 
+def requires_strong(tools: ToolConfig | None) -> bool:
+    """Un turno que ofrece tools con efectos (reembolsos, compras...) va al modelo potente.
+
+    Medido en Azure: con el mensaje "quiero el reembolso de mi último pedido" (corto, así que la
+    heurística elige el barato), gpt-4.1-nano dedujo IDs inexistentes y no llegó a pedir el
+    reembolso (0/2); gpt-4.1-mini lo resolvió (2/2). Equivocarse en una escritura cuesta más
+    que la diferencia de precio. Los turnos solo de lectura siguen la heurística.
+    """
+    return tools is not None and any(not tool.read_only for tool in tools.tools)
+
+
 class RoutingLLM:
     def __init__(self, routes: Mapping[ModelTier, LLMPort], classifier: ComplexityClassifier):
         missing = set(ModelTier) - set(routes)
@@ -132,7 +143,11 @@ class RoutingLLM:
         response_schema: ResponseSchema | None = None,
         tools: ToolConfig | None = None,
     ) -> LLMResponse:
-        tier = await self._classifier.classify(messages, response_schema=response_schema)
+        tier = (
+            ModelTier.STRONG
+            if requires_strong(tools)
+            else await self._classifier.classify(messages, response_schema=response_schema)
+        )
         return await self._routes[tier].complete(
             messages,
             temperature=temperature,

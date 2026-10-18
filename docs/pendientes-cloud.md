@@ -68,7 +68,8 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 ## Fase 6 · Tools y MCP ([doc](fase-6-tools-mcp.md))
 
-- [ ] Ejecutar `scripts/tool_loop_demo.py` y `python -m support_agent` (con y sin `--gateway`) con Azure OpenAI y Bedrock; revisar trazas y coste en Langfuse.
+- [x] Azure (18-10-2026): `tool_loop_demo.py` y `support_agent` (con y sin `--gateway`, `MCP__AUTH=jwt`) con Azure OpenAI; trazas y coste en Langfuse. Tres fallos de diseño de tools corregidos y regla de routing para escrituras.
+- [ ] AWS: los mismos agentes con Bedrock.
 - [ ] Registrar los servidores MCP en Entra ID (App ID URI y scopes; revisar el formato de `scp`) y en Cognito (resource server + scopes); probar OBO de extremo a extremo y sustituir `DevTokenExchanger`.
 - [ ] Con los servidores MCP en HTTPS (fases 13/14): `mcp_gateway_enabled=true` (AgentCore Gateway) y `apim_enabled=true` (APIM); comparar latencia y coste con el gateway propio.
 - [ ] Tool de compra con `Idempotency-Key` estable y aprobación humana.

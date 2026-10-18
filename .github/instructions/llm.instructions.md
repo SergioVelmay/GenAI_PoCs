@@ -10,7 +10,8 @@ Doc: `docs/fase-2-modelos.md`, `docs/fase-6-tools-mcp.md`.
 ## Gateway
 
 - Todo pasa por `LLMPort`. Nadie importa `openai`/`boto3` fuera de los adaptadores.
-- `adapters/llm_factory.build_gateway`: `RoutingLLM` → `FallbackLLM` → `ObservedLLM` (trazas/coste) → `RateLimitedLLM` → adaptador. `LLM_GATEWAY__ENGINE=native|litellm`, `LLM_GATEWAY__ROUTER=heuristic|llm`.
+- `adapters/llm_factory.build_gateway`: `RoutingLLM` → `FallbackLLM` → `ObservedLLM` (trazas/coste) → `RateLimitedLLM` → adaptador. `LLM_GATEWAY__ENGINE=native|litellm`, `LLM_GATEWAY__ROUTER=heuristic|llm`. Antes del clasificador, `requires_strong`: un turno que ofrece una tool con `read_only=False` va siempre al modelo potente (`ToolSpec.read_only`, que no viaja al proveedor).
+- Tools para modelos: IDs con prefijo exacto por tipo (`^evt_`, `^ord_`), sin IDs de ejemplo copiables en las descripciones; cambiar una descripción cambia el contrato MCP (`python -m headache_mcp.contracts --update`, deliberado).
 - Reintentos solo en el gateway (SDKs con `max_retries=0`). Un 429 salta de proveedor; los errores no transitorios se propagan.
 - Todo cliente de un despliegue (también scripts y benchmarks) pasa por `RateLimitedLLM`. `LLM_GATEWAY__TOKENS_PER_MINUTE` va por debajo de la capacidad del despliegue (Terraform `foundry_models`, 200 K TPM; hoy 150 K), porque el *token bucket* admite ráfaga + recarga.
 - Errores tipados `LLMError` → `LLMTransientError` → `LLMRateLimitError`; cada adaptador traduce los suyos.

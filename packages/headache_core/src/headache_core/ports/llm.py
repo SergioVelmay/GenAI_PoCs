@@ -34,6 +34,8 @@ class ToolSpec:
     description: str
     json_schema: Mapping[str, Any]
     strict: bool = True
+    # No viaja al proveedor: lo usa el router (una tool con efectos exige el modelo potente).
+    read_only: bool = True
 
 
 @dataclass(frozen=True, slots=True)

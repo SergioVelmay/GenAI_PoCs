@@ -10,8 +10,8 @@
         "additionalProperties": false,
         "properties": {
           "order_id": {
-            "description": "ID de pedido, p. ej. 'ord_0000123'.",
-            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "description": "ID de pedido (empieza por 'ord_') tal cual lo devolvió otra tool.",
+            "pattern": "^ord_[A-Za-z0-9]{1,40}$",
             "title": "Order Id",
             "type": "string"
           },

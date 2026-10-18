@@ -152,17 +152,38 @@ $env:MCP__AUTH="jwt"; docker compose --profile mcp up -d --build              # 
 | MCP Gateway | API Management | AgentCore Gateway | gateway propio (FastMCP `ProxyProvider`) |
 | IdP / OBO | Entra ID On-Behalf-Of | Cognito + AgentCore Identity (token exchange) | `DevTokenIssuer` (solo local) |
 
-## 7. Pendiente de validación con coste
+## 7. Resultados en Azure (18-10-2026)
 
-- Ejecutar el agente con LLM real (`scripts/tool_loop_demo.py` y `python -m support_agent`, con y sin
-  `--gateway`) en Azure OpenAI y Bedrock; revisar trazas y coste en Langfuse.
+API de ticketing local, servidores MCP en Docker con `MCP__AUTH=jwt` (emisor y STS de
+desarrollo) y Azure OpenAI con el gateway; trazas y coste en Langfuse.
+
+| Prueba | Resultado |
+|---|---|
+| `tool_loop_demo` · "¿Qué pedidos tengo?" | `list_my_orders` y respuesta correcta; 0,0002 $ con `nano` |
+| `tool_loop_demo` · "Quiero el reembolso de mi último pedido" (antes del arreglo) | ❌ `nano` pasó la sesión `ses_0018361` a `get_event` (o un `evt_` deducido de ella, o el ID de ejemplo de la descripción) y se rindió; `mini` igual hasta corregir el prompt |
+| Mismo caso (después) | ✅ `list_my_orders` → `request_refund` → la política del dominio lo rechaza (categoría sin reembolso) y el agente lo explica; 0,0012 $ |
+| `support_agent` sin y con `--gateway` | ✅ 6 tools descubiertas en los 3 servidores; el gateway valida el token del cliente y emite uno nuevo por servidor (token exchange); mismo resultado |
+| Langfuse | 51 *generations* con modelo, tokens y coste |
+
+Lo que no se ve con modelos falsos (cada uno con su test):
+
+| Hallazgo | Arreglo |
+|---|---|
+| Patrón de ID genérico (`^[a-z]{3}_...`): un `ses_` pasaba la validación de `get_event` | Prefijo exacto por tipo (`^evt_`, `^ord_`): el error de validación llega al modelo antes de llamar a la API. Contratos MCP actualizados de forma deliberada |
+| La descripción traía un ID de ejemplo (`evt_0000123`) y `nano` lo usó literal | Sin IDs de ejemplo completos: "empieza por `evt_`, tal cual lo devolvió otra tool" |
+| El modelo quería consultar la política del evento antes de pedir el reembolso, pero desde un pedido no se llega al evento | Prompt: para reembolsar basta `request_refund` (la política la aplica el dominio); nunca construir un ID a partir de otro |
+| `nano` sigue fallando la escritura aunque las tools estén bien | Routing: un turno con tools con efectos va al modelo potente ([fase 2](fase-2-modelos.md#4-model-routing)) |
+
+## 8. Pendiente de validación con coste
+
+- Ejecutar los mismos agentes con Bedrock (AWS).
 - Registrar los servidores MCP en Entra ID (App ID URI y scopes; `scp` admite otros formatos de
   nombre) y en Cognito (resource server + scopes); probar OBO de extremo a extremo.
 - Publicar los servidores por HTTPS (fases 13 y 14) y aplicar `mcp_gateway_enabled` (AWS) y
   `apim_enabled` (Azure) con confirmación; medir latencia y coste frente al gateway propio.
 - Tool de compra con `Idempotency-Key` estable y aprobación humana (fase 8).
 
-## 8. Checkpoint de entrevista
+## 9. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 6](preguntas-entrevista.md#fase-6).

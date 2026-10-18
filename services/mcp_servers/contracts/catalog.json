@@ -10,8 +10,8 @@
         "additionalProperties": false,
         "properties": {
           "event_id": {
-            "description": "ID de evento, p. ej. 'evt_0000123'.",
-            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "description": "ID de evento (empieza por 'evt_') tal cual lo devolvió otra tool.",
+            "pattern": "^evt_[A-Za-z0-9]{1,40}$",
             "title": "Event Id",
             "type": "string"
           }
@@ -37,8 +37,8 @@
         "additionalProperties": false,
         "properties": {
           "event_id": {
-            "description": "ID de evento, p. ej. 'evt_0000123'.",
-            "pattern": "^[a-z]{3}_[A-Za-z0-9]{1,40}$",
+            "description": "ID de evento (empieza por 'evt_') tal cual lo devolvió otra tool.",
+            "pattern": "^evt_[A-Za-z0-9]{1,40}$",
             "title": "Event Id",
             "type": "string"
           },

@@ -9,7 +9,7 @@ from headache_core.application.llm import (
     ModelTier,
     RoutingLLM,
 )
-from headache_core.ports import ChatMessage, Role
+from headache_core.ports import ChatMessage, Role, ToolConfig, ToolSpec
 
 
 def _ask(text: str, *, system: str = "Eres el asistente de Headache.") -> list[ChatMessage]:
@@ -41,6 +41,37 @@ async def test_routing_llm_dispatches_by_tier() -> None:
 
     assert (await llm.complete(_ask("¿Hay parking?"))).content == "barato"
     assert (await llm.complete(_ask("Compara las dos políticas"))).content == "potente"
+
+
+async def test_turns_offering_write_tools_go_to_the_strong_model() -> None:
+    # Regresión (Azure): nano no completaba un reembolso con un mensaje corto; mini sí.
+    read = ToolSpec("list_my_orders", "Pedidos.", {"type": "object"})
+    write = ToolSpec("request_refund", "Reembolso.", {"type": "object"}, read_only=False)
+    cheap, strong = FakeLLM(["barato"] * 2), FakeLLM(["potente"])
+    llm = RoutingLLM({ModelTier.CHEAP: cheap, ModelTier.STRONG: strong}, HeuristicClassifier())
+    short = _ask("Quiero el reembolso de mi último pedido")
+
+    assert (await llm.complete(short, tools=ToolConfig((read, write)))).content == "potente"
+    assert (await llm.complete(short, tools=ToolConfig((read,)))).content == "barato"
+    assert (await llm.complete(short)).content == "barato"
+
+
+def test_registry_specs_carry_whether_a_tool_has_effects() -> None:
+    from pydantic import BaseModel
+
+    from headache_core.application.tools import Tool, ToolRegistry
+
+    class Args(BaseModel):
+        pass
+
+    async def handler(args: Args, context: object) -> str:
+        return "ok"
+
+    registry = ToolRegistry(
+        [Tool("read", "r", Args, handler), Tool("write", "w", Args, handler, read_only=False)]
+    )
+    specs = {spec.name: spec.read_only for spec in registry.config().tools}
+    assert specs == {"read": True, "write": False}
 
 
 def test_routing_llm_requires_every_tier() -> None:

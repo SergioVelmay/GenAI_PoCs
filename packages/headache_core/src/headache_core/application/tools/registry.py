@@ -53,8 +53,19 @@ class Tool[A: BaseModel]:
     def spec(self) -> ToolSpec:
         if self.published_schema is not None:
             schema = self.published_schema
-            return ToolSpec(self.name, self.description, schema, strict=is_strict_schema(schema))
-        return ToolSpec(self.name, self.description, strict_json_schema(self.args_model))
+            return ToolSpec(
+                self.name,
+                self.description,
+                schema,
+                strict=is_strict_schema(schema),
+                read_only=self.read_only,
+            )
+        return ToolSpec(
+            self.name,
+            self.description,
+            strict_json_schema(self.args_model),
+            read_only=self.read_only,
+        )
 
     def parse(self, arguments: str) -> A:
         return self.args_model.model_validate_json(arguments or "{}")

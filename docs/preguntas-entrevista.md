@@ -389,6 +389,11 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    separado. El gateway devuelve la comodidad de un único endpoint.
 6. **¿Cómo evitas romper a los agentes al cambiar una tool?** Contratos versionados de `tools/list`
    en CI. Para el modelo, la descripción es parte del contrato.
+7. **¿Qué aprendiste al poner el agente con un modelo real?** Que las tools son una interfaz para
+   el modelo y se diseñan como tal. Con `gpt-4.1-nano`, un reembolso fallaba: pasaba el ID de la
+   sesión como si fuera el de un evento, o copiaba el ID de ejemplo de la descripción. Lo arreglé
+   con prefijos exactos por tipo de ID, sin ejemplos copiables, y diciendo en el prompt que la
+   política la aplica el dominio. Y aun así, las escrituras van al modelo potente.
 
 ### Negocio y stakeholders
 
@@ -403,6 +408,11 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 3. **¿MCP gateway propio o gestionado?** En AWS, AgentCore Gateway: menos operación y OBO integrado.
    El propio sirve para entender el patrón y para necesidades que el gestionado no cubre. APIM solo
    compensa si ya es el estándar de la organización (el tier Developer ronda 50 $/mes).
+4. **Finanzas quiere usar siempre el modelo más barato. ¿Qué le dices?** Que sí para leer y no
+   para escribir. Medido: el barato resolvía las consultas pero fallaba los reembolsos; el
+   potente cuesta ~0,001 $ por turno. Un reembolso mal gestionado cuesta una reclamación y
+   tiempo de soporte. La regla es simple y auditable: si el turno puede cambiar algo, modelo
+   potente.
 
 <a id="fase-7"></a>
 
