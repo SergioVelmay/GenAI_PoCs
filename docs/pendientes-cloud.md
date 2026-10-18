@@ -58,7 +58,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 ## Fase 5 · Evals ([doc](fase-5-evals.md))
 
 - [x] `generation_eval --mode llm --judge native|ragas|deepeval --limit 20 --budget-usd 0.50` con la misma muestra (18-10-2026, ~0,39 $ en total): informes en `evals/reports/azure/`.
-- [ ] Calibrar los jueces: Sergio etiqueta ~20 respuestas a mano y se mide el acuerdo humano-juez antes de usar el juez como gate.
+- [x] Calibrar los jueces (18-10-2026, ~0,96 $): conjunto `evals/calibration/calibration-v1`, etiquetas a ciegas y adjudicadas; juez nativo kappa 0,82 (fidelidad) y 1,0 (relevancia). Informe en `evals/reports/azure/calibration.md`.
 - [x] Juez con modelo distinto del generador (`gpt-4.1`, despliegue `judge` en Terraform) y embeddings reales (`text-embedding-3-small`) para `AnswerRelevancy` de RAGAS.
 - [ ] Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.
 - [x] Evals de retrieval con embeddings reales y Semantic Ranker en Azure (`--engine azure --engine azure-semantic`, 18-10-2026): informe en `evals/reports/azure/`. El baseline de la CI sigue siendo el local (coste 0); el de nube se compara a mano.

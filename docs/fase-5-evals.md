@@ -141,6 +141,53 @@ Hallazgos (con su test):
 | Con el extra `evals`, 2 tests de retrieval fallaban | El plugin de pytest de DeepEval importa `deepeval`, que vuelca el `.env` en `os.environ`: `-p no:deepeval` y `DEEPEVAL_DISABLE_DOTENV=1` |
 | No se sabía qué modelo juzgaba | El `CostMeter` desglosa llamadas y coste por modelo; el informe guarda cada muestra juzgada (para calibrar) |
 
+### Calibración de los jueces (18-10-2026)
+
+Con respuestas reales casi todo sale fiel, así que etiquetarlas no enseña nada. El conjunto
+[calibration-v1](../evals/calibration/) mezcla 8 respuestas correctas con 12 estropeadas a
+propósito, de forma determinista y sin LLM (`rag_evals.calibration build`): cifra cambiada
+(`fabricated`), afirmación inventada añadida (`unsupported`), respuesta de otra pregunta
+(`off_topic`) y evasiva (`non_answer`). Sergio etiqueta a ciegas en `labels-v1.csv` (la vista
+`.md` no muestra el tipo) y `agreement` calcula acierto y **kappa de Cohen** humano-juez.
+
+Detección por tipo (el juez da la fidelidad esperada), antes de las etiquetas humanas:
+
+| Juez | good | fabricated | unsupported | off_topic | non_answer | Coste (20) |
+|---|---:|---:|---:|---:|---:|---:|
+| Nativo | 8/8 | 4/4 | **4/4** | 2/2 | 0/2 | **0,06 $** |
+| RAGAS | 8/8 | 4/4 | **4/4** | 2/2 | 0/2 | 0,31 $ |
+| DeepEval | 8/8 | 3/4 | **0/4** | 1/2 | 0/2 | 0,29 $ |
+
+Lectura:
+
+- **La faithfulness de DeepEval no detecta afirmaciones inventadas**: su veredicto `idk` (no
+  aparece en el contexto) cuenta como fiel; solo penaliza contradicciones. Para RAG, donde lo
+  peligroso es lo que el modelo añade, eso es un hueco. Nativo y RAGAS sí lo detectan.
+- Ningún juez trata la evasiva como "sin afirmaciones" (`na`): nativo y RAGAS la puntúan como
+  no fiel (0) y DeepEval mezcla 1 y 0. Ahí manda la etiqueta humana.
+- La relevancia de RAGAS para respuestas correctas y cortas va de 0,24 a 0,87: su escala
+  (similitud de preguntas regeneradas) no sirve para un umbral sin recalibrarla.
+- El juez nativo detecta lo mismo que RAGAS por una quinta parte del coste.
+
+Acuerdo con las etiquetas humanas ([informe](../evals/reports/azure/calibration.md)). Se
+conservan dos versiones: **a ciegas** y **adjudicada** (corrige 2 despistes del etiquetado, una
+frase inventada y una cifra cambiadas que pasaron como fieles, y unifica el criterio: la relevancia
+mide si responde a lo preguntado, con independencia de que sea verdad; cada cambio se explica en
+`labels-v1-adjudicated.csv`).
+
+| Juez | Fiel: kappa (ciegas → adjudicada) | Relevante: kappa | Relevancia: MAE |
+|---|---:|---:|---:|
+| **Nativo** | 0,64 → **0,82** | 0,63 → **1,00** | 0,12 → **0,05** |
+| RAGAS | 0,64 → 0,82 | 0,06 → 0,03 | 0,33 → 0,37 |
+| DeepEval | 0,43 → 0,30 | 0,21 → 0,47 | 0,27 → 0,10 |
+
+Decisión: **el juez nativo es el candidato a gate** (kappa > 0,8 en las dos métricas, ~5 veces
+más barato). La relevancia de RAGAS no sirve con respuestas cortas y la fidelidad de DeepEval no
+detecta invenciones. Las 2 discrepancias que quedan son las evasivas: el humano dice "sin
+afirmaciones" y el juez "no fiel"; para un gate da igual, porque ambas cosas bloquean.
+Limitaciones: 20 muestras y un solo anotador; antes de bloquear merges, ampliar el conjunto y
+sumar un segundo anotador.
+
 ## 5. Gate en CI
 
 El job `evals` de la CI regenera los informes en Linux y los compara con
@@ -171,8 +218,8 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 (Con confirmación previa; requiere los pendientes de la fase 2.)
 
 1. ~~`generation_eval --mode llm` con los tres jueces sobre la misma muestra~~ (hecho, ver arriba).
-2. Calibración: unas 20 respuestas etiquetadas a mano y acuerdo humano-juez antes de usar el juez
-   como gate.
+2. ~~Calibración humano-juez~~ (hecho: el juez nativo, kappa 0,82 en fidelidad y 1,0 en
+   relevancia).
 3. ~~Juez con un modelo distinto del generador y embeddings reales para RAGAS~~ (hecho: `gpt-4.1`
    y `text-embedding-3-small`).
 4. Carril A: Azure AI Foundry Evaluation y Amazon Bedrock Evaluations con el mismo golden dataset.

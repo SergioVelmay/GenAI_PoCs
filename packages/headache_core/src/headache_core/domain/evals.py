@@ -1,7 +1,7 @@
 """Metricas de retrieval puras y deterministas: el gold se define por document_id."""
 
 import math
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 
 
 def unique_in_order(ids: Iterable[str]) -> tuple[str, ...]:
@@ -69,6 +69,25 @@ def average_precision(relevance: Sequence[bool]) -> float | None:
             hits += 1
             precisions.append(hits / position)
     return sum(precisions) / len(precisions) if precisions else 0.0
+
+
+def cohen_kappa(first: Sequence[Hashable], second: Sequence[Hashable]) -> float | None:
+    """Acuerdo entre dos anotadores corregido por azar: 1 total, 0 como el azar, <0 peor.
+
+    None si no hay pares o si el acuerdo por azar es 1 (ambos usan siempre la misma etiqueta):
+    ahi el acuerdo observado no dice nada.
+    """
+    if len(first) != len(second):
+        raise ValueError("Las dos series de etiquetas deben tener la misma longitud")
+    if not first:
+        return None
+    total = len(first)
+    observed = sum(a == b for a, b in zip(first, second, strict=True)) / total
+    labels = set(first) | set(second)
+    expected = sum((first.count(label) / total) * (second.count(label) / total) for label in labels)
+    if expected == 1:
+        return None
+    return (observed - expected) / (1 - expected)
 
 
 def percentile(values: Sequence[float], q: float) -> float:

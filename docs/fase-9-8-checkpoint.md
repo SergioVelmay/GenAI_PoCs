@@ -170,13 +170,15 @@ AI Search se destruyó al terminar (de 11:17 a 12:08, ~0,09 $) y `terraform plan
 | Nativo frente a RAGAS y DeepEval (misma muestra de 20) | Juez nativo ×5–7 más barato (0,029 $ frente a 0,208 $ y 0,138 $) y el más rápido; mismas precision y recall de contexto; `answer_relevancy` no comparable entre jueces |
 | Fugas de ACL y citas | 0 fugas, citas 100 % válidas, 4/4 abstenciones correctas |
 
+| Calibración (20 muestras, 12 estropeadas a propósito, ~0,96 $) | Juez nativo: kappa 0,82 en fidelidad y 1,0 en relevancia (etiquetas adjudicadas); **DeepEval no detecta ninguna afirmación inventada** (0/4). El nativo queda como candidato a gate |
+
 Hallazgos: un veredicto incoherente abortaba la eval (ahora *fail-closed* por muestra), DeepEval
 degeneraba en espacios con el modo *strict* y su plugin de pytest cargaba el `.env`. Detalle en
 [fase 5](fase-5-evals.md#resultados-en-azure-18-10-2026).
 
 ## 6. Pendiente en este checkpoint
 
-- Fase 5: calibración humano-juez, juez de fidelidad sobre Foundry IQ, Foundry Evaluation y CI en
+- Fase 5: juez de fidelidad sobre Foundry IQ, Foundry Evaluation y CI en
   `enforce`.
 - Pendientes de Azure de las fases 6 a 8 ([pendientes-cloud.md](pendientes-cloud.md)).
 - Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.

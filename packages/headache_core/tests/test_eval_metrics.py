@@ -4,6 +4,7 @@ import pytest
 
 from headache_core.domain.evals import (
     average_precision,
+    cohen_kappa,
     hit_at_k,
     ndcg_at_k,
     percentile,
@@ -56,6 +57,20 @@ def test_ratio_distinguishes_nothing_to_measure_from_zero() -> None:
     assert ratio([True, False, True, True]) == 0.75
     assert ratio([False]) == 0.0
     assert ratio([]) is None
+
+
+def test_cohen_kappa_corrects_agreement_for_chance() -> None:
+    assert cohen_kappa(["si", "no", "si", "no"], ["si", "no", "si", "no"]) == 1.0
+    assert cohen_kappa(["si", "si", "no", "no"], ["si", "no", "si", "no"]) == 0.0
+    assert cohen_kappa(["si", "no"], ["no", "si"]) == -1.0
+    # Ejemplo clasico: 70 % de acuerdo observado, 50 % por azar -> 0,4.
+    first = ["si"] * 25 + ["no"] * 25
+    second = ["si"] * 20 + ["no"] * 5 + ["si"] * 10 + ["no"] * 15
+    assert cohen_kappa(first, second) == pytest.approx(0.4)
+    assert cohen_kappa([], []) is None
+    assert cohen_kappa(["si", "si"], ["si", "si"]) is None
+    with pytest.raises(ValueError):
+        cohen_kappa(["si"], [])
 
 
 def test_average_precision_rewards_relevant_contexts_on_top() -> None:

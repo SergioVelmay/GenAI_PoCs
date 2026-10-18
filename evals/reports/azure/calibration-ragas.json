@@ -1,0 +1,241 @@
+{
+  "judge": "ragas",
+  "cost": {
+    "calls": 216,
+    "failed_calls": 0,
+    "unpriced_calls": 0,
+    "input_tokens": 213346,
+    "cached_input_tokens": 136448,
+    "output_tokens": 10542,
+    "cost_usd": "0.306356",
+    "budget_usd": "0.50",
+    "calls_by_model": {
+      "gpt-4.1-2025-04-14": 216
+    },
+    "cost_by_model": {
+      "gpt-4.1-2025-04-14": "0.306356"
+    }
+  },
+  "items": [
+    {
+      "id": "cal-01",
+      "kind": "non_answer",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-02",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.2681725818653764,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-03",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.48107069654903817,
+        "context_precision": 0.99999999998,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-04",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.2712093272646619,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-05",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.6666666666666666,
+        "answer_relevancy": 0.616194502398438,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-06",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.5461463093557198,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-07",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.402739684297268,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-08",
+      "kind": "non_answer",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-09",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.23511148178513977,
+        "context_precision": 0.49999999995,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-10",
+      "kind": "unsupported",
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.3938361721323771,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-11",
+      "kind": "off_topic",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.13286075000567632,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-12",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.2906952283412994,
+        "context_precision": 0.99999999998,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-13",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.6143662035764361,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-14",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.4235149327923266,
+        "context_precision": 0.7499999999625,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-15",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.8670549659649468,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-16",
+      "kind": "off_topic",
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.1516006047922009,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-17",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.4880233990747402,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-18",
+      "kind": "fabricated",
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.6082868242644717,
+        "context_precision": 0.999999999975,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-19",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.6183488698288649,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    },
+    {
+      "id": "cal-20",
+      "kind": "good",
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.46936370410666006,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "error": null
+    }
+  ]
+}

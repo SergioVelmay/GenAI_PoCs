@@ -319,6 +319,16 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 5. **LlamaIndex es mucho más lento, ¿lo descartas?** No por eso: la calidad es la misma y acelera el
    desarrollo. Lo uso donde aporta y mantengo el camino caliente en código propio cuando la latencia
    importa a escala.
+6. **¿Cómo sabes que tu juez LLM es fiable?** Calibrándolo contra un humano antes de usarlo como
+   gate. Monté 20 muestras con 12 respuestas estropeadas a propósito (cifra cambiada, afirmación
+   inventada, respuesta de otra pregunta, evasiva), las etiqueté a ciegas y medí el acuerdo con
+   kappa de Cohen. El juez propio llegó a 0,82 en fidelidad y 1,0 en relevancia. Y salió algo que
+   no habría visto leyendo la documentación: la fidelidad de DeepEval no detecta afirmaciones
+   inventadas, solo contradicciones.
+7. **¿El juez puede ser el mismo modelo que genera?** No: tiende a darse la razón (sesgo de
+   autopreferencia). En este repo el router mandaba los dos al mismo modelo sin que nadie lo
+   decidiera; ahora el juez es `gpt-4.1`, fijo y fuera del router, y el informe desglosa el coste
+   por modelo para que se vea.
 
 ### Negocio y stakeholders
 
@@ -332,6 +342,12 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 3. **¿Cuánto cuesta evaluar?** Las evals deterministas cuestan 0 y corren en cada PR. Los jueces LLM
    se ejecutan con presupuesto máximo (`--budget-usd`) sobre una muestra estratificada, a mano o
    programados, nunca en cada PR.
+4. **¿Por qué dedicar tiempo de una persona a etiquetar si ya tienes un juez automático?** Porque
+   el juez es el instrumento de medida: si mide mal, todas las decisiones que tomes con él están
+   mal. Calibrarlo costó ~1 $ y 15 minutos de etiquetado, y evitó adoptar una métrica (la de un
+   framework conocido) que dejaba pasar justo el fallo más peligroso para Headache: respuestas que
+   inventan condiciones. Además, hasta el humano se equivoca (2 despistes de 20): por eso se
+   etiqueta a ciegas y se adjudica de forma documentada.
 
 <a id="fase-6"></a>
 
