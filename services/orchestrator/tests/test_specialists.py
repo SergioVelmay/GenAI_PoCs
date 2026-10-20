@@ -29,7 +29,7 @@ from orchestrator.testing import ORDER
 from orchestrator.testing import local_world as _world
 
 ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(set(FLAVORS) - MANAGED_FLAVORS))
-PENDING = "Tu solicitud queda pendiente de revisi?n por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
 
 
 def _envelope(intent: SupportIntent, specialist: Specialist, **changes: Any) -> CaseEnvelope:

@@ -15,33 +15,16 @@ import argparse
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import asynccontextmanager
 
 import uvicorn
 from starlette.applications import Starlette
 
-from booking_agent.guardrails import build_pii_detector, build_shield
-from harness.rules.case_reply import SendCaseReplyArgs
-from headache_core.adapters.llm_factory import build_gateway
-from headache_core.adapters.memory import InMemoryCheckpointStore, InMemoryPreferenceStore
-from headache_core.adapters.postgres import create_engine, create_session_factory
-from headache_core.adapters.postgres.approvals import PostgresApprovalStore
-from headache_core.adapters.ticketing_http import HttpTicketingClient
-from headache_core.application.tools import ToolContext
 from headache_core.config import Settings, get_settings
 from headache_core.domain import Specialist
+from orchestrator.bootstrap import open_specialist_deps
 from orchestrator.remote import build_verifier, create_specialist_app
-from orchestrator.specialists import SpecialistDeps, build_specialist
-from retrieval.bootstrap import build_runtime
-from retrieval.settings import RetrievalSettings
-
-logger = logging.getLogger("orchestrator.serve")
-
-
-async def log_outbox(args: SendCaseReplyArgs, context: ToolContext) -> str:
-    """Envío simulado en local: el email aprobado se registra, no se manda."""
-    logger.info("Email aprobado para %s: %s", context.customer_id, args.subject)
-    return f"local-{args.reference}"
+from orchestrator.specialists import build_specialist
 
 
 @asynccontextmanager
@@ -49,32 +32,10 @@ async def specialist_app(
     specialist: Specialist, settings: Settings, public_url: str
 ) -> AsyncIterator[Starlette]:
     verifier = build_verifier(settings.a2a, specialist.value)
-    async with AsyncExitStack() as stack:
-        engine = create_engine(settings.postgres, application_name=f"agent-{specialist.value}")
-        stack.push_async_callback(engine.dispose)
-        ticketing = await stack.enter_async_context(
-            HttpTicketingClient.from_settings(settings.ticketing_api)
-        )
-        retrieval = None
-        if specialist is not Specialist.CREATIVE:
-            knowledge = await build_runtime(RetrievalSettings(), settings)
-            stack.push_async_callback(knowledge.aclose)
-            retrieval = knowledge.service
-        shield = await stack.enter_async_context(build_shield(settings))
-        deps = SpecialistDeps(
-            llm=build_gateway(settings),
-            ticketing=ticketing,
-            retrieval=retrieval,
-            # Por caso: cada caso es un hilo nuevo. Las preferencias, en memoria del proceso
-            # (en la nube: AgentCore Memory / Cosmos DB, fase 13-14).
-            preferences=InMemoryPreferenceStore(),
-            checkpoints=InMemoryCheckpointStore(),
-            approvals=PostgresApprovalStore(create_session_factory(engine)),
-            send_reply=log_outbox,
-            shield=shield,
-            pii=build_pii_detector(settings),
-            fail_open=settings.guardrails.fail_open,
-        )
+    knowledge = specialist is not Specialist.CREATIVE
+    async with open_specialist_deps(
+        settings, knowledge=knowledge, name=f"agent-{specialist.value}"
+    ) as (deps, _):
         yield create_specialist_app(
             build_specialist(specialist, deps),
             public_url=public_url,

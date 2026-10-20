@@ -46,11 +46,13 @@ class SpecialistDeps:
     fail_open: bool = False
 
 
-def approval_registry(deps: SpecialistDeps) -> ToolRegistry:
+def approval_registry_for(ticketing: TicketingPort, send_reply: ReplySender) -> ToolRegistry:
     """Tools que solo ejecuta `ApprovalService` tras la aprobación de una persona."""
-    return ToolRegistry(
-        [*build_ticketing_tools(deps.ticketing), *build_case_reply_tools(deps.send_reply)]
-    )
+    return ToolRegistry([*build_ticketing_tools(ticketing), *build_case_reply_tools(send_reply)])
+
+
+def approval_registry(deps: SpecialistDeps) -> ToolRegistry:
+    return approval_registry_for(deps.ticketing, deps.send_reply)
 
 
 def build_approval_service(deps: SpecialistDeps) -> ApprovalService:

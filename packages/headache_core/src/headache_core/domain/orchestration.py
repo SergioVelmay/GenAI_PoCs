@@ -61,6 +61,8 @@ def resolve_language(detected: str, fallback: str) -> str:
 
 
 class CaseStatus(StrEnum):
+    # Reclamado por un worker de triaje (flujo asíncrono): las copias del email lo ven ocupado.
+    RECEIVED = "received"
     TRIAGED = "triaged"
     PENDING_APPROVAL = "pending_approval"
     RESOLVED = "resolved"
@@ -69,6 +71,7 @@ class CaseStatus(StrEnum):
 
 _TRANSITIONS: Mapping[CaseStatus, frozenset[CaseStatus]] = MappingProxyType(
     {
+        CaseStatus.RECEIVED: frozenset({CaseStatus.TRIAGED, CaseStatus.ESCALATED}),
         CaseStatus.TRIAGED: frozenset(
             {CaseStatus.PENDING_APPROVAL, CaseStatus.RESOLVED, CaseStatus.ESCALATED}
         ),

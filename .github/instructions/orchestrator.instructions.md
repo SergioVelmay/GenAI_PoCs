@@ -1,5 +1,5 @@
 ---
-applyTo: "services/orchestrator/**,packages/headache_core/src/headache_core/domain/orchestration.py,packages/headache_core/src/headache_core/application/orchestration/**,packages/harness/src/harness/rules/case_reply.py"
+applyTo: "services/orchestrator/**,packages/headache_core/src/headache_core/domain/orchestration.py,packages/headache_core/src/headache_core/application/orchestration/**,packages/headache_core/src/headache_core/ports/cases.py,packages/headache_core/src/headache_core/adapters/postgres/cases.py,packages/harness/src/harness/rules/case_reply.py"
 description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Conocimiento (fase 9)."
 ---
 
@@ -34,6 +34,13 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 - Cliente: `RemoteSpecialist` cumple `SpecialistAgent`; comprueba el nombre de la Agent Card, el estado de la tarea y que el resultado es del mismo caso y especialista.
 - OAuth (`remote/auth.py`): token de servicio (`sub` en `A2A__ALLOWED_CALLERS`, audience por especialista, scope `cases:handle`); sin token o audience incorrecto = 401, sin scope o llamante no permitido = 403. Sin `verifier` solo en tests en proceso.
 - Contenedores: `services/orchestrator/Dockerfile`, perfil `agents` (8201-8203). `build_specialist` construye solo lo que necesita cada contenedor (el Creativo no carga conocimiento). Prueba sin coste: `uv run python scripts/a2a_smoke.py`.
+
+## Asíncrono (`async_flow.py`, `worker.py`, `intake.py`, `cases.py`)
+
+- Coreografía por eventos: `support.emails` → `TriageHandler` → `case.triaged.<especialista>` → `SpecialistHandler` → `case.outcomes`; revisión con `CaseReviewService`. Topics con prefijo opcional (`CaseTopics`) para aislar tests y entornos. `correlation_id = case_id` en cada evento.
+- Estado en `CaseStore` (`ports/cases.py`; `InMemoryCaseStore`, `PostgresCaseStore`, migración 0006 `support_cases`): alta única por email y transiciones compare-and-set. El triaje **reclama** el caso (`received`) antes de llamar al LLM; una primera entrega que lo encuentra reclamado se descarta y una reentrega (`delivery_count > 1`) lo retoma.
+- Idempotencia: caso `triaged` repetido ⇒ solo se republica; especialista ⇒ solo actúa si el caso sigue `triaged` y el traspaso coincide con el guardado. Mal formado, ruta inválida o traspaso alterado ⇒ `PermanentMessageError` (DLQ). El resto, transitorio (reintento del broker).
+- Workers por rol (`python -m orchestrator.worker [triage|refunds|creative|knowledge]`), especialistas en proceso o A2A (`ORCHESTRATOR__SPECIALISTS`). Límite: guardar y publicar no son atómicos (transactional outbox pendiente).
 
 ## MAF (`maf_workflow.py`)
 

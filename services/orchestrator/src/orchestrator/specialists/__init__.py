@@ -3,6 +3,7 @@ from orchestrator.specialists.creative import CreativeSpecialist
 from orchestrator.specialists.factory import (
     SpecialistDeps,
     approval_registry,
+    approval_registry_for,
     build_approval_service,
     build_specialist,
     build_specialists,
@@ -21,6 +22,7 @@ __all__ = [
     "CreativeSpecialist",
     "SpecialistDeps",
     "approval_registry",
+    "approval_registry_for",
     "build_approval_service",
     "build_knowledge_spec",
     "build_refunds_spec",

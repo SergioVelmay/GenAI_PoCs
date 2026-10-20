@@ -14,6 +14,7 @@ from types import TracebackType
 from typing import Any, Self
 
 from headache_core.domain import (
+    CaseStatus,
     Customer,
     Event,
     EventCategory,
@@ -45,6 +46,7 @@ from headache_core.ports.approvals import (
     ApprovalRequest,
     ApprovalStatus,
 )
+from headache_core.ports.cases import CaseRecord
 from headache_core.ports.memory import CheckpointConflictError, ThreadState
 
 
@@ -471,3 +473,32 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
     return dot / norm if norm else 0.0
+
+
+class InMemoryCaseStore:
+    """Mismas garantías que PostgreSQL: alta única por caso y transiciones compare-and-set."""
+
+    def __init__(self) -> None:
+        self.items: dict[str, CaseRecord] = {}
+
+    async def get(self, case_id: str) -> CaseRecord | None:
+        return self.items.get(case_id)
+
+    async def create(self, record: CaseRecord) -> bool:
+        if record.case_id in self.items:
+            return False
+        self.items[record.case_id] = record
+        return True
+
+    async def transition(self, case_id: str, expected: CaseStatus, updated: CaseRecord) -> bool:
+        current = self.items.get(case_id)
+        if current is None or current.status is not expected:
+            return False
+        self.items[case_id] = updated
+        return True
+
+    async def list_cases(
+        self, *, status: CaseStatus | None = None, limit: int = 50
+    ) -> list[CaseRecord]:
+        found = [r for r in self.items.values() if status is None or r.status is status]
+        return sorted(found, key=lambda r: r.created_at)[:limit]

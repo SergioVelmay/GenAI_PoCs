@@ -29,7 +29,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from headache_core.domain import EventCategory, OrderStatus, RefundStatus
+from headache_core.domain import (
+    CaseStatus,
+    EventCategory,
+    OrderStatus,
+    RefundStatus,
+    Specialist,
+)
 from headache_core.ports.approvals import ApprovalStatus
 
 NAMING_CONVENTION = {
@@ -253,3 +259,27 @@ class ApprovalRow(Base):
     reviewer: Mapped[str | None] = mapped_column(Text)
     note: Mapped[str] = mapped_column(Text)
     result: Mapped[str | None] = mapped_column(Text)
+
+
+class SupportCaseRow(Base):
+    """Estado de cada caso del flujo asíncrono multi-agente (fase 9.6)."""
+
+    __tablename__ = "support_cases"
+    __table_args__ = (
+        # Un caso por email: un email repetido en la cola cae en el mismo caso.
+        Index("uq_support_cases_email_id", "email_id", unique=True),
+        # Cola del revisor y paneles de operaciones: casos por estado y antigüedad.
+        Index("ix_support_cases_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    email_id: Mapped[str] = mapped_column(Text)
+    customer_id: Mapped[str] = mapped_column(Text)
+    specialist: Mapped[Specialist | None] = mapped_column(_str_enum(Specialist, "case_specialist"))
+    status: Mapped[CaseStatus] = mapped_column(_str_enum(CaseStatus, "case_status"))
+    envelope: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    outcome: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    approval_id: Mapped[str | None] = mapped_column(Text)
+    guardrails: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
