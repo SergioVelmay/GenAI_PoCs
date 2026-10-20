@@ -126,15 +126,17 @@ class TriageHandler:
             existing = await self._cases.get(case_id)
             if existing is None:
                 raise RuntimeError(f"Caso {case_id} en conflicto pero no encontrado.")
-            if existing.status is CaseStatus.TRIAGED:
+            # Una primera entrega que encuentra el caso ya creado es una copia del email: el dueño
+            # lo termina o, si cae, el broker le reentrega SU mensaje (entrega > 1). Solo esa
+            # reentrega retoma el trabajo; si una copia republicara, el especialista correría dos
+            # veces (visto en la CI con RabbitMQ).
+            redelivery = message.delivery_count > 1
+            if existing.status is CaseStatus.TRIAGED and redelivery:
                 # El triaje anterior guardó el caso pero quizá no llegó a publicarlo.
                 logger.info("[%s] reentrega: se republica el traspaso sin re-triagear", case_id)
                 await self._publish(existing)
                 return
-            # Una primera entrega que encuentra el caso reclamado es una copia concurrente: el
-            # dueño lo terminará o, si cae, el broker le reentrega SU mensaje (entrega > 1),
-            # que retoma el triaje.
-            if existing.status is not CaseStatus.RECEIVED or message.delivery_count == 1:
+            if existing.status is not CaseStatus.RECEIVED or not redelivery:
                 logger.info("[%s] email duplicado: el caso ya está %s", case_id, existing.status)
                 return
             logger.info("[%s] se retoma un triaje interrumpido", case_id)

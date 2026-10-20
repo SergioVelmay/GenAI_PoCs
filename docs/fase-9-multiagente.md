@@ -206,6 +206,7 @@ Hallazgos que dejaron test de regresión:
 | MAF no guardaba checkpoints de tipos propios y solo avisaba en el log | Lista de tipos permitidos y `CheckpointNotSavedError` |
 | El validador JWT devolvía 401 cuando faltaba el scope | Scope en el middleware: 403 (RFC 6750) |
 | Dos copias del email triadas a la vez (doble coste) | Reclamación `received` antes del LLM |
+| En la CI, una copia que llegaba con el caso ya `triaged` republicaba el traspaso y el especialista corría dos veces | Solo una reentrega (`delivery_count > 1`) republica; una copia se descarta |
 | Un `case_id` largo rompía el envío del Creativo (límite de 40) | Límite a 200 (los `Message-ID` reales son largos) |
 
 ## 4. Comparativa Azure ↔ AWS ↔ framework

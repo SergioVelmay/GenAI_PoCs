@@ -39,7 +39,7 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 
 - Coreografía por eventos: `support.emails` → `TriageHandler` → `case.triaged.<especialista>` → `SpecialistHandler` → `case.outcomes`; revisión con `CaseReviewService`. Topics con prefijo opcional (`CaseTopics`) para aislar tests y entornos. `correlation_id = case_id` en cada evento.
 - Estado en `CaseStore` (`ports/cases.py`; `InMemoryCaseStore`, `PostgresCaseStore`, migración 0006 `support_cases`): alta única por email y transiciones compare-and-set. El triaje **reclama** el caso (`received`) antes de llamar al LLM; una primera entrega que lo encuentra reclamado se descarta y una reentrega (`delivery_count > 1`) lo retoma.
-- Idempotencia: caso `triaged` repetido ⇒ solo se republica; especialista ⇒ solo actúa si el caso sigue `triaged` y el traspaso coincide con el guardado. Mal formado, ruta inválida o traspaso alterado ⇒ `PermanentMessageError` (DLQ). El resto, transitorio (reintento del broker).
+- Idempotencia: una primera entrega que encuentra el caso ya creado es una copia y se descarta; solo una reentrega (`delivery_count > 1`) retoma (`received`) o republica (`triaged`); especialista ⇒ solo actúa si el caso sigue `triaged` y el traspaso coincide con el guardado. Mal formado, ruta inválida o traspaso alterado ⇒ `PermanentMessageError` (DLQ). El resto, transitorio (reintento del broker).
 - Workers por rol (`python -m orchestrator.worker [triage|refunds|creative|knowledge]`), especialistas en proceso o A2A (`ORCHESTRATOR__SPECIALISTS`). Límite: guardar y publicar no son atómicos (transactional outbox pendiente).
 
 ## MAF (`maf_workflow.py`)

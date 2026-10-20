@@ -153,7 +153,13 @@ async def test_a_redelivery_after_a_crash_republishes_without_retriaging() -> No
         )
     )
 
+    # Una copia del email (primera entrega) no republica: lo haría dos veces con el dueño vivo.
     await flow.bus.publish(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL))
+    assert flow.published(triaged_topic(Specialist.KNOWLEDGE)) == []
+
+    # La reentrega del mensaje del dueño (entrega 2) sí republica.
+    handler = TriageHandler(TriageAgent(flow.world.llm), flow.cases, flow.bus, clock=lambda: NOW)
+    await handler(Message(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL), delivery_count=2))
 
     case = await flow.cases.get("case_eml_2")
     assert case is not None and case.status is CaseStatus.RESOLVED

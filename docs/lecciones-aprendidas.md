@@ -21,6 +21,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 
 | Qué pasó | Causa | Regla |
 |---|---|---|
+| Un test de concurrencia con RabbitMQ pasó 5 veces en local y falló en la CI (fase 9.7) | Carrera dependiente del tiempo: en la CI la copia del email llegó después de triar y republicó el traspaso | Los tests con colas reales se repiten varias veces antes de dar algo por bueno y se razona cada orden de llegada posible, no solo el observado |
 | La CI de la 7.4 falló y nadie lo vio | En local se ejecutó `terraform fmt`, no `terraform fmt -check -recursive` como la CI | Verificar con **el mismo comando que la CI**. Tras cada push, vigilar la ejecución hasta el final (`gh run watch`) |
 | Un "sin coincidencias" en la búsqueda del nombre real era falso (fase 0) | La búsqueda falló por el orden de los argumentos y no devolvió error visible | Comprobar el código de salida de las búsquedas de seguridad. Ahora lo hace el hook de pre-commit |
 | NLTK fallaba en la CI de Linux (fase 5) | uv instala con hardlinks y NLTK rechaza ficheros con `st_nlink > 1` | `UV_LINK_MODE=copy` en la CI |
