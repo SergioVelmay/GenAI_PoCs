@@ -84,7 +84,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 7 | Un agente en 7 sabores (LangGraph, LlamaIndex, MAF, Strands, Foundry, AgentCore...) | ✅* | [fase-7](docs/fase-7-agentes.md) |
 | 8 | Agentic harness: validación, SQL seguro, PII, prompt injection, human-in-the-loop | ✅* | [fase-8](docs/fase-8-harness.md) |
 | 8→9 | Checkpoint: CI, documentación, desarrollo con IA y validación en Azure de las fases 2–8 | ✅ | [checkpoint](docs/fase-9-8-checkpoint.md) |
-| 9 | Orquestación multi-agente, A2A y asíncrono | Siguiente | |
+| 9 | Orquestación multi-agente, A2A y asíncrono | 🚧 En curso | |
 | 10–15 | Escala, observabilidad, red teaming y LLMOps, despliegue en AWS y en Azure, extras | Plan | |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.

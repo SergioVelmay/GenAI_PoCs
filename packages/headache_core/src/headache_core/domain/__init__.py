@@ -14,6 +14,19 @@ from headache_core.domain.models import (
     SupportIntent,
     Venue,
 )
+from headache_core.domain.orchestration import (
+    ROUTES,
+    CaseEnvelope,
+    CaseOutcome,
+    CaseStatus,
+    Specialist,
+    Urgency,
+    can_transition,
+    is_terminal,
+    resolve_language,
+    resolve_order_id,
+    route,
+)
 from headache_core.domain.policies import (
     MAX_TICKETS_PER_ORDER,
     PurchaseNotAllowedError,
@@ -27,6 +40,10 @@ from headache_core.domain.policies import (
 
 __all__ = [
     "MAX_TICKETS_PER_ORDER",
+    "ROUTES",
+    "CaseEnvelope",
+    "CaseOutcome",
+    "CaseStatus",
     "Customer",
     "DocumentType",
     "Event",
@@ -42,10 +59,17 @@ __all__ = [
     "RefundStatus",
     "RuleViolation",
     "Session",
+    "Specialist",
     "SupportEmail",
     "SupportIntent",
+    "Urgency",
     "Venue",
+    "can_transition",
     "check_purchase",
     "check_refund_resolution",
     "evaluate_refund",
+    "is_terminal",
+    "resolve_language",
+    "resolve_order_id",
+    "route",
 ]
