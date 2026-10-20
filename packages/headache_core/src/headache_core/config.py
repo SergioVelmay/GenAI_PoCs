@@ -186,6 +186,34 @@ class McpSettings(BaseModel):
         return self.audience_template.format(server=server)
 
 
+class A2ASettings(BaseModel):
+    """Especialistas como microservicios A2A (fase 9.5): mismo modelo OAuth que MCP.
+
+    Los tokens son de servicio a servicio: el `sub` es quien llama (el orquestador), no el
+    cliente. La identidad del cliente viaja en el traspaso, que solo acepta llamantes de la lista.
+    """
+
+    issuer: str = "https://auth.headache.local"
+    jwks_uri: str = ""
+    public_key_file: str = ""
+    # Un audience por especialista: un token para `creative` no sirve en `refunds`.
+    audience_template: str = "api://headache-agents/{specialist}"
+    scope: str = "cases:handle"
+    allowed_callers: list[str] = ["svc-orchestrator"]
+    # Identidad del orquestador en los tokens que emite el emisor de desarrollo.
+    caller_id: str = "svc-orchestrator"
+    dev_private_key_file: str = ".secrets/mcp-dev-key.pem"
+    urls: dict[str, str] = {
+        "refunds": "http://127.0.0.1:8201",
+        "creative": "http://127.0.0.1:8202",
+        "knowledge": "http://127.0.0.1:8203",
+    }
+    timeout_s: float = 120.0
+
+    def audience(self, specialist: str) -> str:
+        return self.audience_template.format(specialist=specialist)
+
+
 class GuardrailsSettings(BaseModel):
     """Fase 8.4: escudo de contenido y detector de PII del harness."""
 
@@ -236,6 +264,7 @@ class Settings(BaseSettings):
     foundry_iq: FoundryIQSettings = FoundryIQSettings()
     ticketing_api: TicketingApiSettings = TicketingApiSettings()
     mcp: McpSettings = McpSettings()
+    a2a: A2ASettings = A2ASettings()
     guardrails: GuardrailsSettings = GuardrailsSettings()
     content_safety: ContentSafetySettings = ContentSafetySettings()
     bedrock_guardrail: BedrockGuardrailSettings = BedrockGuardrailSettings()

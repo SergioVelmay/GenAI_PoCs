@@ -5,7 +5,7 @@ description: "GitHub Actions y hooks: acciones por SHA, runner fijado y jobs sin
 
 # CI (`.github/workflows/ci.yml`)
 
-- Jobs: `quality` (ruff, formato, mypy, pytest, smoke tests), `evals` (golden, retrieval, generación, gate en modo `enforce` desde el checkpoint 8→9, ataques `--check`), `mcp-image` (build + health), `terraform` (matriz aws/azure: fmt/init/validate), `integration` (PostgreSQL + RabbitMQ + ElasticMQ, migraciones arriba-abajo-arriba, `alembic check`, `pytest -m integration`, carga y benchmark).
+- Jobs: `quality` (ruff, formato, mypy, pytest, smoke tests), `evals` (golden, retrieval, generación, gate en modo `enforce` desde el checkpoint 8→9, ataques `--check`), `mcp-image` (build + health), `agents-image` (especialistas A2A: build, Agent Card, 401 sin token y 200 con token de desarrollo generado dentro de la imagen), `terraform` (matriz aws/azure: fmt/init/validate), `integration` (PostgreSQL + RabbitMQ + ElasticMQ, migraciones arriba-abajo-arriba, `alembic check`, `pytest -m integration`, carga y benchmark).
 - Acciones fijadas por **SHA de commit** con la versión en un comentario (`uses: owner/action@<sha> # vX.Y.Z`). `setup-uv` ya no publica tags mayores. Dependabot propone subidas en una PR mensual agrupada.
 - Runner fijado (`ubuntu-26.04`), nunca `ubuntu-latest`.
 - `uv sync --all-packages --locked`; `UV_LINK_MODE=copy` (NLTK rechaza hardlinks). La CI no instala extras opcionales (`evals`, `pii`).

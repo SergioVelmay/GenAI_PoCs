@@ -2,6 +2,7 @@
 #                Con observabilidad: docker compose --profile observability up -d
 #                Emuladores de colas: --profile sqs (ElasticMQ) | --profile servicebus
 #                Servidores MCP:     --profile mcp (necesitan ticketing_api en el host :8000)
+#                Especialistas A2A:  --profile agents (ídem; coste al recibir casos)
 name: genai-pocs
 
 x-langfuse-env: &langfuse-env
@@ -157,6 +158,50 @@ services:
         "refunds": "http://mcp-refunds:8103/mcp"}
     ports:
       - "127.0.0.1:8100:8100"
+
+  # ---------- Especialistas A2A (fase 9.5): una imagen, un contenedor por subagente ----------
+  # Llaman al LLM al recibir casos (coste). Azure OpenAI dentro del contenedor necesita
+  # AZURE_OPENAI__API_KEY (no hay `az login`); sin clave, ejecútalos en el host con
+  # `uv run python -m orchestrator.serve <especialista> --port 820X`.
+  agent-refunds: &agent
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    image: headache-agents:local
+    profiles: [agents]
+    restart: unless-stopped
+    command: ["refunds", "--public-url", "http://127.0.0.1:8201"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ENVIRONMENT: local
+      POSTGRES__HOST: postgres
+      TICKETING_API__BASE_URL: ${AGENTS_TICKETING_API_URL:-http://host.docker.internal:8000}
+      A2A__PUBLIC_KEY_FILE: /run/secrets/headache/mcp-dev-key.pub
+      RETRIEVAL__DOCUMENTS_PATH: /app/data/synthetic/knowledge/documents.jsonl
+    volumes:
+      - ./.secrets:/run/secrets/headache:ro
+      - ./data:/app/data:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8201:8000"
+
+  agent-creative:
+    <<: *agent
+    command: ["creative", "--public-url", "http://127.0.0.1:8202"]
+    ports:
+      - "127.0.0.1:8202:8000"
+
+  agent-knowledge:
+    <<: *agent
+    command: ["knowledge", "--public-url", "http://127.0.0.1:8203"]
+    ports:
+      - "127.0.0.1:8203:8000"
 
   # ---------- Observabilidad (Langfuse v3) ----------
   langfuse-web:

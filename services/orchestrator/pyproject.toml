@@ -8,15 +8,20 @@ dependencies = [
     "harness",
     # Los especialistas con tools reutilizan los sabores, el ejecutor y los guardrails de la fase 7-8.
     "booking-agent",
+    # OAuth entre agentes con el mismo validador de JWT y emisor de desarrollo que MCP (fase 6).
+    "mcp-servers",
     "langgraph>=1.2,<2",
     "langgraph-checkpoint-postgres>=3.2,<4",
     "psycopg[binary]>=3.2",
+    "a2a-sdk[fastapi]>=1.2,<2",
+    "uvicorn>=0.30",
 ]
 
 [tool.uv.sources]
 headache-core = { workspace = true }
 harness = { workspace = true }
 booking-agent = { workspace = true }
+mcp-servers = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

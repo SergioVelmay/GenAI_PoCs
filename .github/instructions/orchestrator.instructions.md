@@ -28,6 +28,13 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 - Revisión humana compartida por LangGraph y MAF: `review.py` (`parse_decision`, `apply_review`, `ReviewError`).
 - PostgreSQL: `postgres_checkpointer` en el esquema `langgraph` (fuera de Alembic). En Windows, psycopg async necesita el bucle Selector: lo pone `conftest.py` de la raíz para los tests `integration`.
 
+## A2A (`remote/`, `serve.py`)
+
+- Servidor: `create_specialist_app` (a2a-sdk 1.x, JSON-RPC en `/a2a`, Agent Card pública en `/.well-known/agent-card.json`, `/health`). El traspaso va en un único DataPart; inválido = tarea `REJECTED`; resultado = artefacto `case_outcome`.
+- Cliente: `RemoteSpecialist` cumple `SpecialistAgent`; comprueba el nombre de la Agent Card, el estado de la tarea y que el resultado es del mismo caso y especialista.
+- OAuth (`remote/auth.py`): token de servicio (`sub` en `A2A__ALLOWED_CALLERS`, audience por especialista, scope `cases:handle`); sin token o audience incorrecto = 401, sin scope o llamante no permitido = 403. Sin `verifier` solo en tests en proceso.
+- Contenedores: `services/orchestrator/Dockerfile`, perfil `agents` (8201-8203). `build_specialist` construye solo lo que necesita cada contenedor (el Creativo no carga conocimiento). Prueba sin coste: `uv run python scripts/a2a_smoke.py`.
+
 ## MAF (`maf_workflow.py`)
 
 - `MafCaseWorkflow`: mismo flujo con executors tipados, `add_switch_case_edge_group` (`Default` → `unroutable`) y `request_info` + `@response_handler`. Un `Workflow` nuevo por ejecución (`build()`); `review(run)` restaura desde `run.checkpoint_id`.

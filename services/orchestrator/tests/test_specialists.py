@@ -21,6 +21,7 @@ from orchestrator.specialists import (
     build_approval_service,
     build_knowledge_spec,
     build_refunds_spec,
+    build_specialist,
     build_specialists,
     outcome_from_turn,
 )
@@ -79,6 +80,7 @@ GOOD_COMPLAINT = (
 
 def test_each_specialist_only_gets_its_own_tools() -> None:
     world = _world([])
+    assert world.deps.retrieval is not None
     tools = build_ticketing_tools(world.deps.ticketing)
     refunds = build_refunds_spec(ticketing_tools=tools, retrieval=world.deps.retrieval)
     knowledge = build_knowledge_spec(
@@ -98,6 +100,14 @@ def test_each_specialist_only_gets_its_own_tools() -> None:
     assert "remember_preference" in knowledge.tools.names
     assert "remember_preference" not in refunds.tools.names
     assert refunds.skills.names == ["refund-handling"]
+
+
+def test_each_container_builds_only_what_its_specialist_needs() -> None:
+    deps = replace(_world([]).deps, retrieval=None)
+
+    assert build_specialist(Specialist.CREATIVE, deps).specialist is Specialist.CREATIVE
+    with pytest.raises(ValueError, match="conocimiento"):
+        build_specialist(Specialist.REFUNDS, deps)
 
 
 # --- Reembolsos (agente con tools) ---------------------------------------------------------

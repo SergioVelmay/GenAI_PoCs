@@ -4,6 +4,7 @@ from orchestrator.specialists.factory import (
     SpecialistDeps,
     approval_registry,
     build_approval_service,
+    build_specialist,
     build_specialists,
 )
 from orchestrator.specialists.specs import (
@@ -23,6 +24,7 @@ __all__ = [
     "build_approval_service",
     "build_knowledge_spec",
     "build_refunds_spec",
+    "build_specialist",
     "build_specialists",
     "outcome_from_turn",
 ]

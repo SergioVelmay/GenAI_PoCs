@@ -104,6 +104,28 @@ jobs:
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8101/health && exit 0; sleep 1; done
           docker logs mcp; exit 1
 
+  agents-image:
+    # Especialistas A2A (fase 9.5): la imagen construye, arranca y exige token. Sin LLM ni coste.
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -f services/orchestrator/Dockerfile -t headache-agents:ci .
+      - name: Smoke test (Agent Card, 401 sin token y 200 con token del orquestador)
+        run: |
+          mkdir -p /tmp/keys && chmod 777 /tmp/keys
+          token=$(docker run --rm -v /tmp/keys:/keys --entrypoint python headache-agents:ci -c \
+            "from pathlib import Path; from headache_mcp.auth import DevTokenIssuer; from headache_core.config import A2ASettings as S; s=S(); print(DevTokenIssuer.load_or_create(Path('/keys/dev.pem'), issuer=s.issuer).mint(subject=s.caller_id, audience=s.audience('creative'), scopes=[s.scope]))")
+          docker run -d --name agent -p 127.0.0.1:8202:8000 -v /tmp/keys:/keys:ro \
+            -e A2A__PUBLIC_KEY_FILE=/keys/dev.pub -e AZURE_OPENAI__ENDPOINT=https://llm.invalid \
+            headache-agents:ci creative --public-url http://127.0.0.1:8202
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8202/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8202/.well-known/agent-card.json | grep -q headache-creative-specialist
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8202/a2a -d '{}')" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8202/a2a \
+            -H "Authorization: Bearer $token" -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"GetTask","params":{"id":"x"}}')" = 200 \
+            || { docker logs agent; exit 1; }
+
   terraform:
     runs-on: ubuntu-26.04
     strategy:

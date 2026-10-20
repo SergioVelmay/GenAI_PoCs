@@ -41,7 +41,7 @@ uv run pytest -m integration                                    # requiere docke
 uv run alembic -c packages/headache_core/alembic.ini upgrade head
 uv run python scripts/generate_synthetic_data.py --scale small  # datos en data/synthetic/ (no versionados)
 docker compose up -d                                            # PostgreSQL+pgvector, RabbitMQ
-docker compose --profile observability|sqs|servicebus|mcp up -d # Langfuse, ElasticMQ, Service Bus, MCP
+docker compose --profile observability|sqs|servicebus|mcp|agents up -d # Langfuse, colas, MCP, A2A
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   # gates de evals (coste 0)
 ```
 

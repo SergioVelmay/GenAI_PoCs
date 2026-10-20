@@ -35,6 +35,17 @@ def test_empty_values_fall_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> 
     assert settings.llm_gateway.fallback_provider is None
 
 
+def test_a2a_settings_have_one_audience_per_specialist(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("A2A__URLS", '{"refunds": "http://agent-refunds:8000"}')
+
+    settings = Settings(_env_file=None).a2a
+
+    assert settings.audience("refunds") == "api://headache-agents/refunds"
+    assert settings.audience("refunds") != settings.audience("creative")
+    assert settings.urls == {"refunds": "http://agent-refunds:8000"}
+    assert settings.allowed_callers == ["svc-orchestrator"]
+
+
 def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "azure")
     monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")

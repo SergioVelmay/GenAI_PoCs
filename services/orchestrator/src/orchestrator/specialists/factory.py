@@ -32,7 +32,8 @@ from orchestrator.specialists.specs import build_knowledge_spec, build_refunds_s
 class SpecialistDeps:
     llm: LLMPort
     ticketing: TicketingPort
-    retrieval: RetrievalService
+    # None solo donde no hace falta (el contenedor del Creativo no carga el conocimiento).
+    retrieval: RetrievalService | None
     # Memoria compartida: los tres leen las preferencias del cliente; solo Conocimiento escribe.
     preferences: PreferenceStore
     checkpoints: CheckpointStore
@@ -68,27 +69,32 @@ def _agent_factory(spec: AgentSpec, deps: SpecialistDeps) -> Callable[[], AgentR
     return create
 
 
-def build_specialists(deps: SpecialistDeps) -> Mapping[Specialist, SpecialistAgent]:
-    ticketing_tools = build_ticketing_tools(deps.ticketing)
-    refunds = build_refunds_spec(
-        ticketing_tools=ticketing_tools, retrieval=deps.retrieval, skills=deps.skills
-    )
-    knowledge = build_knowledge_spec(
-        ticketing_tools=ticketing_tools,
-        retrieval=deps.retrieval,
-        preferences=deps.preferences,
-        skills=deps.skills,
-    )
-    return {
-        Specialist.REFUNDS: AgentSpecialist(Specialist.REFUNDS, _agent_factory(refunds, deps)),
-        Specialist.KNOWLEDGE: AgentSpecialist(
-            Specialist.KNOWLEDGE, _agent_factory(knowledge, deps)
-        ),
-        Specialist.CREATIVE: CreativeSpecialist(
+def build_specialist(specialist: Specialist, deps: SpecialistDeps) -> SpecialistAgent:
+    """Un solo especialista: cada contenedor A2A construye (y carga) solo lo que necesita."""
+    if specialist is Specialist.CREATIVE:
+        return CreativeSpecialist(
             deps.llm,
             build_approval_service(deps),
             deps.shield or HeuristicShield(),
             ticketing=deps.ticketing,
             fail_open=deps.fail_open,
-        ),
-    }
+        )
+    if deps.retrieval is None:
+        raise ValueError(f"El especialista {specialist} necesita la base de conocimiento.")
+    ticketing_tools = build_ticketing_tools(deps.ticketing)
+    if specialist is Specialist.REFUNDS:
+        spec = build_refunds_spec(
+            ticketing_tools=ticketing_tools, retrieval=deps.retrieval, skills=deps.skills
+        )
+    else:
+        spec = build_knowledge_spec(
+            ticketing_tools=ticketing_tools,
+            retrieval=deps.retrieval,
+            preferences=deps.preferences,
+            skills=deps.skills,
+        )
+    return AgentSpecialist(specialist, _agent_factory(spec, deps))
+
+
+def build_specialists(deps: SpecialistDeps) -> Mapping[Specialist, SpecialistAgent]:
+    return {specialist: build_specialist(specialist, deps) for specialist in Specialist}
