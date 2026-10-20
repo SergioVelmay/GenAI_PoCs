@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from headache_core.application.common import new_id
 from headache_core.application.support_triage import SupportTriageService
 from headache_core.domain.models import SupportEmail
 from headache_core.domain.orchestration import (
@@ -18,6 +17,11 @@ from headache_core.domain.orchestration import (
     route,
 )
 from headache_core.ports import LLMPort, LLMResponse
+
+
+def case_id_for(email: SupportEmail) -> str:
+    """Caso determinista por email: un reintento o un mensaje duplicado cae en el mismo caso."""
+    return f"case_{email.id}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +39,7 @@ class TriageAgent:
         result = await self._service.triage(email)
         triage = result.value
         envelope = CaseEnvelope(
-            case_id=case_id or new_id("case"),
+            case_id=case_id or case_id_for(email),
             email_id=email.id,
             customer_id=email.customer_id,
             specialist=route(triage.intent),

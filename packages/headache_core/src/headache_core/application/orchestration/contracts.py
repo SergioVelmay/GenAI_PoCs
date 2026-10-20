@@ -7,13 +7,15 @@ A2A (microservicios): por eso se serializa a un diccionario plano y se valida al
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Protocol, get_args
 
 from headache_core.application.tools.registry import ToolContext
-from headache_core.domain.models import SupportIntent
+from headache_core.domain.models import SupportEmail, SupportIntent
 from headache_core.domain.orchestration import (
     CaseEnvelope,
     CaseOutcome,
+    CaseStatus,
     Specialist,
     Urgency,
     route,
@@ -96,6 +98,63 @@ def envelope_from_payload(payload: Mapping[str, Any]) -> CaseEnvelope:
         urgency=urgency,
         summary=payload["summary"],
         order_id=order_id,
+    )
+
+
+def outcome_to_payload(outcome: CaseOutcome) -> dict[str, Any]:
+    return {
+        "case_id": outcome.case_id,
+        "specialist": outcome.specialist.value,
+        "status": outcome.status.value,
+        "reply": outcome.reply,
+        "guardrails": list(outcome.guardrails),
+        "approval_id": outcome.approval_id,
+    }
+
+
+def outcome_from_payload(payload: Mapping[str, Any]) -> CaseOutcome:
+    try:
+        return CaseOutcome(
+            case_id=str(payload["case_id"]),
+            specialist=Specialist(str(payload["specialist"])),
+            status=CaseStatus(str(payload["status"])),
+            reply=str(payload["reply"]),
+            guardrails=tuple(str(code) for code in payload.get("guardrails", ())),
+            approval_id=payload.get("approval_id"),
+        )
+    except (KeyError, ValueError) as exc:
+        raise InvalidHandoffError(f"Resultado mal formado: {exc}") from None
+
+
+def email_to_payload(email: SupportEmail) -> dict[str, str | None]:
+    return {
+        "id": email.id,
+        "customer_id": email.customer_id,
+        "language": email.language,
+        "subject": email.subject,
+        "body": email.body,
+        "received_at": email.received_at.isoformat(),
+        "order_id": email.order_id,
+    }
+
+
+def email_from_payload(payload: Mapping[str, Any]) -> SupportEmail:
+    missing = [k for k in ("id", "customer_id", "language", "body") if not _is_text(payload.get(k))]
+    if missing:
+        raise InvalidHandoffError(f"Faltan campos del email: {', '.join(missing)}.")
+    try:
+        received_at = datetime.fromisoformat(str(payload["received_at"]))
+    except (KeyError, ValueError):
+        raise InvalidHandoffError("received_at debe ser una fecha ISO 8601.") from None
+    order_id = payload.get("order_id")
+    return SupportEmail(
+        id=payload["id"],
+        customer_id=payload["customer_id"],
+        language=payload["language"],
+        subject=str(payload.get("subject") or ""),
+        body=payload["body"],
+        received_at=received_at,
+        order_id=order_id if isinstance(order_id, str) and order_id else None,
     )
 
 

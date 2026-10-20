@@ -121,6 +121,7 @@ class CaseOutcome:
 
     def __post_init__(self) -> None:
         if not can_transition(CaseStatus.TRIAGED, self.status):
-            raise ValueError(f"Un especialista no puede dejar el caso en '{self.status}'.")
-        if (self.status is CaseStatus.PENDING_APPROVAL) != (self.approval_id is not None):
-            raise ValueError("approval_id es obligatorio solo si el caso espera aprobación.")
+            raise ValueError(f"Un caso triado no puede pasar a '{self.status}'.")
+        # Tras la revisión, el caso resuelto o escalado conserva la referencia de la aprobación.
+        if self.status is CaseStatus.PENDING_APPROVAL and self.approval_id is None:
+            raise ValueError("Un caso pendiente de aprobación necesita approval_id.")

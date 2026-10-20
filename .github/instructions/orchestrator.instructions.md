@@ -17,3 +17,12 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 - Mínimo privilegio en `specs.py`: Reembolsos sin catálogo ni memoria de escritura; Conocimiento sin `request_refund`; solo Conocimiento escribe preferencias.
 - Creativo: workflow, no agente (`draft_case_reply` + `submit_case_reply` de `harness/rules/case_reply.py`): plantilla por audiencia (cliente/partner), sin promesas de reembolso, y siempre aprobación humana antes de enviar (`send_case_reply`).
 - Composición: `build_specialists(SpecialistDeps)`; `build_approval_service` combina las tools que solo ejecuta un revisor.
+- Tests y demos: `orchestrator.testing` (`local_world`, `support_email`, `Outbox`).
+
+## LangGraph (`graph.py`, `supervisor.py`, `checkpoints.py`)
+
+- `RouterGraph`: triage → arista condicional por `envelope.specialist` → subgrafo del especialista → `human_review` (`interrupt`) si queda pendiente. `thread_id = case_id = case_<email_id>`. Estado solo con JSON plano (`*_to_payload`).
+- `start(email)` es idempotente (duplicado = estado actual) y reanuda un caso a medias; `review(case_id, reviewer, approve)` valida antes de reanudar. En el nodo, una decisión inválida vuelve a pausar (no lanzar: LangGraph guarda los valores de reanudación). Nada con efectos antes de `interrupt`.
+- `RetryPolicy` solo para `LLMTransientError`; reintentar un especialista es seguro porque las aprobaciones son idempotentes.
+- `SupervisorGraph` (comparativa): el LLM elige la siguiente intención; el dominio enruta, corta repeticiones y limita pasos.
+- PostgreSQL: `postgres_checkpointer` en el esquema `langgraph` (fuera de Alembic). En Windows, psycopg async necesita el bucle Selector: lo pone `conftest.py` de la raíz para los tests `integration`.

@@ -10,8 +10,12 @@ from headache_core.adapters.memory import FakeLLM
 from headache_core.application.orchestration import (
     InvalidHandoffError,
     TriageAgent,
+    email_from_payload,
+    email_to_payload,
     envelope_from_payload,
     envelope_to_payload,
+    outcome_from_payload,
+    outcome_to_payload,
     render_handoff,
     tool_context,
 )
@@ -102,11 +106,10 @@ def test_closed_cases_cannot_be_reopened() -> None:
 
 def test_outcome_invariants() -> None:
     CaseOutcome("case_1", Specialist.REFUNDS, CaseStatus.PENDING_APPROVAL, "...", approval_id="a")
+    CaseOutcome("case_1", Specialist.REFUNDS, CaseStatus.RESOLVED, "...", approval_id="a")
     with pytest.raises(ValueError, match="approval_id"):
         CaseOutcome("case_1", Specialist.REFUNDS, CaseStatus.PENDING_APPROVAL, "...")
-    with pytest.raises(ValueError, match="approval_id"):
-        CaseOutcome("case_1", Specialist.REFUNDS, CaseStatus.RESOLVED, "...", approval_id="a")
-    with pytest.raises(ValueError, match="no puede dejar"):
+    with pytest.raises(ValueError, match="no puede pasar"):
         CaseOutcome("case_1", Specialist.REFUNDS, CaseStatus.TRIAGED, "...")
 
 
@@ -115,6 +118,19 @@ def test_envelope_round_trip() -> None:
 
     assert envelope_from_payload(payload) == ENVELOPE
     assert envelope_from_payload(payload | {"order_id": None}).order_id is None
+
+
+def test_outcome_and_email_round_trip() -> None:
+    outcome = CaseOutcome(
+        "case_1", Specialist.REFUNDS, CaseStatus.PENDING_APPROVAL, "...", ("x",), "apr_1"
+    )
+
+    assert outcome_from_payload(json.loads(json.dumps(outcome_to_payload(outcome)))) == outcome
+    assert email_from_payload(json.loads(json.dumps(email_to_payload(EMAIL)))) == EMAIL
+    with pytest.raises(InvalidHandoffError):
+        outcome_from_payload({"case_id": "case_1", "status": "otro"})
+    with pytest.raises(InvalidHandoffError, match="received_at"):
+        email_from_payload(email_to_payload(EMAIL) | {"received_at": "ayer"})
 
 
 @pytest.mark.parametrize(

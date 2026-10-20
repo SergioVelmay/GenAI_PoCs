@@ -3,59 +3,32 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
-from decimal import Decimal
+from dataclasses import replace
 from typing import Any
 
 import pytest
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS
 from harness import APPROVAL_REQUIRED
-from harness.rules.case_reply import SEND_CASE_REPLY, SendCaseReplyArgs
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import (
-    FakeLLM,
-    HashingEmbedding,
-    InMemoryApprovalStore,
-    InMemoryCheckpointStore,
-    InMemoryPreferenceStore,
-    InMemoryUnitOfWork,
-)
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
+from harness.rules.case_reply import SEND_CASE_REPLY
 from headache_core.application.agents.runtime import AgentTurn
 from headache_core.application.orchestration import InvalidHandoffError, render_handoff
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import FALLBACK_ANSWER, ToolContext, build_ticketing_tools
-from headache_core.domain import (
-    CaseEnvelope,
-    CaseStatus,
-    Customer,
-    Event,
-    EventCategory,
-    Money,
-    Order,
-    OrderStatus,
-    Session,
-    Specialist,
-    SupportIntent,
-)
+from headache_core.application.tools import FALLBACK_ANSWER, build_ticketing_tools
+from headache_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
 from headache_core.ports import ToolCall
 from headache_core.ports.approvals import ApprovalStatus
 from orchestrator.specialists import (
-    SpecialistDeps,
     build_approval_service,
     build_knowledge_spec,
     build_refunds_spec,
     build_specialists,
     outcome_from_turn,
 )
+from orchestrator.testing import ORDER
+from orchestrator.testing import local_world as _world
 
-NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
-PRICE = Money(Decimal("30.00"), "EUR")
-ORDER = "ord_00000001"
 ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(set(FLAVORS) - MANAGED_FLAVORS))
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisi?n por un agente de Headache."
 
 
 def _envelope(intent: SupportIntent, specialist: Specialist, **changes: Any) -> CaseEnvelope:
@@ -83,58 +56,8 @@ INFO_CASE = _envelope(
 COMPLAINT_CASE = _envelope(
     SupportIntent.COMPLAINT,
     Specialist.CREATIVE,
-    summary="Se queja de que el sonido era malo y el evento empezó 40 minutos tarde.",
+    summary="Se queja de que el sonido era malo y el evento empez? 40 minutos tarde.",
 )
-
-
-@dataclass
-class Outbox:
-    sent: list[tuple[SendCaseReplyArgs, str]] = field(default_factory=list)
-
-    async def send(self, args: SendCaseReplyArgs, context: ToolContext) -> str:
-        self.sent.append((args, context.customer_id))
-        return f"msg_{len(self.sent)}"
-
-
-@dataclass
-class World:
-    llm: FakeLLM
-    approvals: InMemoryApprovalStore
-    outbox: Outbox
-    deps: SpecialistDeps
-
-
-def _world(script: list[Any], flavor: str = "native") -> World:
-    uow = InMemoryUnitOfWork(
-        customers=[Customer("cus_1", "Ana Pérez", "ana@example.com", "ES", "es")],
-        events=[
-            Event(
-                "evt_1",
-                "Candlelit Strings",
-                EventCategory.CANDLELIT,
-                "Madrid",
-                "ven_1",
-                "Velas.",
-                PRICE,
-                refundable=True,
-                refund_window_hours=48,
-            )
-        ],
-        sessions=[Session("ses_1", "evt_1", datetime(2026, 11, 20, 20, tzinfo=UTC), 100, 3)],
-        orders=[Order(ORDER, "cus_1", "ses_1", 2, PRICE * 2, OrderStatus.PAID, NOW)],
-    )
-    llm, approvals, outbox = FakeLLM(script), InMemoryApprovalStore(), Outbox()
-    deps = SpecialistDeps(
-        llm=llm,
-        ticketing=UnitOfWorkTicketing(lambda: uow, clock=lambda: NOW),
-        retrieval=RetrievalService(LocalRetrieval([], embeddings=HashingEmbedding(64))),
-        preferences=InMemoryPreferenceStore(),
-        checkpoints=InMemoryCheckpointStore(),
-        approvals=approvals,
-        send_reply=outbox.send,
-        flavor=flavor,
-    )
-    return World(llm, approvals, outbox, deps)
 
 
 def _call(name: str, **arguments: str) -> list[ToolCall]:
@@ -182,7 +105,10 @@ def test_each_specialist_only_gets_its_own_tools() -> None:
 
 @ALL_FLAVORS
 async def test_refunds_specialist_leaves_the_refund_pending_for_a_human(flavor: str) -> None:
-    world = _world([_call("request_refund", order_id=ORDER, reason="No puede asistir."), PENDING])
+    world = _world(
+        [_call("request_refund", order_id=ORDER, reason="No puede asistir."), PENDING],
+        flavor=flavor,
+    )
     specialist = build_specialists(world.deps)[Specialist.REFUNDS]
 
     outcome = await specialist.handle(REFUND_CASE)
@@ -235,7 +161,7 @@ async def test_specialist_rejects_a_case_for_another_specialist() -> None:
 @ALL_FLAVORS
 async def test_knowledge_specialist_resolves_and_cannot_refund(flavor: str) -> None:
     answer = "No tengo ese dato en la base de conocimiento; te lo confirmará el equipo."
-    world = _world([_call("request_refund", order_id=ORDER, reason="x"), answer], flavor)
+    world = _world([_call("request_refund", order_id=ORDER, reason="x"), answer], flavor=flavor)
 
     outcome = await build_specialists(world.deps)[Specialist.KNOWLEDGE].handle(INFO_CASE)
 
