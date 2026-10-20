@@ -25,4 +25,11 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 - `start(email)` es idempotente (duplicado = estado actual) y reanuda un caso a medias; `review(case_id, reviewer, approve)` valida antes de reanudar. En el nodo, una decisión inválida vuelve a pausar (no lanzar: LangGraph guarda los valores de reanudación). Nada con efectos antes de `interrupt`.
 - `RetryPolicy` solo para `LLMTransientError`; reintentar un especialista es seguro porque las aprobaciones son idempotentes.
 - `SupervisorGraph` (comparativa): el LLM elige la siguiente intención; el dominio enruta, corta repeticiones y limita pasos.
+- Revisión humana compartida por LangGraph y MAF: `review.py` (`parse_decision`, `apply_review`, `ReviewError`).
 - PostgreSQL: `postgres_checkpointer` en el esquema `langgraph` (fuera de Alembic). En Windows, psycopg async necesita el bucle Selector: lo pone `conftest.py` de la raíz para los tests `integration`.
+
+## MAF (`maf_workflow.py`)
+
+- `MafCaseWorkflow`: mismo flujo con executors tipados, `add_switch_case_edge_group` (`Default` → `unroutable`) y `request_info` + `@response_handler`. Un `Workflow` nuevo por ejecución (`build()`); `review(run)` restaura desde `run.checkpoint_id`.
+- Checkpoints en disco con `file_checkpoint_storage` (pickle con `CHECKPOINT_TYPES` permitidos; añadir ahí cualquier tipo nuevo que viaje entre executors). MAF solo avisa si no guarda un checkpoint: una pausa sin checkpoint lanza `CheckpointNotSavedError`.
+- Debe dar el mismo resultado que `RouterGraph` con el mismo guion (`test_same_result_as_langgraph`).

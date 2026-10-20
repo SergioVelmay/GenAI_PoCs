@@ -25,7 +25,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, RetryPolicy, interrupt
 
-from harness.approvals import ApprovalError, ApprovalService
+from harness.approvals import ApprovalService
 from headache_core.application.orchestration import (
     SpecialistAgent,
     TriageAgent,
@@ -39,7 +39,7 @@ from headache_core.application.orchestration import (
 )
 from headache_core.domain import CaseOutcome, CaseStatus, Specialist, SupportEmail
 from headache_core.ports import LLMTransientError
-from headache_core.ports.approvals import ApprovalStatus
+from orchestrator.review import ReviewError, apply_review, parse_decision
 
 type Payload = dict[str, Any]
 
@@ -61,8 +61,7 @@ class SpecialistState(TypedDict, total=False):
     outcome: Payload
 
 
-class ReviewError(ValueError):
-    """La decisión del revisor está mal formada: el caso sigue en pausa."""
+__all__ = ["CaseRun", "CaseState", "ReviewError", "RouterGraph", "specialist_subgraph"]
 
 
 def specialist_subgraph(
@@ -136,24 +135,15 @@ class RouterGraph:
         # atascado repitiéndolo. Se vuelve a pausar hasta recibir una decisión válida.
         while True:
             try:
-                reviewer, approve, note = parse_decision(interrupt(pause), customer_id)
+                decision = parse_decision(interrupt(pause), customer_id)
                 break
             except ReviewError as exc:
                 pause = {**pause, "error": str(exc)}
-        try:
-            decided = await self._approvals.decide(
-                outcome.approval_id, reviewer=reviewer, approve=approve, note=note
-            )
-        except ApprovalError:
-            # Caducada o decidida por otra vía: el caso pasa a una persona.
-            return _reviewed(outcome, CaseStatus.ESCALATED, "approval_error", reviewer, approve)
-        status = (
-            CaseStatus.RESOLVED
-            if decided.status is ApprovalStatus.EXECUTED
-            else CaseStatus.ESCALATED
-        )
-        code = f"approval_{decided.status.value}"
-        return _reviewed(outcome, status, code, reviewer, approve)
+        reviewed = await apply_review(self._approvals, outcome, decision)
+        return {
+            "outcome": outcome_to_payload(reviewed),
+            "review": {"reviewer": decision.reviewer, "approve": decision.approve},
+        }
 
     # --- API del orquestador -----------------------------------------------------------------
 
@@ -220,31 +210,3 @@ def _route(state: CaseState) -> str:
 def _after_specialist(state: CaseState) -> str:
     status = state["outcome"]["status"]
     return HUMAN_REVIEW if status == CaseStatus.PENDING_APPROVAL else END
-
-
-def parse_decision(decision: object, customer_id: str) -> tuple[str, bool, str]:
-    if not isinstance(decision, Mapping):
-        raise ReviewError("La decisión debe ser un objeto {reviewer, approve, note}.")
-    reviewer, approve = decision.get("reviewer"), decision.get("approve")
-    if not isinstance(reviewer, str) or not reviewer.strip() or not isinstance(approve, bool):
-        raise ReviewError("La decisión necesita reviewer (texto) y approve (booleano).")
-    if reviewer == customer_id:
-        raise ReviewError("El revisor debe ser una persona distinta del cliente.")
-    return reviewer, approve, str(decision.get("note", ""))
-
-
-def _reviewed(
-    outcome: CaseOutcome, status: CaseStatus, code: str, reviewer: str, approve: bool
-) -> CaseState:
-    reviewed = CaseOutcome(
-        case_id=outcome.case_id,
-        specialist=outcome.specialist,
-        status=status,
-        reply=outcome.reply,
-        guardrails=(*outcome.guardrails, code),
-        approval_id=outcome.approval_id,
-    )
-    return {
-        "outcome": outcome_to_payload(reviewed),
-        "review": {"reviewer": reviewer, "approve": approve},
-    }
