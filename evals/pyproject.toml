@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "booking-agent",
     "headache-core[retrieval,llamaindex]",
+    "orchestrator",
     "retrieval",
 ]
 
@@ -22,6 +23,7 @@ evals = [
 
 [tool.uv.sources]
 booking-agent = { workspace = true }
+orchestrator = { workspace = true }
 headache-core = { workspace = true }
 retrieval = { workspace = true }
 

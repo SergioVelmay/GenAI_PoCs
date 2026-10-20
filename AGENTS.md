@@ -42,13 +42,13 @@ uv run alembic -c packages/headache_core/alembic.ini upgrade head
 uv run python scripts/generate_synthetic_data.py --scale small  # datos en data/synthetic/ (no versionados)
 docker compose up -d                                            # PostgreSQL+pgvector, RabbitMQ
 docker compose --profile observability|sqs|servicebus|mcp|agents up -d # Langfuse, colas, MCP, A2A
-uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   # gates de evals (coste 0)
+uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 ```
 
 ## Arquitectura
 
 - **Clean Architecture / Ports & Adapters** en `packages/headache_core`: `domain/` (Python puro), `application/` (casos de uso), `ports/` (`typing.Protocol`), `adapters/` (`memory` para tests; `postgres`, `azure_*`, `bedrock*`...).
-- Paquetes: `packages/headache_core`, `packages/harness` (depende de core, nunca al revés), `evals/` (`rag_evals`). Servicios en `services/`: `ticketing_api`, `indexer`, `retrieval`, `mcp_servers`, `support_agent`, `booking_agent`.
+- Paquetes: `packages/headache_core`, `packages/harness` (depende de core, nunca al revés), `evals/` (`rag_evals`). Servicios en `services/`: `ticketing_api`, `indexer`, `retrieval`, `mcp_servers`, `support_agent`, `booking_agent`, `orchestrator` (multi-agente, fase 9).
 - Todo LLM pasa por `LLMPort` y el gateway (`adapters/llm_factory.build_gateway`). Toda tool, por `JournaledExecutor` + `GuardedExecutor`. Todo agente cumple `AgentRuntime`.
 - Configuración con Pydantic Settings, variables anidadas con `__` (`BEDROCK__REGION`), secretos `SecretStr`. Por defecto, todo local.
 - IaC: **Terraform** en `infra/terraform/{aws,azure}` (recursos con coste desactivados por defecto). CI/CD: **GitHub Actions**.
@@ -84,7 +84,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   #
 | 7 | Un agente en 7 sabores y context engineering | ✅ Hecha* | `docs/fase-7-agentes.md` |
 | 8 | Agentic harness y guardrails | ✅ Hecha* | `docs/fase-8-harness.md` |
 | 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes de Azure de las fases 2–8 | ✅ Hecha | `docs/fase-9-8-checkpoint.md` |
-| 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | 🚧 En curso | |
+| 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | `docs/fase-9-multiagente.md` |
 | 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | | |
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | | |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B) | | |

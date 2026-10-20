@@ -5176,6 +5176,7 @@ source = { editable = "evals" }
 dependencies = [
     { name = "booking-agent" },
     { name = "headache-core", extra = ["llamaindex", "retrieval"] },
+    { name = "orchestrator" },
     { name = "retrieval" },
 ]
 
@@ -5194,6 +5195,7 @@ requires-dist = [
     { name = "deepeval", marker = "extra == 'evals'", specifier = ">=4.2.8" },
     { name = "headache-core", extras = ["retrieval", "llamaindex"], editable = "packages/headache_core" },
     { name = "langchain-community", marker = "extra == 'evals'", specifier = ">=0.4.1,<0.4.2" },
+    { name = "orchestrator", editable = "services/orchestrator" },
     { name = "ragas", marker = "extra == 'evals'", specifier = ">=0.4.3" },
     { name = "retrieval", editable = "services/retrieval" },
 ]

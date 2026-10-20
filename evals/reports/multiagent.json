@@ -1,0 +1,957 @@
+{
+  "dataset": "multiagent-v1.jsonl",
+  "mode": "scripted",
+  "engines": [
+    {
+      "engine": "langgraph",
+      "scenarios": 15,
+      "passed": 15,
+      "routing_ok": 14,
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "llm_calls": 36,
+      "handoff_tokens": 436,
+      "email_tokens": 739,
+      "skipped": []
+    },
+    {
+      "engine": "maf",
+      "scenarios": 14,
+      "passed": 14,
+      "routing_ok": 13,
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "llm_calls": 33,
+      "handoff_tokens": 394,
+      "email_tokens": 727,
+      "skipped": [
+        "resilience-transient-error"
+      ]
+    },
+    {
+      "engine": "async",
+      "scenarios": 15,
+      "passed": 15,
+      "routing_ok": 14,
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "llm_calls": 36,
+      "handoff_tokens": 436,
+      "email_tokens": 739,
+      "skipped": []
+    }
+  ],
+  "results": [
+    {
+      "scenario_id": "happy-refund-approved",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 43,
+      "email_tokens": 20,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-refund-rejected",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 43,
+      "email_tokens": 19,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-complaint-approved",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 20,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-complaint-rejected",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "creative",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 14,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-partnership",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 29,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-event-info",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 40,
+      "email_tokens": 17,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-lost-tickets",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 19,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-date-change",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 41,
+      "email_tokens": 24,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-long-thread",
+      "category": "happy",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 53,
+      "email_tokens": 575,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-hallucinated-refund",
+      "category": "defense",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 45,
+      "email_tokens": 16,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-injection-creative",
+      "category": "defense",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "creative",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 1,
+      "handoff_tokens": 0,
+      "email_tokens": 21,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-misrouted-refund",
+      "category": "defense",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": false,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 12,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-refund-promise-corrected",
+      "category": "defense",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 0,
+      "email_tokens": 11,
+      "error": null
+    },
+    {
+      "scenario_id": "resilience-transient-error",
+      "category": "resilience",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 12,
+      "error": null
+    },
+    {
+      "scenario_id": "multi-refund-and-complaint",
+      "category": "multi_intent",
+      "engine": "langgraph",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "pending_approval",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 45,
+      "email_tokens": 25,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-refund-approved",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 43,
+      "email_tokens": 20,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-refund-rejected",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 43,
+      "email_tokens": 19,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-complaint-approved",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 20,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-complaint-rejected",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "creative",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 14,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-partnership",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 29,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-event-info",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 40,
+      "email_tokens": 17,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-lost-tickets",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 19,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-date-change",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 41,
+      "email_tokens": 24,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-long-thread",
+      "category": "happy",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 53,
+      "email_tokens": 575,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-hallucinated-refund",
+      "category": "defense",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 45,
+      "email_tokens": 16,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-injection-creative",
+      "category": "defense",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "creative",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 1,
+      "handoff_tokens": 0,
+      "email_tokens": 21,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-misrouted-refund",
+      "category": "defense",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": false,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 12,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-refund-promise-corrected",
+      "category": "defense",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 0,
+      "email_tokens": 11,
+      "error": null
+    },
+    {
+      "scenario_id": "multi-refund-and-complaint",
+      "category": "multi_intent",
+      "engine": "maf",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "pending_approval",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 45,
+      "email_tokens": 25,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-refund-approved",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 43,
+      "email_tokens": 20,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-refund-rejected",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 43,
+      "email_tokens": 19,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-complaint-approved",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 20,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-complaint-rejected",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "creative",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 14,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-partnership",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 0,
+      "email_tokens": 29,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-event-info",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 40,
+      "email_tokens": 17,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-lost-tickets",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 19,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-date-change",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 41,
+      "email_tokens": 24,
+      "error": null
+    },
+    {
+      "scenario_id": "happy-long-thread",
+      "category": "happy",
+      "engine": "async",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 53,
+      "email_tokens": 575,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-hallucinated-refund",
+      "category": "defense",
+      "engine": "async",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 2,
+      "handoff_tokens": 45,
+      "email_tokens": 16,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-injection-creative",
+      "category": "defense",
+      "engine": "async",
+      "passed": true,
+      "specialist": "creative",
+      "status": "escalated",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 1,
+      "handoff_tokens": 0,
+      "email_tokens": 21,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-misrouted-refund",
+      "category": "defense",
+      "engine": "async",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": false,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 12,
+      "error": null
+    },
+    {
+      "scenario_id": "defense-refund-promise-corrected",
+      "category": "defense",
+      "engine": "async",
+      "passed": true,
+      "specialist": "creative",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 0,
+      "email_tokens": 11,
+      "error": null
+    },
+    {
+      "scenario_id": "resilience-transient-error",
+      "category": "resilience",
+      "engine": "async",
+      "passed": true,
+      "specialist": "knowledge",
+      "status": "resolved",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 42,
+      "email_tokens": 12,
+      "error": null
+    },
+    {
+      "scenario_id": "multi-refund-and-complaint",
+      "category": "multi_intent",
+      "engine": "async",
+      "passed": true,
+      "specialist": "refunds",
+      "status": "pending_approval",
+      "failures": [],
+      "invariants": {
+        "unapproved_irreversible": 0,
+        "refund_outside_specialist": 0,
+        "identity_in_prompt": 0,
+        "email_in_handoff": 0
+      },
+      "routing_ok": true,
+      "llm_calls": 3,
+      "handoff_tokens": 45,
+      "email_tokens": 25,
+      "error": null
+    }
+  ],
+  "supervisor": [
+    {
+      "scenario_id": "multi-refund-and-complaint",
+      "expected_intents": [
+        "refund_request",
+        "complaint"
+      ],
+      "router_intents": [
+        "refund_request"
+      ],
+      "supervisor_intents": [
+        "refund_request",
+        "complaint"
+      ],
+      "router_calls": 3,
+      "supervisor_calls": 6
+    }
+  ],
+  "cost": null
+}

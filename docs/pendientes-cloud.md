@@ -89,8 +89,9 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [x] Tests de ataque con modelo real (`rag_evals.attacks --mode llm`): con harness, 0 invariantes en los 7 sabores. El harness ahora convierte el filtro de contenido del proveedor en un bloqueo.
 - [ ] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques (fase 12).
 
-## Fase 9 · Multi-agente (en curso)
+## Fase 9 · Multi-agente ([doc](fase-9-multiagente.md))
 
+- [ ] Eval multi-agente con modelo real: `uv run python -m rag_evals.multiagent --mode llm --budget-usd 0.20` (precisión del triaje del modelo, que en modo guionizado no se mide). Ampliar el dataset con emails sintéticos reales (`data/synthetic/support_emails.jsonl` trae `expected_intent`).
 - [ ] Flujo de punta a punta con LLM real (Azure OpenAI): triaje + especialistas en proceso y con los contenedores A2A (`docker compose --profile agents`). En contenedor, Azure OpenAI necesita `AZURE_OPENAI__API_KEY` o una identidad de servicio (no hay `az login`).
 - [ ] A2A con identidad de nube: tokens de servicio de Entra ID (app roles / Managed Identity) y Cognito client credentials en lugar del emisor de desarrollo (fases 13/14).
 - [ ] Carril A: especialistas en AgentCore Runtime con protocolo A2A y workflow multi-agente de Foundry Agent Service con el mismo dataset.

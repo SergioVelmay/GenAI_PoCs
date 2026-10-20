@@ -13,6 +13,8 @@ agentes para usuarios internos (operaciones, soporte, partners) y para el públi
 ```mermaid
 flowchart LR
   U[Cliente / operador] --> AG["booking_agent<br/>(7 sabores)"]
+  EM[Emails] --> OR["orchestrator<br/>triaje → especialistas<br/>(LangGraph · MAF · cola · A2A)"]
+  OR --> H
   AG --> H["harness<br/>guardrails · HITL · validación"]
   H --> GW["LLM gateway<br/>routing · fallback · coste"]
   GW --> AZ[Azure OpenAI]
@@ -43,7 +45,8 @@ services/
   mcp_servers/     servidores MCP (FastMCP) y MCP gateway
   support_agent/   agente mínimo sobre MCP
   booking_agent/   el mismo agente en 7 sabores
-evals/             golden datasets, evals de RAG, de agentes y tests de ataque
+  orchestrator/    multi-agente: triaje y especialistas (LangGraph, MAF, cola, A2A)
+evals/             golden datasets, evals de RAG, de agentes, multi-agente y tests de ataque
 infra/             Terraform (aws, azure), SQL de benchmark, config de emuladores
 scripts/           datos sintéticos, carga, benchmarks, aprovisionamiento (dry-run por defecto)
 docs/              un documento por fase, pendientes y lecciones aprendidas
@@ -64,10 +67,11 @@ uv run python scripts/load_seed.py --truncate
 uv run ruff check . ; uv run mypy ; uv run pytest    # calidad (lo mismo que la CI)
 uv run python -m rag_evals.retrieval_eval            # evals de retrieval (coste 0)
 uv run python -m rag_evals.attacks --check           # tests de ataque del harness (coste 0)
+uv run python -m rag_evals.multiagent --check        # evals multi-agente (coste 0)
 ```
 
 Perfiles opcionales de Docker: `observability` (Langfuse), `sqs` (ElasticMQ), `servicebus`
-(emulador) y `mcp` (servidores MCP). Todo lo que usa modelos o nube es explícito y tiene coste:
+(emulador), `mcp` (servidores MCP) y `agents` (especialistas A2A). Todo lo que usa modelos o nube es explícito y tiene coste:
 ver [pendientes con coste](docs/pendientes-cloud.md).
 
 ## Fases
@@ -84,7 +88,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 7 | Un agente en 7 sabores (LangGraph, LlamaIndex, MAF, Strands, Foundry, AgentCore...) | ✅* | [fase-7](docs/fase-7-agentes.md) |
 | 8 | Agentic harness: validación, SQL seguro, PII, prompt injection, human-in-the-loop | ✅* | [fase-8](docs/fase-8-harness.md) |
 | 8→9 | Checkpoint: CI, documentación, desarrollo con IA y validación en Azure de las fases 2–8 | ✅ | [checkpoint](docs/fase-9-8-checkpoint.md) |
-| 9 | Orquestación multi-agente, A2A y asíncrono | 🚧 En curso | |
+| 9 | Orquestación multi-agente (LangGraph, MAF, cola), A2A y evals de los tres motores | ✅* | [fase-9](docs/fase-9-multiagente.md) |
 | 10–15 | Escala, observabilidad, red teaming y LLMOps, despliegue en AWS y en Azure, extras | Plan | |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
@@ -95,7 +99,8 @@ modelo y una chuleta Azure → AWS: [preguntas-entrevista.md](docs/preguntas-ent
 ## Calidad y CI
 
 GitHub Actions ejecuta en cada push: lint, formato, `mypy --strict`, tests, evals deterministas con
-gate contra un baseline, tests de ataque en los 7 sabores, build de la imagen MCP, validación de
+gate contra un baseline, tests de ataque en los 7 sabores, evals multi-agente en los 3 motores,
+build de las imágenes MCP y de especialistas A2A, validación de
 Terraform y tests de integración con PostgreSQL, RabbitMQ y SQS emulado. Sin secretos y sin coste.
 
 ## Desarrollo con IA

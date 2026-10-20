@@ -10,7 +10,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Índice
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9)
 
 <a id="como-responder"></a>
 
@@ -35,6 +35,8 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails |
 | Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway |
 | Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge |
+| Multi-agente gestionado | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (protocolo A2A), Bedrock Agents (*multi-agent collaboration*) |
+| Flujo durable con espera humana | Durable Functions, Logic Apps | Step Functions (*wait for callback*) |
 | Cómputo | Functions, Container Apps, AKS | Lambda, ECS Fargate / App Runner, EKS |
 | Base de datos | PostgreSQL Flexible Server | RDS / Aurora PostgreSQL |
 | Identidad | Entra ID, Managed Identity | IAM Roles, IAM Identity Center, Cognito (usuarios finales) |
@@ -552,3 +554,48 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    irreversibles sin aprobación con un modelo real), que la medida de calidad está calibrada contra
    personas, y que tres decisiones salieron de datos: el modelo barato no hace escrituras, la
    búsqueda no necesita reescritura con LLM y la analítica no va contra la base transaccional.
+
+<a id="fase-9"></a>
+
+## Fase 9 · Orquestación multi-agente ([doc](fase-9-multiagente.md))
+
+### Técnicas
+
+1. **¿Router, supervisor, handoff o plan-and-execute?** Para soporte de Headache, router: el LLM
+   clasifica y una tabla del dominio elige el especialista. Es auditable, se prueba sin modelo y
+   no cuesta llamadas extra. Medí el supervisor con un email de reembolso y queja: atiende las dos
+   intenciones (el router solo la principal) a cambio del doble de llamadas (6 frente a 3). Lo
+   activaría por regla solo cuando el triaje detecte varias intenciones.
+2. **¿Qué pasas de un agente a otro?** Un sobre estructurado (intención, idioma, urgencia, pedido,
+   resumen), no el email. La identidad va fuera del prompt, en el contexto de las tools. En un
+   hilo largo el especialista recibe un 63 % menos de tokens, pero el valor principal es otro:
+   el texto del cliente, y cualquier inyección que traiga, no llega al especialista. Un test de
+   invariantes lo comprueba en cada cambio.
+3. **¿LangGraph o MAF?** Mismo flujo en ambos, con un test de paridad. LangGraph comparte un
+   estado y trae reintentos por nodo y checkpoints por hilo en PostgreSQL; MAF pasa mensajes
+   tipados, valida el grafo al construirlo y tiene `request_info` para la revisión humana, pero
+   no reintenta por nodo y sus checkpoints en disco son pickle (hay que limitar los tipos). En
+   AWS elegiría LangGraph (o Strands); en un stack Microsoft, MAF.
+4. **¿MCP o A2A?** MCP conecta un agente con sus tools; A2A, un agente con otro agente opaco de
+   otro equipo, framework o nube. Mis especialistas son servicios A2A con Agent Card, token de
+   servicio con un audience por especialista y un contenedor cada uno. El orquestador no cambia:
+   el cliente A2A cumple el mismo contrato que el especialista en proceso.
+5. **¿Cómo haces idempotente un flujo asíncrono con agentes?** El caso se identifica por el email
+   y se **reclama** antes de llamar al LLM; cada paso avanza el estado con compare-and-set y lo
+   irreversible pasa por aprobaciones idempotentes. Lo encontré con RabbitMQ real: dos copias del
+   mismo email llegaban a la vez y ambas pagaban el triaje. Lo que no cierro aún: guardar y
+   publicar no son atómicos (*transactional outbox*).
+
+### Negocio y stakeholders
+
+1. **¿Por qué varios agentes y no uno que lo haga todo?** Por riesgo y por equipo. Cada
+   especialista solo tiene sus tools: un prompt injection no puede reembolsar desde Conocimiento
+   porque esa tool no existe para él. Y cada especialista se evalúa, se despliega y escala por
+   separado; el de reembolsos lo puede gobernar finanzas sin tocar el resto.
+2. **¿Qué KPI pondrías y cómo lo enseñarías a operaciones?** Tasa de resolución sin intervención,
+   tiempo hasta la primera respuesta, precisión del enrutado (medida con modelo real sobre una
+   muestra etiquetada) y tasa de aprobación de los borradores. A operaciones les enseñaría la
+   cola de casos pendientes con su borrador y el motivo, no el grafo.
+3. **¿Qué dejarías fuera de la primera versión?** El supervisor, la memoria compartida entre
+   agentes y la autoaprobación por importe. Primero router + aprobación humana en todo lo que sale
+   hacia el cliente, medir dos o tres semanas y automatizar solo donde los datos lo justifiquen.

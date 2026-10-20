@@ -235,7 +235,8 @@ class SendCaseReplyArgs(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    reference: str = Field(max_length=40)
+    # La referencia es el case_id (`case_<email_id>`): los ids de correo reales son largos.
+    reference: str = Field(max_length=200)
     subject: str = Field(max_length=200)
     body: str = Field(max_length=6000)
 

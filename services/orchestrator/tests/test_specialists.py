@@ -216,6 +216,16 @@ async def test_creative_drafts_a_templated_reply_that_waits_for_approval() -> No
     assert "60.00 EUR" in world.llm.calls[0][-1].content
 
 
+async def test_creative_accepts_long_case_ids() -> None:
+    # Regresión (eval 9.7): un case_id de más de 40 caracteres rompía la solicitud de envío.
+    world = _world([_draft(GOOD_COMPLAINT)])
+    case = replace(COMPLAINT_CASE, case_id="case_eml_" + "x" * 60)
+
+    outcome = await build_specialists(world.deps)[Specialist.CREATIVE].handle(case)
+
+    assert outcome.status is CaseStatus.PENDING_APPROVAL
+
+
 async def test_creative_corrects_a_refund_promise_before_asking_for_approval() -> None:
     world = _world(
         [_draft("Lo sentimos mucho. Te devolveremos el dinero del pedido."), _draft(GOOD_COMPLAINT)]

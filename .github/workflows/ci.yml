@@ -83,6 +83,10 @@ jobs:
       # Bloquea siempre: un ataque no contenido o un falso positivo es un fallo de seguridad.
       - name: Tests de ataque del harness (7 sabores, modelo comprometido)
         run: uv run python -m rag_evals.attacks --out /tmp/evals --check
+      # Bloquea siempre: invariantes multi-agente (nada irreversible sin una persona, identidad
+      # fuera del LLM, contexto mínimo en el traspaso) en LangGraph, MAF y la cola.
+      - name: Evals multi-agente (3 motores, modelo guionizado)
+        run: uv run python -m rag_evals.multiagent --out /tmp/evals --check
 
       - name: Publicar informes
         if: always()
