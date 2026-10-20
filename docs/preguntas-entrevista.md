@@ -10,7 +10,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Índice
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9)
 
 <a id="como-responder"></a>
 
@@ -510,3 +510,45 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    tiempo máximo. Al probarlo con 3 M de pedidos, 3 de 5 preguntas superaron los 3 s y se
    escalaron a un analista: la seguridad funcionaba, pero la base transaccional no es el sitio.
    La propuesta a negocio: réplica de lectura o almacén con vistas agregadas antes de abrirlo.
+
+<a id="checkpoint-8-9"></a>
+
+## Checkpoint 8→9 · De local a la nube ([doc](fase-9-8-checkpoint.md))
+
+### Técnicas
+
+1. **¿Qué encontraste al llevar a la nube algo que pasaba todos los tests?** Que los dobles de
+   test solo prueban lo que supones. En un día aparecieron más de veinte fallos que no se veían
+   en local: versiones de API (el endpoint MCP de Foundry IQ solo existe en preview), formatos de
+   respuesta reales, un indexer "en verde" con 0 documentos, un juez que devolvía espacios hasta
+   agotar tokens, un sabor que nunca llamó al servicio real... Cada uno quedó con su test de
+   regresión construido a partir de la respuesta real capturada.
+2. **¿Cómo demuestras que una prueba "en la nube" tocó la nube?** Con evidencia del servicio, no
+   con una respuesta correcta: tokens facturados, ids de recursos, la ejecución visible en el
+   portal o, al final, la línea en Cost Management. Un sabor de agente respondía bien usando un
+   emulador local; solo se vio al pedir el uso de tokens del servicio.
+3. **¿Cómo controlas el coste de experimentar con modelos?** Tres capas: un medidor en la
+   aplicación que corta antes de cada llamada (`--budget-usd`), un presupuesto de suscripción con
+   alertas al 50/75/100 % y recursos caros efímeros (AI Search solo existe mientras se usa). Y se
+   contrasta con la factura: mi medidor se quedó un 40 % corto por repeticiones y precio de
+   DataZone.
+4. **¿Por qué tantas correcciones en el diseño de tools y esquemas?** Porque con modelos baratos
+   el esquema es el guardarraíl más eficaz: una consulta en vez de una lista, enumeraciones del
+   dominio en vez de texto libre, prefijos de ID exactos. Hacer imposible el error funciona mejor
+   que validarlo después.
+
+### Negocio y stakeholders
+
+1. **¿Cuánto cuesta validar un sistema así en la nube?** Lo medí: 3,76 € para validar en Azure
+   siete fases (modelos, RAG, evals, tools, agentes, guardrails). Dos tercios fueron el juez de
+   evaluación, no el sistema. Servir es barato; lo que hay que presupuestar es evaluar bien y los
+   recursos con coste por hora.
+2. **¿Cómo priorizas lo que validas y lo que aplazas?** Por riesgo y por dependencia. Primero lo
+   que puede invalidar decisiones (calidad del retrieval, fiabilidad del juez, seguridad); lo que
+   solo confirma infraestructura (HTTPS, APIM) va con el despliegue. Y nada que deje objetos a mano
+   en un entorno que no controlo: las App Registrations de Entra irán como código.
+3. **¿Qué le contarías a dirección de este checkpoint en un minuto?** Que el sistema funciona con
+   modelos reales con un coste por debajo de 4 €, que la seguridad aguantó (0 fugas, 0 acciones
+   irreversibles sin aprobación con un modelo real), que la medida de calidad está calibrada contra
+   personas, y que tres decisiones salieron de datos: el modelo barato no hace escrituras, la
+   búsqueda no necesita reescritura con LLM y la analítica no va contra la base transaccional.

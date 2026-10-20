@@ -45,7 +45,7 @@ terraform -chdir=infra/terraform/azure apply
 - [x] Azure (18-10-2026): Terraform aplicado (AI Search Basic en `francecentral`), outputs en el `.env`, corpus clasificado con ACL (`scripts/classify_corpus.py`), carril B con Service Bus + Foundry + AI Search y carril A con indexer + skillset (vectorizador verificado). Medidas y hallazgos en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026).
 - [x] Indexer del carril A que reprocesaba todos los blobs (18-10-2026): era `managed_ingestion.py`, que los resubía siempre. Ahora solo sube si cambia el MD5 o los metadatos; sin cambios = 0 procesados.
 - [ ] AWS: `terraform apply` en `infra/terraform/aws`, carril B con `INDEXER__EMBEDDINGS=bedrock`, `INDEXER__VECTOR_STORE=s3_vectors` e `INDEXER__BROKER=sqs`, y carril A con `scripts/managed_ingestion.py aws --apply`.
-- [ ] Coste real por carril con Cost Management / Cost Explorer tras unos días de uso.
+- [x] Coste real con Cost Management (20-10-2026): indexar por cualquiera de los dos carriles cuesta céntimos (embeddings 0,005 €, Service Bus ~0); lo que pesa es AI Search por horas (0,44 € en ≈ 3,7 h). Detalle en el [checkpoint](fase-9-8-checkpoint.md#6-coste-real-cost-management-1720-de-octubre). AWS (Cost Explorer), pendiente.
 
 ## Fase 4 · Retrieval ([doc](fase-4-retrieval.md))
 
@@ -80,7 +80,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [x] Foundry: agente `headache-booking-agent` publicado (v2) y sabor `foundry` contra **Foundry Agent Service real** (`--foundry-service`, `create_cloud`); el primer recorrido de extremo a extremo usó el emulador local sin saberlo.
 - [x] Conversación larga: compactación propia frente a Foundry (`scripts/context_growth_demo.py`, 18-10-2026): Foundry guarda las salidas de las tools y gasta un 33 % más a los 14 turnos; ninguno trunca.
 - [ ] AgentCore: imagen ARM64 del Runtime en ECR (entrypoint con `create_runtime_app`, fase 13), `agentcore_enabled=true` + `agentcore_container_uri`, cablear `AgentCoreCheckpointStore`/`AgentCorePreferenceStore` con `AGENTCORE__MEMORY_ID` e invocar con `BotoRuntimeInvoker` (rol con `InvokeAgentRuntimeForUser`).
-- [ ] Valorar las estrategias de extracción de AgentCore Memory (`USER_PREFERENCE`) y la memoria de Foundry frente a la tool explícita `remember_preference`.
+- [ ] Valorar las estrategias de extracción de AgentCore Memory (`USER_PREFERENCE`) y la memoria de Foundry frente a la tool explícita `remember_preference`. **Pasa a la fase 9** (memoria compartida entre agentes); la suite con LLM real ya mostró que el modelo guarda planes puntuales como preferencias.
 
 ## Fase 8 · Harness ([doc](fase-8-harness.md))
 

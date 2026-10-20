@@ -5,7 +5,7 @@ CI al día, documentación completa de todas las fases, instrucciones para agent
 prácticas de Anthropic, material de entrevista recopilado y la conexión real con Azure para
 abordar los pendientes con coste.
 
-> Estado: 🚧 en curso. Este documento se va completando a medida que avanza el checkpoint.
+> Estado: ✅ Hecho (20-10-2026). Coste total en Azure: **3,76 €** ([detalle](#6-coste-real-cost-management-1720-de-octubre)).
 
 | Commit | Qué |
 |---|---|
@@ -14,6 +14,15 @@ abordar los pendientes con coste.
 | `c13d26a` | Recopilatorio de preguntas de entrevista (técnicas y de negocio) por fase |
 | `f0d8f75` | Foundry en Terraform, AI Search efímero, presupuesto con alertas y despliegue en Azure |
 | `04e635c` | Nombres de Azure con la convención CAF (sin sufijo aleatorio) |
+| `a3545c9` | Documento del checkpoint; reglas de nombres ocupados y sufijos sin vocales |
+| `69a70f1` | Fase 2 en Azure: prompt caching, gateway y capacidad de los despliegues |
+| `8272644` | Fases 3 y 4 en Azure: indexación, retrieval y Foundry IQ |
+| `3a09489` · `52716e9` · `0f8d1d5` | Fase 5: jueces en Azure, calibración contra etiquetas humanas, fidelidad de Foundry IQ |
+| `ab3ef34` | Pendientes que necesitan AI Search (fases 3, 4 y 7) |
+| `76edd98` | Foundry Evaluation calibrado y gate de evals bloqueante |
+| `36df7f1` · `e440090` | Fase 6: tools y MCP con Azure OpenAI; `EntraOboExchanger` |
+| `a65b0ca` | Fase 7: agentes con LLM real y Foundry Agent Service real |
+| `178c22c` | Fase 8: harness y guardrails con Azure |
 
 ## 1. CI
 
@@ -235,9 +244,48 @@ Detalle en [fase 7](fase-7-agentes.md#suite-de-agentes-con-llm-real-18-10-2026).
 
 Detalle en [fase 8](fase-8-harness.md#7-resultados-en-azure-18-10-2026).
 
-## 6. Pendiente en este checkpoint
+## 6. Coste real (Cost Management, 17–20 de octubre)
 
-- Fase 7: memoria de Foundry frente a `remember_preference`.
-- Aplazados (no son de este checkpoint): APIM, MCP en HTTPS y Entra ID + OBO (fase 14), Langfuse v4 (fase 11),
-  tool de compra con `Idempotency-Key` (fase 9), coste real por carril (al cierre).
-- Cierre: estado ✅ en `AGENTS.md` y en el `README.md`, y preguntas de entrevista del checkpoint.
+Consulta de solo lectura a la API de Cost Management sobre `rg-headache-dev` (agrupado por
+medidor y por día). Todo el gasto es del 18-10, el día de las validaciones; el 19 fue 0.
+
+| Concepto | Coste | % |
+|---|---:|---:|
+| `gpt-4.1` (juez de evals: nativo, RAGAS, DeepEval, Foundry Evaluation) | 2,57 € | 68 % |
+| AI Search Basic (≈ 3,7 h en dos sesiones efímeras) | 0,44 € | 12 % |
+| `gpt-4.1-mini` (agentes, turnos con escrituras, Foundry IQ) | 0,42 € | 11 % |
+| `gpt-4.1-nano` (consultas, planificador de retrieval, router) | 0,33 € | 9 % |
+| Embeddings, Storage, Service Bus, Content Safety F0 | < 0,01 € | — |
+| **Total** | **3,76 €** | de 100 € de presupuesto |
+
+- **Lo caro es evaluar, no servir**: dos tercios del gasto son el juez `gpt-4.1`, y la mayor
+  parte, los jueces de framework (RAGAS ~10 llamadas por muestra). El juez nativo (1 llamada)
+  es el que va a la CI.
+- **Indexar cuesta céntimos por los dos carriles** (embeddings 0,005 €, Service Bus ~0, Storage
+  0,003 €). El coste de la fase 3 es tener AI Search encendido por horas: de ahí que sea efímero.
+  El "coste por carril" que estaba pendiente se reduce a eso: B y A comparten AI Search y lo
+  demás no llega a un céntimo con este volumen.
+- **La estimación de la sesión se quedó un 40 % corta** (2,65 € frente a 3,76 €): se sumó cada
+  eval una sola vez, y varias se repitieron (Foundry Evaluation tres veces, depuración de
+  DeepEval, reintentos); y la tabla de precios del código es la global, mientras que
+  DataZoneStandard es algo más cara. El medidor de la aplicación sirve para cortar el gasto; la
+  cifra buena es la de Cost Management.
+
+## 7. Cierre
+
+**Estado:** ✅ Hecho (20-10-2026). Todos los pendientes de Azure de las fases 2–8 están validados
+o aplazados con motivo; AWS queda para cuando haya cuenta (las fases 2–8 siguen en `✅ Hecha*`
+por ello).
+
+Aplazado, con su fase:
+
+| Pendiente | A | Motivo |
+|---|---|---|
+| Memoria de Foundry y de AgentCore frente a `remember_preference` | Fase 9 | Encaja con la memoria compartida entre agentes |
+| Tool de compra con `Idempotency-Key` y aprobación | Fase 9 | Nuevo flujo de escritura del multi-agente |
+| Juez de respuestas para la suite de agentes y los ataques; red teaming | Fase 12 | Evals de agentes |
+| Langfuse v4 | Fase 11 | Observabilidad |
+| APIM, MCP en HTTPS y Entra ID + OBO (App Registrations como código) | Fase 14 | Despliegue en Azure; sin objetos a mano en el tenant corporativo |
+| Todo lo de AWS (Bedrock, Bedrock KB, Guardrails, Cognito, AgentCore) | Cuando haya cuenta | Sin acceso a AWS todavía |
+
+Preguntas de entrevista del checkpoint: [preguntas-entrevista.md](preguntas-entrevista.md#checkpoint-8-9).

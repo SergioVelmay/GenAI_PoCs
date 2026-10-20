@@ -58,7 +58,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   #
 - Commits: Conventional Commits en español (`feat: fase 8.2 - ...`), con trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 - Tests deterministas, sin red ni coste (adaptadores en memoria). Lo que tiene coste exige `--budget-usd` o dry-run por defecto (`--apply`).
 - Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
-- `✅ Hecha*` = implementación cerrada, falta validación en cloud. No escribir "asterisco".
+- `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 solo falta AWS). No escribir "asterisco".
 
 ## Entorno y problemas conocidos
 
@@ -83,7 +83,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check   #
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅ Hecha* | `docs/fase-6-tools-mcp.md` |
 | 7 | Un agente en 7 sabores y context engineering | ✅ Hecha* | `docs/fase-7-agentes.md` |
 | 8 | Agentic harness y guardrails | ✅ Hecha* | `docs/fase-8-harness.md` |
-| 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes cloud | 🚧 En curso | `docs/fase-9-8-checkpoint.md` |
+| 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes de Azure de las fases 2–8 | ✅ Hecha | `docs/fase-9-8-checkpoint.md` |
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | | |
 | 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | | |
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | | |
