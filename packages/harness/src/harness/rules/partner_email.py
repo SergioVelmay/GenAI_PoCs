@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -28,6 +27,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from harness.approvals import ApprovalService
 from harness.correction import CorrectionResult, generate_validated
 from harness.rules.patterns import CONTACT_DATA, money_amounts
+from harness.rules.writing import (
+    INTERNAL_IDS,
+    INTERNAL_VOCABULARY,
+    fold,
+    has_template_text,
+    tone_violations,
+)
 from harness.validation import Validator, Violation, staged
 from headache_core.application.llm import complete_structured
 from headache_core.application.tools import Tool, ToolContext, ToolRegistry
@@ -37,32 +43,6 @@ from headache_core.ports.approvals import ApprovalRequest
 type Language = Literal["es", "en"]
 
 SUBJECT_PREFIX = "[Headache Partners]"
-# Nunca se comparten con un partner: identifican (o enlazan con) clientes concretos.
-INTERNAL_IDS = re.compile(r"\b(?:cus|ord|ref)_[A-Za-z0-9]+\b")
-INTERNAL_VOCABULARY = re.compile(
-    r"\b(?:comisi[oó]n(?:es)?|m[aá]rgen(?:es)?|take[\s-]?rate|commissions?|margins?|"
-    r"uso\s+interno|internal\s+only|confidencial\s+interno)\b",
-    re.IGNORECASE,
-)
-_BLAME = re.compile(
-    r"\b(?:culpa|negligencia|vuestro\s+error|su\s+error|incompetencia|fault|negligen(?:ce|t)|"
-    r"your\s+mistake|liable|responsabilidad\s+legal)\b",
-    re.IGNORECASE,
-)
-_PROMISE = re.compile(
-    r"\b(?:garantiza(?:mos)?|compensaremos|indemnizaremos|we\s+guarantee|we\s+will\s+compensate|"
-    r"guaranteed)\b",
-    re.IGNORECASE,
-)
-_SHOUTING = re.compile(r"\b[A-ZÁÉÍÓÚÑ]{4,}\b")
-_EMOJI = re.compile("[\U0001f300-\U0001faff\u2600-\u27bf\u2b50\u2b55]")
-_GREETING = re.compile(r"^\s*(?:hola|estimad[oa]s?|buen[oa]s|dear|hi|hello)\b", re.IGNORECASE)
-_SIGN_OFF = re.compile(
-    r"\b(?:un\s+saludo|saludos|atentamente|cordialmente|best\s+regards|kind\s+regards|"
-    r"sincerely)\b",
-    re.IGNORECASE,
-)
-ACRONYMS = frozenset({"RGPD", "GDPR", "UTC", "IBAN", "PDF", "CEST", "FAQ"})
 
 GREETINGS: dict[Language, str] = {"es": "Hola, {name}:", "en": "Dear {name},"}
 ACTIONS_TITLE: dict[Language, str] = {"es": "Acciones solicitadas:", "en": "Requested actions:"}
@@ -113,12 +93,6 @@ class RenderedEmail:
     body: str
 
 
-def _fold(text: str) -> str:
-    """Minúsculas y sin tildes: 'Pérez' y 'perez' son el mismo nombre."""
-    decomposed = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
-
-
 def _texts(draft: PartnerEmailDraft) -> dict[str, str]:
     return {
         "subject": draft.subject,
@@ -144,9 +118,9 @@ def no_prohibited_data(draft: PartnerEmailDraft, case: PartnerEmailCase) -> list
                     "internal_data", "No menciones comisiones, márgenes ni datos internos.", path
                 )
             )
-        folded = _fold(text)
+        folded = fold(text)
         for term, category in case.forbidden_terms.items():
-            if re.search(rf"\b{re.escape(_fold(term))}\b", folded):
+            if re.search(rf"\b{re.escape(fold(term))}\b", folded):
                 violations.append(
                     Violation(
                         category,
@@ -159,24 +133,7 @@ def no_prohibited_data(draft: PartnerEmailDraft, case: PartnerEmailCase) -> list
 
 
 def professional_tone(draft: PartnerEmailDraft, _: PartnerEmailCase) -> list[Violation]:
-    violations: list[Violation] = []
-    texts = _texts(draft)
-    joined = "\n".join(texts.values())
-    if joined.count("!") > 1:
-        violations.append(Violation("exclamations", "Como mucho una exclamación en todo el email."))
-    if [w for w in _SHOUTING.findall(joined) if w not in ACRONYMS]:
-        violations.append(Violation("shouting", "No escribas palabras enteras en mayúsculas."))
-    if _EMOJI.search(joined):
-        violations.append(Violation("emoji", "Sin emojis: es una comunicación profesional."))
-    if _BLAME.search(joined):
-        violations.append(
-            Violation("blame", "No atribuyas culpas ni admitas responsabilidades legales.")
-        )
-    if _PROMISE.search(joined):
-        violations.append(
-            Violation("unauthorized_promise", "No garantices ni prometas compensaciones.")
-        )
-    return violations
+    return tone_violations("\n".join(_texts(draft).values()))
 
 
 def template_sections(draft: PartnerEmailDraft, _: PartnerEmailCase) -> list[Violation]:
@@ -188,7 +145,7 @@ def template_sections(draft: PartnerEmailDraft, _: PartnerEmailCase) -> list[Vio
         )
     for path in ("summary", "body"):
         text = getattr(draft, path)
-        if _GREETING.search(text) or _SIGN_OFF.search(text):
+        if has_template_text(text):
             violations.append(
                 Violation("template_owned", "Sin saludo ni despedida: los pone la plantilla.", path)
             )
@@ -205,9 +162,9 @@ def grounded_content(draft: PartnerEmailDraft, case: PartnerEmailCase) -> list[V
         violations.append(
             Violation("ungrounded_amount", "Solo puedes citar importes que estén en los hechos.")
         )
-    folded = _fold(joined)
+    folded = fold(joined)
     for mention in case.must_mention:
-        if _fold(mention) not in folded:
+        if fold(mention) not in folded:
             violations.append(
                 Violation("missing_mention", f"El email debe mencionar «{mention}».", "body")
             )

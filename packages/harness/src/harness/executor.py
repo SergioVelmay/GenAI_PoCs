@@ -40,6 +40,8 @@ class TurnTrace:
     executions: list[ToolExecution] = field(default_factory=list)
     # Códigos de lo que el harness detectó y neutralizó sin bloquear el turno.
     findings: list[str] = field(default_factory=list)
+    # Ids de las solicitudes de aprobación abiertas por `ApprovalGate` en el turno.
+    approvals: list[str] = field(default_factory=list)
 
     def succeeded(self, tool_name: str) -> list[ToolExecution]:
         return [e for e in self.executions if e.call.name == tool_name and not e.is_error]

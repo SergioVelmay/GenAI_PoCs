@@ -129,6 +129,7 @@ class ApprovalGate:
             ttl=self.ttl,
         )
         trace.findings.append(APPROVAL_REQUESTED)
+        trace.approvals.append(request.id)
         return Denial(
             APPROVAL_REQUIRED,
             f"Esta acción necesita la aprobación de una persona y queda pendiente (referencia "

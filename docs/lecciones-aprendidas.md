@@ -14,6 +14,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | PowerShell 5.1 rechaza `&&`, `\|\|` y heredocs | No es PowerShell 7 | Usar `;` con `if ($?) { ... }` y `@' ... '@ \| python -` |
 | `az` apuntaba a la suscripción de otra organización con un proceso activo (checkpoint 8→9) | La CLI guarda una sola sesión por defecto para todo el equipo; cambiar de tenant o suscripción afecta a cualquier proceso que pida tokens a la CLI | Perfil aislado con `AZURE_CONFIG_DIR` para este repo; comprobar `az account show` antes de cualquier `plan`/`apply` |
 | Texto con tildes mal mostrado en la consola | PowerShell 5.1 lee UTF-8 sin BOM como ANSI | Solo es visual: el fichero está bien. Leer con `view` o Python |
+| Un reemplazo con `Get-Content -Raw ... \| Set-Content -Encoding utf8` corrompió las tildes y añadió BOM (fase 9.2) | Lee el UTF-8 como ANSI y escribe UTF-8 **con** BOM: el texto queda doblemente codificado | Nunca reescribir ficheros con `Get-Content`/`Set-Content`: usar la tool de edición o Python (`encoding="utf-8"`, `newline="\n"`) |
 
 ## Verificación y CI
 

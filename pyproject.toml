@@ -13,6 +13,7 @@ dependencies = [
     "mcp-servers",
     "support-agent",
     "booking-agent",
+    "orchestrator",
 ]
 
 [tool.uv.workspace]
@@ -28,6 +29,7 @@ rag-evals = { workspace = true }
 mcp-servers = { workspace = true }
 support-agent = { workspace = true }
 booking-agent = { workspace = true }
+orchestrator = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -55,6 +57,7 @@ known-first-party = [
     "headache_core",
     "headache_mcp",
     "indexer",
+    "orchestrator",
     "rag_evals",
     "retrieval",
     "support_agent",
@@ -82,6 +85,8 @@ files = [
     "services/support_agent/tests",
     "services/booking_agent/src",
     "services/booking_agent/tests",
+    "services/orchestrator/src",
+    "services/orchestrator/tests",
     "evals/src",
     "evals/tests",
     "scripts",

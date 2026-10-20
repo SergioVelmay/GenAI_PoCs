@@ -141,6 +141,7 @@ async def test_refund_waits_for_a_human_after_the_model_fixes_its_arguments(flav
     service = ApprovalService(approvals, spec.tools)
     [pending] = await service.pending(customer_id="cus_1")
     assert pending.id in executor.journal[1].output
+    assert turn.approvals == (pending.id,)
     decided = await service.decide(pending.id, reviewer="ops-1", approve=True)
     assert decided.status is ApprovalStatus.EXECUTED
     assert decided.result is not None and json.loads(decided.result)["approved"] is True

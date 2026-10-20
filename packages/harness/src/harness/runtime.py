@@ -86,6 +86,8 @@ class GuardedRuntime:
                 codes = (*input_codes, PROVIDER_FILTER)
                 return AgentTurn(self._blocked_input, "guardrail", guardrails=codes)
         record = TurnRecord(message, turn.answer, tuple(trace.executions))
+        # Las solicitudes abiertas siguen pendientes aunque se bloquee la respuesta.
+        approvals = (*turn.approvals, *trace.approvals)
         violations = await run_validators(self._output_guards, record, context)
         if violations:
             codes = tuple(
@@ -93,11 +95,15 @@ class GuardedRuntime:
             )
             logger.warning("Respuesta bloqueada por el harness: %s", codes)
             return replace(
-                turn, answer=self._blocked_output, stop_reason="guardrail", guardrails=codes
+                turn,
+                answer=self._blocked_output,
+                stop_reason="guardrail",
+                guardrails=codes,
+                approvals=approvals,
             )
         answer, output_codes = await _apply(self._output_filters, turn.answer, context)
         codes = tuple(dict.fromkeys((*input_codes, *trace.findings, *output_codes)))
-        return replace(turn, answer=answer, guardrails=codes)
+        return replace(turn, answer=answer, guardrails=codes, approvals=approvals)
 
 
 async def _apply(

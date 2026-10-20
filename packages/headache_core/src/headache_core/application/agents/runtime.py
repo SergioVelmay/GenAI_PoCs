@@ -20,6 +20,8 @@ class AgentTurn:
     compacted: bool = False
     # Códigos de las reglas del harness que se dispararon en el turno.
     guardrails: tuple[str, ...] = ()
+    # Solicitudes de aprobación humana abiertas en el turno (la acción queda pendiente).
+    approvals: tuple[str, ...] = ()
 
 
 class AgentRuntime(Protocol):
