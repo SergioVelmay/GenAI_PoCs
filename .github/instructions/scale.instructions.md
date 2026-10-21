@@ -1,5 +1,5 @@
 ---
-applyTo: "services/edge_api/**,packages/headache_core/src/headache_core/application/admission.py,packages/headache_core/src/headache_core/domain/admission.py,packages/headache_core/src/headache_core/ports/rate_limit.py,packages/headache_core/src/headache_core/adapters/redis_*.py,packages/headache_core/src/headache_core/application/llm/resilience.py,packages/headache_core/src/headache_core/domain/semantic_cache.py,packages/headache_core/src/headache_core/application/semantic_cache.py,packages/headache_core/src/headache_core/ports/semantic_cache.py,evals/src/rag_evals/semantic_cache.py,packages/headache_core/src/headache_core/application/llm/streaming.py,packages/headache_core/src/headache_core/application/answer_stream.py"
+applyTo: "services/edge_api/**,packages/headache_core/src/headache_core/application/admission.py,packages/headache_core/src/headache_core/domain/admission.py,packages/headache_core/src/headache_core/ports/rate_limit.py,packages/headache_core/src/headache_core/adapters/redis_*.py,packages/headache_core/src/headache_core/application/llm/resilience.py,packages/headache_core/src/headache_core/domain/semantic_cache.py,packages/headache_core/src/headache_core/application/semantic_cache.py,packages/headache_core/src/headache_core/ports/semantic_cache.py,evals/src/rag_evals/semantic_cache.py,packages/headache_core/src/headache_core/application/llm/streaming.py,packages/headache_core/src/headache_core/application/answer_stream.py,packages/headache_core/src/headache_core/domain/autoscaling.py,packages/headache_core/src/headache_core/application/autoscaler.py,packages/headache_core/src/headache_core/ports/scaling.py,packages/headache_core/src/headache_core/adapters/queue_metrics.py,packages/headache_core/src/headache_core/adapters/compose_scaler.py,scripts/queue_autoscaler.py,scripts/capacity_plan.py,services/orchestrator/src/orchestrator/load_worker.py"
 description: "Escala: edge, admisión, rate limiting distribuido y resiliencia del cliente LLM (fase 10)."
 ---
 
@@ -37,6 +37,14 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - `POST /cases` exige identidad (401) e `Idempotency-Key` (400 sin ella, 422 mal formada). Misma clave y cuerpo ⇒ mismo caso (`Idempotent-Replayed: true`); otro cuerpo ⇒ 409. La clave es por cliente.
 - El alta (`case_submissions`) y el evento `support.emails` van en una transacción (outbox); los workers y el relay hacen el resto. `GET /cases/{id}` y `/cases/{id}/events` (SSE `status`, `retry:`, `timeout` al vencer `EDGE__CASE_STREAM_SECONDS`) solo para el dueño o personal interno (404 si no es suyo).
 - Base de datos caída ⇒ 503 + `Retry-After` (manejadores de `OSError` y `DBAPIError`), nunca 500. `EDGE__CASES_BACKEND=postgres|memory|disabled`.
+
+## Autoescalado por cola (10.6)
+
+- Regla pura en `domain/autoscaling.py` (la de KEDA `queueLength`): `ceil(mensajes / objetivo)` entre mínimo y máximo, activación desde 0, subida limitada por paso (+N o el doble), bajada al máximo pedido en la ventana de estabilización y a 0 solo tras el enfriamiento. Se escala por la cola (listos + sin confirmar), no por CPU: un worker de LLM espera al modelo.
+- `CapacityPlan` (ley de Little + cuota TPM): el `max_replicas` sensato es el techo de la cuota (`max_useful_replicas`); por encima solo hay 429. `uv run python scripts/capacity_plan.py`.
+- Controlador `application/autoscaler.py` (`QueueAutoscaler`): dry-run por defecto; si no puede leer la cola, no toca nada. Métricas: `RabbitMQManagementMetrics` (API de gestión, puerto 15672) y `SqsQueueMetrics`; actuador `DockerComposeScaler` (`up -d --no-recreate --scale`, cuenta las réplicas que existen, como `spec.replicas`).
+- Demo sin coste: `queue-worker` (perfil `scale`, 0 réplicas, `orchestrator.load_worker`) + `scripts/queue_autoscaler.py --apply` + `python -m orchestrator.load_worker --publish N`. Informe en `evals/reports/autoscaling.md`.
+- Nube (Terraform, `queue_workers_enabled=false`): Container Apps con regla KEDA `azure-servicebus` e identidad (`queue_workers.tf` de Azure) y ECS Fargate con *target tracking* sobre mensajes por tarea (`queue_workers.tf` de AWS).
 
 ## Edge (`services/edge_api`)
 

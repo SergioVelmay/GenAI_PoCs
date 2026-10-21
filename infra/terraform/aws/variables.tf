@@ -127,3 +127,27 @@ variable "mcp_oauth_credentials_version" {
   type        = number
   default     = 1
 }
+
+variable "queue_workers_enabled" {
+  description = "Fase 10.6: workers de casos en ECS Fargate con autoescalado por la cola SQS support-emails."
+  type        = bool
+  default     = false
+}
+
+variable "queue_worker_image" {
+  description = "Imagen del orquestador (services/orchestrator/Dockerfile) en ECR (fase 13)."
+  type        = string
+  default     = ""
+}
+
+variable "queue_worker_max_tasks" {
+  description = "Techo de tareas: el que permite la cuota del modelo (scripts/capacity_plan.py)."
+  type        = number
+  default     = 4
+}
+
+variable "queue_worker_messages_per_task" {
+  description = "Objetivo de la política: mensajes visibles por tarea en marcha (backlog per task)."
+  type        = number
+  default     = 8
+}

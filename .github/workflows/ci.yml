@@ -166,12 +166,14 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       rabbitmq:
-        image: rabbitmq:4
+        # Con la API de gestión: el autoescalador lee la profundidad de las colas (fase 10.6).
+        image: rabbitmq:4-management
         env:
           RABBITMQ_DEFAULT_USER: headache
           RABBITMQ_DEFAULT_PASS: headache-ci
         ports:
           - 5672:5672
+          - 15672:15672
         options: >-
           --health-cmd "rabbitmq-diagnostics -q ping"
           --health-interval 10s

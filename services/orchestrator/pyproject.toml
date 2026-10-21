@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Orquestación multi-agente (fase 9): Triaje → Reembolsos / Creativo / Conocimiento"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[retrieval,tools]",
+    # postgres y rabbitmq: los workers de la cola, el relay del outbox y el worker de la demo
+    # de autoescalado también corren en esta imagen (fase 10.6).
+    "headache-core[postgres,rabbitmq,retrieval,tools]",
     "harness",
     # Los especialistas con tools reutilizan los sabores, el ejecutor y los guardrails de la fase 7-8.
     "booking-agent",

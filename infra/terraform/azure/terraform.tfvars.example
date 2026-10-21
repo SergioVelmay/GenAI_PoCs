@@ -27,3 +27,8 @@ content_safety_enabled = true
 
 # Fase 6.4: APIM como MCP gateway (~50 $/mes). Requiere los servidores MCP en HTTPS (fase 14).
 apim_enabled = false
+
+# Fase 10.6: workers de casos en Container Apps con KEDA (0 réplicas sin mensajes). Requiere la
+# imagen del orquestador en un registro (fase 14).
+queue_workers_enabled = false
+# queue_worker_image  = "<registro>.azurecr.io/headache-agents:<versión>"

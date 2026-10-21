@@ -195,3 +195,27 @@ variable "content_safety_sku" {
   type        = string
   default     = "F0"
 }
+
+variable "queue_workers_enabled" {
+  description = "Fase 10.6: workers de casos en Container Apps con autoescalado KEDA por la cola support.emails."
+  type        = bool
+  default     = false
+}
+
+variable "queue_worker_image" {
+  description = "Imagen del orquestador (services/orchestrator/Dockerfile) en un registro accesible (fase 14)."
+  type        = string
+  default     = ""
+}
+
+variable "queue_worker_max_replicas" {
+  description = "Techo de réplicas: el que permite la cuota TPM del modelo (scripts/capacity_plan.py)."
+  type        = number
+  default     = 4
+}
+
+variable "queue_worker_messages_per_replica" {
+  description = "messageCount de KEDA: mensajes en cola por réplica antes de añadir otra."
+  type        = number
+  default     = 8
+}

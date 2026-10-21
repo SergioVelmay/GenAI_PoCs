@@ -132,6 +132,27 @@ services:
       timeout: 5s
       retries: 10
 
+  # Worker sintético de la demo de autoescalado (fase 10.6): sin LLM ni coste. Arranca con 0
+  # réplicas; las mueve scripts/queue_autoscaler.py según la cola demo.jobs (como KEDA).
+  queue-worker:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    image: headache-agents:local
+    profiles: [scale]
+    restart: unless-stopped
+    entrypoint: ["python", "-m", "orchestrator.load_worker"]
+    command: ["--service-ms", "1000", "--prefetch", "4"]
+    deploy:
+      replicas: 0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ__HOST: rabbitmq
+      RABBITMQ__USER: ${RABBITMQ__USER}
+      RABBITMQ__PASSWORD: ${RABBITMQ__PASSWORD}
+
   # ---------- Servidores MCP (fase 6): una imagen, tres contenedores ----------
   mcp-catalog: &mcp
     build:
