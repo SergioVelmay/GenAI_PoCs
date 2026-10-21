@@ -2291,6 +2291,8 @@ llamaindex = [
 ]
 observability = [
     { name = "langfuse" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
 ]
 postgres = [
     { name = "alembic" },
@@ -2331,6 +2333,8 @@ requires-dist = [
     { name = "llama-index-vector-stores-postgres", marker = "extra == 'llamaindex'", specifier = ">=0.7" },
     { name = "numpy", marker = "extra == 'retrieval'", specifier = ">=1.26" },
     { name = "openai", marker = "extra == 'azure'", specifier = ">=1.68" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'observability'", specifier = ">=1.45" },
+    { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = ">=1.45" },
     { name = "pgvector", marker = "extra == 'postgres'", specifier = ">=0.4" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },

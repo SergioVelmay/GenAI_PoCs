@@ -59,6 +59,28 @@ def test_gateway_resilience_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     assert gateway.circuit_reset_seconds == 2.5
 
 
+def test_telemetry_is_off_by_default_and_never_captures_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    defaults = Settings(_env_file=None).telemetry
+    assert defaults.exporter == "none"
+    assert defaults.capture_content is False
+    assert defaults.otlp_endpoint == "http://127.0.0.1:4318"
+
+    monkeypatch.setenv("TELEMETRY__EXPORTER", "otlp")
+    monkeypatch.setenv("TELEMETRY__SAMPLE_RATIO", "0.25")
+    monkeypatch.setenv("TELEMETRY__LOG_FORMAT", "json")
+
+    telemetry = Settings(_env_file=None).telemetry
+    assert telemetry.exporter == "otlp"
+    assert telemetry.sample_ratio == 0.25
+    assert telemetry.log_format == "json"
+
+    monkeypatch.setenv("TELEMETRY__SAMPLE_RATIO", "1.5")
+    with pytest.raises(ValueError, match="sample_ratio"):
+        Settings(_env_file=None)
+
+
 def test_rate_limit_is_local_by_default_and_redis_is_its_own(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -43,6 +43,7 @@ from headache_core.ports.repositories import (
     SessionRepository,
     UnitOfWork,
 )
+from headache_core.ports.telemetry import SpanKind, SpanPort, TelemetryPort, TraceIds
 from headache_core.ports.ticketing import (
     RefundResult,
     TicketingError,
@@ -95,7 +96,10 @@ __all__ = [
     "Role",
     "SearchResult",
     "SessionRepository",
+    "SpanKind",
+    "SpanPort",
     "StreamingLLMPort",
+    "TelemetryPort",
     "TextDelta",
     "TicketingError",
     "TicketingNotFoundError",
@@ -106,6 +110,7 @@ __all__ = [
     "ToolCall",
     "ToolConfig",
     "ToolSpec",
+    "TraceIds",
     "UnitOfWork",
     "VectorRecord",
     "VectorStorePort",

@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import Literal
 from urllib.parse import quote
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -140,6 +140,23 @@ class LangfuseSettings(BaseModel):
     host: str = "http://127.0.0.1:3000"
     public_key: str = ""
     secret_key: SecretStr = SecretStr("")
+
+
+class TelemetrySettings(BaseModel):
+    """OpenTelemetry (fase 11). Por defecto no se exporta nada."""
+
+    # none: sin trazas. console: a stdout (depurar). otlp: al collector (OTLP/HTTP).
+    exporter: Literal["none", "console", "otlp"] = "none"
+    # Collector local (perfil `telemetry`); en la nube, el sidecar de ADOT o del Azure Monitor.
+    otlp_endpoint: str = "http://127.0.0.1:4318"
+    # Vacío = el nombre que pase el servicio al arrancar.
+    service_name: str = ""
+    # Muestreo en la cabeza, respetando la decisión del padre (ParentBased). 1.0 = todo.
+    sample_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
+    # Guardar prompts y respuestas en los spans (redactados). Más PII y más volumen: opt-in.
+    capture_content: bool = False
+    log_format: Literal["text", "json"] = "text"
+    log_level: str = "INFO"
 
 
 class SqsSettings(BaseModel):
@@ -330,6 +347,7 @@ class Settings(BaseSettings):
     content_safety: ContentSafetySettings = ContentSafetySettings()
     bedrock_guardrail: BedrockGuardrailSettings = BedrockGuardrailSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
+    telemetry: TelemetrySettings = TelemetrySettings()
     scale_redis: ScaleRedisSettings = ScaleRedisSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     semantic_cache: SemanticCacheSettings = SemanticCacheSettings()

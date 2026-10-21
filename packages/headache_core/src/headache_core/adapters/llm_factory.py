@@ -16,6 +16,7 @@ from headache_core.application.llm import (
     RoutingLLM,
     SharedQuotaLLM,
 )
+from headache_core.application.telemetry import TelemetryLLMTracer
 from headache_core.config import LLMProvider, Settings
 from headache_core.ports import LLMPort, LLMTracer, RateLimiterPort
 
@@ -44,7 +45,14 @@ def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTie
 
 
 def build_tracer(settings: Settings) -> LLMTracer:
-    """Langfuse si hay claves configuradas; si no, no se traza."""
+    """OpenTelemetry si está activo (fase 11); si no, el SDK de Langfuse si hay claves; si no,
+    no se traza.
+
+    Con OTel no se usa también el SDK de Langfuse: el collector ya le reenvía los spans y cada
+    llamada saldría dos veces.
+    """
+    if settings.telemetry.exporter != "none":
+        return TelemetryLLMTracer(capture_content=settings.telemetry.capture_content)
     if settings.langfuse.public_key and settings.langfuse.secret_key.get_secret_value():
         from headache_core.adapters.langfuse_tracer import LangfuseTracer
 
