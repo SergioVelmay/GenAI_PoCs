@@ -508,12 +508,12 @@ class InMemoryCaseStore:
 
 
 class InMemoryRateLimiter:
-    """GCRA (*Generic Cell Rate Algorithm*) en memoria: misma sem?ntica que el script Lua de
+    """GCRA (*Generic Cell Rate Algorithm*) en memoria: misma semántica que el script Lua de
     `RedisRateLimiter`, pero por proceso. Sirve para tests y como plan B si Redis cae.
 
     Por clave solo se guarda el TAT (*theoretical arrival time*): el instante en que el cubo
-    estar?a lleno otra vez. Coste n con l?mite L por periodo P (intervalo T = P / L):
-    `nuevo_tat = max(tat, ahora) + n?T`; se concede si `nuevo_tat - P <= ahora`.
+    estaría lleno otra vez. Coste n con límite L por periodo P (intervalo T = P / L):
+    `nuevo_tat = max(tat, ahora) + n·T`; se concede si `nuevo_tat - P <= ahora`.
     """
 
     MAX_KEYS = 100_000
@@ -537,7 +537,7 @@ class InMemoryRateLimiter:
                 retry_after = max(retry_after, allow_at - now)
             else:
                 new_tats[request.key] = new_tat
-                # El ?psilon evita que (P - T) / T = 18,999... cuente una unidad de menos.
+                # El épsilon evita que (P - T) / T = 18,999... cuente una unidad de menos.
                 remaining = min(remaining, math.floor((now - allow_at) / interval + 1e-9))
         if limited_by is not None:
             return RateLimitDecision(False, retry_after=retry_after, limited_by=limited_by)

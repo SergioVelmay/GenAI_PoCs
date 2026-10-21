@@ -72,7 +72,7 @@ return {0, '0', math.max(remaining, 0)}
 
 class RedisRateLimiter:
     """Si Redis falla, deja de intentarlo `cooldown_seconds` (un mini *circuit breaker*): cada
-    petici?n no debe pagar un timeout de conexi?n mientras dura la ca?da."""
+    petición no debe pagar un timeout de conexión mientras dura la caída."""
 
     def __init__(
         self,
@@ -103,7 +103,7 @@ class RedisRateLimiter:
             socket_timeout=settings.timeout_seconds,
             socket_connect_timeout=settings.timeout_seconds,
             # Sin reintentos (redis-py reintenta 3 veces con backoff por defecto: ~7 s medidos
-            # con Redis parado). Para un limitador, fallar r?pido y aplicar el plan B.
+            # con Redis parado). Para un limitador, fallar rápido y aplicar el plan B.
             retry=Retry(NoBackoff(), 0),
             max_connections=settings.max_connections,
         )

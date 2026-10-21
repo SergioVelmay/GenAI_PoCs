@@ -264,12 +264,12 @@ async def test_rejected_reservation_is_refunded() -> None:
         clock=time.clock,
         sleep=time.sleep,
     )
-    await llm.complete(HELLO, max_tokens=48)  # ~50 tokens: queda 1 petici?n y 50 tokens.
+    await llm.complete(HELLO, max_tokens=48)  # ~50 tokens: queda 1 petición y 50 tokens.
 
     with pytest.raises(LLMOverloadedError):
-        await llm.complete(HELLO, max_tokens=98)  # Hay petici?n, pero no 100 tokens.
+        await llm.complete(HELLO, max_tokens=98)  # Hay petición, pero no 100 tokens.
 
-    # Si la petici?n reservada no se hubiera devuelto, esta tercera llamada no cabr?a.
+    # Si la petición reservada no se hubiera devuelto, esta tercera llamada no cabría.
     await llm.complete(HELLO, max_tokens=48)
     assert len(inner.calls) == 2
 
@@ -361,7 +361,7 @@ async def test_budget_too_short_for_the_backoff_stops_retrying() -> None:
     llm = FallbackLLM([failing], max_retries=3, sleep=time.sleep, clock=time.clock)
 
     with time_budget(2.0, clock=time.clock), pytest.raises(LLMTransientError):
-        await llm.complete(HELLO)  # Esperar 2 s agotar?a el presupuesto: no reintenta.
+        await llm.complete(HELLO)  # Esperar 2 s agotaría el presupuesto: no reintenta.
 
     assert (failing.calls, time.sleeps) == (1, [])
 

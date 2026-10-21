@@ -60,8 +60,8 @@ def _resilient(
     """Un despliegue con su pila de resiliencia (fase 10.1).
 
     Breaker fuera: con el circuito abierto no se gasta cuota ni hueco. Bulkhead antes de la
-    cuota: acota tambi?n a quien espera fichas. Rate limit dentro: lo m?s cerca del proveedor.
-    Con `limiter` (Redis), la cuota RPM/TPM es la del despliegue, no la de cada r?plica.
+    cuota: acota también a quien espera fichas. Rate limit dentro: lo más cerca del proveedor.
+    Con `limiter` (Redis), la cuota RPM/TPM es la del despliegue, no la de cada réplica.
     """
     gateway = settings.llm_gateway
     quota: LLMPort = RateLimitedLLM(
@@ -71,7 +71,7 @@ def _resilient(
         max_wait=gateway.max_queue_seconds,
     )
     if limiter is not None:
-        # Cuota del despliegue compartida entre r?plicas; la local queda como red si Redis cae.
+        # Cuota del despliegue compartida entre réplicas; la local queda como red si Redis cae.
         quota = SharedQuotaLLM(
             quota,
             limiter,

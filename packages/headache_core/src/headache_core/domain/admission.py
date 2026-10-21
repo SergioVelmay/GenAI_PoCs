@@ -41,7 +41,7 @@ def has_capacity(plan: ClientPlan, *, in_flight: int, capacity: int) -> bool:
 
 
 def access_scope(plan: ClientPlan) -> AccessScope:
-    """Qu? documentos puede ver cada plan: los internos solo el personal de Headache."""
+    """Qué documentos puede ver cada plan: los internos solo el personal de Headache."""
     if plan is ClientPlan.INTERNAL:
         return AccessScope(("public", "internal"))
     return AccessScope(("public",))

@@ -37,7 +37,7 @@ Errores tipados en `ports/llm.py`: `LLMError` → `LLMTransientError` → `LLMRa
 adaptador traduce los suyos; el gateway solo conoce estos.
 
 > **Fase 10.1:** el gateway suma `CircuitBreakerLLM`, `ConcurrencyLimitedLLM` (bulkhead), espera
-> m?xima en `RateLimitedLLM` (backpressure), `Retry-After` y presupuesto de tiempo (`time_budget`).
+> máxima en `RateLimitedLLM` (backpressure), `Retry-After` y presupuesto de tiempo (`time_budget`).
 > Detalle en el doc de la fase 10.
 
 ## 2. Los dos proveedores

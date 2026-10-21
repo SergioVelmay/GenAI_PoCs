@@ -2,7 +2,7 @@
 
 Se componen como capas de cebolla, igual que las políticas de APIM:
     RoutingLLM -> FallbackLLM -> CircuitBreakerLLM -> ConcurrencyLimitedLLM -> ObservedLLM
-    -> SharedQuotaLLM (cuota entre r?plicas, 10.2) -> RateLimitedLLM -> adaptador
+    -> SharedQuotaLLM (cuota entre réplicas, 10.2) -> RateLimitedLLM -> adaptador
 El breaker y el bulkhead están en `resilience.py` (fase 10.1).
 """
 
@@ -291,11 +291,11 @@ class RateLimitedLLM:
 
 
 class SharedQuotaLLM:
-    """Cuota del despliegue (RPM y TPM) compartida entre r?plicas mediante `RateLimiterPort`.
+    """Cuota del despliegue (RPM y TPM) compartida entre réplicas mediante `RateLimiterPort`.
 
-    `RateLimitedLLM` limita cada proceso; con 10 r?plicas, 10 veces la cuota llega al
-    proveedor y vuelven los 429. Aqu? todas descuentan del mismo contador (Redis), de forma
-    at?mica: petici?n y tokens a la vez o nada.
+    `RateLimitedLLM` limita cada proceso; con 10 réplicas, 10 veces la cuota llega al
+    proveedor y vuelven los 429. Aquí todas descuentan del mismo contador (Redis), de forma
+    atómica: petición y tokens a la vez o nada.
 
     - Si no hay cuota y cabe esperar (`max_wait` o el presupuesto), duerme lo que dice el
       limitador (con algo de *jitter* para no despertar todas a la vez) y vuelve a pedir.

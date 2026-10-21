@@ -84,7 +84,7 @@ class RabbitMQSettings(BaseModel):
 
 
 class ScaleRedisSettings(BaseModel):
-    """Redis de la fase 10 (rate limiting y cach? sem?ntica), distinto del de Langfuse."""
+    """Redis de la fase 10 (rate limiting y caché semántica), distinto del de Langfuse."""
 
     host: str = "127.0.0.1"
     port: int = 6380
@@ -95,11 +95,11 @@ class ScaleRedisSettings(BaseModel):
 
 
 class RateLimitSettings(BaseModel):
-    # memory: por proceso (tests y una r?plica). redis: compartido por todas las r?plicas.
+    # memory: por proceso (tests y una réplica). redis: compartido por todas las réplicas.
     backend: Literal["memory", "redis"] = "memory"
-    # Hash tag: todas las claves en el mismo slot de un Redis en cl?ster (scripts multiclave).
+    # Hash tag: todas las claves en el mismo slot de un Redis en clúster (scripts multiclave).
     key_prefix: str = "{headache-rl}"
-    # Peticiones por minuto y usuario seg?n el plan (r?faga = el mismo n?mero).
+    # Peticiones por minuto y usuario según el plan (ráfaga = el mismo número).
     anonymous_per_minute: int = 5
     public_per_minute: int = 20
     internal_per_minute: int = 120

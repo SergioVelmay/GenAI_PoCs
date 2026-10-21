@@ -180,7 +180,7 @@ jobs:
         image: softwaremill/elasticmq-native:1.7.1
         ports:
           - 9324:9324
-      # Rate limiting distribuido (fase 10). Los services no admiten `command`: sin contrase?a.
+      # Rate limiting distribuido (fase 10). Los services no admiten `command`: sin contraseña.
       redis-scale:
         image: redis:8
         ports:

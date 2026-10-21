@@ -106,7 +106,7 @@ services:
       ACCEPT_EULA: ${SERVICEBUS_ACCEPT_EULA:-N}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
 
-  # ---------- Escala (fase 10): rate limiting y cach? sem?ntica ----------
+  # ---------- Escala (fase 10): rate limiting y caché semántica ----------
   # Redis 8 propio (el de Langfuse es suyo). Sin persistencia: todo lo que guarda caduca.
   redis-scale:
     image: redis:8
