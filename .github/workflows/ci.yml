@@ -87,6 +87,9 @@ jobs:
       # fuera del LLM, contexto mínimo en el traspaso) en LangGraph, MAF y la cola.
       - name: Evals multi-agente (3 motores, modelo guionizado)
         run: uv run python -m rag_evals.multiagent --out /tmp/evals --check
+      # Bloquea siempre: un falso acierto es una respuesta equivocada servida con confianza.
+      - name: Calibración de la caché semántica (falsos aciertos y personales = 0)
+        run: uv run python -m rag_evals.semantic_cache --out /tmp/evals --check
 
       - name: Publicar informes
         if: always()

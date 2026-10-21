@@ -1,0 +1,36 @@
+{"id": "para-doors-es", "kind": "paraphrase", "seed": "¿A qué hora abren las puertas en Barcelona?", "probe": "¿Cuándo abren las puertas en Barcelona?", "should_hit": true}
+{"id": "para-print-es", "kind": "paraphrase", "seed": "¿Necesito imprimir la entrada?", "probe": "¿Hace falta imprimir las entradas?", "should_hit": true}
+{"id": "para-app-es", "kind": "paraphrase", "seed": "¿Dónde encuentro las entradas en la app?", "probe": "¿En qué parte de la app están las entradas?", "should_hit": true}
+{"id": "para-refund-candlelit-es", "kind": "paraphrase", "seed": "¿Puedo pedir un reembolso de un concierto a la luz de las velas?", "probe": "¿Me devuelven el dinero de un concierto con velas si no puedo ir?", "should_hit": true}
+{"id": "para-age-nightlife-es", "kind": "paraphrase", "seed": "¿Hay edad mínima para el ocio nocturno?", "probe": "¿Cuál es la edad mínima en el ocio nocturno?", "should_hit": true}
+{"id": "para-date-theatre-es", "kind": "paraphrase", "seed": "¿Puedo cambiar la fecha de una entrada de teatro?", "probe": "¿Es posible cambiar la fecha de la entrada de teatro?", "should_hit": true}
+{"id": "para-doors-en", "kind": "paraphrase", "seed": "What time do doors open in London?", "probe": "When do the doors open in London?", "should_hit": true}
+{"id": "para-print-en", "kind": "paraphrase", "seed": "Do I need to print my ticket?", "probe": "Do I have to print the tickets?", "should_hit": true}
+{"id": "para-refund-food-en", "kind": "paraphrase", "seed": "Can I get a refund for a food and drink experience?", "probe": "Is a food and drink experience refundable?", "should_hit": true}
+{"id": "para-support-hours-es", "kind": "paraphrase", "seed": "¿Qué horario tiene la atención al cliente en Madrid?", "probe": "¿A qué hora atiende el servicio de atención al cliente de Madrid?", "should_hit": true}
+{"id": "para-cancelled-es", "kind": "paraphrase", "seed": "¿Qué pasa si el organizador cancela la sesión?", "probe": "Si el organizador cancela la sesión, ¿qué ocurre con la entrada?", "should_hit": true}
+{"id": "para-kids-exhibition-es", "kind": "paraphrase", "seed": "¿Se puede ir con niños a una exposición inmersiva?", "probe": "¿Pueden entrar niños a las exposiciones inmersivas?", "should_hit": true}
+{"id": "para-refund-theatre-en", "kind": "paraphrase", "seed": "How long before the show can I get a refund for theatre tickets?", "probe": "Until when can I request a refund for theatre tickets?", "should_hit": true}
+{"id": "para-venue-access-es", "kind": "paraphrase", "seed": "¿Cómo llego al recinto en Lisboa?", "probe": "¿Cómo se llega al recinto de Lisboa?", "should_hit": true}
+{"id": "para-age-nightlife-en", "kind": "paraphrase", "seed": "Is there a minimum age for nightlife events?", "probe": "What is the minimum age for nightlife events?", "should_hit": true}
+{"id": "para-refund-tours-es", "kind": "paraphrase", "seed": "¿Las entradas de tours se pueden reembolsar?", "probe": "¿Puedo pedir la devolución de un tour?", "should_hit": true}
+{"id": "para-city-alias-es", "kind": "paraphrase", "seed": "¿A qué hora abren las puertas en Nueva York?", "probe": "¿Cuándo abren las puertas en New York?", "should_hit": true}
+{"id": "trap-city-es", "kind": "trap", "seed": "¿A qué hora abren las puertas en Barcelona?", "probe": "¿A qué hora abren las puertas en Chicago?", "should_hit": false, "note": "Misma pregunta, otra ciudad: otro horario."}
+{"id": "trap-city-en", "kind": "trap", "seed": "What time do doors open in London?", "probe": "What time do doors open in Paris?", "should_hit": false}
+{"id": "trap-city-alias-es", "kind": "trap", "seed": "¿Cómo llego al recinto en Lisboa?", "probe": "¿Cómo llego al recinto en Milán?", "should_hit": false}
+{"id": "trap-city-missing-es", "kind": "trap", "seed": "¿A qué hora abren las puertas en Madrid?", "probe": "¿A qué hora abren las puertas?", "should_hit": false, "note": "Conservador: la respuesta de Madrid no vale como respuesta general."}
+{"id": "trap-category-es", "kind": "trap", "seed": "¿Puedo pedir un reembolso de un concierto a la luz de las velas?", "probe": "¿Puedo pedir un reembolso de una entrada de teatro?", "should_hit": false, "note": "Cada categoría tiene su política de reembolso."}
+{"id": "trap-category-en", "kind": "trap", "seed": "Can I get a refund for sports activities?", "probe": "Can I get a refund for nightlife events?", "should_hit": false}
+{"id": "trap-operation-es", "kind": "trap", "seed": "¿Puedo pedir un reembolso de una entrada de teatro?", "probe": "¿Puedo cambiar la fecha de una entrada de teatro?", "should_hit": false, "note": "Reembolso frente a cambio de fecha: mismo vocabulario, otra respuesta."}
+{"id": "trap-operation-en", "kind": "trap", "seed": "Can I get a refund for my theatre ticket?", "probe": "Can I change the date of my theatre ticket?", "should_hit": false}
+{"id": "trap-operation-transfer-es", "kind": "trap", "seed": "¿Puedo regalar la entrada a otra persona?", "probe": "¿Puedo pedir el reembolso de la entrada?", "should_hit": false}
+{"id": "trap-number-tickets-es", "kind": "trap", "seed": "¿Cuánto cuestan 2 entradas para el tour de Madrid?", "probe": "¿Cuánto cuestan 4 entradas para el tour de Madrid?", "should_hit": false}
+{"id": "trap-number-minutes-es", "kind": "trap", "seed": "¿Abren las puertas 15 minutos antes en Barcelona?", "probe": "¿Abren las puertas 45 minutos antes en Barcelona?", "should_hit": false}
+{"id": "trap-event-id", "kind": "trap", "seed": "¿Qué incluye el evento evt_000001?", "probe": "¿Qué incluye el evento evt_000002?", "should_hit": false}
+{"id": "trap-language", "kind": "trap", "seed": "¿Necesito imprimir la entrada?", "probe": "Do I need to print the ticket?", "should_hit": false, "note": "Otro idioma, otro espacio: la respuesta no sirve aunque el significado sea el mismo."}
+{"id": "trap-acl", "kind": "trap", "seed": "¿Cuál es el procedimiento interno para reembolsos excepcionales?", "probe": "¿Cuál es el procedimiento interno para reembolsos excepcionales?", "seed_plan": "internal", "probe_plan": "public", "should_hit": false, "note": "Misma pregunta exacta, pero quien pregunta no puede ver las fuentes internas."}
+{"id": "personal-order-identical", "kind": "personal", "seed": "¿Dónde está mi pedido ord_000123?", "probe": "¿Dónde está mi pedido ord_000123?", "should_hit": false, "note": "Ni siquiera idéntica: lo personal no se guarda."}
+{"id": "personal-order-en", "kind": "personal", "seed": "What is the status of my order?", "probe": "What's the status of my order?", "should_hit": false}
+{"id": "personal-email", "kind": "personal", "seed": "¿Podéis reenviar las entradas a ana@example.com?", "probe": "¿Podéis reenviar las entradas a luis@example.com?", "should_hit": false}
+{"id": "personal-refund-status", "kind": "personal", "seed": "¿Cuándo me llega mi reembolso?", "probe": "¿Cuándo recibiré mi reembolso?", "should_hit": false}
+{"id": "gap-negation", "kind": "trap", "seed": "¿Se admiten mascotas en el recinto?", "probe": "¿No se admiten mascotas en el recinto?", "should_hit": false, "known_gap": true, "note": "Límite conocido: la negación no cambia las facetas y casi no cambia el embedding."}

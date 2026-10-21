@@ -76,6 +76,19 @@ def test_rate_limit_is_local_by_default_and_redis_is_its_own(
     assert "secreto" not in repr(settings.scale_redis)
 
 
+def test_semantic_cache_threshold_is_calibrated_unless_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    defaults = Settings(_env_file=None).semantic_cache
+    assert (defaults.enabled, defaults.backend, defaults.threshold) == (True, "memory", None)
+
+    monkeypatch.setenv("SEMANTIC_CACHE__THRESHOLD", "0.87")
+    monkeypatch.setenv("SEMANTIC_CACHE__INDEX_VERSION", "v2")
+
+    settings = Settings(_env_file=None).semantic_cache
+    assert (settings.threshold, settings.index_version) == (0.87, "v2")
+
+
 def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "azure")
     monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")

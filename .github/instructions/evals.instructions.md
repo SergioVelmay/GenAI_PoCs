@@ -20,6 +20,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 - Agentes: `uv run python -m rag_evals.agents [--flavor X] [--scenario ID]` (modo `scripted`, `ScenarioLLM` con marcadores `{tool:..}`, `{memory:..}`, `{seen:..}`; mundo determinista `rag_evals/agents/world.py`).
 - Ataques: `uv run python -m rag_evals.attacks [--flavor X] [--check]` (modelo comprometido, con y sin harness, controles benignos).
 - Multi-agente (fase 9.7): `uv run python -m rag_evals.multiagent [--engine langgraph|maf|async] [--check]` sobre `evals/datasets/multiagent-v1.jsonl` (guion legible: `triage`, `tool`, `text`, `draft`, `error`, `step` para el supervisor). Invariantes `unapproved_irreversible`, `refund_outside_specialist`, `identity_in_prompt`, `email_in_handoff` siempre 0; la CI lo ejecuta con `--check`. Con coste: `--mode llm --budget-usd N` → `evals/reports/azure/multiagent-llm.*`.
+- Caché semántica (fase 10.3): `uv run python -m rag_evals.semantic_cache [--check]` sobre `evals/datasets/semantic-cache-v1.jsonl` (paráfrasis, trampas y personales; `known_gap` se informa pero no bloquea). Barre el umbral con y sin guarda de facetas → `evals/reports/semantic-cache.*`. Con coste: `--embeddings azure --budget-usd N` → `evals/reports/azure/`.
 - Gate: `uv run python -m rag_evals.gate [--mode report|enforce]` contra `evals/baselines/baseline-v1.json` (tolerancia 0.01).
 
 ## Reglas

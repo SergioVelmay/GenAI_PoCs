@@ -19,6 +19,9 @@ class Answer:
     citations: tuple[str, ...]
     abstained: bool
     mode: Literal["extractive", "llm-extractive"]
+    # De dónde sale: calculada (`miss`), de la caché (`hit`), de otra petición idéntica en
+    # curso (`coalesced`) o sin pasar por la caché por ser personal (`bypass`).
+    cache: Literal["miss", "hit", "coalesced", "bypass"] = "miss"
 
 
 class Assistant(Protocol):

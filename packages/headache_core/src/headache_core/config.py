@@ -105,6 +105,20 @@ class RateLimitSettings(BaseModel):
     internal_per_minute: int = 120
 
 
+class SemanticCacheSettings(BaseModel):
+    enabled: bool = True
+    # memory: por proceso. redis: compartida entre réplicas (Redis 8, índice vectorial).
+    backend: Literal["memory", "redis"] = "memory"
+    # Similitud coseno mínima. Depende del modelo de embeddings: vacío = la calibrada para el
+    # que se use (`CALIBRATED_THRESHOLDS`, medida con `rag_evals.semantic_cache`).
+    threshold: float | None = None
+    ttl_seconds: int = 3600
+    candidates: int = 5
+    # Subirla (al reindexar o cambiar una política) invalida toda la caché sin recorrerla.
+    index_version: str = "v1"
+    key_prefix: str = "{headache-sc}"
+
+
 class LangfuseSettings(BaseModel):
     host: str = "http://127.0.0.1:3000"
     public_key: str = ""
@@ -301,6 +315,7 @@ class Settings(BaseSettings):
     langfuse: LangfuseSettings = LangfuseSettings()
     scale_redis: ScaleRedisSettings = ScaleRedisSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
+    semantic_cache: SemanticCacheSettings = SemanticCacheSettings()
 
     def provider_chain(self) -> list[LLMProvider]:
         """Proveedor principal seguido del de respaldo (si lo hay)."""

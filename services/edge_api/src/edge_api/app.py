@@ -20,9 +20,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from edge_api.assistant import Answer, Assistant, RagAssistant
+from edge_api.cache import CachedAssistant
 from edge_api.identity import CallerResolver, UnauthenticatedError, build_resolver
 from edge_api.settings import EdgeSettings
-from headache_core.adapters.memory import InMemoryRateLimiter
+from headache_core.adapters.memory import (
+    HashingEmbedding,
+    InMemoryRateLimiter,
+    InMemorySemanticCache,
+)
 from headache_core.application.admission import (
     AdmissionController,
     AdmissionRejectedError,
@@ -31,14 +36,18 @@ from headache_core.application.admission import (
 )
 from headache_core.application.llm import time_budget
 from headache_core.application.retrieval import RetrievalUnavailableError
+from headache_core.application.semantic_cache import SemanticCache
 from headache_core.config import Settings
 from headache_core.domain.admission import Caller, ClientPlan
+from headache_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
 from headache_core.ports import (
+    EmbeddingPort,
     LLMDeadlineExceededError,
     LLMError,
     LLMTransientError,
     RateLimiterPort,
 )
+from headache_core.ports.semantic_cache import SemanticCachePort
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +62,7 @@ class AskOut(BaseModel):
     citations: list[str]
     abstained: bool
     mode: str
+    cache: str
 
     @classmethod
     def from_answer(cls, answer: Answer) -> AskOut:
@@ -61,6 +71,7 @@ class AskOut(BaseModel):
             citations=list(answer.citations),
             abstained=answer.abstained,
             mode=answer.mode,
+            cache=answer.cache,
         )
 
 
@@ -152,6 +163,45 @@ def _handlers(edge: EdgeSettings) -> dict[type[Exception], Callable[..., Awaitab
     }
 
 
+def build_semantic_cache(
+    settings: Settings, embeddings: EmbeddingPort, *, embeddings_name: str
+) -> SemanticCache | None:
+    """La caché con el umbral calibrado para estos embeddings; sin calibrar, sin caché."""
+    config = settings.semantic_cache
+    threshold = config.threshold or CALIBRATED_THRESHOLDS.get(embeddings_name)
+    if not config.enabled or threshold is None:
+        if config.enabled:
+            logger.warning("Sin umbral calibrado para '%s': caché desactivada.", embeddings_name)
+        return None
+    store: SemanticCachePort = InMemorySemanticCache()
+    if config.backend == "redis":
+        from headache_core.adapters.redis_semantic_cache import RedisSemanticCache
+
+        store = RedisSemanticCache.from_settings(
+            settings.scale_redis, dimensions=embeddings.dimensions, key_prefix=config.key_prefix
+        )
+    return SemanticCache(
+        store,
+        embeddings,
+        threshold=threshold,
+        ttl_seconds=config.ttl_seconds,
+        candidates=config.candidates,
+    )
+
+
+def with_cache(
+    assistant: Assistant, cache: SemanticCache | None, settings: Settings, edge: EdgeSettings
+) -> Assistant:
+    if cache is None:
+        return assistant
+    return CachedAssistant(
+        assistant,
+        cache,
+        index_version=settings.semantic_cache.index_version,
+        mode="llm-extractive" if edge.generate else "extractive",
+    )
+
+
 def create_app(
     edge: EdgeSettings | None = None,
     *,
@@ -159,6 +209,7 @@ def create_app(
     assistant: Assistant | None = None,
     controller: AdmissionController | None = None,
     resolver: CallerResolver | None = None,
+    cache: SemanticCache | None = None,
 ) -> FastAPI:
     edge = edge or EdgeSettings()
     settings = settings or Settings()
@@ -173,15 +224,26 @@ def create_app(
         from retrieval.bootstrap import build_runtime
         from retrieval.settings import RetrievalSettings
 
-        runtime = await build_runtime(RetrievalSettings(), settings)
-        app.state.assistant = RagAssistant(runtime.service, generate=edge.generate)
+        config = RetrievalSettings()
+        runtime = await build_runtime(config, settings)
+        embeddings: EmbeddingPort = HashingEmbedding(1024)
+        if config.embeddings != "hashing":
+            from retrieval.cloud import build_embeddings
+
+            embeddings = build_embeddings(config, settings)
+        semantic = build_semantic_cache(settings, embeddings, embeddings_name=config.embeddings)
+        app.state.assistant = with_cache(
+            RagAssistant(runtime.service, generate=edge.generate), semantic, settings, edge
+        )
         try:
             yield
         finally:
             await runtime.aclose()
 
     app = FastAPI(title="Headache edge API", version="0.1.0", lifespan=lifespan)
-    app.state.assistant = assistant
+    app.state.assistant = (
+        with_cache(assistant, cache, settings, edge) if assistant is not None else None
+    )
     app.state.resolve = resolve
     for exc_type, handler in _handlers(edge).items():
         app.add_exception_handler(exc_type, handler)
@@ -201,6 +263,7 @@ def create_app(
             "in_flight": controller.in_flight,
             "capacity": controller.capacity,
             "outcomes": dict(controller.outcomes),
+            "cache": _cache_outcomes(app.state.assistant),
         }
 
     @app.post("/ask", response_model=AskOut, tags=["asistente"])
@@ -211,6 +274,14 @@ def create_app(
             backend: Assistant = request.app.state.assistant
             with time_budget(edge.request_budget_seconds):
                 answer = await backend.answer(body.question, who)
+        response.headers["X-Cache"] = answer.cache.upper()
         return AskOut.from_answer(answer)
 
     return app
+
+
+def _cache_outcomes(assistant: object) -> dict[str, object]:
+    if not isinstance(assistant, CachedAssistant):
+        return {}
+    # `answers`: de dónde salió cada respuesta. `cache`: qué decidió la caché y por qué.
+    return {"answers": dict(assistant.outcomes), "cache": dict(assistant.cache.outcomes)}

@@ -96,3 +96,9 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] A2A con identidad de nube: tokens de servicio de Entra ID (app roles / Managed Identity) y Cognito client credentials en lugar del emisor de desarrollo (fases 13/14).
 - [ ] Carril A: especialistas en AgentCore Runtime con protocolo A2A y workflow multi-agente de Foundry Agent Service con el mismo dataset.
 - [ ] Flujo asíncrono en la nube: colas `support-emails`, `case-triaged-*` y `case-outcomes` con su DLQ en SQS (Terraform, fase 13) y Service Bus (fase 14), y workers con `ORCHESTRATOR__BROKER=sqs|servicebus`. Valorar la deduplicación del broker (SQS FIFO `MessageDeduplicationId`, *duplicate detection* de Service Bus) como primera capa antes del `CaseStore`.
+
+## Fase 10 · Escala (en curso)
+
+- [ ] Calibrar el umbral de la caché semántica con embeddings reales: `uv run python -m rag_evals.semantic_cache --embeddings azure --budget-usd 0.01` (~0,00003 $). Añadir el umbral resultante a `CALIBRATED_THRESHOLDS` (`azure`); hasta entonces, con embeddings de Azure la caché no se activa. Repetir con Titan (`bedrock`).
+- [ ] Redis gestionado para rate limiting y caché: Azure Managed Redis (con el módulo de búsqueda) y ElastiCache (Valkey con búsqueda vectorial), por Terraform y desactivado por defecto.
+- [ ] Comparar con el carril A: políticas `llm-token-limit` y `azure-openai-semantic-cache-lookup/store` de APIM y *usage plans* de API Gateway frente a `edge_api`.

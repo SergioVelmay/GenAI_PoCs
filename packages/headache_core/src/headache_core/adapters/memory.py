@@ -51,6 +51,7 @@ from headache_core.ports.approvals import (
 )
 from headache_core.ports.cases import CaseRecord
 from headache_core.ports.memory import CheckpointConflictError, ThreadState
+from headache_core.ports.semantic_cache import CacheCandidate, CacheEntry
 
 
 class FakeLLM:
@@ -546,3 +547,30 @@ class InMemoryRateLimiter:
             # Una clave con TAT pasado tiene el cubo lleno: equivale a no existir (como el TTL).
             self._tat = {key: tat for key, tat in self._tat.items() if tat > now}
         return RateLimitDecision(True, remaining=0 if math.isinf(remaining) else int(remaining))
+
+
+class InMemorySemanticCache:
+    """Caché semántica por fuerza bruta (coseno) con caducidad. Tests y una sola réplica."""
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._entries: dict[str, tuple[CacheEntry, float]] = {}
+
+    def __len__(self) -> int:
+        return sum(expires > self._clock() for _, expires in self._entries.values())
+
+    async def nearest(
+        self, scope: str, embedding: Sequence[float], *, limit: int
+    ) -> list[CacheCandidate]:
+        now = self._clock()
+        self._entries = {k: v for k, v in self._entries.items() if v[1] > now}
+        candidates = [
+            CacheCandidate(entry, _cosine(embedding, entry.embedding))
+            for entry, _ in self._entries.values()
+            if entry.scope == scope
+        ]
+        candidates.sort(key=lambda candidate: candidate.similarity, reverse=True)
+        return candidates[:limit]
+
+    async def put(self, entry: CacheEntry, *, ttl_seconds: int) -> None:
+        self._entries[entry.id] = (entry, self._clock() + ttl_seconds)

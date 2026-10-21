@@ -1,0 +1,714 @@
+{
+  "embeddings": "hashing",
+  "dataset": "semantic-cache-v1.jsonl",
+  "cases": 36,
+  "recommended": {
+    "threshold": 0.55,
+    "guard": true,
+    "paraphrase_hits": 12,
+    "paraphrases": 17,
+    "false_hits": 0,
+    "known_gap_hits": 1,
+    "personal_stored": 0,
+    "false_hit_ids": [],
+    "hit_rate": 0.7059
+  },
+  "recommended_without_guard": {
+    "threshold": 0.9,
+    "guard": false,
+    "paraphrase_hits": 0,
+    "paraphrases": 17,
+    "false_hits": 0,
+    "known_gap_hits": 1,
+    "personal_stored": 0,
+    "false_hit_ids": [],
+    "hit_rate": 0.0
+  },
+  "sweep": [
+    {
+      "threshold": 0.5,
+      "guard": true,
+      "paraphrase_hits": 12,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.7059
+    },
+    {
+      "threshold": 0.55,
+      "guard": true,
+      "paraphrase_hits": 12,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.7059
+    },
+    {
+      "threshold": 0.6,
+      "guard": true,
+      "paraphrase_hits": 11,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.6471
+    },
+    {
+      "threshold": 0.65,
+      "guard": true,
+      "paraphrase_hits": 5,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.2941
+    },
+    {
+      "threshold": 0.7,
+      "guard": true,
+      "paraphrase_hits": 5,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.2941
+    },
+    {
+      "threshold": 0.75,
+      "guard": true,
+      "paraphrase_hits": 2,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.1176
+    },
+    {
+      "threshold": 0.8,
+      "guard": true,
+      "paraphrase_hits": 1,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0588
+    },
+    {
+      "threshold": 0.85,
+      "guard": true,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.9,
+      "guard": true,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.95,
+      "guard": true,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 0,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.99,
+      "guard": true,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 0,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.5,
+      "guard": false,
+      "paraphrase_hits": 12,
+      "paraphrases": 17,
+      "false_hits": 11,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-category-es",
+        "trap-category-en",
+        "trap-operation-es",
+        "trap-operation-en",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.7059
+    },
+    {
+      "threshold": 0.55,
+      "guard": false,
+      "paraphrase_hits": 12,
+      "paraphrases": 17,
+      "false_hits": 11,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-category-es",
+        "trap-category-en",
+        "trap-operation-es",
+        "trap-operation-en",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.7059
+    },
+    {
+      "threshold": 0.6,
+      "guard": false,
+      "paraphrase_hits": 11,
+      "paraphrases": 17,
+      "false_hits": 10,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-category-es",
+        "trap-category-en",
+        "trap-operation-es",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.6471
+    },
+    {
+      "threshold": 0.65,
+      "guard": false,
+      "paraphrase_hits": 5,
+      "paraphrases": 17,
+      "false_hits": 10,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-category-es",
+        "trap-category-en",
+        "trap-operation-es",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.2941
+    },
+    {
+      "threshold": 0.7,
+      "guard": false,
+      "paraphrase_hits": 5,
+      "paraphrases": 17,
+      "false_hits": 9,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-category-en",
+        "trap-operation-es",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.2941
+    },
+    {
+      "threshold": 0.75,
+      "guard": false,
+      "paraphrase_hits": 2,
+      "paraphrases": 17,
+      "false_hits": 7,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.1176
+    },
+    {
+      "threshold": 0.8,
+      "guard": false,
+      "paraphrase_hits": 1,
+      "paraphrases": 17,
+      "false_hits": 7,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-alias-es",
+        "trap-city-missing-es",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es",
+        "trap-event-id"
+      ],
+      "hit_rate": 0.0588
+    },
+    {
+      "threshold": 0.85,
+      "guard": false,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 5,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [
+        "trap-city-es",
+        "trap-city-en",
+        "trap-city-missing-es",
+        "trap-number-tickets-es",
+        "trap-number-minutes-es"
+      ],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.9,
+      "guard": false,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 1,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.95,
+      "guard": false,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 0,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    },
+    {
+      "threshold": 0.99,
+      "guard": false,
+      "paraphrase_hits": 0,
+      "paraphrases": 17,
+      "false_hits": 0,
+      "known_gap_hits": 0,
+      "personal_stored": 0,
+      "false_hit_ids": [],
+      "hit_rate": 0.0
+    }
+  ],
+  "similarities": {
+    "para-doors-es": 0.7217,
+    "para-print-es": 0.2236,
+    "para-app-es": 0.6299,
+    "para-refund-candlelit-es": 0.4709,
+    "para-age-nightlife-es": 0.6299,
+    "para-date-theatre-es": 0.8058,
+    "para-doors-en": 0.7143,
+    "para-print-en": 0.5714,
+    "para-refund-food-en": 0.629,
+    "para-support-hours-es": 0.4454,
+    "para-cancelled-es": 0.7845,
+    "para-kids-exhibition-es": 0.252,
+    "para-refund-theatre-en": 0.6139,
+    "para-venue-access-es": 0.6172,
+    "para-age-nightlife-en": 0.75,
+    "para-refund-tours-es": 0.1429,
+    "para-city-alias-es": 0.6299,
+    "trap-city-es": 0.875,
+    "trap-city-en": 0.8571,
+    "trap-city-alias-es": 0.8333,
+    "trap-city-missing-es": 0.866,
+    "trap-category-es": 0.6581,
+    "trap-category-en": 0.75,
+    "trap-operation-es": 0.7273,
+    "trap-operation-en": 0.5556,
+    "trap-operation-transfer-es": 0.4286,
+    "trap-number-tickets-es": 0.8889,
+    "trap-number-minutes-es": 0.875,
+    "trap-event-id": 0.8,
+    "trap-language": 0.189,
+    "trap-acl": 1.0,
+    "personal-order-identical": 1.0,
+    "personal-order-en": 0.8571,
+    "personal-email": 0.875,
+    "personal-refund-status": 0.6708,
+    "gap-negation": 0.9258
+  },
+  "decisions": [
+    {
+      "id": "para-doors-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-print-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": false,
+      "reason": "below_threshold",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-app-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-refund-candlelit-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": false,
+      "reason": "below_threshold",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-age-nightlife-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-date-theatre-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-doors-en",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-print-en",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-refund-food-en",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-support-hours-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": false,
+      "reason": "below_threshold",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-cancelled-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-kids-exhibition-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": false,
+      "reason": "below_threshold",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-refund-theatre-en",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-venue-access-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-age-nightlife-en",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-refund-tours-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": false,
+      "reason": "below_threshold",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "para-city-alias-es",
+      "kind": "paraphrase",
+      "should_hit": true,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-city-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-city-en",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-city-alias-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-city-missing-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-category-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-category-en",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-operation-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-operation-en",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-operation-transfer-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "below_threshold",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-number-tickets-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-number-minutes-es",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-event-id",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "facet_mismatch",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-language",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "miss",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "trap-acl",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": false,
+      "reason": "miss",
+      "stored": true,
+      "known_gap": false
+    },
+    {
+      "id": "personal-order-identical",
+      "kind": "personal",
+      "should_hit": false,
+      "hit": false,
+      "reason": "personal",
+      "stored": false,
+      "known_gap": false
+    },
+    {
+      "id": "personal-order-en",
+      "kind": "personal",
+      "should_hit": false,
+      "hit": false,
+      "reason": "personal",
+      "stored": false,
+      "known_gap": false
+    },
+    {
+      "id": "personal-email",
+      "kind": "personal",
+      "should_hit": false,
+      "hit": false,
+      "reason": "personal",
+      "stored": false,
+      "known_gap": false
+    },
+    {
+      "id": "personal-refund-status",
+      "kind": "personal",
+      "should_hit": false,
+      "hit": false,
+      "reason": "personal",
+      "stored": false,
+      "known_gap": false
+    },
+    {
+      "id": "gap-negation",
+      "kind": "trap",
+      "should_hit": false,
+      "hit": true,
+      "reason": "hit",
+      "stored": true,
+      "known_gap": true
+    }
+  ],
+  "cost_usd": null
+}
