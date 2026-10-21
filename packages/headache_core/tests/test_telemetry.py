@@ -15,7 +15,11 @@ from pydantic import SecretStr
 
 from headache_core.adapters.llm_factory import build_tracer
 from headache_core.adapters.memory import FakeLLM
-from headache_core.adapters.otel import OTelTelemetry, build_tracer_provider
+from headache_core.adapters.otel import (
+    OTelTelemetry,
+    build_tracer_provider,
+    recording_telemetry,
+)
 from headache_core.application.llm import ObservedLLM, PriceTable
 from headache_core.application.llm.streaming import stream_from
 from headache_core.application.telemetry import (
@@ -48,6 +52,12 @@ def telemetry(exporter: InMemorySpanExporter) -> Iterator[OTelTelemetry]:
     set_telemetry(NullTelemetry())
 
 
+def _number(span: ReadableSpan, key: str) -> float:
+    value = (span.attributes or {})[key]
+    assert isinstance(value, int | float)
+    return value
+
+
 def _only(exporter: InMemorySpanExporter) -> ReadableSpan:
     (span,) = exporter.get_finished_spans()
     return span
@@ -78,27 +88,21 @@ async def test_generation_span_follows_the_genai_convention(
     assert attributes[genai.RESPONSE_MODEL] == "gpt-4.1-mini"
     assert attributes[genai.HEADACHE_TIER] == "cheap"
     assert attributes[genai.LANGFUSE_OBSERVATION_TYPE] == "generation"
-    assert attributes[genai.USAGE_INPUT_TOKENS] > 0
-    assert attributes[genai.USAGE_COST] > 0
+    assert _number(chat, genai.USAGE_INPUT_TOKENS) > 0
+    assert _number(chat, genai.USAGE_COST) > 0
     # Sin captura de contenido no viaja ni el prompt ni la respuesta.
     assert genai.INPUT_MESSAGES not in attributes
     assert genai.OUTPUT_MESSAGES not in attributes
 
 
-async def test_captured_content_is_redacted(
-    telemetry: OTelTelemetry, exporter: InMemorySpanExporter
-) -> None:
+async def test_captured_content_is_redacted() -> None:
     calls = [ToolCall("c1", "get_order", '{"email": "ana@example.com"}')]
-    llm = ObservedLLM(
-        FakeLLM([calls]),
-        tracer=TelemetryLLMTracer(capture_content=True),
-        prices=PriceTable(),
-        name="x",
-    )
+    llm = ObservedLLM(FakeLLM([calls]), tracer=TelemetryLLMTracer(), prices=PriceTable(), name="x")
 
-    await llm.complete([ChatMessage(Role.USER, "Soy ana@example.com, tel 612 345 678")])
+    with recording_telemetry(capture_content=True) as recorded:
+        await llm.complete([ChatMessage(Role.USER, "Soy ana@example.com, tel 612 345 678")])
 
-    attributes = dict(_only(exporter).attributes or {})
+    attributes = dict(_only(recorded.exporter).attributes or {})
     prompt = json.loads(str(attributes[genai.INPUT_MESSAGES]))
     output = json.loads(str(attributes[genai.OUTPUT_MESSAGES]))
     assert prompt[0]["parts"][0]["content"] == "Soy <EMAIL_ADDRESS>, tel <PHONE_NUMBER>"
@@ -136,7 +140,11 @@ async def test_streamed_generation_is_one_span(
 
     assert events
     span = _only(exporter)
-    assert dict(span.attributes or {})[genai.HEADACHE_STREAM] == "true"
+    attributes = dict(span.attributes or {})
+    assert attributes[genai.HEADACHE_STREAM] == "true"
+    # TTFT: el primer trozo queda marcado (evento para Jaeger, atributo para Langfuse).
+    assert genai.LANGFUSE_COMPLETION_START_TIME in attributes
+    assert [e.name for e in span.events] == [genai.EVENT_FIRST_TOKEN]
 
 
 async def test_exception_inside_a_span_marks_it_and_propagates(

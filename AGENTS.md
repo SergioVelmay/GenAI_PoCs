@@ -49,7 +49,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check ; u
 
 - **Clean Architecture / Ports & Adapters** en `packages/headache_core`: `domain/` (Python puro), `application/` (casos de uso), `ports/` (`typing.Protocol`), `adapters/` (`memory` para tests; `postgres`, `azure_*`, `bedrock*`...).
 - Paquetes: `packages/headache_core`, `packages/harness` (depende de core, nunca al revés), `evals/` (`rag_evals`). Servicios en `services/`: `ticketing_api`, `indexer`, `retrieval`, `mcp_servers`, `support_agent`, `booking_agent`, `orchestrator` (multi-agente, fase 9), `edge_api` (puerta pública, fase 10).
-- Todo LLM pasa por `LLMPort` y el gateway (`adapters/llm_factory.build_gateway`). Toda tool, por `JournaledExecutor` + `GuardedExecutor`. Todo agente cumple `AgentRuntime`.
+- Todo LLM pasa por `LLMPort` y el gateway (`adapters/llm_factory.build_gateway`). Toda tool, por `JournaledExecutor` + `GuardedExecutor`. Todo agente cumple `AgentRuntime`. Toda traza, por `TelemetryPort` (OpenTelemetry, fase 11).
 - Configuración con Pydantic Settings, variables anidadas con `__` (`BEDROCK__REGION`), secretos `SecretStr`. Por defecto, todo local.
 - IaC: **Terraform** en `infra/terraform/{aws,azure}` (recursos con coste desactivados por defecto). CI/CD: **GitHub Actions**.
 
@@ -86,7 +86,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check ; u
 | 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes de Azure de las fases 2–8 | ✅ Hecha | `docs/fase-9-8-checkpoint.md` |
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | `docs/fase-9-multiagente.md` |
 | 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | ✅ Hecha* | `docs/fase-10-escala.md` |
-| 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | | |
+| 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | 🚧 En curso | |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B) | | |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | |

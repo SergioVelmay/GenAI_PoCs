@@ -42,6 +42,7 @@ from headache_core.adapters.memory import (
     InMemoryRateLimiter,
     InMemorySemanticCache,
 )
+from headache_core.adapters.otel import instrument_fastapi, setup_observability
 from headache_core.application.admission import (
     AdmissionController,
     AdmissionRejectedError,
@@ -53,6 +54,7 @@ from headache_core.application.case_intake import InvalidIdempotencyKeyError
 from headache_core.application.llm import time_budget
 from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.config import LLMProvider, Settings
 from headache_core.domain.admission import Caller, ClientPlan
 from headache_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
@@ -288,6 +290,7 @@ def create_app(
 ) -> FastAPI:
     edge = edge or EdgeSettings()
     settings = settings or Settings()
+    setup_observability(settings, service_name="edge_api")
     controller = controller or build_controller(settings, edge)
     # Mismo rate limit por usuario, capacidad separada: un bulkhead por ruta (fase 10.7).
     cases_controller = cases_controller or controller.bulkhead(edge.cases_capacity)
@@ -323,6 +326,7 @@ def create_app(
         return runtime.aclose
 
     app = FastAPI(title="Headache edge API", version="0.1.0", lifespan=lifespan)
+    instrument_fastapi(app, settings)
     app.include_router(build_cases_router(edge, cases_controller, cases))
     app.state.assistant = (
         with_cache(assistant, cache, settings, edge) if assistant is not None else None
@@ -364,6 +368,7 @@ def create_app(
             backend: Assistant = request.app.state.assistant
             with time_budget(edge.request_budget_seconds):
                 answer = await backend.answer(body.question, who)
+        _annotate(answer)
         response.headers["X-Cache"] = answer.cache.upper()
         return AskOut.from_answer(answer)
 
@@ -389,6 +394,8 @@ def create_app(
             await events.aclose()
             await stack.aclose()
             raise
+        # TTFT visto desde el edge: la distancia entre el inicio del span y este evento.
+        get_telemetry().current_span().add_event(genai.EVENT_FIRST_CHUNK)
         headers = {
             "RateLimit-Limit": str(int(admission.rule.limit)),
             "RateLimit-Remaining": str(admission.remaining),
@@ -396,13 +403,29 @@ def create_app(
             # Sin búfer en proxies (nginx, algunos balanceadores): cada trozo sale al momento.
             "X-Accel-Buffering": "no",
         }
+
+        def done(answer: Answer) -> AskOut:
+            _annotate(answer)
+            return AskOut.from_answer(answer)
+
         return StreamingResponse(
-            sse_body(first, events, stack, done=AskOut.from_answer),
+            sse_body(first, events, stack, done=done),
             media_type="text/event-stream",
             headers=headers,
         )
 
     return app
+
+
+def _annotate(answer: Answer) -> None:
+    get_telemetry().current_span().set_attributes(
+        {
+            genai.HEADACHE_ANSWER_MODE: answer.mode,
+            genai.HEADACHE_ABSTAINED: answer.abstained,
+            genai.HEADACHE_DEGRADED: answer.degraded,
+            genai.HEADACHE_CACHE: answer.cache,
+        }
+    )
 
 
 def _llm_outcomes(settings: Settings) -> dict[str, int]:

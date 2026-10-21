@@ -15,6 +15,7 @@ from harness.rules.case_reply import ReplySender, build_case_reply_tools
 from harness.security import HeuristicShield
 from headache_core.application.agents import SkillCatalog
 from headache_core.application.agents.runtime import AgentRuntime
+from headache_core.application.agents.tracing import TracedAgent
 from headache_core.application.orchestration import SpecialistAgent
 from headache_core.application.retrieval import RetrievalService
 from headache_core.application.tools import ToolRegistry, build_ticketing_tools
@@ -66,7 +67,8 @@ def _agent_factory(spec: AgentSpec, deps: SpecialistDeps) -> Callable[[], AgentR
         executor = guarded_executor(spec, deps.approvals, shield, fail_open=deps.fail_open)
         agent_deps = AgentDeps(spec, deps.llm, executor, deps.checkpoints, deps.preferences)
         agent = create_agent(deps.flavor, agent_deps)
-        return guarded_agent(agent, shield=shield, pii=deps.pii, fail_open=deps.fail_open)
+        guarded = guarded_agent(agent, shield=shield, pii=deps.pii, fail_open=deps.fail_open)
+        return TracedAgent(guarded, name=spec.name)
 
     return create
 

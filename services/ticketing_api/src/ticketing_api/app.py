@@ -14,6 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, Header, Path, Query, Request, status
 from fastapi.responses import JSONResponse
 
+from headache_core.adapters.otel import instrument_fastapi, setup_observability
 from headache_core.application import NotFoundError, PurchaseService, RefundService
 from headache_core.config import get_settings
 from headache_core.domain import EventCategory, PurchaseNotAllowedError
@@ -201,7 +202,10 @@ def create_app(uow_factory: UowFactory | None = None, clock: Clock | None = None
         yield
         await engine.dispose()
 
+    settings = get_settings()
+    setup_observability(settings, service_name="ticketing_api")
     app = FastAPI(title="Headache ticketing API", version="0.1.0", lifespan=lifespan)
+    instrument_fastapi(app, settings)
     app.state.uow_factory = uow_factory
     app.state.clock = clock or (lambda: datetime.now(UTC))
     app.include_router(router)

@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from headache_core.adapters.otel import instrument_fastapi, setup_observability
 from headache_core.application.retrieval import (
     InvalidCitationError,
     QueryFilters,
@@ -16,6 +17,7 @@ from headache_core.application.retrieval import (
     RetrievalService,
     RetrievalUnavailableError,
 )
+from headache_core.config import get_settings
 from headache_core.domain.retrieval import AccessScope
 from headache_core.ports.llm import LLMError
 from headache_core.ports.retrieval import (
@@ -254,7 +256,10 @@ def create_app(
         finally:
             await runtime.aclose()
 
+    core = get_settings()
+    setup_observability(core, service_name="retrieval")
     app = FastAPI(title="Headache retrieval API", version="0.1.0", lifespan=lifespan)
+    instrument_fastapi(app, core)
     app.state.retrieval_service = service
     app.state.managed = managed
     app.state.engine = settings.engine if settings else "injected"

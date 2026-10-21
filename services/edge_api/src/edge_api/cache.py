@@ -23,6 +23,7 @@ from dataclasses import asdict, replace
 
 from edge_api.assistant import Answer, Assistant, AssistantEvent, replay
 from headache_core.application.semantic_cache import CacheLookup, SemanticCache
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.domain.admission import Caller, access_scope
 from headache_core.domain.semantic_cache import (
     CacheScope,
@@ -74,10 +75,10 @@ class CachedAssistant:
     async def answer(self, question: str, caller: Caller) -> Answer:
         lookup = await self.cache.lookup(question, self.scope(question, caller))
         if lookup.hit and lookup.payload is not None:
-            self.outcomes["hit"] += 1
+            self._count("hit")
             return from_payload(lookup.payload)
         if lookup.reason == "personal":
-            self.outcomes["bypass"] += 1
+            self._count("bypass")
             return replace(await self._inner.answer(question, caller), cache="bypass")
         key = self._key(lookup, question)
         if key in self._inflight:
@@ -96,12 +97,12 @@ class CachedAssistant:
     async def stream(self, question: str, caller: Caller) -> AsyncIterator[AssistantEvent]:
         lookup = await self.cache.lookup(question, self.scope(question, caller))
         if lookup.hit and lookup.payload is not None:
-            self.outcomes["hit"] += 1
+            self._count("hit")
             async for event in replay(from_payload(lookup.payload)):
                 yield event
             return
         if lookup.reason == "personal":
-            self.outcomes["bypass"] += 1
+            self._count("bypass")
             async for event in self._inner.stream(question, caller):
                 yield replace(event, cache="bypass") if isinstance(event, Answer) else event
             return
@@ -125,6 +126,11 @@ class CachedAssistant:
         if not future.done():
             self._abort(future, RuntimeError("El stream terminó sin respuesta final."))
 
+    def _count(self, outcome: str) -> None:
+        self.outcomes[outcome] += 1
+        # En el span de la petición: la tasa de aciertos se puede cortar por plan o por ruta.
+        get_telemetry().current_span().set_attribute(genai.HEADACHE_CACHE, outcome)
+
     @staticmethod
     def _key(lookup: CacheLookup, question: str) -> str:
         return f"{lookup.scope.key()}|{normalize(question)}"
@@ -135,7 +141,7 @@ class CachedAssistant:
         return future
 
     async def _follow(self, key: str) -> Answer:
-        self.outcomes["coalesced"] += 1
+        self._count("coalesced")
         # `shield`: si este seguidor se cancela, no cancela el cálculo de los demás.
         return replace(await asyncio.shield(self._inflight[key]), cache="coalesced")
 
@@ -145,7 +151,7 @@ class CachedAssistant:
         if future.done():
             return
         future.set_result(answer)
-        self.outcomes["miss"] += 1
+        self._count("miss")
         cacheable = is_cacheable_answer(abstained=answer.abstained, citations=len(answer.citations))
         # Ni sin verificar ni degradada: la caché serviría el plan B cuando el modelo ya va bien.
         if cacheable and answer.verified and not answer.degraded:

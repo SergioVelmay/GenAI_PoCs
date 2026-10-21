@@ -28,6 +28,7 @@ from fastapi.sse import KEEPALIVE_COMMENT, format_sse_event
 from pydantic import BaseModel
 
 from edge_api.assistant import Answer, AnswerChunk, AssistantEvent
+from headache_core.application.telemetry import get_telemetry
 from headache_core.ports import LLMDeadlineExceededError, LLMTransientError
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,11 @@ async def prime(events: AsyncIterator[Pumped]) -> AssistantEvent:
 type Render = Callable[[Answer], BaseModel]
 
 
+def _failed(reason: str) -> None:
+    # Las cabeceras ya salieron con 200: sin esto, la traza daría por buena una respuesta rota.
+    get_telemetry().current_span().mark_error(f"stream_{reason}")
+
+
 def encode(event: Pumped, *, done: Render) -> bytes:
     if event is None:
         return KEEPALIVE_COMMENT
@@ -114,10 +120,12 @@ async def body(
             async for event in events:
                 yield encode(event, done=done)
         except LLMDeadlineExceededError:
+            _failed("deadline")
             yield sse(
                 "error", {"reason": "deadline", "detail": "La respuesta ha tardado demasiado."}
             )
         except LLMTransientError as exc:
+            _failed("model_unavailable")
             retry = max(1, math.ceil(exc.retry_after)) if exc.retry_after else 1
             yield sse(
                 "error",
@@ -129,6 +137,7 @@ async def body(
             )
         except Exception:
             logger.exception("Fallo a mitad del stream")
+            _failed("internal")
             yield sse("error", {"reason": "internal", "detail": "Error interno."})
         finally:
             await events.aclose()

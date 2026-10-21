@@ -38,7 +38,7 @@ class JournaledExecutor(ToolExecutor):
         self._write_lock = asyncio.Lock()
         self.journal: list[ToolExecution] = []
 
-    async def execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
+    async def _execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
         tool = self._registry.get(call.name)
         if tool is not None and not tool.read_only:
             async with self._write_lock:
@@ -51,7 +51,7 @@ class JournaledExecutor(ToolExecutor):
     async def _run(self, call: ToolCall, context: ToolContext) -> ToolExecution:
         if self._inner is not None:
             return await self._inner.execute(call, context)
-        return await super().execute(call, context)
+        return await super()._execute(call, context)
 
 
 @dataclass(frozen=True, slots=True)

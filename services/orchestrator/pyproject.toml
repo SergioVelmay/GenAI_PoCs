@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # postgres y rabbitmq: los workers de la cola, el relay del outbox y el worker de la demo
     # de autoescalado también corren en esta imagen (fase 10.6).
-    "headache-core[postgres,rabbitmq,retrieval,tools]",
+    "headache-core[postgres,rabbitmq,retrieval,telemetry,tools]",
     "harness",
     # Los especialistas con tools reutilizan los sabores, el ejecutor y los guardrails de la fase 7-8.
     "booking-agent",

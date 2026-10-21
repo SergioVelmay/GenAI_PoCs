@@ -147,6 +147,10 @@ class TraceRecord:
     response: LLMResponse | None = None
     cost_usd: Decimal | None = None
     error: BaseException | None = None
+    first_token_seen: bool = False
+
+    def first_token(self) -> None:
+        self.first_token_seen = True
 
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
         self.response = response

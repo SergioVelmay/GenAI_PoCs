@@ -52,7 +52,7 @@ def build_tracer(settings: Settings) -> LLMTracer:
     llamada saldría dos veces.
     """
     if settings.telemetry.exporter != "none":
-        return TelemetryLLMTracer(capture_content=settings.telemetry.capture_content)
+        return TelemetryLLMTracer()
     if settings.langfuse.public_key and settings.langfuse.secret_key.get_secret_value():
         from headache_core.adapters.langfuse_tracer import LangfuseTracer
 

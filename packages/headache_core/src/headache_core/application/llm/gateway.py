@@ -34,6 +34,7 @@ from headache_core.ports import (
     RateLimitRequest,
     RateLimitRule,
     ResponseSchema,
+    TextDelta,
     ToolConfig,
 )
 
@@ -501,10 +502,14 @@ class ObservedLLM:
             name=self._name, messages=messages, metadata={**self._metadata, "stream": "true"}
         )
         finished = False
+        first = True
         try:
             async for event in stream_from(
                 self._inner, messages, temperature=temperature, max_tokens=max_tokens
             ):
+                if first and isinstance(event, TextDelta):
+                    observation.first_token()
+                    first = False
                 if isinstance(event, LLMResponse):
                     cost = self._prices.cost(event.model, event.usage)
                     observation.finish(event, cost_usd=cost)
@@ -519,6 +524,9 @@ class ObservedLLM:
 
 
 class _NullObservation:
+    def first_token(self) -> None:
+        pass
+
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
         pass
 
@@ -536,6 +544,10 @@ class NullTracer:
 class _CompositeObservation:
     def __init__(self, observations: Sequence[GenerationObservation]) -> None:
         self._observations = observations
+
+    def first_token(self) -> None:
+        for observation in self._observations:
+            observation.first_token()
 
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
         for observation in self._observations:

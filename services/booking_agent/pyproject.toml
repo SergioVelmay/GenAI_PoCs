@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Knowledge & Booking Agent (fase 7): el mismo agente en cinco sabores de framework"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[azure,aws,gateway,observability,retrieval,tools]",
+    "headache-core[aws,azure,gateway,observability,retrieval,telemetry,tools]",
     "harness",
     "retrieval",
     "support-agent",

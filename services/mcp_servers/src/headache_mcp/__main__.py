@@ -22,6 +22,7 @@ from typing import Any
 
 from fastmcp import Client, FastMCP
 
+from headache_core.adapters.otel import setup_observability
 from headache_core.adapters.ticketing_http import HttpTicketingClient
 from headache_core.config import Settings, get_settings
 from headache_mcp.adapter import anonymous, fixed_identity
@@ -56,6 +57,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
     settings = get_settings()
+    # FastMCP 4 traza de serie con el proveedor global de OTel (`tools/call {tool}`) y lee el
+    # contexto de la traza de `_meta` del mensaje MCP.
+    setup_observability(settings, service_name=f"mcp_{args.server}")
     port = args.port or DEFAULT_PORTS[args.server]
     host = args.host or settings.mcp.host
     public_url = settings.mcp.public_url_template.format(port=port)

@@ -5,7 +5,7 @@ description = "API de ticketing de Headache: catálogo, disponibilidad, compra y
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "headache-core[postgres]",
+    "headache-core[postgres,telemetry]",
     "uvicorn[standard]>=0.32",
 ]
 

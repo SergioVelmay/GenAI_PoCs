@@ -24,6 +24,7 @@ from typing import Literal, Protocol
 
 from headache_core.application.answer_stream import AnswerDelta, StreamingAnswerer
 from headache_core.application.retrieval import RetrievalRequest, RetrievalService
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.domain.admission import Caller, access_scope
 from headache_core.ports import LLMTransientError
 
@@ -141,5 +142,8 @@ class RagAssistant:
 
     async def _degraded(self, request: RetrievalRequest) -> Answer:
         self.outcomes["degraded"] += 1
+        span = get_telemetry().current_span()
+        span.add_event(genai.EVENT_DEGRADED)
+        span.set_attribute(genai.HEADACHE_DEGRADED, True)
         answer = await self._retrieve(request, generate=False)
         return Answer(answer.text, answer.citations, answer.abstained, answer.mode, degraded=True)

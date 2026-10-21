@@ -34,8 +34,6 @@ gateway = [
 ]
 observability = [
     "langfuse>=3.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.45",
-    "opentelemetry-sdk>=1.45",
 ]
 rabbitmq = [
     "aio-pika>=9.5",
@@ -51,6 +49,12 @@ llamaindex = [
 ]
 redis = [
     "redis>=5.2",
+]
+telemetry = [
+    "opentelemetry-exporter-otlp-proto-http>=1.45",
+    "opentelemetry-instrumentation-fastapi>=0.66b0",
+    "opentelemetry-instrumentation-httpx>=0.66b0",
+    "opentelemetry-sdk>=1.45",
 ]
 
 [build-system]

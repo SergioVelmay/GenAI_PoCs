@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Self
 
@@ -29,6 +30,9 @@ def _message(message: ChatMessage) -> dict[str, Any]:
 class _LangfuseGeneration:
     def __init__(self, observation: Any) -> None:
         self._observation = observation
+
+    def first_token(self) -> None:
+        self._observation.update(completion_start_time=datetime.now(UTC))
 
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
         usage = response.usage

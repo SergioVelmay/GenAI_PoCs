@@ -13,6 +13,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal
@@ -20,11 +21,16 @@ from typing import Literal
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.application.tools.registry import ToolContext, ToolError, ToolRegistry
 from headache_core.domain.tool_output import render_tool_error, render_tool_output
 from headache_core.ports import ChatMessage, LLMPort, LLMResponse, Role, ToolCall
+from headache_core.ports.telemetry import AttributeValue
 
 logger = logging.getLogger(__name__)
+
+# Id de la llamada a tool que ya tiene span en este contexto (ejecutores encadenados).
+_TRACED_CALL: ContextVar[str | None] = ContextVar("traced_tool_call", default=None)
 
 FALLBACK_ANSWER = (
     "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu "
@@ -164,6 +170,46 @@ class ToolExecutor:
         self._max_output_chars = max_output_chars
 
     async def execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
+        """Un span `execute_tool {nombre}` por llamada. Las subclases cambian `_execute`.
+
+        Los ejecutores se encadenan (diario → harness → base); solo el más externo abre el
+        span y los de dentro ven que esa llamada ya se está trazando.
+        """
+        if _TRACED_CALL.get() == call.id:
+            return await self._execute(call, context)
+        token = _TRACED_CALL.set(call.id)
+        tool = self._registry.get(call.name)
+        attributes: dict[str, AttributeValue] = {
+            genai.OPERATION_NAME: genai.GenAIOperation.EXECUTE_TOOL.value,
+            genai.LANGFUSE_OBSERVATION_TYPE: genai.ObservationType.TOOL.value,
+            genai.TOOL_NAME: call.name,
+            genai.TOOL_CALL_ID: call.id,
+            genai.TOOL_TYPE: "function",
+        }
+        if tool is not None:
+            attributes[genai.HEADACHE_TOOL_READ_ONLY] = tool.read_only
+        telemetry = get_telemetry()
+        arguments = telemetry.content(call.arguments)
+        if arguments is not None:
+            attributes[genai.TOOL_CALL_ARGUMENTS] = arguments
+        try:
+            with telemetry.span(
+                genai.span_name(genai.GenAIOperation.EXECUTE_TOOL, call.name),
+                attributes=attributes,
+            ) as span:
+                execution = await self._execute(call, context)
+                result = telemetry.content(execution.output)
+                if result is not None:
+                    span.set_attribute(genai.TOOL_CALL_RESULT, result)
+                if execution.error is not None:
+                    # El error vuelve al modelo como resultado, no como excepción: sin esto
+                    # la traza lo pintaría en verde.
+                    span.mark_error(execution.error)
+                return execution
+        finally:
+            _TRACED_CALL.reset(token)
+
+    async def _execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
         started = time.perf_counter()
         tool = self._registry.get(call.name)
         if tool is None:

@@ -36,6 +36,9 @@ class NullSpan:
     def record_error(self, error: BaseException) -> None:
         pass
 
+    def mark_error(self, error_type: str) -> None:
+        pass
+
     def end(self) -> None:
         pass
 
@@ -63,6 +66,12 @@ class NullTelemetry:
         return _NULL_SPAN
 
     def current_ids(self) -> TraceIds | None:
+        return None
+
+    def current_span(self) -> SpanPort:
+        return _NULL_SPAN
+
+    def content(self, text: str) -> str | None:
         return None
 
 

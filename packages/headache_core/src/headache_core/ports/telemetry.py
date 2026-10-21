@@ -48,6 +48,10 @@ class SpanPort(Protocol):
         """Marca el span como fallido y guarda el error, con el mensaje redactado."""
         ...
 
+    def mark_error(self, error_type: str) -> None:
+        """Marca el span como fallido sin excepción (una tool que devuelve un error tipado)."""
+        ...
+
     def end(self) -> None: ...
 
 
@@ -78,4 +82,16 @@ class TelemetryPort(Protocol):
 
     def current_ids(self) -> TraceIds | None:
         """IDs del span actual, o `None` si no hay traza (para correlacionar los logs)."""
+        ...
+
+    def current_span(self) -> SpanPort:
+        """El span activo, para enriquecerlo (plan del usuario, resultado de la caché...).
+
+        Sin traza devuelve uno que no hace nada: quien lo usa no tiene que comprobarlo.
+        """
+        ...
+
+    def content(self, text: str) -> str | None:
+        """Texto apto para un atributo (prompt, argumentos, resultado): redactado si la captura
+        de contenido está activa; `None` si no lo está (y entonces no se guarda)."""
         ...

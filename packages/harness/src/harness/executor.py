@@ -99,7 +99,7 @@ class GuardedExecutor(ToolExecutor):
         self._guards = tuple(guards)
         self._output_guards = tuple(output_guards)
 
-    async def execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
+    async def _execute(self, call: ToolCall, context: ToolContext) -> ToolExecution:
         started = time.perf_counter()
         trace = current_trace()
         local = trace or TurnTrace()
@@ -108,7 +108,7 @@ class GuardedExecutor(ToolExecutor):
             logger.warning("Tool %s bloqueada por el harness: %s", call.name, denial.code)
             execution = self.failure(call, denial.code, denial.message, started)
         else:
-            execution = await super().execute(call, context)
+            execution = await super()._execute(call, context)
             tool = self._registry.get(call.name)
             if tool is not None:
                 for guard in self._output_guards:

@@ -36,7 +36,9 @@ from headache_core.adapters.memory import (
     InMemoryPreferenceStore,
     RecordingTracer,
 )
+from headache_core.adapters.otel import setup_observability, shutdown_telemetry
 from headache_core.application.agents.runtime import AgentRuntime
+from headache_core.application.agents.tracing import TracedAgent
 from headache_core.application.llm import CompositeTracer
 from headache_core.application.tools import ToolContext
 from headache_core.config import Settings, get_settings
@@ -64,6 +66,7 @@ async def main() -> None:
         parser.error("--foundry-service solo tiene sentido con --flavor foundry")
 
     settings = get_settings()
+    setup_observability(settings, service_name="booking_agent")
     ledger = RecordingTracer()
     tracer = build_tracer(settings)
     llm = build_gateway(settings, tracer=CompositeTracer([tracer, ledger]))
@@ -90,11 +93,14 @@ async def main() -> None:
                 if args.foundry_service
                 else create_agent(args.flavor, deps)
             )
-            agent = guarded_agent(
-                inner,
-                shield=shield,
-                pii=build_pii_detector(settings),
-                fail_open=fail_open,
+            agent = TracedAgent(
+                guarded_agent(
+                    inner,
+                    shield=shield,
+                    pii=build_pii_detector(settings),
+                    fail_open=fail_open,
+                ),
+                name=spec.name,
             )
             questions = [args.question] if args.question else None
             while True:
@@ -125,6 +131,7 @@ async def main() -> None:
     flush = getattr(tracer, "flush", None)
     if callable(flush):
         flush()
+    shutdown_telemetry()
 
 
 @asynccontextmanager

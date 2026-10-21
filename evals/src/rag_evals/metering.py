@@ -93,6 +93,10 @@ class _MeteredGeneration:
         self._meter = meter
         self._forwarded = forwarded
 
+    def first_token(self) -> None:
+        if self._forwarded is not None:
+            self._forwarded.first_token()
+
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
         meter = self._meter
         meter.calls += 1

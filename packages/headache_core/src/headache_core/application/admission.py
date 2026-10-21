@@ -17,6 +17,7 @@ from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.domain.admission import Caller, ClientPlan, has_capacity
 from headache_core.ports import (
     RateLimitDecision,
@@ -24,6 +25,7 @@ from headache_core.ports import (
     RateLimiterUnavailableError,
     RateLimitRequest,
     RateLimitRule,
+    SpanKind,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,8 +100,14 @@ class AdmissionController:
 
     @asynccontextmanager
     async def admit(self, caller: Caller) -> AsyncIterator[Admission]:
+        # En el span de la petición: así se filtran trazas por plan y por motivo de rechazo.
+        request_span = get_telemetry().current_span()
+        request_span.set_attributes(
+            {genai.HEADACHE_PLAN: caller.plan.value, genai.HEADACHE_IN_FLIGHT: self.in_flight}
+        )
         if not has_capacity(caller.plan, in_flight=self.in_flight, capacity=self.capacity):
             self.outcomes["shed"] += 1
+            request_span.set_attribute(genai.HEADACHE_ADMISSION, "shed")
             raise ServiceOverloadedError(
                 "Mucha demanda ahora mismo.",
                 retry_after=self._overloaded_retry_after,
@@ -110,15 +118,22 @@ class AdmissionController:
         self.in_flight += 1
         try:
             rule = self._rules[caller.plan]
-            decision = await self._acquire(RateLimitRequest(f"user:{caller.key}", rule))
+            with get_telemetry().span(
+                "rate_limit",
+                kind=SpanKind.CLIENT,
+                attributes={"headache.rate_limit.rule": rule.name},
+            ):
+                decision = await self._acquire(RateLimitRequest(f"user:{caller.key}", rule))
             if not decision.allowed:
                 self.outcomes["rate_limited"] += 1
+                request_span.set_attribute(genai.HEADACHE_ADMISSION, "rate_limited")
                 raise CallerRateLimitedError(
                     "Has hecho demasiadas peticiones.",
                     retry_after=decision.retry_after,
                     rule=rule,
                 )
             self.outcomes["admitted"] += 1
+            request_span.set_attribute(genai.HEADACHE_ADMISSION, "admitted")
             yield Admission(rule, decision.remaining)
         finally:
             self.in_flight -= 1
@@ -131,4 +146,5 @@ class AdmissionController:
             if self._fallback is None:
                 raise
             logger.warning("Limitador compartido caído: límite local por réplica.")
+            get_telemetry().current_span().add_event("rate_limit.fallback")
             return await self._fallback.acquire([request])

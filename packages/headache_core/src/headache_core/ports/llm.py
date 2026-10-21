@@ -184,6 +184,10 @@ class StreamingLLMPort(LLMPort, Protocol):
 class GenerationObservation(Protocol):
     """Una llamada al modelo en curso dentro de la traza (una *generation* en Langfuse)."""
 
+    def first_token(self) -> None:
+        """Llegó el primer trozo de un stream (para el TTFT)."""
+        ...
+
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None: ...
 
     def fail(self, error: BaseException) -> None: ...

@@ -8,13 +8,17 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from headache_core.application.llm.structured import complete_structured
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.domain.models import DocumentType, EventCategory
 from headache_core.domain.retrieval import AccessScope
 from headache_core.ports.llm import ChatMessage, LLMPort, Role
 from headache_core.ports.retrieval import RerankerPort, RetrievalPort, RetrievalStrategy, SearchMode
+from headache_core.ports.telemetry import AttributeValue, SpanKind
 from headache_core.ports.vector_store import MetadataValue, SearchResult, VectorRecord
 
 FILTER_KEYS = frozenset({"city", "event_id", "language", "category", "doc_type", "document_id"})
+# `gen_ai.data_source.id`: la base de conocimiento lógica, sea cual sea el motor que la sirve.
+KNOWLEDGE_SOURCE = "knowledge"
 
 
 class RetrievalUnavailableError(Exception):
@@ -128,6 +132,50 @@ class RetrievalService:
         self._llm = llm
 
     async def retrieve(self, request: RetrievalRequest) -> RetrievalResponse:
+        telemetry = get_telemetry()
+        attributes: dict[str, AttributeValue] = {
+            genai.OPERATION_NAME: genai.GenAIOperation.RETRIEVAL.value,
+            genai.LANGFUSE_OBSERVATION_TYPE: genai.ObservationType.RETRIEVER.value,
+            genai.DATA_SOURCE_ID: KNOWLEDGE_SOURCE,
+            genai.RETRIEVAL_TOP_K: request.top_k,
+            genai.HEADACHE_RETRIEVAL_STRATEGY: request.strategy,
+        }
+        query = telemetry.content(request.query)
+        if query is not None:
+            attributes[genai.LANGFUSE_INPUT] = query
+        with telemetry.span(
+            genai.span_name(genai.GenAIOperation.RETRIEVAL, KNOWLEDGE_SOURCE),
+            kind=SpanKind.CLIENT,
+            attributes=attributes,
+        ) as span:
+            response = await self._retrieve(request)
+            span.set_attributes(
+                {
+                    genai.HEADACHE_RETRIEVAL_QUERIES: len(response.queries),
+                    genai.HEADACHE_RETRIEVAL_RESULTS: len(response.results),
+                }
+            )
+            # Solo los IDs de los fragmentos: el texto ya está en el índice.
+            ids = telemetry.content(json.dumps([r.record.id for r in response.results]))
+            if ids is not None:
+                span.set_attribute(genai.LANGFUSE_OUTPUT, ids)
+            return response
+
+    async def _search(
+        self,
+        query: str,
+        request: RetrievalRequest,
+        mode: SearchMode,
+        filters: dict[str, MetadataValue],
+    ) -> list[SearchResult]:
+        with get_telemetry().span(
+            "search", kind=SpanKind.CLIENT, attributes={genai.HEADACHE_SEARCH_MODE: mode}
+        ):
+            return await self._backend.search(
+                query, mode=mode, top_k=request.candidate_k, filters=filters, scope=request.scope
+            )
+
+    async def _retrieve(self, request: RetrievalRequest) -> RetrievalResponse:
         queries = [request.query]
         filters = dict(request.filters)
         mode: SearchMode = "hybrid"
@@ -147,12 +195,7 @@ class RetrievalService:
                     filters[key] = value
             if request.strategy == "hyde":
                 mode = "vector"
-        rankings = [
-            await self._backend.search(
-                query, mode=mode, top_k=request.candidate_k, filters=filters, scope=request.scope
-            )
-            for query in queries
-        ]
+        rankings = [await self._search(query, request, mode, filters) for query in queries]
         candidates = (
             rankings[0]
             if len(rankings) == 1
@@ -162,7 +205,12 @@ class RetrievalService:
         if request.strategy == "rerank":
             if self._reranker is None:
                 raise RetrievalUnavailableError("Reranker no configurado")
-            reranked = await self._reranker.rerank(request.query, candidates, top_k=request.top_k)
+            with get_telemetry().span(
+                "rerank", attributes={"headache.rerank.candidates": len(candidates)}
+            ):
+                reranked = await self._reranker.rerank(
+                    request.query, candidates, top_k=request.top_k
+                )
             by_id = {result.record.id: result for result in candidates}
             candidates = [
                 SearchResult(by_id[result.record.id].record, result.score)

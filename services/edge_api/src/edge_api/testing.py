@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
 
 from edge_api.app import create_app
 from edge_api.assistant import Answer, AnswerChunk, AssistantEvent, final_answer, replay
@@ -20,6 +22,7 @@ from headache_core.adapters.memory import (
     InMemoryOutbox,
     InMemoryRateLimiter,
 )
+from headache_core.adapters.otel import QUIET_SPANS
 from headache_core.application.admission import AdmissionController, plan_rules
 from headache_core.application.semantic_cache import SemanticCache
 from headache_core.domain.admission import Caller, ClientPlan
@@ -86,6 +89,7 @@ def client(
     capacity: int = 10,
     cache: SemanticCache | None = None,
     cases: CaseBackend | None = None,
+    tracer_provider: TracerProvider | None = None,
     **edge: Any,
 ) -> httpx.AsyncClient:
     controller = AdmissionController(
@@ -104,6 +108,11 @@ def client(
         cache=cache,
         cases=cases or memory_cases(),
     )
+    if tracer_provider is not None:
+        # Como `instrument_fastapi`, pero con un proveedor en memoria en vez del global.
+        FastAPIInstrumentor.instrument_app(
+            app, tracer_provider=tracer_provider, exclude_spans=QUIET_SPANS
+        )
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://edge")
 
 

@@ -17,6 +17,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Literal
 
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.domain.semantic_cache import (
     CacheScope,
     QueryFacets,
@@ -69,6 +70,17 @@ class SemanticCache:
             raise ValueError("El umbral de similitud va de 0 (excluido) a 1.")
 
     async def lookup(self, question: str, scope: CacheScope) -> CacheLookup:
+        with get_telemetry().span("semantic_cache.lookup") as span:
+            lookup = await self._lookup(question, scope)
+            span.set_attributes(
+                {
+                    genai.HEADACHE_CACHE_REASON: lookup.reason,
+                    genai.HEADACHE_CACHE_SIMILARITY: round(lookup.similarity, 4),
+                }
+            )
+            return lookup
+
+    async def _lookup(self, question: str, scope: CacheScope) -> CacheLookup:
         facets = extract_facets(question)
         if facets.personal:
             return self._count(CacheLookup(question, scope, facets, "personal"))
@@ -106,6 +118,10 @@ class SemanticCache:
         """Guarda la respuesta de un fallo. Devuelve si se guardó."""
         if lookup.facets.personal or lookup.hit or not lookup.embedding:
             return False
+        with get_telemetry().span("semantic_cache.store"):
+            return await self._store(lookup, payload)
+
+    async def _store(self, lookup: CacheLookup, payload: str) -> bool:
         entry = CacheEntry(
             id=uuid.uuid4().hex,
             scope=lookup.scope.key(),
