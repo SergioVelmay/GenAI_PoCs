@@ -145,16 +145,26 @@ async def test_lease_expires_and_failed_events_come_back_later(
     outbox = PostgresOutboxStore(factory)
     await _events(factory, prefix, 2)
 
-    first, second = await outbox.claim(limit=10, lease_seconds=0.3, topic_prefix=prefix)
-    assert await outbox.claim(limit=10, lease_seconds=0.3, topic_prefix=prefix) == []
+    # Reserva larga y espera por sondeo: con plazos de décimas de segundo, un runner lento de
+    # la CI veía vencer la reserva antes de la segunda consulta (fallo intermitente).
+    first, second = await outbox.claim(limit=10, lease_seconds=30, topic_prefix=prefix)
+    assert await outbox.claim(limit=10, lease_seconds=30, topic_prefix=prefix) == []
     await outbox.mark_published([first.id])
-    await outbox.release(second.id, error="broker caído", retry_in_seconds=0.6)
+    loop = asyncio.get_running_loop()
+    released = loop.time()
+    await outbox.release(second.id, error="broker caído", retry_in_seconds=1.5)
 
-    await asyncio.sleep(0.4)
-    assert await outbox.claim(limit=10, lease_seconds=1, topic_prefix=prefix) == []
-    await asyncio.sleep(0.4)
-    [again] = await outbox.claim(limit=10, lease_seconds=1, topic_prefix=prefix)
+    again = None
+    while again is None and loop.time() - released < 10:
+        claimed = await outbox.claim(limit=10, lease_seconds=30, topic_prefix=prefix)
+        again = claimed[0] if claimed else None
+        if again is None:
+            await asyncio.sleep(0.1)
+    waited = loop.time() - released
+    assert again is not None
     assert (again.id, again.attempts) == (second.id, 2)
+    # Vuelve tras el backoff, no antes (margen por la diferencia de reloj con PostgreSQL).
+    assert waited >= 1.2
     assert await outbox.backlog(topic_prefix=prefix) == 1
 
 
