@@ -12,11 +12,12 @@ import asyncio
 import logging
 import random
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
 from decimal import Decimal
 
 from headache_core.application.llm.pricing import PriceTable
 from headache_core.application.llm.resilience import bounded_wait, remaining
+from headache_core.application.llm.streaming import stream_from, with_deadline
 from headache_core.ports import (
     ChatMessage,
     GenerationObservation,
@@ -25,6 +26,7 @@ from headache_core.ports import (
     LLMPort,
     LLMRateLimitError,
     LLMResponse,
+    LLMStreamEvent,
     LLMTracer,
     LLMTransientError,
     RateLimiterPort,
@@ -92,28 +94,69 @@ class FallbackLLM:
                     )
                 except LLMDeadlineExceededError:
                     raise
-                except (LLMRateLimitError, LLMOverloadedError) as exc:
-                    last_error = exc
-                    if exc.retry_after:
-                        hints.append(exc.retry_after)
-                    break
                 except LLMTransientError as exc:
                     last_error = exc
-                    if exc.retry_after:
-                        hints.append(exc.retry_after)
-                    if attempt == self._max_retries:
-                        break
-                    # Full jitter: evita que todos los clientes reintenten a la vez.
-                    delay = max(
-                        random.uniform(0, self._base_delay * 2**attempt), exc.retry_after or 0.0
-                    )
-                    left = remaining(clock=self._clock)
-                    if delay > self._max_retry_after or (left is not None and delay >= left):
+                    delay = self._retry_delay(exc, attempt, hints)
+                    if delay is None:
                         break
                     await self._sleep(delay)
-        raise LLMTransientError(
+        raise self._exhausted(hints) from last_error
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        """Igual que `complete`, pero solo se reintenta o se salta si aún no se ha emitido nada."""
+        last_error: LLMTransientError | None = None
+        hints: list[float] = []
+        for llm in self._candidates:
+            for attempt in range(self._max_retries + 1):
+                self._check_deadline(last_error)
+                emitted = False
+                events = with_deadline(
+                    stream_from(llm, messages, temperature=temperature, max_tokens=max_tokens),
+                    remaining(clock=self._clock),
+                )
+                try:
+                    async for event in events:
+                        emitted = True
+                        yield event
+                    return
+                except LLMDeadlineExceededError:
+                    raise
+                except LLMTransientError as exc:
+                    if emitted:
+                        raise
+                    last_error = exc
+                    delay = self._retry_delay(exc, attempt, hints)
+                    if delay is None:
+                        break
+                    await self._sleep(delay)
+        raise self._exhausted(hints) from last_error
+
+    def _retry_delay(
+        self, exc: LLMTransientError, attempt: int, hints: list[float]
+    ) -> float | None:
+        """Cuánto esperar antes de reintentar con el mismo proveedor, o `None` para saltar."""
+        if exc.retry_after:
+            hints.append(exc.retry_after)
+        if isinstance(exc, LLMRateLimitError | LLMOverloadedError) or attempt == self._max_retries:
+            return None
+        # Full jitter: evita que todos los clientes reintenten a la vez.
+        delay = max(random.uniform(0, self._base_delay * 2**attempt), exc.retry_after or 0.0)
+        left = remaining(clock=self._clock)
+        if delay > self._max_retry_after or (left is not None and delay >= left):
+            return None
+        return delay
+
+    @staticmethod
+    def _exhausted(hints: list[float]) -> LLMTransientError:
+        return LLMTransientError(
             "Todos los proveedores han fallado.", retry_after=min(hints, default=None)
-        ) from last_error
+        )
 
     def _check_deadline(self, last_error: LLMTransientError | None) -> None:
         left = remaining(clock=self._clock)
@@ -266,6 +309,20 @@ class RateLimitedLLM:
             tools=tools,
         )
 
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        # Se reserva lo mismo que sin streaming: la cuota es del modelo, no de la forma de leer.
+        await self._reserve(estimate_tokens(messages) + (max_tokens or self._default_max_tokens))
+        async for event in stream_from(
+            self._inner, messages, temperature=temperature, max_tokens=max_tokens
+        ):
+            yield event
+
     async def _reserve(self, tokens: int) -> None:
         """Reserva petición y tokens a la vez (o ninguna) y duerme una sola vez."""
         max_wait = bounded_wait(self._max_wait, clock=self._clock)
@@ -345,6 +402,19 @@ class SharedQuotaLLM:
             tools=tools,
         )
 
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        await self._reserve(estimate_tokens(messages) + (max_tokens or self._default_max_tokens))
+        async for event in stream_from(
+            self._inner, messages, temperature=temperature, max_tokens=max_tokens
+        ):
+            yield event
+
     async def _reserve(self, tokens: int) -> None:
         requests = [
             RateLimitRequest(f"model:{self._key}:rpm", self._rpm),
@@ -419,6 +489,33 @@ class ObservedLLM:
             raise
         observation.finish(response, cost_usd=self._prices.cost(response.model, response.usage))
         return response
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        observation = self._tracer.start_generation(
+            name=self._name, messages=messages, metadata={**self._metadata, "stream": "true"}
+        )
+        finished = False
+        try:
+            async for event in stream_from(
+                self._inner, messages, temperature=temperature, max_tokens=max_tokens
+            ):
+                if isinstance(event, LLMResponse):
+                    cost = self._prices.cost(event.model, event.usage)
+                    observation.finish(event, cost_usd=cost)
+                    finished = True
+                yield event
+        except BaseException as exc:
+            # También si el cliente corta el stream a medias (GeneratorExit / cancelación): la
+            # traza queda como fallida en vez de abierta. Los tokens ya generados se pagan igual.
+            if not finished:
+                observation.fail(exc)
+            raise
 
 
 class _NullObservation:

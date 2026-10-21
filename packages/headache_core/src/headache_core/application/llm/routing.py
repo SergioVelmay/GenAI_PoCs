@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from enum import StrEnum
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from headache_core.application.llm.streaming import stream_from
 from headache_core.application.llm.structured import complete_structured
 from headache_core.ports import (
     ChatMessage,
     LLMError,
     LLMPort,
     LLMResponse,
+    LLMStreamEvent,
     ResponseSchema,
     Role,
     ToolConfig,
@@ -155,3 +157,16 @@ class RoutingLLM:
             response_schema=response_schema,
             tools=tools,
         )
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        tier = await self._classifier.classify(messages, response_schema=None)
+        async for event in stream_from(
+            self._routes[tier], messages, temperature=temperature, max_tokens=max_tokens
+        ):
+            yield event

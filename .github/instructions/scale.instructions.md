@@ -1,5 +1,5 @@
 ---
-applyTo: "services/edge_api/**,packages/headache_core/src/headache_core/application/admission.py,packages/headache_core/src/headache_core/domain/admission.py,packages/headache_core/src/headache_core/ports/rate_limit.py,packages/headache_core/src/headache_core/adapters/redis_*.py,packages/headache_core/src/headache_core/application/llm/resilience.py,packages/headache_core/src/headache_core/domain/semantic_cache.py,packages/headache_core/src/headache_core/application/semantic_cache.py,packages/headache_core/src/headache_core/ports/semantic_cache.py,evals/src/rag_evals/semantic_cache.py"
+applyTo: "services/edge_api/**,packages/headache_core/src/headache_core/application/admission.py,packages/headache_core/src/headache_core/domain/admission.py,packages/headache_core/src/headache_core/ports/rate_limit.py,packages/headache_core/src/headache_core/adapters/redis_*.py,packages/headache_core/src/headache_core/application/llm/resilience.py,packages/headache_core/src/headache_core/domain/semantic_cache.py,packages/headache_core/src/headache_core/application/semantic_cache.py,packages/headache_core/src/headache_core/ports/semantic_cache.py,evals/src/rag_evals/semantic_cache.py,packages/headache_core/src/headache_core/application/llm/streaming.py,packages/headache_core/src/headache_core/application/answer_stream.py"
 description: "Escala: edge, admisión, rate limiting distribuido y resiliencia del cliente LLM (fase 10)."
 ---
 
@@ -23,6 +23,14 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - Si el almacén cae, la caché se salta (`unavailable`), nunca tumba la petición. Un acierto sigue contando para el rate limit del usuario.
 - En el edge, `CachedAssistant` fusiona preguntas idénticas en curso (*single-flight*, por réplica) y expone `X-Cache: HIT|MISS|COALESCED|BYPASS`.
 - Redis: índice `idx:<prefijo>:<dimensiones>` (HNSW, coseno) sobre hashes `{headache-sc}:<dim>:<id>` con `EXPIRE`. El campo de la respuesta se llama `answer` (`payload` choca con `Document` de redis-py).
+
+## Streaming (10.4)
+
+- `StreamingLLMPort.stream()` (solo texto, sin tools ni salida estructurada): `TextDelta`… y al final un `LLMResponse` con el uso. Adaptadores: Azure (`stream=True` + `include_usage`), Bedrock `ConverseStream` (hilo lector + cola) y `FakeLLM` (palabra a palabra). Quien no lo implemente se adapta con `stream_from` (un trozo).
+- Todas las capas del gateway lo respetan: cuota reservada igual que sin streaming, hueco del bulkhead ocupado **todo** el stream, breaker que cuenta fallos a mitad, coste al llegar la respuesta final y traza fallida si el cliente corta. `FallbackLLM` solo reintenta o salta **antes del primer trozo**: después no se empalman respuestas.
+- Presupuesto en streams con `with_deadline` (no `time_budget`: un stream HTTP empieza en una tarea y sigue en otra, y un `ContextVar` no cruza).
+- Edge: `POST /ask/stream` (SSE: `delta`, `done` con `verified` y `cache`, `error`, latido `: ping`). Se espera al primer evento antes de responder (*priming*): lo anterior es un código HTTP (429/503/504); lo posterior, `event: error`. El hueco de admisión se libera con un `AsyncExitStack` al terminar o si el cliente se va.
+- Modo `generative` (`StreamingAnswerer`): citas `[n]` verificadas al final; sin citas válidas, `verified=false` y no se cachea. Lo que no admite error (importes, reembolsos) no se hace en streaming.
 
 ## Edge (`services/edge_api`)
 

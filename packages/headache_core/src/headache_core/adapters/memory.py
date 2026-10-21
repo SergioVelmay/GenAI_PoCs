@@ -7,7 +7,7 @@ import math
 import re
 import time
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
@@ -30,6 +30,7 @@ from headache_core.ports import (
     ConflictError,
     LedgerEntry,
     LLMResponse,
+    LLMStreamEvent,
     Message,
     MessageHandler,
     MetadataValue,
@@ -38,6 +39,7 @@ from headache_core.ports import (
     RateLimitRequest,
     ResponseSchema,
     SearchResult,
+    TextDelta,
     TokenUsage,
     ToolCall,
     ToolConfig,
@@ -101,6 +103,19 @@ class FakeLLM:
             finish_reason="tool_calls" if tool_calls else "stop",
             tool_calls=tool_calls,
         )
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        """El mismo guion, palabra a palabra (un error guionizado salta antes del primer trozo)."""
+        response = await self.complete(messages, temperature=temperature, max_tokens=max_tokens)
+        for word in re.findall(r"\S+\s*", response.content):
+            yield TextDelta(word)
+        yield response
 
 
 class RecordingTracer:

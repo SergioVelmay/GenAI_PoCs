@@ -1,10 +1,14 @@
-"""Edge de Headache (fase 10.2): la única puerta pública, que decide pronto y barato.
+"""Edge de Headache (fase 10): la única puerta pública, que decide pronto y barato.
 
     uv run uvicorn edge_api.app:create_app --factory --port 8200
 
 Cada `POST /ask` pasa, en orden: identidad (token firmado o anónimo por IP) → *load shedding*
-por prioridad (503) → rate limit por usuario en Redis (429) → asistente con presupuesto de
-tiempo (504 si se agota; 503 + `Retry-After` si el modelo está saturado).
+por prioridad (503) → rate limit por usuario en Redis (429) → caché semántica (10.3, cabecera
+`X-Cache`) → asistente con presupuesto de tiempo (504 si se agota; 503 + `Retry-After` si el
+modelo está saturado). Un acierto de caché también cuenta para el límite del usuario.
+
+`POST /ask/stream` (10.4) hace lo mismo en Server-Sent Events (protocolo en `sse.py`): el hueco
+de admisión se ocupa mientras dura el stream, no solo hasta el primer trozo.
 """
 
 from __future__ import annotations
@@ -12,17 +16,19 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from edge_api.assistant import Answer, Assistant, RagAssistant
 from edge_api.cache import CachedAssistant
 from edge_api.identity import CallerResolver, UnauthenticatedError, build_resolver
 from edge_api.settings import EdgeSettings
+from edge_api.sse import body as sse_body
+from edge_api.sse import prime, pump
 from headache_core.adapters.memory import (
     HashingEmbedding,
     InMemoryRateLimiter,
@@ -34,8 +40,9 @@ from headache_core.application.admission import (
     CallerRateLimitedError,
     plan_rules,
 )
+from headache_core.application.answer_stream import StreamingAnswerer
 from headache_core.application.llm import time_budget
-from headache_core.application.retrieval import RetrievalUnavailableError
+from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
 from headache_core.config import Settings
 from headache_core.domain.admission import Caller, ClientPlan
@@ -63,6 +70,7 @@ class AskOut(BaseModel):
     abstained: bool
     mode: str
     cache: str
+    verified: bool
 
     @classmethod
     def from_answer(cls, answer: Answer) -> AskOut:
@@ -72,6 +80,7 @@ class AskOut(BaseModel):
             abstained=answer.abstained,
             mode=answer.mode,
             cache=answer.cache,
+            verified=answer.verified,
         )
 
 
@@ -198,8 +207,18 @@ def with_cache(
         assistant,
         cache,
         index_version=settings.semantic_cache.index_version,
-        mode="llm-extractive" if edge.generate else "extractive",
+        mode=edge.answer_mode,
     )
+
+
+def build_assistant(service: RetrievalService, settings: Settings, edge: EdgeSettings) -> Assistant:
+    """El RAG en proceso. En modo generativo, con el gateway completo (cuota, breaker, coste)."""
+    if edge.answer_mode != "generative":
+        return RagAssistant(service, mode=edge.answer_mode)
+    from headache_core.adapters.llm_factory import build_gateway
+
+    answerer = StreamingAnswerer(service, build_gateway(settings))
+    return RagAssistant(service, mode="generative", answerer=answerer)
 
 
 def create_app(
@@ -233,7 +252,7 @@ def create_app(
             embeddings = build_embeddings(config, settings)
         semantic = build_semantic_cache(settings, embeddings, embeddings_name=config.embeddings)
         app.state.assistant = with_cache(
-            RagAssistant(runtime.service, generate=edge.generate), semantic, settings, edge
+            build_assistant(runtime.service, settings, edge), semantic, settings, edge
         )
         try:
             yield
@@ -276,6 +295,41 @@ def create_app(
                 answer = await backend.answer(body.question, who)
         response.headers["X-Cache"] = answer.cache.upper()
         return AskOut.from_answer(answer)
+
+    @app.post(
+        "/ask/stream",
+        tags=["asistente"],
+        response_class=StreamingResponse,
+        responses={200: {"content": {"text/event-stream": {}}}},
+    )
+    async def ask_stream(body: AskIn, request: Request, who: CurrentCaller) -> StreamingResponse:
+        stack = AsyncExitStack()
+        # 422, 401, 429 y 503 salen aquí, antes de abrir el stream.
+        admission = await stack.enter_async_context(controller.admit(who))
+        backend: Assistant = request.app.state.assistant
+        events = pump(
+            backend.stream(body.question, who),
+            budget_seconds=edge.request_budget_seconds,
+            heartbeat_seconds=edge.heartbeat_seconds,
+        )
+        try:
+            first = await prime(events)
+        except BaseException:
+            await events.aclose()
+            await stack.aclose()
+            raise
+        headers = {
+            "RateLimit-Limit": str(int(admission.rule.limit)),
+            "RateLimit-Remaining": str(admission.remaining),
+            "Cache-Control": "no-cache",
+            # Sin búfer en proxies (nginx, algunos balanceadores): cada trozo sale al momento.
+            "X-Accel-Buffering": "no",
+        }
+        return StreamingResponse(
+            sse_body(first, events, stack, done=AskOut.from_answer),
+            media_type="text/event-stream",
+            headers=headers,
+        )
 
     return app
 

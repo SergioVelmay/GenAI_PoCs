@@ -28,5 +28,9 @@ class EdgeSettings(BaseSettings):
     jwks_uri: str = ""
     public_key_file: str = ""
     dev_private_key_file: str = ".secrets/mcp-dev-key.pem"
-    # Respuesta con LLM (llm-extractive, coste) o extractiva (sin modelo).
-    generate: bool = False
+    # extractive: citas literales sin modelo (coste 0). llm-extractive: el modelo elige citas
+    # (coste). generative: el modelo redacta en streaming con citas verificadas al final (coste).
+    answer_mode: Literal["extractive", "llm-extractive", "generative"] = "extractive"
+    # Cada cuánto se manda un comentario SSE si no hay datos (proxies que cortan conexiones
+    # inactivas, típicamente a los 60 s).
+    heartbeat_seconds: float = Field(default=15.0, gt=0)

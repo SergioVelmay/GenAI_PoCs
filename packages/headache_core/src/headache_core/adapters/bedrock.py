@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 import time
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Literal, Self
+from collections.abc import AsyncGenerator, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 import boto3
 from botocore.config import Config
@@ -28,9 +29,11 @@ from headache_core.ports import (
     LLMError,
     LLMRateLimitError,
     LLMResponse,
+    LLMStreamEvent,
     LLMTransientError,
     ResponseSchema,
     Role,
+    TextDelta,
     TokenUsage,
     ToolCall,
     ToolConfig,
@@ -52,20 +55,25 @@ if TYPE_CHECKING:
 # "native": `outputConfig` con JSON Schema (más reciente; comprueba qué modelos lo soportan).
 type StructuredMode = Literal["tool", "native"]
 
+_END = object()  # Fin del stream de ConverseStream (lo pone el hilo lector).
+
 _TRANSIENT_CODES = frozenset(
     {
-        "ServiceUnavailableException",
-        "InternalServerException",
-        "ModelNotReadyException",
-        "ModelTimeoutException",
+        "serviceunavailableexception",
+        "internalserverexception",
+        "modelnotreadyexception",
+        "modeltimeoutexception",
+        # Solo en streaming: el modelo falla a mitad de la respuesta.
+        "modelstreamerrorexception",
     }
 )
 
 
 def _to_llm_error(exc: ClientError | BotoCoreError) -> LLMError:
     if isinstance(exc, ClientError):
-        code = exc.response.get("Error", {}).get("Code", "")
-        if code == "ThrottlingException":
+        # En streaming los códigos llegan en camelCase (`throttlingException`): sin mayúsculas.
+        code = exc.response.get("Error", {}).get("Code", "").lower()
+        if code == "throttlingexception":
             return LLMRateLimitError(str(exc))
         if code in _TRANSIENT_CODES:
             return LLMTransientError(str(exc))
@@ -262,6 +270,72 @@ class BedrockConverseLLM:
             latency_ms=latency_ms,
             finish_reason=response["stopReason"],
             tool_calls=tool_calls,
+        )
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        """ConverseStream. boto3 es síncrono: un hilo lee el `EventStream` y pasa cada evento
+        al event loop por una cola; si el consumidor corta, el hilo deja de leer."""
+        request = self._build_request(messages, temperature, max_tokens, None)
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[object] = asyncio.Queue()
+        stop = threading.Event()
+
+        def produce() -> None:
+            try:
+                response = self._client.converse_stream(**request)  # type: ignore[arg-type]
+                for event in response["stream"]:
+                    if stop.is_set():
+                        break
+                    loop.call_soon_threadsafe(queue.put_nowait, event)
+            except Exception as exc:
+                loop.call_soon_threadsafe(queue.put_nowait, exc)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, _END)
+
+        started = time.perf_counter()
+        reader = loop.run_in_executor(None, produce)
+        parts: list[str] = []
+        usage: dict[str, int] = {}
+        stop_reason: str | None = None
+        try:
+            while (item := await queue.get()) is not _END:
+                if isinstance(item, ClientError | BotoCoreError):
+                    raise _to_llm_error(item) from item
+                if isinstance(item, Exception):
+                    raise item
+                event = cast("dict[str, Any]", item)
+                if "contentBlockDelta" in event:
+                    text = event["contentBlockDelta"]["delta"].get("text")
+                    if text:
+                        parts.append(text)
+                        yield TextDelta(text)
+                elif "messageStop" in event:
+                    stop_reason = event["messageStop"].get("stopReason")
+                elif "metadata" in event:
+                    usage = event["metadata"].get("usage", {})
+        finally:
+            stop.set()
+            reader.cancel()
+        read = usage.get("cacheReadInputTokens", 0)
+        write = usage.get("cacheWriteInputTokens", 0)
+        yield LLMResponse(
+            content="".join(parts),
+            model=self._model_id,
+            usage=TokenUsage(
+                input_tokens=usage.get("inputTokens", 0) + read + write,
+                output_tokens=usage.get("outputTokens", 0),
+                cached_input_tokens=read,
+                cache_write_tokens=write,
+            ),
+            provider="aws",
+            latency_ms=(time.perf_counter() - started) * 1000,
+            finish_reason=stop_reason,
         )
 
 

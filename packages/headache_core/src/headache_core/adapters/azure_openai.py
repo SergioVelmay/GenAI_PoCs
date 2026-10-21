@@ -7,7 +7,7 @@ Prompt caching: automático para prefijos idénticos de >= 1024 tokens; se lee e
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from typing import Self
 
 import openai
@@ -19,6 +19,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolChoiceOptionParam,
 )
+from openai.types.completion_usage import CompletionUsage
 from openai.types.shared_params import ResponseFormatJSONSchema
 
 from headache_core.config import AzureOpenAISettings
@@ -28,9 +29,11 @@ from headache_core.ports import (
     LLMError,
     LLMRateLimitError,
     LLMResponse,
+    LLMStreamEvent,
     LLMTransientError,
     ResponseSchema,
     Role,
+    TextDelta,
     TokenUsage,
     ToolCall,
     ToolConfig,
@@ -223,4 +226,52 @@ class AzureOpenAILLM:
             latency_ms=latency_ms,
             finish_reason=choice.finish_reason,
             tool_calls=_tool_calls(choice.message),
+        )
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        """`stream=True` con `include_usage`: el último chunk trae el uso (sin `choices`)."""
+        started = time.perf_counter()
+        parts: list[str] = []
+        model, finish_reason = self._deployment, None
+        usage: CompletionUsage | None = None
+        try:
+            chunks = await self._client.chat.completions.create(
+                model=self._deployment,
+                messages=[_to_openai(m) for m in messages],
+                temperature=temperature,
+                max_tokens=max_tokens if max_tokens is not None else omit,
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+            async for chunk in chunks:
+                model = chunk.model or model
+                usage = chunk.usage or usage
+                # Azure manda chunks sin `choices` (resultados del filtro de contenido y el uso).
+                for choice in chunk.choices:
+                    if choice.delta.content:
+                        parts.append(choice.delta.content)
+                        yield TextDelta(choice.delta.content)
+                    finish_reason = choice.finish_reason or finish_reason
+        except openai.OpenAIError as exc:
+            raise to_llm_error(exc) from exc
+        if finish_reason == "content_filter":
+            raise LLMContentFilterError("El filtro de contenido cortó la respuesta.")
+        details = usage.prompt_tokens_details if usage else None
+        yield LLMResponse(
+            content="".join(parts),
+            model=model,
+            usage=TokenUsage(
+                input_tokens=usage.prompt_tokens if usage else 0,
+                output_tokens=usage.completion_tokens if usage else 0,
+                cached_input_tokens=(details.cached_tokens or 0) if details else 0,
+            ),
+            provider="azure",
+            latency_ms=(time.perf_counter() - started) * 1000,
+            finish_reason=finish_reason,
         )

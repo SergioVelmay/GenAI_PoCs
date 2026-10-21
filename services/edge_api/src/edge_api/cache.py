@@ -1,13 +1,16 @@
 """Caché semántica delante del asistente (fase 10.3), con fusión de peticiones idénticas.
 
 - Acierto: se devuelve la respuesta guardada sin llamar al RAG ni al modelo.
-- Fallo: se responde y, si la respuesta es reutilizable, se guarda.
+- Fallo: se responde y, si la respuesta es reutilizable (con citas y verificada), se guarda.
 - *Single-flight*: en un pico, mil personas hacen la misma pregunta a la vez y la caché aún
   está vacía; sin fusión, las mil fallan y pagan mil llamadas (*cache stampede*). Aquí la
   primera calcula y las demás (misma pregunta normalizada y mismo espacio) esperan su
   resultado. Es por réplica: entre réplicas haría falta un candado en Redis.
 - Lo personal ni se busca, ni se guarda, ni se fusiona: dos clientes con la misma pregunta
   sobre "mi pedido" esperan respuestas distintas.
+
+En streaming (10.4) la que calcula ve los trozos según llegan; las que esperaban y los
+aciertos reciben la respuesta completa contada en trozos (`replay`).
 """
 
 from __future__ import annotations
@@ -15,10 +18,11 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import Counter
+from collections.abc import AsyncIterator
 from dataclasses import asdict, replace
 
-from edge_api.assistant import Answer, Assistant
-from headache_core.application.semantic_cache import SemanticCache
+from edge_api.assistant import Answer, Assistant, AssistantEvent, replay
+from headache_core.application.semantic_cache import CacheLookup, SemanticCache
 from headache_core.domain.admission import Caller, access_scope
 from headache_core.domain.semantic_cache import (
     CacheScope,
@@ -26,6 +30,7 @@ from headache_core.domain.semantic_cache import (
     is_cacheable_answer,
     normalize,
 )
+from headache_core.ports import LLMTransientError
 
 
 def to_payload(answer: Answer) -> str:
@@ -70,29 +75,88 @@ class CachedAssistant:
         if lookup.reason == "personal":
             self.outcomes["bypass"] += 1
             return replace(await self._inner.answer(question, caller), cache="bypass")
-
-        key = f"{lookup.scope.key()}|{normalize(question)}"
-        leader = self._inflight.get(key)
-        if leader is not None:
-            self.outcomes["coalesced"] += 1
-            # `shield`: si este seguidor se cancela, no cancela el cálculo de los demás.
-            return replace(await asyncio.shield(leader), cache="coalesced")
-
-        future: asyncio.Future[Answer] = asyncio.get_running_loop().create_future()
-        self._inflight[key] = future
+        key = self._key(lookup, question)
+        if key in self._inflight:
+            return await self._follow(key)
+        future = self._lead(key)
         try:
             answer = await self._inner.answer(question, caller)
         except BaseException as exc:
-            if isinstance(exc, asyncio.CancelledError):
-                future.cancel()
-            else:
-                future.set_exception(exc)
-                future.exception()  # Marcada como leída: sin aviso si nadie esperaba.
+            self._abort(future, exc)
             raise
         finally:
             self._inflight.pop(key, None)
+        await self._finish(future, lookup, answer)
+        return answer
+
+    async def stream(self, question: str, caller: Caller) -> AsyncIterator[AssistantEvent]:
+        lookup = await self.cache.lookup(question, self.scope(question, caller))
+        if lookup.hit and lookup.payload is not None:
+            self.outcomes["hit"] += 1
+            async for event in replay(from_payload(lookup.payload)):
+                yield event
+            return
+        if lookup.reason == "personal":
+            self.outcomes["bypass"] += 1
+            async for event in self._inner.stream(question, caller):
+                yield replace(event, cache="bypass") if isinstance(event, Answer) else event
+            return
+        key = self._key(lookup, question)
+        if key in self._inflight:
+            async for event in replay(await self._follow(key)):
+                yield event
+            return
+        future = self._lead(key)
+        try:
+            async for event in self._inner.stream(question, caller):
+                if isinstance(event, Answer):
+                    # Antes de entregarla: si el cliente corta justo después, ya está guardada.
+                    await self._finish(future, lookup, event)
+                yield event
+        except BaseException as exc:
+            self._abort(future, exc)
+            raise
+        finally:
+            self._inflight.pop(key, None)
+        if not future.done():
+            self._abort(future, RuntimeError("El stream terminó sin respuesta final."))
+
+    @staticmethod
+    def _key(lookup: CacheLookup, question: str) -> str:
+        return f"{lookup.scope.key()}|{normalize(question)}"
+
+    def _lead(self, key: str) -> asyncio.Future[Answer]:
+        future: asyncio.Future[Answer] = asyncio.get_running_loop().create_future()
+        self._inflight[key] = future
+        return future
+
+    async def _follow(self, key: str) -> Answer:
+        self.outcomes["coalesced"] += 1
+        # `shield`: si este seguidor se cancela, no cancela el cálculo de los demás.
+        return replace(await asyncio.shield(self._inflight[key]), cache="coalesced")
+
+    async def _finish(
+        self, future: asyncio.Future[Answer], lookup: CacheLookup, answer: Answer
+    ) -> None:
+        if future.done():
+            return
         future.set_result(answer)
         self.outcomes["miss"] += 1
-        if is_cacheable_answer(abstained=answer.abstained, citations=len(answer.citations)):
+        cacheable = is_cacheable_answer(abstained=answer.abstained, citations=len(answer.citations))
+        if cacheable and answer.verified:
             await self.cache.store_answer(lookup, to_payload(answer))
-        return answer
+
+    @staticmethod
+    def _abort(future: asyncio.Future[Answer], exc: BaseException) -> None:
+        if future.done():
+            return
+        if isinstance(exc, Exception):
+            future.set_exception(exc)
+        else:
+            # La primera petición se canceló (cliente cerrado): las que esperaban reintentan.
+            future.set_exception(
+                LLMTransientError(
+                    "Se canceló la petición que calculaba la respuesta.", retry_after=1
+                )
+            )
+        future.exception()  # Marcada como leída: sin aviso si nadie esperaba.

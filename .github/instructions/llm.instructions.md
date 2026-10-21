@@ -15,6 +15,7 @@ Doc: `docs/fase-2-modelos.md`, `docs/fase-6-tools-mcp.md`.
 - Tools para modelos: IDs con prefijo exacto por tipo (`^evt_`, `^ord_`), sin IDs de ejemplo copiables en las descripciones; cambiar una descripción cambia el contrato MCP (`python -m headache_mcp.contracts --update`, deliberado).
 - Reintentos solo en el gateway (SDKs con `max_retries=0`). Un 429 salta de proveedor; los errores no transitorios se propagan.
 - Todo cliente de un despliegue (también scripts y benchmarks) pasa por `RateLimitedLLM`. `LLM_GATEWAY__TOKENS_PER_MINUTE` va por debajo de la capacidad del despliegue (Terraform `foundry_models`, 200 K TPM; hoy 150 K), porque el *token bucket* admite ráfaga + recarga.
+- Streaming (fase 10.4): `StreamingLLMPort.stream()` en adaptadores y en todas las capas del gateway (detalle en `scale.instructions.md`). Con `LLM_GATEWAY__ENGINE=litellm` no hay streaming real (`stream_from` lo degrada a un trozo).
 - Errores tipados `LLMError` → `LLMTransientError` (`retry_after`) → `LLMRateLimitError` / `LLMOverloadedError` / `LLMDeadlineExceededError`; cada adaptador traduce los suyos.
 - Coste con `application/llm/pricing.py` (`PriceTable`, prefijo más largo). Un modelo nuevo necesita su precio (entrada, salida, cacheada, escritura).
 - Prompt caching: `ChatMessage(cache_checkpoint=True)` al final del prefijo estable (Bedrock `cachePoint`; Azure automático ≥ 1024 tokens). Prefijo estable primero, siempre.

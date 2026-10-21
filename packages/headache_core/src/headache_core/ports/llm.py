@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
 class Role(StrEnum):
@@ -150,6 +150,35 @@ class LLMPort(Protocol):
         response_schema: ResponseSchema | None = None,
         tools: ToolConfig | None = None,
     ) -> LLMResponse: ...
+
+
+@dataclass(frozen=True, slots=True)
+class TextDelta:
+    """Un trozo de texto de una respuesta en streaming."""
+
+    text: str
+
+
+# Un stream son `TextDelta` y, al final, un único `LLMResponse` con el texto completo y el uso
+# de tokens (para el coste y las trazas).
+type LLMStreamEvent = TextDelta | LLMResponse
+
+
+@runtime_checkable
+class StreamingLLMPort(LLMPort, Protocol):
+    """Modelo que además sabe responder en streaming (fase 10.4).
+
+    Solo texto: sin tools ni salida estructurada (un JSON a medias no sirve a nadie). Quien no
+    lo implemente se adapta con `application.llm.streaming.stream_from` (un único trozo).
+    """
+
+    def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[LLMStreamEvent]: ...
 
 
 class GenerationObservation(Protocol):

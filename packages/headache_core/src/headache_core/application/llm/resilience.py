@@ -13,11 +13,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import AsyncGenerator, Callable, Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from enum import StrEnum
 
+from headache_core.application.llm.streaming import stream_from
 from headache_core.ports import (
     ChatMessage,
     LLMDeadlineExceededError,
@@ -26,6 +27,7 @@ from headache_core.ports import (
     LLMPort,
     LLMRateLimitError,
     LLMResponse,
+    LLMStreamEvent,
     LLMTransientError,
     ResponseSchema,
     ToolConfig,
@@ -133,27 +135,47 @@ class CircuitBreakerLLM:
                 response_schema=response_schema,
                 tools=tools,
             )
-        except (LLMOverloadedError, LLMDeadlineExceededError):
-            self._release(probe)
+        except BaseException as exc:
+            self._on_error(exc, probe)
             raise
-        except LLMRateLimitError as exc:
+        self._record_success()
+        return response
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        """Un fallo a mitad del stream cuenta como fallo; el éxito, al llegar la respuesta final."""
+        probe = self._admit()
+        try:
+            async for event in stream_from(
+                self._inner, messages, temperature=temperature, max_tokens=max_tokens
+            ):
+                if isinstance(event, LLMResponse):
+                    self._record_success()
+                yield event
+        except BaseException as exc:
+            self._on_error(exc, probe)
+            raise
+
+    def _on_error(self, exc: BaseException, probe: bool) -> None:
+        if isinstance(exc, LLMOverloadedError | LLMDeadlineExceededError):
+            self._release(probe)
+        elif isinstance(exc, LLMRateLimitError):
             if exc.retry_after:
                 self._open(exc.retry_after)
             else:
                 self._record_failure(probe)
-            raise
-        except LLMTransientError:
+        elif isinstance(exc, LLMTransientError):
             self._record_failure(probe)
-            raise
-        except LLMError:
+        elif isinstance(exc, LLMError):
             self._record_success()
-            raise
-        except BaseException:
-            # Cancelación o fallo propio: no dice nada del proveedor.
+        else:
+            # Cancelación, cliente que corta el stream o fallo propio: nada sobre el proveedor.
             self._release(probe)
-            raise
-        self._record_success()
-        return response
 
     def _admit(self) -> bool:
         """Deja pasar la llamada o la rechaza. Devuelve si es la llamada de prueba."""
@@ -241,6 +263,26 @@ class ConcurrencyLimitedLLM:
                 response_schema=response_schema,
                 tools=tools,
             )
+        finally:
+            self.in_flight -= 1
+            self._semaphore.release()
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        # El hueco se ocupa mientras dure el stream, no solo hasta el primer trozo: una
+        # respuesta en streaming ocupa la conexión con el proveedor todo ese tiempo.
+        await self._acquire()
+        self.in_flight += 1
+        try:
+            async for event in stream_from(
+                self._inner, messages, temperature=temperature, max_tokens=max_tokens
+            ):
+                yield event
         finally:
             self.in_flight -= 1
             self._semaphore.release()

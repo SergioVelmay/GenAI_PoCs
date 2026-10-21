@@ -101,4 +101,5 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 - [ ] Calibrar el umbral de la caché semántica con embeddings reales: `uv run python -m rag_evals.semantic_cache --embeddings azure --budget-usd 0.01` (~0,00003 $). Añadir el umbral resultante a `CALIBRATED_THRESHOLDS` (`azure`); hasta entonces, con embeddings de Azure la caché no se activa. Repetir con Titan (`bedrock`).
 - [ ] Redis gestionado para rate limiting y caché: Azure Managed Redis (con el módulo de búsqueda) y ElastiCache (Valkey con búsqueda vectorial), por Terraform y desactivado por defecto.
+- [ ] Streaming real con Azure OpenAI y Bedrock: `EDGE__ANSWER_MODE=generative` y `POST /ask/stream`; medir el tiempo hasta el primer trozo frente a la respuesta completa, comprobar que el uso del último chunk llega (Azure `include_usage`, Bedrock `metadata`) y que el filtro de contenido corta con `LLMContentFilterError`.
 - [ ] Comparar con el carril A: políticas `llm-token-limit` y `azure-openai-semantic-cache-lookup/store` de APIM y *usage plans* de API Gateway frente a `edge_api`.

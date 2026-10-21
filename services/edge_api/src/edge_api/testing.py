@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 
 import httpx
 from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
 
 from edge_api.app import create_app
-from edge_api.assistant import Answer
+from edge_api.assistant import Answer, AnswerChunk, AssistantEvent, final_answer, replay
 from edge_api.identity import jwt_resolver
 from edge_api.settings import EdgeSettings
 from headache_core.adapters.memory import InMemoryRateLimiter
@@ -21,20 +22,40 @@ KEYS = RSAKeyPair.generate()
 
 
 class FakeAssistant:
+    """Responde "Respuesta a: <pregunta>". En streaming, palabra a palabra; `fail_after` hace
+    que falle tras ese número de trozos y `verified` marca la respuesta final."""
+
     def __init__(self) -> None:
         self.callers: list[Caller] = []
         self.arrivals: asyncio.Queue[None] = asyncio.Queue()
         self.gate: asyncio.Event | None = None
         self.error: Exception | None = None
+        self.fail_after: int | None = None
+        self.verified = True
 
     async def answer(self, question: str, caller: Caller) -> Answer:
+        return await final_answer(self.stream(question, caller))
+
+    async def stream(self, question: str, caller: Caller) -> AsyncIterator[AssistantEvent]:
         self.callers.append(caller)
         self.arrivals.put_nowait(None)
         if self.gate is not None:
             await self.gate.wait()
-        if self.error is not None:
+        if self.error is not None and self.fail_after is None:
             raise self.error
-        return Answer(f"Respuesta a: {question}", ("doc_1#0",), False, "extractive")
+        answer = Answer(
+            f"Respuesta a: {question}",
+            ("doc_1#0",),
+            False,
+            "extractive",
+            verified=self.verified,
+        )
+        sent = 0
+        async for event in replay(answer):
+            if isinstance(event, AnswerChunk) and sent == self.fail_after:
+                raise self.error or RuntimeError("corte")
+            sent += 1
+            yield event
 
 
 def token(subject: str, *, plan: str | None = None, audience: str = AUDIENCE) -> str:
