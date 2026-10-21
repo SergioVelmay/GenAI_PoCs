@@ -71,7 +71,8 @@ uv run python -m rag_evals.multiagent --check        # evals multi-agente (coste
 ```
 
 Perfiles opcionales de Docker: `observability` (Langfuse), `sqs` (ElasticMQ), `servicebus`
-(emulador), `mcp` (servidores MCP) y `agents` (especialistas A2A). Todo lo que usa modelos o nube es explícito y tiene coste:
+(emulador), `mcp` (servidores MCP), `agents` (especialistas A2A) y `scale` (Redis 8 y workers
+autoescalables de la fase 10). Todo lo que usa modelos o nube es explícito y tiene coste:
 ver [pendientes con coste](docs/pendientes-cloud.md).
 
 ## Fases
@@ -89,7 +90,8 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 8 | Agentic harness: validación, SQL seguro, PII, prompt injection, human-in-the-loop | ✅* | [fase-8](docs/fase-8-harness.md) |
 | 8→9 | Checkpoint: CI, documentación, desarrollo con IA y validación en Azure de las fases 2–8 | ✅ | [checkpoint](docs/fase-9-8-checkpoint.md) |
 | 9 | Orquestación multi-agente (LangGraph, MAF, cola), A2A y evals de los tres motores | ✅* | [fase-9](docs/fase-9-multiagente.md) |
-| 10–15 | Escala, observabilidad, red teaming y LLMOps, despliegue en AWS y en Azure, extras | Plan | |
+| 10 | Escala: rate limiting, caché semántica, streaming, outbox, autoescalado por cola y pruebas de carga | ✅* | [fase-10](docs/fase-10-escala.md) |
+| 11–15 | Observabilidad, red teaming y LLMOps, despliegue en AWS y en Azure, extras | Plan | |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
 
@@ -101,7 +103,7 @@ modelo y una chuleta Azure → AWS: [preguntas-entrevista.md](docs/preguntas-ent
 GitHub Actions ejecuta en cada push: lint, formato, `mypy --strict`, tests, evals deterministas con
 gate contra un baseline, tests de ataque en los 7 sabores, evals multi-agente en los 3 motores,
 build de las imágenes MCP y de especialistas A2A, validación de
-Terraform y tests de integración con PostgreSQL, RabbitMQ y SQS emulado. Sin secretos y sin coste.
+Terraform y tests de integración con PostgreSQL, RabbitMQ, Redis y SQS emulado. Sin secretos y sin coste.
 
 ## Desarrollo con IA
 

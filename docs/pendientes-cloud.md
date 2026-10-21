@@ -97,10 +97,12 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] Carril A: especialistas en AgentCore Runtime con protocolo A2A y workflow multi-agente de Foundry Agent Service con el mismo dataset.
 - [ ] Flujo asíncrono en la nube: colas `support-emails`, `case-triaged-*` y `case-outcomes` con su DLQ en SQS (Terraform, fase 13) y Service Bus (fase 14), y workers con `ORCHESTRATOR__BROKER=sqs|servicebus`. Valorar la deduplicación del broker (SQS FIFO `MessageDeduplicationId`, *duplicate detection* de Service Bus) como primera capa antes del `CaseStore`.
 
-## Fase 10 · Escala (en curso)
+## Fase 10 · Escala ([doc](fase-10-escala.md))
 
 - [ ] Calibrar el umbral de la caché semántica con embeddings reales: `uv run python -m rag_evals.semantic_cache --embeddings azure --budget-usd 0.01` (~0,00003 $). Añadir el umbral resultante a `CALIBRATED_THRESHOLDS` (`azure`); hasta entonces, con embeddings de Azure la caché no se activa. Repetir con Titan (`bedrock`).
 - [ ] Redis gestionado para rate limiting y caché: Azure Managed Redis (con el módulo de búsqueda) y ElastiCache (Valkey con búsqueda vectorial), por Terraform y desactivado por defecto.
 - [ ] Streaming real con Azure OpenAI y Bedrock: `EDGE__ANSWER_MODE=generative` y `POST /ask/stream`; medir el tiempo hasta el primer trozo frente a la respuesta completa, comprobar que el uso del último chunk llega (Azure `include_usage`, Bedrock `metadata`) y que el filtro de contenido corta con `LLMContentFilterError`.
 - [ ] Autoescalado por cola en la nube (con la imagen del orquestador publicada en las fases 13/14): `queue_workers_enabled = true` en Azure (Container Apps + regla KEDA `azure-servicebus` con identidad) y en AWS (ECS Fargate + *target tracking* de mensajes por tarea). Repetir la demo de dos ráfagas y comparar con `evals/reports/autoscaling.md`: arranque en frío de una réplica, retardo de la métrica (SQS en CloudWatch ~1 min frente al *polling* de KEDA) y coste.
 - [ ] Comparar con el carril A: políticas `llm-token-limit` y `azure-openai-semantic-cache-lookup/store` de APIM y *usage plans* de API Gateway frente a `edge_api`.
+- [ ] Carga desde la nube con el mismo `loadtests/locustfile.py`: Azure Load Testing (admite Locust) contra el edge desplegado con varias réplicas, para separar el límite del edge del de un generador en la misma máquina. Repetir los tres perfiles y comparar con `evals/reports/load/README.md`. En AWS, *Distributed Load Testing on AWS* o Locust en ECS.
+- [ ] Prueba pequeña contra Azure OpenAI real (`LLM_PROVIDER=azure`, `LOAD_PEAK=20`, despliegue con poca cuota): ver los 429 reales, su `Retry-After` y que el breaker y la degradación se comportan como con el simulado. Presupuesto acordado antes (~0,50 $).

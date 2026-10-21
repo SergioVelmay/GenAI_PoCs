@@ -17,6 +17,8 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Tildes convertidas en `?` en textos insertados con `@' ... '@ \| python -` (fase 9.6) | PowerShell 5.1 envía la tubería a Python en la página de códigos de la consola: los caracteres no ASCII del script se pierden | Para insertar texto con tildes, usar la tool de edición; los scripts por tubería, solo con ASCII (o `$OutputEncoding = [Text.UTF8Encoding]::new()` antes). Buscar `[a-z]\?[a-z]` tras editar |
 | Se repitió en las fases 10.1 y 10.2: 74 líneas con `?` en lugar de tildes, comillas angulares y flechas llegaron a dos commits | La regla anterior existía, pero se volvió a insertar texto en español por tubería; y el propio escáner, también por tubería, buscaba `?` en lugar de `¿` y no encontró nada | Antes de cada commit, escanear las líneas añadidas (`git diff -U0`) con un script **escrito con la tool de creación**, usando escapes (`"\u00bf"`) y no caracteres no ASCII |
 | Al parar un servidor de pruebas se cerró la propia terminal (fase 10.3) | `Get-CimInstance Win32_Process \| Where CommandLine -like '*edge_api*'` también encontraba el `powershell.exe` que ejecutaba ese filtro | Parar por PID (el que devuelve `Start-Process -PassThru`) o filtrar también por `Name='python.exe'` |
+| Un `.ps1` del repo no arrancaba: "running scripts is disabled" (fase 10.7) | La directiva de ejecución de la máquina bloquea scripts | Lanzarlo con `powershell -NoProfile -ExecutionPolicy Bypass -File <script>` (solo para ese proceso); no cambiar la directiva global |
+| Un servidor relanzado "no arrancaba" y la prueba de carga midió 100 % de errores de conexión (fase 10.7) | El log de la ejecución anterior seguía abierto por el proceso viejo y la redirección falló; nadie escuchaba en el puerto | Antes de una prueba, comprobar `/ready` y que el puerto escucha; un log nuevo por ejecución; parar el servidor anterior (`stop_powershell` o PID) y verificar con `Get-NetTCPConnection` |
 | Un reemplazo con `Get-Content -Raw ... \| Set-Content -Encoding utf8` corrompió las tildes y añadió BOM (fase 9.2) | Lee el UTF-8 como ANSI y escribe UTF-8 **con** BOM: el texto queda doblemente codificado | Nunca reescribir ficheros con `Get-Content`/`Set-Content`: usar la tool de edición o Python (`encoding="utf-8"`, `newline="\n"`) |
 
 ## Verificación y CI
@@ -73,6 +75,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | `strands-agents` exige `mcp<2.2` (fase 7) | Conflicto de versiones entre frameworks | Documentar el pin y el motivo en el `pyproject.toml` y en las instrucciones |
 | AgentCore Memory rechazaba ids (fase 7) | `sessionId` solo admite `[a-zA-Z0-9-_]` | Derivar ids externos con hash; probar con `Stubber`, que valida los patrones |
 | PostgreSQL comprueba permisos antes que `READ ONLY` (fase 8) | Son dos capas independientes | Defensa en profundidad: cada capa debe funcionar sola |
+| En la prueba de carga sin caché, el 72 % de las altas de casos recibían 503 (fase 10.7) | Una sola capacidad por réplica para todas las rutas: las preguntas lentas al modelo ocupaban los huecos de una ruta barata | Un compartimento (*bulkhead*) por clase de ruta; los tests unitarios no lo veían: hace falta carga con mezcla realista de tráfico |
 
 ## Estilo de documentación
 

@@ -85,7 +85,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check ; u
 | 8 | Agentic harness y guardrails | ✅ Hecha* | `docs/fase-8-harness.md` |
 | 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes de Azure de las fases 2–8 | ✅ Hecha | `docs/fase-9-8-checkpoint.md` |
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | `docs/fase-9-multiagente.md` |
-| 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | | |
+| 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | ✅ Hecha* | `docs/fase-10-escala.md` |
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | | |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B) | | |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | |

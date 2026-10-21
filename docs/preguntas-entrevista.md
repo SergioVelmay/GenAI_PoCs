@@ -10,7 +10,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Índice
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10)
 
 <a id="como-responder"></a>
 
@@ -35,6 +35,9 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails |
 | Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway |
 | Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge |
+| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) |
+| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS |
+| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS |
 | Multi-agente gestionado | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (protocolo A2A), Bedrock Agents (*multi-agent collaboration*) |
 | Flujo durable con espera humana | Durable Functions, Logic Apps | Step Functions (*wait for callback*) |
 | Cómputo | Functions, Container Apps, AKS | Lambda, ECS Fargate / App Runner, EKS |
@@ -583,8 +586,8 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 5. **¿Cómo haces idempotente un flujo asíncrono con agentes?** El caso se identifica por el email
    y se **reclama** antes de llamar al LLM; cada paso avanza el estado con compare-and-set y lo
    irreversible pasa por aprobaciones idempotentes. Lo encontré con RabbitMQ real: dos copias del
-   mismo email llegaban a la vez y ambas pagaban el triaje. Lo que no cierro aún: guardar y
-   publicar no son atómicos (*transactional outbox*).
+   mismo email llegaban a la vez y ambas pagaban el triaje. Guardar y publicar no eran atómicos;
+   lo cerré en la fase 10.5 con un *transactional outbox*.
 
 ### Negocio y stakeholders
 
@@ -599,3 +602,74 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 3. **¿Qué dejarías fuera de la primera versión?** El supervisor, la memoria compartida entre
    agentes y la autoaprobación por importe. Primero router + aprobación humana en todo lo que sale
    hacia el cliente, medir dos o tres semanas y automatizar solo donde los datos lo justifiquen.
+
+<a id="fase-10"></a>
+
+## Fase 10 · Escala y patrones asíncronos ([doc](fase-10-escala.md))
+
+### Técnicas
+
+1. **Sale a la venta un festival y llegan 10.000 usuarios a la vez. ¿Qué evita que el sistema
+   caiga?** Decidir pronto y barato, por capas:
+   - validación (422) e identidad del token (401);
+   - *load shedding* en memoria por plan (503 con `Retry-After`);
+   - rate limit por usuario en Redis (429);
+   - caché semántica;
+   - modelo con espera acotada y, si no llega, una respuesta degradada.
+
+   En mi prueba con 200 usuarios simulados, el sistema sin protección servía 6,8 req/s con un
+   p95 de 60 s; con protección, 75 req/s con el 97 % desde la caché y un TTFT p95 de 42 ms.
+   En AWS lo pondría tras API Gateway/WAF con ElastiCache; en Azure, tras APIM con Managed Redis.
+2. **¿Cómo haces rate limiting con varias réplicas?** GCRA en un script Lua atómico en Redis, con
+   el reloj de Redis (no el de cada réplica) y claves con *hash tag* para Redis Cluster. Si Redis
+   cae, *fail-open* con un límite local por réplica y sin reintentos que bloqueen. La cuota del
+   modelo también se comparte: N réplicas no pueden pedir N veces el TPM.
+3. **¿No es peligrosa una caché semántica?** Sí: el riesgo es responder lo de Madrid a quien
+   pregunta por Barcelona. Por eso la similitud solo propone, y el dominio exige las mismas
+   facetas (ciudad, categoría, operación, IDs y números). Lo personal nunca entra, y el
+   espacio de la caché va por ACL, idioma y versión del índice. Con la guarda: 12/17 paráfrasis
+   reutilizadas y 0 falsos aciertos. Sin ella: 11 falsos aciertos. Es un gate en la CI.
+4. **¿Por qué se rompió tu sistema en la prueba de carga y qué cambiaste?** Encontré dos límites
+   que los tests unitarios no veían:
+   - Las preguntas lentas al modelo ocupaban toda la capacidad de la réplica, y el 72 % de las
+     altas de casos (una transacción barata) recibían 503. Lo arreglé con un bulkhead por ruta.
+   - La espera de cuota de 10 s, pensada para *workers*, dejaba el chat con un TTFT p50 de 9,8 s.
+     La bajé a 2 s en el edge y, si el modelo no llega, respondo con citas literales marcadas
+     como degradadas (no se cachean).
+5. **¿Cómo escalas los workers de una cola de agentes?** Por longitud de cola, no por CPU: un
+   worker de LLM pasa el tiempo esperando al modelo.
+   - En AWS: ECS con *target tracking* sobre mensajes visibles por tarea.
+   - En Azure: KEDA en Container Apps con la regla `azure-servicebus`.
+
+   El techo lo pone la cuota del modelo, no las réplicas. Con 150 K TPM y 4.000 tokens por caso,
+   más de 2 réplicas solo producen 429; lo calculo con la ley de Little antes de fijar
+   `max_replicas`.
+
+### Negocio y stakeholders
+
+1. **¿Cuánto nos ahorra y qué KPI vigilarías en un pico?** En la prueba, la caché bajó las
+   llamadas al modelo de 505 a 68 con más del doble de respuestas entregadas: el coste por cada
+   1.000 respuestas pasó de ~0,79 $ a ~0,009 $. Vigilaría:
+   - tasa de acierto de la caché y falsos aciertos reportados;
+   - TTFT p95;
+   - porcentaje de 429 y 503 por plan;
+   - respuestas degradadas;
+   - consumo de cuota del modelo.
+
+   Todo eso, con alertas antes de la venta, no después.
+2. **¿Cómo explicas a dirección que en un pico rechacemos peticiones a propósito?** Igual que la
+   cola virtual de una venta de entradas: es mejor decir "vuelve en 2 segundos" a unos pocos que
+   dejar a todos mirando una pantalla que no carga.
+   - Sin control, todos esperaban hasta 60 s y la mitad del gasto en el modelo se perdía en
+     usuarios que ya se habían ido.
+   - Con control, el personal interno y las altas de casos nunca fallan.
+   - El público recibe respuesta inmediata, de la caché o degradada, o un "inténtalo en 2 s".
+3. **¿Qué priorizarías para la primera venta grande y qué dejarías fuera?** Primero, lo que más
+   valor da por día de trabajo:
+   1. rate limit por usuario y shedding;
+   2. caché semántica con la guarda (el ahorro y la latencia salen de ahí);
+   3. degradación;
+   4. una prueba de carga con el patrón del pico real.
+
+   Dejaría fuera el autoescalado fino y la caché multi-región. Antes de la venta pediría ampliar
+   la cuota del modelo con el proveedor, porque es el techo que ninguna réplica supera.
