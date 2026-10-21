@@ -82,6 +82,20 @@ class AdmissionController:
         self.in_flight = 0
         self.outcomes: Counter[str] = Counter()
 
+    def bulkhead(self, capacity: int) -> AdmissionController:
+        """Otro compartimento con su propia capacidad y el mismo rate limit por usuario.
+
+        Comparten limitador y reglas (el usuario tiene un único cupo), pero no los huecos: una
+        ruta lenta que se llena no deja sin sitio a otra barata.
+        """
+        return AdmissionController(
+            self._limiter,
+            rules=self._rules,
+            capacity=capacity,
+            fallback=self._fallback,
+            overloaded_retry_after=self._overloaded_retry_after,
+        )
+
     @asynccontextmanager
     async def admit(self, caller: Caller) -> AsyncIterator[Admission]:
         if not has_capacity(caller.plan, in_flight=self.in_flight, capacity=self.capacity):

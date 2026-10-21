@@ -53,7 +53,7 @@ from headache_core.application.case_intake import InvalidIdempotencyKeyError
 from headache_core.application.llm import time_budget
 from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
-from headache_core.config import Settings
+from headache_core.config import LLMProvider, Settings
 from headache_core.domain.admission import Caller, ClientPlan
 from headache_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
 from headache_core.ports import (
@@ -81,6 +81,8 @@ class AskOut(BaseModel):
     mode: str
     cache: str
     verified: bool
+    # Plan B (10.7): el modelo estaba saturado y se respondió con citas literales.
+    degraded: bool = False
 
     @classmethod
     def from_answer(cls, answer: Answer) -> AskOut:
@@ -91,6 +93,7 @@ class AskOut(BaseModel):
             mode=answer.mode,
             cache=answer.cache,
             verified=answer.verified,
+            degraded=answer.degraded,
         )
 
 
@@ -261,12 +264,15 @@ def with_cache(
 
 def build_assistant(service: RetrievalService, settings: Settings, edge: EdgeSettings) -> Assistant:
     """El RAG en proceso. En modo generativo, con el gateway completo (cuota, breaker, coste)."""
+    degrade = edge.degrade_on_saturation
     if edge.answer_mode != "generative":
-        return RagAssistant(service, mode=edge.answer_mode)
+        return RagAssistant(service, mode=edge.answer_mode, degrade_on_saturation=degrade)
     from headache_core.adapters.llm_factory import build_gateway
 
     answerer = StreamingAnswerer(service, build_gateway(settings))
-    return RagAssistant(service, mode="generative", answerer=answerer)
+    return RagAssistant(
+        service, mode="generative", answerer=answerer, degrade_on_saturation=degrade
+    )
 
 
 def create_app(
@@ -275,6 +281,7 @@ def create_app(
     settings: Settings | None = None,
     assistant: Assistant | None = None,
     controller: AdmissionController | None = None,
+    cases_controller: AdmissionController | None = None,
     resolver: CallerResolver | None = None,
     cache: SemanticCache | None = None,
     cases: CaseBackend | None = None,
@@ -282,6 +289,8 @@ def create_app(
     edge = edge or EdgeSettings()
     settings = settings or Settings()
     controller = controller or build_controller(settings, edge)
+    # Mismo rate limit por usuario, capacidad separada: un bulkhead por ruta (fase 10.7).
+    cases_controller = cases_controller or controller.bulkhead(edge.cases_capacity)
     resolve = resolver or build_resolver(edge)
     close_cases: Callable[[], Awaitable[None]] | None = None
     if cases is None:
@@ -314,7 +323,7 @@ def create_app(
         return runtime.aclose
 
     app = FastAPI(title="Headache edge API", version="0.1.0", lifespan=lifespan)
-    app.include_router(build_cases_router(edge, controller, cases))
+    app.include_router(build_cases_router(edge, cases_controller, cases))
     app.state.assistant = (
         with_cache(assistant, cache, settings, edge) if assistant is not None else None
     )
@@ -337,7 +346,14 @@ def create_app(
             "in_flight": controller.in_flight,
             "capacity": controller.capacity,
             "outcomes": dict(controller.outcomes),
+            "cases": {
+                "in_flight": cases_controller.in_flight,
+                "capacity": cases_controller.capacity,
+                "outcomes": dict(cases_controller.outcomes),
+            },
             "cache": _cache_outcomes(app.state.assistant),
+            "assistant": _assistant_outcomes(app.state.assistant),
+            "llm": _llm_outcomes(settings),
         }
 
     @app.post("/ask", response_model=AskOut, tags=["asistente"])
@@ -389,8 +405,22 @@ def create_app(
     return app
 
 
+def _llm_outcomes(settings: Settings) -> dict[str, int]:
+    """Llamadas, 429 y fallos del proveedor simulado (pruebas de carga, fase 10.7)."""
+    if settings.llm_provider is not LLMProvider.SIMULATED:
+        return {}
+    from headache_core.adapters.simulated_llm import STATS
+
+    return dict(STATS)
+
+
 def _cache_outcomes(assistant: object) -> dict[str, object]:
     if not isinstance(assistant, CachedAssistant):
         return {}
     # `answers`: de dónde salió cada respuesta. `cache`: qué decidió la caché y por qué.
     return {"answers": dict(assistant.outcomes), "cache": dict(assistant.cache.outcomes)}
+
+
+def _assistant_outcomes(assistant: object) -> dict[str, int]:
+    inner = assistant.inner if isinstance(assistant, CachedAssistant) else assistant
+    return dict(inner.outcomes) if isinstance(inner, RagAssistant) else {}

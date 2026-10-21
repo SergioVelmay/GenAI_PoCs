@@ -1,0 +1,3 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/ask/stream,CatchResponseError('0'),1,2026-10-21T12:10:12Z,2026-10-21T12:10:12Z
+POST,/ask (abuso),CatchResponseError('429 rate_limited'),4642,2026-10-21T12:09:02Z,2026-10-21T12:11:28Z

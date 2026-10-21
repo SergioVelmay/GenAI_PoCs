@@ -22,6 +22,11 @@ from headache_core.ports import LLMPort, LLMTracer, RateLimiterPort
 
 def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTier) -> LLMPort:
     """Un modelo concreto de un proveedor, sin capas (carril B: SDK nativo)."""
+    if provider is LLMProvider.SIMULATED:
+        from headache_core.adapters.simulated_llm import SimulatedLLM
+
+        # Una cuota por "despliegue" (nivel), compartida entre réplicas si hay Redis.
+        return SimulatedLLM(settings.simulated_llm, quota=shared_limiter(settings), key=tier)
     if provider is LLMProvider.AZURE:
         from headache_core.adapters.azure_openai import AzureOpenAILLM
 

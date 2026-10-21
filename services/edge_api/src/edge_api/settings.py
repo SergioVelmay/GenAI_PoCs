@@ -31,6 +31,8 @@ class EdgeSettings(BaseSettings):
     # extractive: citas literales sin modelo (coste 0). llm-extractive: el modelo elige citas
     # (coste). generative: el modelo redacta en streaming con citas verificadas al final (coste).
     answer_mode: Literal["extractive", "llm-extractive", "generative"] = "extractive"
+    # Plan B (10.7): con el modelo saturado, responder con citas literales en vez de un 503.
+    degrade_on_saturation: bool = True
     # Cada cuánto se manda un comentario SSE si no hay datos (proxies que cortan conexiones
     # inactivas, típicamente a los 60 s).
     heartbeat_seconds: float = Field(default=15.0, gt=0)
@@ -38,6 +40,9 @@ class EdgeSettings(BaseSettings):
     # (conecta al primer uso). memory: solo pruebas. disabled: /cases responde 503.
     cases_backend: Literal["postgres", "memory", "disabled"] = "postgres"
     cases_topic: str = "support.emails"
+    # Bulkhead propio de /cases (fase 10.7): un alta es barata (una transacción) y no debe
+    # quedarse sin hueco porque las preguntas al modelo ocupen toda la capacidad.
+    cases_capacity: int = Field(default=32, ge=1)
     case_poll_seconds: float = Field(default=1.0, gt=0)
     # Tiempo máximo de un stream de seguimiento; después, `event: timeout` y el cliente reconecta.
     case_stream_seconds: float = Field(default=300.0, gt=0)

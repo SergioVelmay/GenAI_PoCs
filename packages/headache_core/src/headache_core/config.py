@@ -14,6 +14,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMProvider(StrEnum):
     AZURE = "azure"
     AWS = "aws"
+    # Fase 10.7: proveedor simulado para pruebas de carga (latencia y cuota realistas, coste 0).
+    SIMULATED = "simulated"
+
+
+class SimulatedLLMSettings(BaseModel):
+    """El proveedor simulado imita un despliegue real: tiempo hasta el primer token, tokens por
+    segundo y una cuota TPM/RPM que devuelve 429 con `retry_after` al agotarse."""
+
+    model: str = "gpt-4.1-mini-simulated"  # Precio de gpt-4.1-mini: coste equivalente.
+    ttft_ms: int = 450
+    tokens_per_second: float = 80.0
+    output_tokens: int = 90
+    # Cuota del "despliegue" simulado. Con RATE_LIMIT__BACKEND=redis la comparten las réplicas.
+    tokens_per_minute: int = 200_000
+    requests_per_minute: int = 1_200
+    # Fallos 5xx aleatorios (0 = ninguno) para ver el breaker y los reintentos.
+    error_rate: float = 0.0
 
 
 class AzureOpenAISettings(BaseModel):
@@ -316,6 +333,7 @@ class Settings(BaseSettings):
     scale_redis: ScaleRedisSettings = ScaleRedisSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     semantic_cache: SemanticCacheSettings = SemanticCacheSettings()
+    simulated_llm: SimulatedLLMSettings = SimulatedLLMSettings()
 
     def provider_chain(self) -> list[LLMProvider]:
         """Proveedor principal seguido del de respaldo (si lo hay)."""

@@ -59,6 +59,10 @@ class CachedAssistant:
         self._inflight: dict[str, asyncio.Future[Answer]] = {}
         self.outcomes: Counter[str] = Counter()
 
+    @property
+    def inner(self) -> Assistant:
+        return self._inner
+
     def scope(self, question: str, caller: Caller) -> CacheScope:
         return CacheScope(
             access_scope(caller.plan).allowed_acls,
@@ -143,7 +147,8 @@ class CachedAssistant:
         future.set_result(answer)
         self.outcomes["miss"] += 1
         cacheable = is_cacheable_answer(abstained=answer.abstained, citations=len(answer.citations))
-        if cacheable and answer.verified:
+        # Ni sin verificar ni degradada: la caché serviría el plan B cuando el modelo ya va bien.
+        if cacheable and answer.verified and not answer.degraded:
             await self.cache.store_answer(lookup, to_payload(answer))
 
     @staticmethod

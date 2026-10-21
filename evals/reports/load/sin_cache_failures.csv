@@ -1,0 +1,5 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/ask,CatchResponseError('503 shed'),235,2026-10-21T12:06:15Z,2026-10-21T12:07:45Z
+POST,/ask (abuso),CatchResponseError('429 rate_limited'),442,2026-10-21T12:06:00Z,2026-10-21T12:08:10Z
+POST,/ask (abuso),CatchResponseError('503 shed'),29,2026-10-21T12:06:19Z,2026-10-21T12:07:37Z
+POST,/ask/stream,CatchResponseError('503 shed'),438,2026-10-21T12:06:14Z,2026-10-21T12:07:40Z

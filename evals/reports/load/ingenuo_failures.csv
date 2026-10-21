@@ -1,0 +1,8 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/ask (abuso),CatchResponseError('503 model_unavailable'),4,2026-10-21T12:13:13Z,2026-10-21T12:14:12Z
+POST,/ask,CatchResponseError('504'),6,2026-10-21T12:13:52Z,2026-10-21T12:14:09Z
+POST,/ask/stream,CatchResponseError('504'),49,2026-10-21T12:13:45Z,2026-10-21T12:14:19Z
+POST,/ask,CatchResponseError('503 model_unavailable'),26,2026-10-21T12:12:46Z,2026-10-21T12:14:06Z
+POST,/ask/stream,CatchResponseError('stream error'),1,2026-10-21T12:13:45Z,2026-10-21T12:13:45Z
+POST,/ask (interno),CatchResponseError('503 model_unavailable'),14,2026-10-21T12:12:45Z,2026-10-21T12:13:53Z
+POST,/ask (interno),CatchResponseError('504'),4,2026-10-21T12:13:53Z,2026-10-21T12:14:19Z

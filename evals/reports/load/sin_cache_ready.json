@@ -1,0 +1,1 @@
+{"status":"ok","in_flight":8,"capacity":64,"outcomes":{"admitted":1904,"rate_limited":442,"shed":702},"cases":{"in_flight":0,"capacity":32,"outcomes":{"admitted":254}},"cache":{},"assistant":{"degraded":1366},"llm":{"calls":532}}

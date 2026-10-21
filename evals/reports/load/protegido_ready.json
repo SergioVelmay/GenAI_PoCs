@@ -1,0 +1,1 @@
+{"status":"ok","in_flight":0,"capacity":64,"outcomes":{"admitted":3603,"rate_limited":4644},"cases":{"in_flight":0,"capacity":32,"outcomes":{"admitted":236}},"cache":{"answers":{"coalesced":14,"miss":68,"hit":3521},"cache":{"miss":27,"stored":68,"hit":3521,"facet_mismatch":37,"below_threshold":18}},"assistant":{},"llm":{"calls":68}}

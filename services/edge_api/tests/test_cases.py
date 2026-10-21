@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from edge_api.cases import CaseBackend
-from edge_api.testing import bearer, client, memory_cases, token
+from edge_api.testing import ASK, FakeAssistant, bearer, client, memory_cases, token
 from headache_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus, InMemoryOutbox
 from headache_core.application.orchestration import TriageAgent
 from headache_core.application.outbox import OutboxRelay
@@ -123,6 +123,28 @@ async def test_submissions_count_against_the_rate_limit() -> None:
         ]
 
     assert statuses == [202, 202, 202, 429]
+
+
+async def test_cases_have_their_own_bulkhead_when_questions_fill_the_replica() -> None:
+    # Fase 10.7: en la prueba de carga sin caché, las preguntas lentas ocupaban todos los huecos
+    # y las altas (una transacción) recibían 503. Ahora cada ruta tiene su compartimento.
+    assistant = FakeAssistant()
+    assistant.gate = asyncio.Event()
+    async with client(assistant, capacity=5) as http:
+        asking = [
+            asyncio.create_task(http.post("/ask", json=ASK, headers=bearer(token(f"u{i}"))))
+            for i in range(4)
+        ]
+        async with asyncio.timeout(5):
+            for _ in range(4):
+                await assistant.arrivals.get()
+        shed = await http.post("/ask", json=ASK, headers=bearer(token("late")))
+        case = await http.post("/cases", json=CASE, headers={**bearer(token("late")), **key()})
+        assistant.gate.set()
+        await asyncio.gather(*asking)
+
+    assert shed.status_code == 503
+    assert case.status_code == 202
 
 
 class DownIntake:
