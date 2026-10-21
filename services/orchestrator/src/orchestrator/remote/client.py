@@ -18,8 +18,11 @@ from headache_core.application.orchestration import (
     envelope_to_payload,
     outcome_from_payload,
 )
+from headache_core.application.telemetry import genai, get_telemetry
 from headache_core.domain import CaseEnvelope, CaseOutcome, Specialist
+from headache_core.ports.telemetry import SpanKind
 from orchestrator.remote.server import OUTCOME_ARTIFACT, card_name
+from orchestrator.remote.tracing import propagate_trace
 
 
 class RemoteSpecialistError(RuntimeError):
@@ -39,6 +42,7 @@ class RemoteSpecialist:
         card = await A2ACardResolver(http, base_url).get_agent_card()
         if card.name != card_name(specialist):
             raise RemoteSpecialistError(f"{base_url} no es el especialista {specialist}.")
+        propagate_trace(http)
         client = await create_client(card, ClientConfig(httpx_client=http, streaming=False))
         return cls(specialist, client)
 
@@ -54,9 +58,21 @@ class RemoteSpecialist:
         message = helpers.new_data_message(envelope_to_payload(envelope), role=pb.Role.ROLE_USER)
         message.message_id = str(uuid.uuid4())
         task: pb.Task | None = None
-        async for response in self._client.send_message(pb.SendMessageRequest(message=message)):
-            if response.HasField("task"):
-                task = response.task
+        # Agente remoto: span CLIENT; el SERVER del especialista y su `invoke_agent` cuelgan de él.
+        with get_telemetry().span(
+            genai.span_name(genai.GenAIOperation.INVOKE_AGENT, self._specialist.value),
+            kind=SpanKind.CLIENT,
+            attributes={
+                genai.OPERATION_NAME: genai.GenAIOperation.INVOKE_AGENT.value,
+                genai.AGENT_NAME: self._specialist.value,
+                genai.PROVIDER_NAME: "a2a",
+                "headache.correlation_id": envelope.case_id,
+            },
+        ):
+            request = pb.SendMessageRequest(message=message)
+            async for response in self._client.send_message(request):
+                if response.HasField("task"):
+                    task = response.task
         if task is None:
             raise RemoteSpecialistError("El especialista no devolvió una tarea.")
         state = task.status.state

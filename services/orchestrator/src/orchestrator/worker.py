@@ -20,6 +20,7 @@ import logging
 from contextlib import AsyncExitStack
 
 from headache_core.adapters.messaging_factory import open_message_bus
+from headache_core.adapters.otel import setup_observability, shutdown_telemetry
 from headache_core.application.orchestration import SpecialistAgent, TriageAgent
 from headache_core.application.outbox import OutboxRelay
 from headache_core.config import get_settings
@@ -35,6 +36,7 @@ ROLES = ("triage", *(s.value for s in Specialist), "relay")
 
 async def run(roles: list[str]) -> None:
     settings = get_settings()
+    setup_observability(settings, service_name="orchestrator_worker")
     config = OrchestratorSettings()
     wanted = [Specialist(r) for r in roles if r not in ("triage", "relay")]
     agents = [r for r in roles if r != "relay"]
@@ -91,8 +93,11 @@ def main() -> None:
     )
     for noisy in ("aio_pika", "aiormq", "httpx", "azure"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
-    with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(run(args.roles or list(ROLES)))
+    try:
+        with contextlib.suppress(KeyboardInterrupt):
+            asyncio.run(run(args.roles or list(ROLES)))
+    finally:
+        shutdown_telemetry()
 
 
 if __name__ == "__main__":

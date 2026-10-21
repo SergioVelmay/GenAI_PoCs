@@ -24,6 +24,7 @@ from azure.servicebus.aio import ServiceBusClient, ServiceBusReceiver, ServiceBu
 
 from headache_core.config import ServiceBusSettings
 from headache_core.ports import Message, MessageHandler, PermanentMessageError
+from headache_core.ports.messaging import propagated_headers
 
 logger = logging.getLogger(__name__)
 
@@ -67,18 +68,27 @@ class ServiceBusMessageBus:
             owned_credential=credential,
         )
 
-    async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
-        message = Message(topic=topic, payload=payload)
+    async def publish(
+        self,
+        topic: str,
+        payload: Mapping[str, Any],
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> Message:
+        message = Message(topic=topic, payload=payload, headers=propagated_headers(headers))
         if topic not in self._senders:
             # Un sender es un enlace AMQP: se reutiliza en vez de abrir uno por mensaje.
             self._senders[topic] = self._client.get_queue_sender(topic)
+        # Contexto de traza en las propiedades de aplicación (la convención W3C sobre AMQP).
+        properties: dict[str | bytes, Any] = {"published_at": message.published_at.isoformat()}
+        properties.update(message.headers)
         await self._senders[topic].send_messages(
             ServiceBusMessage(
                 json.dumps(dict(payload), ensure_ascii=False),
                 message_id=message.id,
                 content_type="application/json",
                 subject=topic,
-                application_properties={"published_at": message.published_at.isoformat()},
+                application_properties=properties,
             )
         )
         return message
@@ -127,10 +137,14 @@ class ServiceBusMessageBus:
         if not isinstance(payload, dict):
             await self._dead_letter(receiver, raw, "no es un objeto JSON")
             return
-        properties = raw.application_properties or {}
-        published = properties.get(b"published_at") or properties.get("published_at")
-        if isinstance(published, bytes):
-            published = published.decode()
+        # AMQP devuelve claves y valores como bytes o str según el cliente: se normalizan.
+        properties = {
+            (k.decode() if isinstance(k, bytes) else str(k)): (
+                v.decode() if isinstance(v, bytes) else v
+            )
+            for k, v in (raw.application_properties or {}).items()
+        }
+        published = properties.get("published_at")
         try:
             await handler(
                 Message(
@@ -141,6 +155,7 @@ class ServiceBusMessageBus:
                     if isinstance(published, str)
                     else datetime.now(UTC),
                     delivery_count=attempt,
+                    headers=propagated_headers(properties),
                 )
             )
         except PermanentMessageError as exc:

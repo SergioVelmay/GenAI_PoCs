@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from starlette.applications import Starlette
 
-from headache_core.adapters.otel import setup_observability, traced_asgi
+from headache_core.adapters.otel import setup_observability
 from headache_core.config import Settings, get_settings
 from headache_core.domain import Specialist
 from orchestrator.bootstrap import open_specialist_deps
@@ -60,9 +60,8 @@ async def main() -> None:
     setup_observability(settings, service_name=f"agent_{specialist.value}")
     public_url = args.public_url or f"http://127.0.0.1:{args.port}"
     async with specialist_app(specialist, settings, public_url) as app:
-        server = uvicorn.Server(
-            uvicorn.Config(traced_asgi(app, settings), host=args.host, port=args.port)
-        )
+        # El span SERVER lo abre la propia app (`TraceContextMiddleware`), como en los tests.
+        server = uvicorn.Server(uvicorn.Config(app, host=args.host, port=args.port))
         await server.serve()
 
 

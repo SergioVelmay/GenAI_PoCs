@@ -11,7 +11,7 @@ idempotentes por el `CaseStore`).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
@@ -21,6 +21,10 @@ class OutboxEvent:
 
     topic: str
     payload: Mapping[str, Any]
+    # Contexto de traza de quien originó el cambio (fase 11.3). Si va vacío, el almacén guarda
+    # el del span activo al escribir: el relay, que publica después y en otro proceso,
+    # continúa así la misma traza.
+    headers: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +33,7 @@ class PendingEvent:
     topic: str
     payload: Mapping[str, Any]
     attempts: int
+    headers: Mapping[str, str] = field(default_factory=dict)
 
 
 class OutboxStore(Protocol):

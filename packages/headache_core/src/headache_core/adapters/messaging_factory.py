@@ -9,10 +9,17 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Literal
 
+from headache_core.application.telemetry.messaging import TracedMessageBus
 from headache_core.config import Settings
 from headache_core.ports import MessageBusPort
 
 type Broker = Literal["rabbitmq", "sqs", "servicebus"]
+# Valores bien conocidos de `messaging.system` en la convención de OTel.
+MESSAGING_SYSTEMS: dict[Broker, str] = {
+    "rabbitmq": "rabbitmq",
+    "sqs": "aws_sqs",
+    "servicebus": "servicebus",
+}
 
 
 @asynccontextmanager
@@ -47,7 +54,9 @@ async def open_message_bus(
             from headache_core.adapters.servicebus import ServiceBusMessageBus
 
             bus = ServiceBusMessageBus.from_settings(settings.service_bus, prefetch=prefetch)
+    # Fase 11.3: la traza viaja con el mensaje. Sin telemetría configurada no hace nada.
+    traced = TracedMessageBus(bus, system=MESSAGING_SYSTEMS[broker])
     try:
-        yield bus
+        yield traced
     finally:
-        await bus.close()
+        await traced.close()

@@ -7,7 +7,7 @@ scripts) no se traza nada ni hace falta el SDK de OpenTelemetry instalado.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
 
 from headache_core.ports.telemetry import (
@@ -16,6 +16,7 @@ from headache_core.ports.telemetry import (
     SpanKind,
     SpanPort,
     TelemetryPort,
+    TraceCarrier,
     TraceIds,
 )
 
@@ -53,8 +54,13 @@ class NullTelemetry:
         *,
         kind: SpanKind = SpanKind.INTERNAL,
         attributes: Attributes | None = None,
+        parent: TraceCarrier | None = None,
+        links: Sequence[TraceCarrier] = (),
     ) -> AbstractContextManager[SpanPort]:
         return _null_span()
+
+    def inject(self) -> dict[str, str]:
+        return {}
 
     def start_span(
         self,

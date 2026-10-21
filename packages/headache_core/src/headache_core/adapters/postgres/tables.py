@@ -304,6 +304,8 @@ class OutboxEventRow(Base):
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=False), primary_key=True)
     topic: Mapped[str] = mapped_column(Text)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # Contexto de traza W3C de la transacción que escribió el evento (fase 11.3).
+    headers: Mapped[dict[str, str]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Disponible para un relay a partir de aquí (reserva vencida o reintento con backoff).
     available_at: Mapped[datetime] = mapped_column(

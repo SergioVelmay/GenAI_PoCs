@@ -15,6 +15,9 @@ from typing import Protocol
 
 type AttributeValue = str | bool | int | float | Sequence[str]
 type Attributes = Mapping[str, AttributeValue]
+# Contexto de traza serializado (W3C `traceparent`/`tracestate`): viaja en cabeceras HTTP, en
+# las propiedades de un mensaje de cola o en una columna del outbox.
+type TraceCarrier = Mapping[str, str]
 
 
 class SpanKind(StrEnum):
@@ -62,9 +65,13 @@ class TelemetryPort(Protocol):
         *,
         kind: SpanKind = SpanKind.INTERNAL,
         attributes: Attributes | None = None,
+        parent: TraceCarrier | None = None,
+        links: Sequence[TraceCarrier] = (),
     ) -> AbstractContextManager[SpanPort]:
         """Span hijo del actual que pasa a ser el actual dentro del `with`.
 
+        `parent`: contexto que llegó de fuera (un mensaje, el outbox); el span continúa esa
+        traza en vez de la actual. `links`: otras trazas relacionadas sin ser su padre.
         Una excepción que sale del `with` lo marca como fallido y se propaga.
         """
         ...
@@ -82,6 +89,10 @@ class TelemetryPort(Protocol):
 
     def current_ids(self) -> TraceIds | None:
         """IDs del span actual, o `None` si no hay traza (para correlacionar los logs)."""
+        ...
+
+    def inject(self) -> dict[str, str]:
+        """El contexto del span actual, listo para viajar (vacío si no hay traza)."""
         ...
 
     def current_span(self) -> SpanPort:

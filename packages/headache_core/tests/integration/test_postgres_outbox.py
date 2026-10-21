@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from headache_core.adapters.otel import recording_telemetry
 from headache_core.adapters.postgres import create_engine, create_session_factory
 from headache_core.adapters.postgres.cases import PostgresCaseStore
 from headache_core.adapters.postgres.outbox import (
@@ -100,6 +101,27 @@ async def test_event_is_written_only_if_the_case_transition_applies(
 
     assert sorted(results) == [False, False, False, False, True]
     assert await outbox.backlog(topic_prefix=prefix) == 1
+
+
+async def test_events_keep_the_trace_context_of_the_writing_transaction(
+    factory: async_sessionmaker[AsyncSession], prefix: str
+) -> None:
+    """Fase 11.3 (migración 0008): el relay recibe el `traceparent` de quien escribió."""
+    outbox = PostgresOutboxStore(factory)
+    explicit = {"traceparent": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"}
+
+    with recording_telemetry() as recorded, recorded.telemetry.span("POST /cases"):
+        ids = recorded.telemetry.current_ids()
+        async with factory() as session, session.begin():
+            await add_events(
+                session,
+                [OutboxEvent(f"{prefix}a", {}), OutboxEvent(f"{prefix}b", {}, headers=explicit)],
+            )
+
+    implicit, kept = await outbox.claim(limit=10, lease_seconds=30, topic_prefix=prefix)
+    assert ids is not None
+    assert ids.trace_id in implicit.headers["traceparent"]
+    assert dict(kept.headers) == explicit
 
 
 async def test_concurrent_relays_never_claim_the_same_event(

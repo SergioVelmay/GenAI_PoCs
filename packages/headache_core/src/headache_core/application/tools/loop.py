@@ -29,6 +29,10 @@ from headache_core.ports.telemetry import AttributeValue
 
 logger = logging.getLogger(__name__)
 
+# Resultados "de error" para el modelo que no son un fallo: la acción queda pendiente de una
+# persona (el `ApprovalGate` del harness). Contarlos como errores inflaría la tasa de fallos.
+PENDING_OUTCOMES = frozenset({"approval_required"})
+
 # Id de la llamada a tool que ya tiene span en este contexto (ejecutores encadenados).
 _TRACED_CALL: ContextVar[str | None] = ContextVar("traced_tool_call", default=None)
 
@@ -201,7 +205,9 @@ class ToolExecutor:
                 result = telemetry.content(execution.output)
                 if result is not None:
                     span.set_attribute(genai.TOOL_CALL_RESULT, result)
-                if execution.error is not None:
+                if execution.error in PENDING_OUTCOMES:
+                    span.set_attribute(genai.HEADACHE_TOOL_OUTCOME, execution.error or "")
+                elif execution.error is not None:
                     # El error vuelve al modelo como resultado, no como excepción: sin esto
                     # la traza lo pintaría en verde.
                     span.mark_error(execution.error)

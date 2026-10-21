@@ -21,10 +21,11 @@ import boto3
 
 from headache_core.config import SqsSettings
 from headache_core.ports import Message, MessageHandler, PermanentMessageError
+from headache_core.ports.messaging import PROPAGATED_HEADERS, propagated_headers
 
 if TYPE_CHECKING:
     from mypy_boto3_sqs import SQSClient
-    from mypy_boto3_sqs.type_defs import MessageTypeDef
+    from mypy_boto3_sqs.type_defs import MessageAttributeValueTypeDef, MessageTypeDef
 
 logger = logging.getLogger(__name__)
 
@@ -79,21 +80,34 @@ class SqsMessageBus:
             retry_delay_s=retry_delay_s,
         )
 
-    async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
-        message = Message(topic=topic, payload=payload)
+    async def publish(
+        self,
+        topic: str,
+        payload: Mapping[str, Any],
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> Message:
+        message = Message(topic=topic, payload=payload, headers=propagated_headers(headers))
         url = await self._queue_url(queue_name(topic))
+        attributes: dict[str, MessageAttributeValueTypeDef] = {
+            "message_id": {"DataType": "String", "StringValue": message.id},
+            "published_at": {
+                "DataType": "String",
+                "StringValue": message.published_at.isoformat(),
+            },
+        }
+        # Contexto de traza como atributos (SQS admite 10 por mensaje). En AWS, X-Ray usa
+        # además el atributo de sistema AWSTraceHeader; aquí manda el W3C, como en el resto.
+        attributes |= {
+            key: {"DataType": "String", "StringValue": value}
+            for key, value in message.headers.items()
+        }
         # boto3 es síncrono: cada llamada va a un hilo para no bloquear el event loop.
         await asyncio.to_thread(
             self._client.send_message,
             QueueUrl=url,
             MessageBody=json.dumps(dict(payload), ensure_ascii=False),
-            MessageAttributes={
-                "message_id": {"DataType": "String", "StringValue": message.id},
-                "published_at": {
-                    "DataType": "String",
-                    "StringValue": message.published_at.isoformat(),
-                },
-            },
+            MessageAttributes=attributes,
         )
         return message
 
@@ -151,6 +165,11 @@ class SqsMessageBus:
                     if published
                     else datetime.now(UTC),
                     delivery_count=attempt,
+                    headers={
+                        name: value
+                        for name in PROPAGATED_HEADERS
+                        if (value := _attribute(raw, name)) is not None
+                    },
                 )
             )
         except PermanentMessageError as exc:

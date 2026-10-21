@@ -17,17 +17,27 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from headache_core.adapters.postgres.tables import CaseSubmissionRow, OutboxEventRow
+from headache_core.application.telemetry import get_telemetry
 from headache_core.ports import ConflictError
 from headache_core.ports.intake import CaseSubmission
 from headache_core.ports.outbox import OutboxEvent, PendingEvent
 
 
 async def add_events(session: AsyncSession, events: Sequence[OutboxEvent]) -> None:
-    """Inserta eventos en la transacción en curso (la del cambio de estado)."""
+    """Inserta eventos en la transacción en curso (la del cambio de estado), con el contexto
+    de traza del span activo si el evento no trae el suyo."""
     if events:
+        current = get_telemetry().inject()
         await session.execute(
             insert(OutboxEventRow),
-            [{"topic": event.topic, "payload": dict(event.payload)} for event in events],
+            [
+                {
+                    "topic": event.topic,
+                    "payload": dict(event.payload),
+                    "headers": dict(event.headers or current),
+                }
+                for event in events
+            ],
         )
 
 
@@ -61,13 +71,17 @@ class PostgresOutboxStore:
                 OutboxEventRow.topic,
                 OutboxEventRow.payload,
                 OutboxEventRow.attempts,
+                OutboxEventRow.headers,
             )
         )
         async with self._factory() as session, session.begin():
             rows = (await session.execute(stmt)).all()
         # RETURNING no garantiza orden: se publica por orden de inserción.
         return sorted(
-            (PendingEvent(row.id, row.topic, row.payload, row.attempts) for row in rows),
+            (
+                PendingEvent(row.id, row.topic, row.payload, row.attempts, row.headers)
+                for row in rows
+            ),
             key=lambda event: event.id,
         )
 

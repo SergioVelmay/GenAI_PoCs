@@ -17,6 +17,22 @@ class Message:
     published_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     # 1 en la primera entrega; > 1 si es un reintento (entrega at-least-once).
     delivery_count: int = 1
+    # Metadatos fuera del cuerpo (contexto de traza W3C): cabeceras en RabbitMQ, atributos en
+    # SQS, propiedades de aplicación en Service Bus.
+    headers: Mapping[str, str] = field(default_factory=dict)
+
+
+# Lo único que los adaptadores copian de las cabeceras del broker a `Message.headers`: el
+# contexto W3C. El resto (x-delivery-count, atributos de sistema) es cosa del broker.
+PROPAGATED_HEADERS = ("traceparent", "tracestate", "baggage")
+
+
+def propagated_headers(raw: Mapping[str, object] | None) -> dict[str, str]:
+    return {
+        key: value
+        for key, value in (raw or {}).items()
+        if key in PROPAGATED_HEADERS and isinstance(value, str)
+    }
 
 
 class PermanentMessageError(Exception):
@@ -33,7 +49,13 @@ type MessageHandler = Callable[[Message], Awaitable[None]]
 class MessageBusPort(Protocol):
     """Cola con semántica at-least-once: los handlers deben ser idempotentes."""
 
-    async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message: ...
+    async def publish(
+        self,
+        topic: str,
+        payload: Mapping[str, Any],
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> Message: ...
 
     async def subscribe(self, topic: str, handler: MessageHandler) -> None: ...
 

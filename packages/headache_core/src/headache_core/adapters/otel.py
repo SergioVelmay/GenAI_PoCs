@@ -16,9 +16,9 @@ from collections.abc import Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal
 
-from opentelemetry import trace
+from opentelemetry import propagate, trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -45,12 +45,12 @@ from headache_core.ports.telemetry import (
     SpanKind,
     SpanPort,
     TelemetryPort,
+    TraceCarrier,
     TraceIds,
 )
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from starlette.types import ASGIApp
 
 _KINDS = {
     SpanKind.INTERNAL: trace.SpanKind.INTERNAL,
@@ -74,6 +74,15 @@ def _value(value: AttributeValue) -> Any:
 
 def _attributes(attributes: Attributes | None) -> dict[str, Any]:
     return {key: _value(value) for key, value in (attributes or {}).items()}
+
+
+def _links(carriers: Sequence[TraceCarrier]) -> list[trace.Link]:
+    links = []
+    for carrier in carriers:
+        context = trace.get_current_span(propagate.extract(dict(carrier))).get_span_context()
+        if context.is_valid:
+            links.append(trace.Link(context))
+    return links
 
 
 class OTelSpan:
@@ -134,17 +143,29 @@ class OTelTelemetry:
         *,
         kind: SpanKind = SpanKind.INTERNAL,
         attributes: Attributes | None = None,
+        parent: TraceCarrier | None = None,
+        links: Sequence[TraceCarrier] = (),
     ) -> AbstractContextManager[SpanPort]:
-        return self._current_span(name, kind, attributes)
+        return self._current_span(name, kind, attributes, parent, links)
 
     @contextmanager
     def _current_span(
-        self, name: str, kind: SpanKind, attributes: Attributes | None
+        self,
+        name: str,
+        kind: SpanKind,
+        attributes: Attributes | None,
+        parent: TraceCarrier | None,
+        links: Sequence[TraceCarrier],
     ) -> Iterator[SpanPort]:
+        # Un carrier vacío o inválido (mensaje de antes de la fase 11) no rompe nada: el span
+        # empieza una traza nueva.
+        context = propagate.extract(dict(parent)) if parent else None
         with self._tracer.start_as_current_span(
             name,
+            context=context,
             kind=_KINDS[kind],
             attributes=_attributes(attributes),
+            links=_links(links),
             record_exception=False,
             set_status_on_exception=False,
         ) as raw:
@@ -173,6 +194,11 @@ class OTelTelemetry:
             trace_id=trace.format_trace_id(context.trace_id),
             span_id=trace.format_span_id(context.span_id),
         )
+
+    def inject(self) -> dict[str, str]:
+        carrier: dict[str, str] = {}
+        propagate.inject(carrier)
+        return carrier
 
     def current_span(self) -> SpanPort:
         return OTelSpan(trace.get_current_span(), self._redact)
@@ -300,18 +326,6 @@ def instrument_fastapi(app: FastAPI, settings: Settings) -> None:
     FastAPIInstrumentor.instrument_app(app, excluded_urls=PROBES, exclude_spans=QUIET_SPANS)
 
 
-def traced_asgi(app: ASGIApp, settings: Settings) -> ASGIApp:
-    """Lo mismo que `instrument_fastapi` para una app ASGI cualquiera (Starlette del A2A)."""
-    if settings.telemetry.exporter == "none":
-        return app
-    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
-
-    return cast(
-        "ASGIApp",
-        OpenTelemetryMiddleware(app, excluded_urls=PROBES, exclude_spans=QUIET_SPANS),
-    )
-
-
 @dataclass(frozen=True, slots=True)
 class RecordedTelemetry:
     telemetry: OTelTelemetry
@@ -321,6 +335,32 @@ class RecordedTelemetry:
     def spans(self) -> dict[str, ReadableSpan]:
         """Spans terminados por nombre (si se repite un nombre, el último)."""
         return {span.name: span for span in self.exporter.get_finished_spans()}
+
+    def tree(self, *, attributes: Sequence[str] = ()) -> str:
+        """Los spans como árbol de texto (padre → hijos por orden de inicio), una traza tras
+        otra: lo que pintaría Jaeger, para tests y para el doc."""
+        spans = sorted(self.exporter.get_finished_spans(), key=lambda s: s.start_time or 0)
+        ids = {s.context.span_id for s in spans}
+        children: dict[int | None, list[ReadableSpan]] = {}
+        for span in spans:
+            parent = span.parent.span_id if span.parent else None
+            children.setdefault(parent if parent in ids else None, []).append(span)
+        lines: list[str] = []
+
+        def walk(span: ReadableSpan, depth: int) -> None:
+            kind = span.kind.name.lower()
+            values = span.attributes or {}
+            extra = [key + "=" + str(values[key]) for key in attributes if key in values]
+            error = " ERROR" if span.status.status_code is StatusCode.ERROR else ""
+            trace_id = trace.format_trace_id(span.context.trace_id)[:8]
+            line = f"{'  ' * depth}{span.name} [{kind}] trace={trace_id}{error}"
+            lines.append(" ".join([line, *extra]))
+            for child in children.get(span.context.span_id, []):
+                walk(child, depth + 1)
+
+        for root in children.get(None, []):
+            walk(root, 0)
+        return "\n".join(lines)
 
 
 @contextmanager

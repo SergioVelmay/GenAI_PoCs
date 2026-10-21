@@ -14,6 +14,7 @@ from decimal import Decimal
 from types import TracebackType
 from typing import Any, Self
 
+from headache_core.application.telemetry import get_telemetry
 from headache_core.domain import (
     CaseStatus,
     Customer,
@@ -229,8 +230,14 @@ class InMemoryMessageBus:
         self.published: list[Message] = []
         self.dead_letters: list[Message] = []
 
-    async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
-        message = Message(topic=topic, payload=payload)
+    async def publish(
+        self,
+        topic: str,
+        payload: Mapping[str, Any],
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> Message:
+        message = Message(topic=topic, payload=payload, headers=dict(headers or {}))
         self.published.append(message)
         for handler in self._handlers[topic]:
             await self._deliver(handler, message)
@@ -519,13 +526,16 @@ class InMemoryOutbox:
         self.errors: dict[int, str] = {}
 
     async def append(self, events: Sequence[OutboxEvent]) -> None:
+        current = get_telemetry().inject()
         for event in events:
+            if not event.headers:
+                event = replace(event, headers=current)
             event_id = self._next_id
             self._next_id += 1
             self.events[event_id] = (event, 0, 0.0, False)
             if self._deliver_to is not None:
                 self.events[event_id] = (event, 1, 0.0, True)
-                await self._deliver_to.publish(event.topic, event.payload)
+                await self._deliver_to.publish(event.topic, event.payload, headers=event.headers)
 
     @property
     def published(self) -> list[OutboxEvent]:
@@ -540,7 +550,9 @@ class InMemoryOutbox:
             if done or available_at > now or not event.topic.startswith(topic_prefix):
                 continue
             self.events[event_id] = (event, attempts + 1, now + lease_seconds, False)
-            claimed.append(PendingEvent(event_id, event.topic, event.payload, attempts + 1))
+            claimed.append(
+                PendingEvent(event_id, event.topic, event.payload, attempts + 1, event.headers)
+            )
             if len(claimed) == limit:
                 break
         return claimed

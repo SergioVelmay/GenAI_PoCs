@@ -38,10 +38,16 @@ class FlakyBus(InMemoryMessageBus):
         super().__init__()
         self.broken = broken
 
-    async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
+    async def publish(
+        self,
+        topic: str,
+        payload: Mapping[str, Any],
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> Message:
         if topic in self.broken:
             raise ConnectionError(f"{topic}: broker no disponible")
-        return await super().publish(topic, payload)
+        return await super().publish(topic, payload, headers=headers)
 
 
 async def test_relay_publishes_in_order_and_marks_published() -> None:

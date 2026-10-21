@@ -17,6 +17,7 @@ import asyncio
 import contextlib
 import logging
 
+from headache_core.application.telemetry import get_telemetry
 from headache_core.ports import MessageBusPort
 from headache_core.ports.outbox import OutboxStore
 
@@ -49,9 +50,20 @@ class OutboxRelay:
             limit=self._batch_size, lease_seconds=self._lease, topic_prefix=self._prefix
         )
         done: list[int] = []
+        telemetry = get_telemetry()
         for event in events:
             try:
-                await self._bus.publish(event.topic, event.payload)
+                # Continúa la traza de quien escribió el evento (guardada en el outbox), no la
+                # del bucle del relay: si no, cada caso se partiría en dos trazas.
+                with telemetry.span(
+                    "outbox.relay",
+                    parent=event.headers,
+                    attributes={
+                        "headache.outbox.event_id": event.id,
+                        "headache.outbox.attempts": event.attempts,
+                    },
+                ):
+                    await self._bus.publish(event.topic, event.payload, headers=event.headers)
             except Exception as exc:
                 self.failed += 1
                 retry = min(self._max_backoff, 2.0 ** (event.attempts - 1))

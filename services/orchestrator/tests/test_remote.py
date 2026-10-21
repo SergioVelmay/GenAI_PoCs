@@ -13,8 +13,10 @@ from a2a import helpers
 from a2a.client import ClientConfig, create_client
 from a2a.types import a2a_pb2 as pb
 from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
+from opentelemetry import trace as otel_trace
 from starlette.applications import Starlette
 
+from headache_core.adapters.otel import recording_telemetry
 from headache_core.application.orchestration import (
     InvalidHandoffError,
     SpecialistAgent,
@@ -116,6 +118,25 @@ async def test_remote_specialist_gives_the_same_outcome_as_in_process() -> None:
 
     assert outcome.status is CaseStatus.PENDING_APPROVAL
     assert replace(outcome, approval_id="x") == replace(expected, approval_id="x")
+
+
+async def test_the_trace_crosses_a2a_from_client_to_the_remote_agent() -> None:
+    world = local_world([_refund_call(), PENDING])
+    remote = await _remote(build_specialists(world.deps)[Specialist.REFUNDS])
+
+    with recording_telemetry() as recorded:
+        await remote.handle(REFUND_CASE)
+
+    spans = recorded.exporter.get_finished_spans()
+    tree = recorded.tree()
+    assert len({s.context.trace_id for s in spans}) == 1, tree
+    client = next(s for s in spans if s.name == "invoke_agent refunds")
+    server = next(s for s in spans if s.name == "POST /a2a")
+    agent = next(s for s in spans if s.name == "invoke_agent headache-refunds-specialist")
+    assert client.kind is otel_trace.SpanKind.CLIENT
+    assert server.kind is otel_trace.SpanKind.SERVER
+    assert server.parent is not None and server.parent.span_id == client.context.span_id
+    assert agent.parent is not None and agent.parent.span_id == server.context.span_id
 
 
 async def test_invalid_handoff_is_rejected_by_the_remote_agent() -> None:

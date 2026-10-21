@@ -31,6 +31,7 @@ from aio_pika.abc import (
 
 from headache_core.config import RabbitMQSettings
 from headache_core.ports import Message, MessageHandler, PermanentMessageError
+from headache_core.ports.messaging import propagated_headers
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,15 @@ class RabbitMQMessageBus:
     async def close(self) -> None:
         await self._connection.close()
 
-    async def publish(self, topic: str, payload: Mapping[str, Any]) -> Message:
+    async def publish(
+        self,
+        topic: str,
+        payload: Mapping[str, Any],
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> Message:
         await self._ensure_queue(topic)
-        message = Message(topic=topic, payload=payload)
+        message = Message(topic=topic, payload=payload, headers=propagated_headers(headers))
         await self._exchange.publish(
             aio_pika.Message(
                 json.dumps(dict(payload), ensure_ascii=False).encode(),
@@ -95,6 +102,8 @@ class RabbitMQMessageBus:
                 message_id=message.id,
                 timestamp=message.published_at,
                 type=topic,
+                # Contexto de traza en las cabeceras AMQP (no en el cuerpo).
+                headers=dict(message.headers),
             ),
             routing_key=topic,
             # Sin cola enlazada el broker devuelve el mensaje y aio-pika lanza un error.
@@ -132,6 +141,7 @@ class RabbitMQMessageBus:
                     id=incoming.message_id or "",
                     published_at=incoming.timestamp or datetime.now(UTC),
                     delivery_count=attempt,
+                    headers=propagated_headers(incoming.headers),
                 )
             )
         except PermanentMessageError as exc:

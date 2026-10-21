@@ -37,6 +37,7 @@ from headache_core.application.orchestration import (
 )
 from headache_core.domain import ROUTES, Specialist
 from orchestrator.remote.auth import BearerAuthMiddleware
+from orchestrator.remote.tracing import TraceContextMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -169,4 +170,10 @@ def create_specialist_app(
             scope=scope,
             allowed_callers=allowed_callers,
         )
+    # El último añadido es el más externo: el span cubre también la validación del token.
+    app.add_middleware(
+        TraceContextMiddleware,
+        specialist=agent.specialist.value,
+        skip=frozenset({"/health", "/.well-known/agent-card.json"}),
+    )
     return app

@@ -177,6 +177,24 @@ async def test_delivers_and_acks(broker: Broker) -> None:
     assert (got.id, dict(got.payload), got.delivery_count) == (sent.id, dict(sent.payload), 1)
 
 
+async def test_trace_context_travels_outside_the_body(broker: Broker) -> None:
+    """Fase 11.3: `traceparent` en las cabeceras del broker, no en el JSON del mensaje."""
+    received: asyncio.Queue[Message] = asyncio.Queue()
+    traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+
+    async def handler(message: Message) -> None:
+        await received.put(message)
+
+    await broker.bus.subscribe(broker.topic, handler)
+    await broker.bus.publish(
+        broker.topic, {"n": 1}, headers={"traceparent": traceparent, "x-otra": "no viaja"}
+    )
+
+    got = await asyncio.wait_for(received.get(), TIMEOUT_S)
+    assert dict(got.headers) == {"traceparent": traceparent}
+    assert dict(got.payload) == {"n": 1}
+
+
 async def test_transient_failure_is_retried(broker: Broker) -> None:
     attempts: list[int] = []
     done = asyncio.Event()

@@ -10,7 +10,7 @@ Doc: `docs/fase-1-sql.md`.
 ## Migraciones (Alembic)
 
 - `uv run alembic -c packages/headache_core/alembic.ini upgrade head`.
-- Historial: 0001 esquema (sin índices secundarios) · 0002 índices `CONCURRENTLY` (`autocommit_block`) · 0003 pgvector `knowledge_chunks` vector(1024) + `ingestion_ledger` · 0004 vistas `analytics` sin PII + rol `headache_analyst` NOLOGIN · 0005 `approval_requests` · 0006 `support_cases` (fase 9.6: estado de los casos, único por email) · 0007 `outbox_events` (identity, índice parcial `WHERE published_at IS NULL`) + `case_submissions` (PK cliente + `Idempotency-Key`) (fase 10.5). Los checkpoints de LangGraph van en el esquema `langgraph`, fuera de Alembic.
+- Historial: 0001 esquema (sin índices secundarios) · 0002 índices `CONCURRENTLY` (`autocommit_block`) · 0003 pgvector `knowledge_chunks` vector(1024) + `ingestion_ledger` · 0004 vistas `analytics` sin PII + rol `headache_analyst` NOLOGIN · 0005 `approval_requests` · 0006 `support_cases` (fase 9.6: estado de los casos, único por email) · 0007 `outbox_events` (identity, índice parcial `WHERE published_at IS NULL`) + `case_submissions` (PK cliente + `Idempotency-Key`) (fase 10.5) · 0008 `outbox_events.headers` JSONB con el contexto de traza (fase 11.3, `DEFAULT '{}'`, sin reescribir la tabla). Los checkpoints de LangGraph van en el esquema `langgraph`, fuera de Alembic.
 - Cada migración con `downgrade` real: la CI hace arriba → abajo → arriba y `alembic check` (el ORM de `adapters/postgres/tables.py` debe coincidir).
 - Restricciones con nombre (`pk_`, `fk_`, `ck_`, `uq_`, `ix_`); enumerados como `CHECK ... IN (...)`, no `ENUM` nativo.
 - Índices en tablas grandes siempre `CONCURRENTLY`. Las tablas de LlamaIndex (esquema `llamaindex`) quedan fuera de Alembic.
