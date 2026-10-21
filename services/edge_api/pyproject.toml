@@ -5,7 +5,7 @@ description = "Puerta de entrada pública de Headache: admisión, rate limiting,
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "headache-core[redis]",
+    "headache-core[postgres,redis]",
     "mcp-servers",
     "retrieval",
     "uvicorn[standard]>=0.32",

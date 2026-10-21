@@ -4,15 +4,22 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
 
 from edge_api.app import create_app
 from edge_api.assistant import Answer, AnswerChunk, AssistantEvent, final_answer, replay
+from edge_api.cases import CaseBackend
 from edge_api.identity import jwt_resolver
 from edge_api.settings import EdgeSettings
-from headache_core.adapters.memory import InMemoryRateLimiter
+from headache_core.adapters.memory import (
+    InMemoryCaseIntakeStore,
+    InMemoryCaseStore,
+    InMemoryOutbox,
+    InMemoryRateLimiter,
+)
 from headache_core.application.admission import AdmissionController, plan_rules
 from headache_core.application.semantic_cache import SemanticCache
 from headache_core.domain.admission import Caller, ClientPlan
@@ -67,8 +74,19 @@ def token(subject: str, *, plan: str | None = None, audience: str = AUDIENCE) ->
     )
 
 
+def memory_cases(outbox: InMemoryOutbox | None = None) -> CaseBackend:
+    """Altas y casos en memoria sobre el mismo outbox (como dos tablas de una base de datos)."""
+    outbox = outbox or InMemoryOutbox()
+    return CaseBackend(InMemoryCaseIntakeStore(outbox), InMemoryCaseStore(outbox))
+
+
 def client(
-    assistant: FakeAssistant, *, capacity: int = 10, cache: SemanticCache | None = None
+    assistant: FakeAssistant | None = None,
+    *,
+    capacity: int = 10,
+    cache: SemanticCache | None = None,
+    cases: CaseBackend | None = None,
+    **edge: Any,
 ) -> httpx.AsyncClient:
     controller = AdmissionController(
         InMemoryRateLimiter(),
@@ -79,11 +97,12 @@ def client(
         public_key=KEYS.public_key, issuer=ISSUER, audience=AUDIENCE, algorithm="RS256"
     )
     app = create_app(
-        EdgeSettings(_env_file=None, request_budget_seconds=5),
-        assistant=assistant,
+        EdgeSettings(_env_file=None, request_budget_seconds=5, **edge),
+        assistant=assistant or FakeAssistant(),
         controller=controller,
         resolver=jwt_resolver(verifier),
         cache=cache,
+        cases=cases or memory_cases(),
     )
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://edge")
 

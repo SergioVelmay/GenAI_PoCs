@@ -3,21 +3,23 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 import pytest
 
-from headache_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus
+from headache_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus, InMemoryOutbox
 from headache_core.application.orchestration import (
     TriageAgent,
     email_to_payload,
     envelope_to_payload,
 )
+from headache_core.application.outbox import OutboxRelay
 from headache_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
 from headache_core.ports import LLMError, LLMTransientError, Message, ToolCall
 from headache_core.ports.approvals import ApprovalStatus
 from headache_core.ports.cases import CaseRecord
+from headache_core.ports.outbox import OutboxEvent
 from orchestrator.async_flow import (
     CASE_OUTCOMES,
     SUPPORT_EMAILS,
@@ -66,7 +68,8 @@ class Flow:
 
 async def _flow(script: list[str | list[ToolCall] | Exception]) -> Flow:
     world = local_world(script)
-    bus, cases = InMemoryMessageBus(max_deliveries=3), InMemoryCaseStore()
+    bus = InMemoryMessageBus(max_deliveries=3)
+    cases = InMemoryCaseStore(InMemoryOutbox(deliver_to=bus))
     await subscribe_workers(
         bus,
         cases,
@@ -74,7 +77,7 @@ async def _flow(script: list[str | list[ToolCall] | Exception]) -> Flow:
         specialists=build_specialists(world.deps),
         clock=lambda: NOW,
     )
-    review = CaseReviewService(cases, build_approval_service(world.deps), bus, clock=lambda: NOW)
+    review = CaseReviewService(cases, build_approval_service(world.deps), clock=lambda: NOW)
     return Flow(world, bus, cases, review)
 
 
@@ -127,9 +130,48 @@ async def test_duplicate_email_is_not_processed_twice() -> None:
     assert len(flow.published(CASE_OUTCOMES)) == 1
 
 
-async def test_a_redelivery_after_a_crash_republishes_without_retriaging() -> None:
-    # El triaje guardó el caso y cayó antes de publicar el traspaso.
-    flow = await _flow(["Respuesta."])
+async def test_with_the_relay_down_the_handoff_waits_in_the_outbox_not_lost() -> None:
+    # Fase 10.5: antes, caer entre guardar y publicar perdía el traspaso. Ahora el traspaso se
+    # escribe en el outbox con el caso; si el relay está caído, espera y sale al volver.
+    world = local_world([_triage("event_info", None), "Respuesta."])
+    bus, outbox = InMemoryMessageBus(), InMemoryOutbox()  # Sin `deliver_to`: relay caído.
+    cases = InMemoryCaseStore(outbox)
+    await subscribe_workers(
+        bus,
+        cases,
+        triage=TriageAgent(world.llm),
+        specialists=build_specialists(world.deps),
+        clock=lambda: NOW,
+    )
+
+    await bus.publish(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL))
+    case = await cases.get("case_eml_2")
+    assert case is not None and case.status is CaseStatus.TRIAGED
+    assert await outbox.backlog() == 1
+
+    relay = OutboxRelay(outbox, bus)
+    assert await relay.drain() == 2  # El traspaso y, tras el especialista, el resultado.
+
+    case = await cases.get("case_eml_2")
+    assert case is not None and case.status is CaseStatus.RESOLVED
+    assert await outbox.backlog() == 0
+
+
+async def test_a_redelivery_of_a_triaged_case_neither_retriages_nor_republishes() -> None:
+    flow = await _flow([_triage("event_info", None), "Respuesta."])
+    await flow.bus.publish(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL))
+    calls, published = len(flow.world.llm.calls), len(flow.bus.published)
+
+    handler = TriageHandler(TriageAgent(flow.world.llm), flow.cases, clock=lambda: NOW)
+    await handler(Message(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL), delivery_count=2))
+
+    assert (len(flow.world.llm.calls), len(flow.bus.published)) == (calls, published)
+
+
+async def test_a_lost_compare_and_set_writes_no_event() -> None:
+    # Dos réplicas cierran el mismo caso a la vez: solo la que gana deja evento en el outbox.
+    outbox = InMemoryOutbox()
+    cases = InMemoryCaseStore(outbox)
     envelope = CaseEnvelope(
         "case_eml_2",
         "eml_2",
@@ -140,30 +182,25 @@ async def test_a_redelivery_after_a_crash_republishes_without_retriaging() -> No
         "normal",
         "Pregunta por accesibilidad.",
     )
-    await flow.cases.create(
-        CaseRecord(
-            "case_eml_2",
-            "eml_2",
-            CUSTOMER,
-            Specialist.KNOWLEDGE,
-            CaseStatus.TRIAGED,
-            envelope_to_payload(envelope),
-            NOW,
-            NOW,
-        )
+    record = CaseRecord(
+        "case_eml_2",
+        "eml_2",
+        CUSTOMER,
+        Specialist.KNOWLEDGE,
+        CaseStatus.TRIAGED,
+        envelope_to_payload(envelope),
+        NOW,
+        NOW,
     )
+    await cases.create(record)
+    resolved = replace(record, status=CaseStatus.RESOLVED)
+    event = OutboxEvent(CASE_OUTCOMES, {"status": "resolved"})
 
-    # Una copia del email (primera entrega) no republica: lo haría dos veces con el dueño vivo.
-    await flow.bus.publish(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL))
-    assert flow.published(triaged_topic(Specialist.KNOWLEDGE)) == []
+    first = await cases.transition("case_eml_2", CaseStatus.TRIAGED, resolved, events=[event])
+    second = await cases.transition("case_eml_2", CaseStatus.TRIAGED, resolved, events=[event])
 
-    # La reentrega del mensaje del dueño (entrega 2) sí republica.
-    handler = TriageHandler(TriageAgent(flow.world.llm), flow.cases, flow.bus, clock=lambda: NOW)
-    await handler(Message(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL), delivery_count=2))
-
-    case = await flow.cases.get("case_eml_2")
-    assert case is not None and case.status is CaseStatus.RESOLVED
-    assert len(flow.world.llm.calls) == 1  # Solo el especialista: el triaje no se repite.
+    assert (first, second) == (True, False)
+    assert await outbox.backlog() == 1
 
 
 def _claim(email_id: str) -> CaseRecord:
@@ -187,7 +224,7 @@ async def test_a_redelivered_message_resumes_an_interrupted_triage() -> None:
     # El dueño cayó a mitad del triaje: el broker le reentrega su mensaje (entrega 2).
     flow = await _flow([_triage("event_info", None), "Respuesta."])
     await flow.cases.create(_claim("eml_2"))
-    handler = TriageHandler(TriageAgent(flow.world.llm), flow.cases, flow.bus, clock=lambda: NOW)
+    handler = TriageHandler(TriageAgent(flow.world.llm), flow.cases, clock=lambda: NOW)
 
     await handler(Message(SUPPORT_EMAILS, email_to_payload(INFO_EMAIL), delivery_count=2))
 

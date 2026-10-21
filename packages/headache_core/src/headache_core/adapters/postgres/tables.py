@@ -13,10 +13,12 @@ from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     MetaData,
@@ -283,3 +285,44 @@ class SupportCaseRow(Base):
     guardrails: Mapped[list[str]] = mapped_column(ARRAY(Text))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class OutboxEventRow(Base):
+    """Transactional outbox (fase 10.5): eventos escritos con el cambio que los origina."""
+
+    __tablename__ = "outbox_events"
+    __table_args__ = (
+        # Solo lo pendiente, en orden: el relay lee siempre del principio de este índice.
+        Index(
+            "ix_outbox_events_pending",
+            "available_at",
+            "id",
+            postgresql_where=text("published_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=False), primary_key=True)
+    topic: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Disponible para un relay a partir de aquí (reserva vencida o reintento con backoff).
+    available_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CaseSubmissionRow(Base):
+    """Altas de casos por la web con `Idempotency-Key` (fase 10.5)."""
+
+    __tablename__ = "case_submissions"
+    __table_args__ = (Index("uq_case_submissions_case_id", "case_id", unique=True),)
+
+    customer_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    request_hash: Mapped[str] = mapped_column(Text)
+    case_id: Mapped[str] = mapped_column(Text)
+    email_id: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

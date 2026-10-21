@@ -51,7 +51,9 @@ def jwt_resolver(verifier: JWTVerifier, *, plan_claim: str = "plan") -> CallerRe
         subject = access.claims.get("sub") if access is not None else None
         if access is None or not isinstance(subject, str) or not subject:
             raise UnauthenticatedError("Token no válido.")
-        return Caller(f"sub:{subject}", plan_from_claim(access.claims.get(plan_claim)))
+        return Caller(
+            f"sub:{subject}", plan_from_claim(access.claims.get(plan_claim)), subject=subject
+        )
 
     return resolve
 

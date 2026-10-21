@@ -230,8 +230,8 @@ Hallazgos que dejaron test de regresión:
 - **Orquestación y coreografía conviven.** El grafo es cómodo para flujos síncronos y depurar;
   la cola escala por rol y aísla fallos. El contrato `SpecialistAgent` hace que el especialista
   no sepa cuál lo llama.
-- **Límites conocidos:** guardar y publicar no son atómicos (falta *transactional outbox*);
-  dos copias concurrentes de un evento de especialista pueden ejecutarlo dos veces (las
+- **Límites conocidos:** guardar y publicar no eran atómicos (cerrado en la fase 10.5 con un
+  *transactional outbox*); dos copias concurrentes de un evento de especialista pueden ejecutarlo dos veces (las
   aprobaciones son idempotentes, el coste no); MAF sin reintentos por nodo; preferencias en
   memoria del proceso en los contenedores.
 

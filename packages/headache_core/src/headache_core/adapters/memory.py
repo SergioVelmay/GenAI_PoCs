@@ -32,6 +32,7 @@ from headache_core.ports import (
     LLMResponse,
     LLMStreamEvent,
     Message,
+    MessageBusPort,
     MessageHandler,
     MetadataValue,
     PermanentMessageError,
@@ -52,7 +53,9 @@ from headache_core.ports.approvals import (
     ApprovalStatus,
 )
 from headache_core.ports.cases import CaseRecord
+from headache_core.ports.intake import CaseSubmission
 from headache_core.ports.memory import CheckpointConflictError, ThreadState
+from headache_core.ports.outbox import OutboxEvent, PendingEvent
 from headache_core.ports.semantic_cache import CacheCandidate, CacheEntry
 
 
@@ -494,26 +497,98 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return dot / norm if norm else 0.0
 
 
-class InMemoryCaseStore:
-    """Mismas garantías que PostgreSQL: alta única por caso y transiciones compare-and-set."""
+class InMemoryOutbox:
+    """Outbox en memoria. Con `deliver_to`, cada evento se publica nada más guardarse (un relay
+    instantáneo): los tests síncronos del flujo no tienen que bombear el relay a mano."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        deliver_to: MessageBusPort | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._deliver_to = deliver_to
+        self._clock = clock
+        self._next_id = 1
+        # id -> (evento, intentos, disponible a partir de, publicado)
+        self.events: dict[int, tuple[OutboxEvent, int, float, bool]] = {}
+        self.errors: dict[int, str] = {}
+
+    async def append(self, events: Sequence[OutboxEvent]) -> None:
+        for event in events:
+            event_id = self._next_id
+            self._next_id += 1
+            self.events[event_id] = (event, 0, 0.0, False)
+            if self._deliver_to is not None:
+                self.events[event_id] = (event, 1, 0.0, True)
+                await self._deliver_to.publish(event.topic, event.payload)
+
+    @property
+    def published(self) -> list[OutboxEvent]:
+        return [event for event, _, _, done in self.events.values() if done]
+
+    async def claim(
+        self, *, limit: int, lease_seconds: float, topic_prefix: str = ""
+    ) -> list[PendingEvent]:
+        now = self._clock()
+        claimed = []
+        for event_id, (event, attempts, available_at, done) in sorted(self.events.items()):
+            if done or available_at > now or not event.topic.startswith(topic_prefix):
+                continue
+            self.events[event_id] = (event, attempts + 1, now + lease_seconds, False)
+            claimed.append(PendingEvent(event_id, event.topic, event.payload, attempts + 1))
+            if len(claimed) == limit:
+                break
+        return claimed
+
+    async def mark_published(self, ids: Sequence[int]) -> None:
+        for event_id in ids:
+            event, attempts, available_at, _ = self.events[event_id]
+            self.events[event_id] = (event, attempts, available_at, True)
+
+    async def release(self, event_id: int, *, error: str, retry_in_seconds: float) -> None:
+        event, attempts, _, _ = self.events[event_id]
+        self.events[event_id] = (event, attempts, self._clock() + retry_in_seconds, False)
+        self.errors[event_id] = error
+
+    async def backlog(self, *, topic_prefix: str = "") -> int:
+        return sum(
+            not done and event.topic.startswith(topic_prefix)
+            for event, _, _, done in self.events.values()
+        )
+
+
+class InMemoryCaseStore:
+    """Mismas garantías que PostgreSQL: alta única por caso, transiciones compare-and-set y
+    eventos al outbox solo si el cambio se aplica."""
+
+    def __init__(self, outbox: InMemoryOutbox | None = None) -> None:
         self.items: dict[str, CaseRecord] = {}
+        self.outbox = outbox or InMemoryOutbox()
 
     async def get(self, case_id: str) -> CaseRecord | None:
         return self.items.get(case_id)
 
-    async def create(self, record: CaseRecord) -> bool:
+    async def create(self, record: CaseRecord, *, events: Sequence[OutboxEvent] = ()) -> bool:
         if record.case_id in self.items:
             return False
         self.items[record.case_id] = record
+        await self.outbox.append(events)
         return True
 
-    async def transition(self, case_id: str, expected: CaseStatus, updated: CaseRecord) -> bool:
+    async def transition(
+        self,
+        case_id: str,
+        expected: CaseStatus,
+        updated: CaseRecord,
+        *,
+        events: Sequence[OutboxEvent] = (),
+    ) -> bool:
         current = self.items.get(case_id)
         if current is None or current.status is not expected:
             return False
         self.items[case_id] = updated
+        await self.outbox.append(events)
         return True
 
     async def list_cases(
@@ -589,3 +664,28 @@ class InMemorySemanticCache:
 
     async def put(self, entry: CacheEntry, *, ttl_seconds: int) -> None:
         self._entries[entry.id] = (entry, self._clock() + ttl_seconds)
+
+
+class InMemoryCaseIntakeStore:
+    """Altas idempotentes en memoria; comparte el outbox con `InMemoryCaseStore` (como si
+    fueran tablas de la misma base de datos)."""
+
+    def __init__(self, outbox: InMemoryOutbox) -> None:
+        self.outbox = outbox
+        self.submissions: dict[tuple[str, str], CaseSubmission] = {}
+
+    async def submit(
+        self, submission: CaseSubmission, event: OutboxEvent
+    ) -> tuple[CaseSubmission, bool]:
+        key = (submission.customer_id, submission.idempotency_key)
+        existing = self.submissions.get(key)
+        if existing is not None:
+            if existing.request_hash != submission.request_hash:
+                raise ConflictError("Idempotency-Key reutilizada con otro cuerpo.")
+            return existing, False
+        self.submissions[key] = submission
+        await self.outbox.append([event])
+        return submission, True
+
+    async def get_submission(self, case_id: str) -> CaseSubmission | None:
+        return next((s for s in self.submissions.values() if s.case_id == case_id), None)

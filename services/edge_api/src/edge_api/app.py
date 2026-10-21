@@ -7,6 +7,8 @@ por prioridad (503) → rate limit por usuario en Redis (429) → caché semánt
 `X-Cache`) → asistente con presupuesto de tiempo (504 si se agota; 503 + `Retry-After` si el
 modelo está saturado). Un acierto de caché también cuenta para el límite del usuario.
 
+`/cases` (10.5, `cases.py`): alta idempotente con 202 y seguimiento por SSE.
+
 `POST /ask/stream` (10.4) hace lo mismo en Server-Sent Events (protocolo en `sse.py`): el hueco
 de admisión se ocupa mientras dura el stream, no solo hasta el primer trozo.
 """
@@ -22,15 +24,21 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import DBAPIError
 
 from edge_api.assistant import Answer, Assistant, RagAssistant
 from edge_api.cache import CachedAssistant
+from edge_api.cases import CaseBackend
+from edge_api.cases import build_router as build_cases_router
 from edge_api.identity import CallerResolver, UnauthenticatedError, build_resolver
 from edge_api.settings import EdgeSettings
 from edge_api.sse import body as sse_body
 from edge_api.sse import prime, pump
 from headache_core.adapters.memory import (
     HashingEmbedding,
+    InMemoryCaseIntakeStore,
+    InMemoryCaseStore,
+    InMemoryOutbox,
     InMemoryRateLimiter,
     InMemorySemanticCache,
 )
@@ -41,6 +49,7 @@ from headache_core.application.admission import (
     plan_rules,
 )
 from headache_core.application.answer_stream import StreamingAnswerer
+from headache_core.application.case_intake import InvalidIdempotencyKeyError
 from headache_core.application.llm import time_budget
 from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
@@ -48,6 +57,7 @@ from headache_core.config import Settings
 from headache_core.domain.admission import Caller, ClientPlan
 from headache_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
 from headache_core.ports import (
+    ConflictError,
     EmbeddingPort,
     LLMDeadlineExceededError,
     LLMError,
@@ -161,6 +171,18 @@ def _handlers(edge: EdgeSettings) -> dict[type[Exception], Callable[..., Awaitab
     async def model_error(_: Request, exc: LLMError) -> Response:
         return JSONResponse({"detail": "Respuesta del modelo no válida."}, status_code=502)
 
+    async def conflict(_: Request, exc: ConflictError) -> Response:
+        return JSONResponse({"detail": str(exc)}, status_code=409)
+
+    async def bad_key(_: Request, exc: InvalidIdempotencyKeyError) -> Response:
+        return JSONResponse({"detail": str(exc)}, status_code=422)
+
+    async def database_down(_: Request, exc: Exception) -> Response:
+        logger.warning("Base de datos no disponible: %s", exc)
+        return JSONResponse(
+            {"detail": "Servicio no disponible."}, status_code=503, headers={"Retry-After": "5"}
+        )
+
     # Del más concreto al más general: Starlette busca por la jerarquía (MRO) de la excepción.
     return {
         AdmissionRejectedError: rejected,
@@ -169,7 +191,33 @@ def _handlers(edge: EdgeSettings) -> dict[type[Exception], Callable[..., Awaitab
         LLMTransientError: saturated,
         RetrievalUnavailableError: unavailable,
         LLMError: model_error,
+        ConflictError: conflict,
+        InvalidIdempotencyKeyError: bad_key,
+        # Conexión rechazada (OSError) o error del driver: 503, no 500.
+        OSError: database_down,
+        DBAPIError: database_down,
     }
+
+
+def build_case_backend(
+    settings: Settings, edge: EdgeSettings
+) -> tuple[CaseBackend | None, Callable[[], Awaitable[None]] | None]:
+    """Casos en PostgreSQL (los mismos que leen y escriben los workers). Conecta al primer uso."""
+    if edge.cases_backend == "disabled":
+        return None, None
+    if edge.cases_backend == "memory":
+        outbox = InMemoryOutbox()
+        return CaseBackend(InMemoryCaseIntakeStore(outbox), InMemoryCaseStore(outbox)), None
+    from headache_core.adapters.postgres import create_engine, create_session_factory
+    from headache_core.adapters.postgres.cases import PostgresCaseStore
+    from headache_core.adapters.postgres.outbox import PostgresCaseIntakeStore
+
+    engine = create_engine(settings.postgres, application_name="edge-api")
+    factory = create_session_factory(engine)
+    return (
+        CaseBackend(PostgresCaseIntakeStore(factory), PostgresCaseStore(factory)),
+        engine.dispose,
+    )
 
 
 def build_semantic_cache(
@@ -229,17 +277,26 @@ def create_app(
     controller: AdmissionController | None = None,
     resolver: CallerResolver | None = None,
     cache: SemanticCache | None = None,
+    cases: CaseBackend | None = None,
 ) -> FastAPI:
     edge = edge or EdgeSettings()
     settings = settings or Settings()
     controller = controller or build_controller(settings, edge)
     resolve = resolver or build_resolver(edge)
+    close_cases: Callable[[], Awaitable[None]] | None = None
+    if cases is None:
+        cases, close_cases = build_case_backend(settings, edge)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        if assistant is not None:
+        async with AsyncExitStack() as stack:
+            if close_cases is not None:
+                stack.push_async_callback(close_cases)
+            if assistant is None:
+                stack.push_async_callback(await _load_assistant(app))
             yield
-            return
+
+    async def _load_assistant(app: FastAPI) -> Callable[[], Awaitable[None]]:
         from retrieval.bootstrap import build_runtime
         from retrieval.settings import RetrievalSettings
 
@@ -254,12 +311,10 @@ def create_app(
         app.state.assistant = with_cache(
             build_assistant(runtime.service, settings, edge), semantic, settings, edge
         )
-        try:
-            yield
-        finally:
-            await runtime.aclose()
+        return runtime.aclose
 
     app = FastAPI(title="Headache edge API", version="0.1.0", lifespan=lifespan)
+    app.include_router(build_cases_router(edge, controller, cases))
     app.state.assistant = (
         with_cache(assistant, cache, settings, edge) if assistant is not None else None
     )

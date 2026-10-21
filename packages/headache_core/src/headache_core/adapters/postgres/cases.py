@@ -6,13 +6,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from headache_core.adapters.postgres.outbox import add_events
 from headache_core.adapters.postgres.tables import SupportCaseRow
 from headache_core.domain import CaseStatus, Specialist
 from headache_core.ports.cases import CaseRecord
+from headache_core.ports.outbox import OutboxEvent
 
 
 class PostgresCaseStore:
@@ -24,7 +28,7 @@ class PostgresCaseStore:
             row = await session.get(SupportCaseRow, case_id)
             return _to_record(row) if row else None
 
-    async def create(self, record: CaseRecord) -> bool:
+    async def create(self, record: CaseRecord, *, events: Sequence[OutboxEvent] = ()) -> bool:
         stmt = (
             insert(SupportCaseRow)
             .values(**_values(record), id=record.case_id, created_at=record.created_at)
@@ -32,9 +36,19 @@ class PostgresCaseStore:
             .returning(SupportCaseRow.id)
         )
         async with self._factory() as session, session.begin():
-            return (await session.execute(stmt)).scalar_one_or_none() is not None
+            created = (await session.execute(stmt)).scalar_one_or_none() is not None
+            if created:
+                await add_events(session, events)
+            return created
 
-    async def transition(self, case_id: str, expected: CaseStatus, updated: CaseRecord) -> bool:
+    async def transition(
+        self,
+        case_id: str,
+        expected: CaseStatus,
+        updated: CaseRecord,
+        *,
+        events: Sequence[OutboxEvent] = (),
+    ) -> bool:
         stmt = (
             update(SupportCaseRow)
             .where(SupportCaseRow.id == case_id, SupportCaseRow.status == expected)
@@ -42,7 +56,11 @@ class PostgresCaseStore:
             .returning(SupportCaseRow.id)
         )
         async with self._factory() as session, session.begin():
-            return (await session.execute(stmt)).scalar_one_or_none() is not None
+            applied = (await session.execute(stmt)).scalar_one_or_none() is not None
+            # Mismo COMMIT que el cambio de estado: o se guardan los dos o ninguno.
+            if applied:
+                await add_events(session, events)
+            return applied
 
     async def list_cases(
         self, *, status: CaseStatus | None = None, limit: int = 50

@@ -32,7 +32,12 @@ from typing import Any, Literal
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel, ConfigDict
 
-from headache_core.adapters.memory import FakeLLM, InMemoryCaseStore, InMemoryMessageBus
+from headache_core.adapters.memory import (
+    FakeLLM,
+    InMemoryCaseStore,
+    InMemoryMessageBus,
+    InMemoryOutbox,
+)
 from headache_core.application.agents.context import estimate_tokens
 from headache_core.application.orchestration import (
     TriageAgent,
@@ -258,7 +263,8 @@ async def _run_engine(
         if maf.awaiting_review and review is not None:
             maf = await workflow.review(maf, reviewer=REVIEWER, approve=review.approve)
         return maf.outcome
-    bus, cases = InMemoryMessageBus(max_deliveries=2), InMemoryCaseStore()
+    bus = InMemoryMessageBus(max_deliveries=2)
+    cases = InMemoryCaseStore(InMemoryOutbox(deliver_to=bus))
     await subscribe_workers(bus, cases, triage=TriageAgent(llm), specialists=specialists)
     await bus.publish(SUPPORT_EMAILS, email_to_payload(email))
     if bus.dead_letters:
@@ -266,7 +272,7 @@ async def _run_engine(
     case_id = f"case_{email.id}"
     record = await cases.get(case_id)
     if record is not None and record.status is CaseStatus.PENDING_APPROVAL and review is not None:
-        record = await CaseReviewService(cases, approvals, bus).review(
+        record = await CaseReviewService(cases, approvals).review(
             case_id, reviewer=REVIEWER, approve=review.approve
         )
     if record is None or record.outcome is None:

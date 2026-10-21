@@ -1,4 +1,5 @@
 """Flujo asíncrono con RabbitMQ y PostgreSQL reales (fase 9.6): duplicados, DLQ y CAS.
+Desde la fase 10.5 los eventos salen por el outbox: el test arranca su propio relay.
 
 docker compose up -d
 uv run alembic -c packages/headache_core/alembic.ini upgrade head
@@ -17,12 +18,15 @@ from datetime import UTC, datetime
 import aio_pika
 import pytest
 from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from headache_core.adapters.postgres import create_engine, create_session_factory
 from headache_core.adapters.postgres.cases import PostgresCaseStore
-from headache_core.adapters.postgres.tables import SupportCaseRow
+from headache_core.adapters.postgres.outbox import PostgresOutboxStore
+from headache_core.adapters.postgres.tables import OutboxEventRow, SupportCaseRow
 from headache_core.adapters.rabbitmq import RabbitMQMessageBus
 from headache_core.application.orchestration import TriageAgent, email_to_payload
+from headache_core.application.outbox import OutboxRelay
 from headache_core.config import get_settings
 from headache_core.domain import CaseStatus, Specialist
 from headache_core.ports import ToolCall
@@ -38,13 +42,18 @@ PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
 
 
 @pytest.fixture
-async def cases() -> AsyncIterator[PostgresCaseStore]:
+async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_engine(get_settings().postgres, application_name="integration-tests")
-    store = PostgresCaseStore(create_session_factory(engine))
-    yield store
+    yield create_session_factory(engine)
     async with engine.begin() as connection:
         await connection.execute(delete(SupportCaseRow).where(SupportCaseRow.id.like("case_it_%")))
+        await connection.execute(delete(OutboxEventRow).where(OutboxEventRow.topic.like("it.%")))
     await engine.dispose()
+
+
+@pytest.fixture
+def cases(factory: async_sessionmaker[AsyncSession]) -> PostgresCaseStore:
+    return PostgresCaseStore(factory)
 
 
 @pytest.fixture
@@ -99,9 +108,12 @@ async def _dlq_count(queue: str) -> int:
 
 
 async def test_email_through_rabbitmq_with_duplicates_and_poison_messages(
-    cases: PostgresCaseStore, bus: RabbitMQMessageBus
+    factory: async_sessionmaker[AsyncSession], cases: PostgresCaseStore, bus: RabbitMQMessageBus
 ) -> None:
     topics = CaseTopics(prefix=f"it.{uuid.uuid4().hex[:8]}.")
+    relay = OutboxRelay(PostgresOutboxStore(factory), bus, topic_prefix=topics.prefix)
+    stop = asyncio.Event()
+    relay_task = asyncio.create_task(relay.run(stop, idle_seconds=0.05))
     email_id = f"it_{uuid.uuid4().hex[:10]}"
     triage = {
         "intent": "refund_request",
@@ -131,6 +143,14 @@ async def test_email_through_rabbitmq_with_duplicates_and_poison_messages(
     assert len(world.llm.calls) == 3  # Triaje + tool + respuesta: una sola vez.
     assert await _dlq_count(f"{topics.emails}.dlq") == 1
 
-    review = CaseReviewService(cases, build_approval_service(world.deps), bus, topics=topics)
+    review = CaseReviewService(cases, build_approval_service(world.deps), topics=topics)
     reviewed = await review.review(case.case_id, reviewer="ops-1", approve=True)
     assert reviewed.status is CaseStatus.RESOLVED
+    for _ in range(50):  # El resultado de la revisión también sale por el outbox.
+        if await relay.drain() == 0 and relay.published >= 3:
+            break
+        await asyncio.sleep(0.05)
+    stop.set()
+    await relay_task
+    # Traspaso, resultado pendiente y resultado resuelto: una vez cada uno.
+    assert relay.published == 3

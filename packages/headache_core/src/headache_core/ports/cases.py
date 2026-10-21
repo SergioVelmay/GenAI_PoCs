@@ -7,12 +7,13 @@ son compare-and-set sobre el estado: dos réplicas no pueden cerrar el mismo cas
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
 from headache_core.domain import CaseStatus, Specialist
+from headache_core.ports.outbox import OutboxEvent
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,13 +34,23 @@ class CaseRecord:
 
 
 class CaseStore(Protocol):
+    """`events` se escriben en el outbox en la misma transacción que el caso (fase 10.5): si el
+    cambio no se aplica (conflicto), tampoco se publica nada."""
+
     async def get(self, case_id: str) -> CaseRecord | None: ...
 
-    async def create(self, record: CaseRecord) -> bool:
+    async def create(self, record: CaseRecord, *, events: Sequence[OutboxEvent] = ()) -> bool:
         """False si el caso ya existía (otra réplica o una entrega repetida lo creó antes)."""
         ...
 
-    async def transition(self, case_id: str, expected: CaseStatus, updated: CaseRecord) -> bool:
+    async def transition(
+        self,
+        case_id: str,
+        expected: CaseStatus,
+        updated: CaseRecord,
+        *,
+        events: Sequence[OutboxEvent] = (),
+    ) -> bool:
         """Solo actualiza si el estado sigue siendo `expected`."""
         ...
 

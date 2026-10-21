@@ -25,3 +25,7 @@ class OrchestratorSettings(BaseSettings):
     retry_delay_ms: int = 1_000
     # Casos en paralelo por proceso: cada uno es una o varias llamadas al LLM.
     prefetch: int = 4
+    # Relay del outbox (fase 10.5): eventos por lote y espera cuando no hay nada pendiente
+    # (latencia añadida en el peor caso).
+    relay_batch_size: int = 100
+    relay_idle_seconds: float = 0.5

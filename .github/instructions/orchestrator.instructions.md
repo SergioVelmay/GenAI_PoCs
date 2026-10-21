@@ -1,5 +1,5 @@
 ---
-applyTo: "services/orchestrator/**,packages/headache_core/src/headache_core/domain/orchestration.py,packages/headache_core/src/headache_core/application/orchestration/**,packages/headache_core/src/headache_core/ports/cases.py,packages/headache_core/src/headache_core/adapters/postgres/cases.py,packages/harness/src/harness/rules/case_reply.py"
+applyTo: "services/orchestrator/**,packages/headache_core/src/headache_core/domain/orchestration.py,packages/headache_core/src/headache_core/application/orchestration/**,packages/headache_core/src/headache_core/ports/cases.py,packages/headache_core/src/headache_core/adapters/postgres/cases.py,packages/headache_core/src/headache_core/adapters/postgres/outbox.py,packages/headache_core/src/headache_core/ports/outbox.py,packages/headache_core/src/headache_core/ports/intake.py,packages/headache_core/src/headache_core/application/outbox.py,packages/headache_core/src/headache_core/application/case_intake.py,packages/harness/src/harness/rules/case_reply.py"
 description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Conocimiento (fase 9)."
 ---
 
@@ -39,8 +39,9 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 
 - Coreografía por eventos: `support.emails` → `TriageHandler` → `case.triaged.<especialista>` → `SpecialistHandler` → `case.outcomes`; revisión con `CaseReviewService`. Topics con prefijo opcional (`CaseTopics`) para aislar tests y entornos. `correlation_id = case_id` en cada evento.
 - Estado en `CaseStore` (`ports/cases.py`; `InMemoryCaseStore`, `PostgresCaseStore`, migración 0006 `support_cases`): alta única por email y transiciones compare-and-set. El triaje **reclama** el caso (`received`) antes de llamar al LLM; una primera entrega que lo encuentra reclamado se descarta y una reentrega (`delivery_count > 1`) lo retoma.
-- Idempotencia: una primera entrega que encuentra el caso ya creado es una copia y se descarta; solo una reentrega (`delivery_count > 1`) retoma (`received`) o republica (`triaged`); especialista ⇒ solo actúa si el caso sigue `triaged` y el traspaso coincide con el guardado. Mal formado, ruta inválida o traspaso alterado ⇒ `PermanentMessageError` (DLQ). El resto, transitorio (reintento del broker).
-- Workers por rol (`python -m orchestrator.worker [triage|refunds|creative|knowledge]`), especialistas en proceso o A2A (`ORCHESTRATOR__SPECIALISTS`). Límite: guardar y publicar no son atómicos (transactional outbox pendiente).
+- Idempotencia: una primera entrega que encuentra el caso ya creado es una copia y se descarta; solo una reentrega (`delivery_count > 1`) retoma un triaje interrumpido (`received`); un caso `triaged` no se toca (su traspaso ya está en el outbox). Especialista ⇒ solo actúa si el caso sigue `triaged` y el traspaso coincide con el guardado. Mal formado, ruta inválida o traspaso alterado ⇒ `PermanentMessageError` (DLQ). El resto, transitorio (reintento del broker).
+- **Transactional outbox (fase 10.5)**: los handlers no publican; pasan `events=[OutboxEvent(...)]` a `CaseStore.create/transition` y se guardan en la misma transacción (si el CAS falla, no hay evento). `OutboxRelay` (`headache_core/application/outbox.py`) los publica con `FOR UPDATE SKIP LOCKED` y reserva por tiempo (at-least-once). En tests síncronos, `InMemoryCaseStore(InMemoryOutbox(deliver_to=bus))` publica al instante; sin `deliver_to`, se bombea con `OutboxRelay(...).drain()`. `topic_prefix` aísla relays por entorno o test.
+- Workers por rol (`python -m orchestrator.worker [triage|refunds|creative|knowledge|relay]`; sin argumentos, todos, relay incluido), especialistas en proceso o A2A (`ORCHESTRATOR__SPECIALISTS`).
 
 ## MAF (`maf_workflow.py`)
 

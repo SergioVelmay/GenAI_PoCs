@@ -34,3 +34,10 @@ class EdgeSettings(BaseSettings):
     # Cada cuánto se manda un comentario SSE si no hay datos (proxies que cortan conexiones
     # inactivas, típicamente a los 60 s).
     heartbeat_seconds: float = Field(default=15.0, gt=0)
+    # Casos (fase 10.5). postgres: altas idempotentes y estado compartidos con los workers
+    # (conecta al primer uso). memory: solo pruebas. disabled: /cases responde 503.
+    cases_backend: Literal["postgres", "memory", "disabled"] = "postgres"
+    cases_topic: str = "support.emails"
+    case_poll_seconds: float = Field(default=1.0, gt=0)
+    # Tiempo máximo de un stream de seguimiento; después, `event: timeout` y el cliente reconecta.
+    case_stream_seconds: float = Field(default=300.0, gt=0)

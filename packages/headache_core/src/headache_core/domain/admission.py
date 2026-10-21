@@ -33,6 +33,8 @@ class Caller:
 
     key: str
     plan: ClientPlan
+    # `sub` del token firmado; None si es anónimo. Es el `customer_id` de lo que haga.
+    subject: str | None = None
 
 
 def has_capacity(plan: ClientPlan, *, in_flight: int, capacity: int) -> bool:

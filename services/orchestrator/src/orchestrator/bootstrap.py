@@ -16,6 +16,7 @@ from headache_core.adapters.memory import InMemoryCheckpointStore, InMemoryPrefe
 from headache_core.adapters.postgres import create_engine, create_session_factory
 from headache_core.adapters.postgres.approvals import PostgresApprovalStore
 from headache_core.adapters.postgres.cases import PostgresCaseStore
+from headache_core.adapters.postgres.outbox import PostgresOutboxStore
 from headache_core.adapters.ticketing_http import HttpTicketingClient
 from headache_core.application.orchestration import SpecialistAgent
 from headache_core.application.tools import ToolContext
@@ -45,6 +46,15 @@ async def open_postgres_stores(
     try:
         factory = create_session_factory(engine)
         yield PostgresApprovalStore(factory), PostgresCaseStore(factory)
+    finally:
+        await engine.dispose()
+
+
+@asynccontextmanager
+async def open_outbox(settings: Settings, name: str) -> AsyncIterator[PostgresOutboxStore]:
+    engine = create_engine(settings.postgres, application_name=name)
+    try:
+        yield PostgresOutboxStore(create_session_factory(engine))
     finally:
         await engine.dispose()
 

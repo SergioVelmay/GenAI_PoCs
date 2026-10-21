@@ -13,10 +13,10 @@ Entrega at-least-once ⇒ handlers idempotentes:
 - El caso se identifica por el email (`case_<email_id>`) y se reclama (RECEIVED) antes de
   llamar al LLM: un email repetido, aunque llegue a la vez, no se re-triagea.
 - Cada worker comprueba el estado antes de trabajar y lo avanza con compare-and-set.
-- Si el triaje cae entre guardar y publicar, la reentrega ve el caso TRIAGED y solo republica.
+- Guardar y publicar son atómicos (fase 10.5): el evento va al outbox en la misma transacción
+  que el cambio de estado y un relay lo publica. Si el caso no avanza (conflicto), no se publica.
 - Reintentar un especialista es seguro: las solicitudes de aprobación son idempotentes.
 - Mensaje mal formado o traspaso inválido ⇒ `PermanentMessageError` ⇒ DLQ sin reintentos.
-Límite conocido: guardar y publicar no son atómicos; el patrón *transactional outbox* lo cierra.
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ from headache_core.application.orchestration import (
 from headache_core.domain import CaseOutcome, CaseStatus, Specialist, can_transition
 from headache_core.ports import Message, MessageBusPort, PermanentMessageError
 from headache_core.ports.cases import CaseRecord, CaseStore
+from headache_core.ports.outbox import OutboxEvent
 from orchestrator.review import ReviewError, apply_review, parse_decision
 
 logger = logging.getLogger(__name__)
@@ -92,14 +93,12 @@ class TriageHandler:
         self,
         triage: TriageAgent,
         cases: CaseStore,
-        bus: MessageBusPort,
         *,
         topics: CaseTopics = DEFAULT_TOPICS,
         clock: Clock = _utcnow,
     ) -> None:
         self._triage = triage
         self._cases = cases
-        self._bus = bus
         self._topics = topics
         self._clock = clock
 
@@ -128,14 +127,9 @@ class TriageHandler:
                 raise RuntimeError(f"Caso {case_id} en conflicto pero no encontrado.")
             # Una primera entrega que encuentra el caso ya creado es una copia del email: el dueño
             # lo termina o, si cae, el broker le reentrega SU mensaje (entrega > 1). Solo esa
-            # reentrega retoma el trabajo; si una copia republicara, el especialista correría dos
-            # veces (visto en la CI con RabbitMQ).
+            # reentrega retoma un triaje interrumpido. Un caso ya triado no se toca: su traspaso
+            # está en el outbox desde la misma transacción (antes había que republicarlo).
             redelivery = message.delivery_count > 1
-            if existing.status is CaseStatus.TRIAGED and redelivery:
-                # El triaje anterior guardó el caso pero quizá no llegó a publicarlo.
-                logger.info("[%s] reentrega: se republica el traspaso sin re-triagear", case_id)
-                await self._publish(existing)
-                return
             if existing.status is not CaseStatus.RECEIVED or not redelivery:
                 logger.info("[%s] email duplicado: el caso ya está %s", case_id, existing.status)
                 return
@@ -154,17 +148,13 @@ class TriageHandler:
             envelope=envelope_to_payload(envelope),
             updated_at=self._clock(),
         )
-        if not await self._cases.transition(case_id, CaseStatus.RECEIVED, record):
+        handoff = OutboxEvent(
+            self._topics.triaged(envelope.specialist), _event(record.envelope or {}, case_id)
+        )
+        if not await self._cases.transition(case_id, CaseStatus.RECEIVED, record, events=[handoff]):
             logger.info("[%s] otra réplica triagó el caso a la vez: se descarta este", case_id)
             return
         logger.info("[%s] triado: %s → %s", case_id, envelope.intent, envelope.specialist)
-        await self._publish(record)
-
-    async def _publish(self, record: CaseRecord) -> None:
-        assert record.specialist is not None and record.envelope is not None
-        await self._bus.publish(
-            self._topics.triaged(record.specialist), _event(record.envelope, record.case_id)
-        )
 
 
 class SpecialistHandler:
@@ -172,14 +162,12 @@ class SpecialistHandler:
         self,
         agent: SpecialistAgent,
         cases: CaseStore,
-        bus: MessageBusPort,
         *,
         topics: CaseTopics = DEFAULT_TOPICS,
         clock: Clock = _utcnow,
     ) -> None:
         self._agent = agent
         self._cases = cases
-        self._bus = bus
         self._topics = topics
         self._clock = clock
 
@@ -216,9 +204,7 @@ class SpecialistHandler:
             message.delivery_count,
             outcome.status,
         )
-        await close_step(
-            self._cases, self._bus, record, outcome, self._clock(), self._topics.outcomes
-        )
+        await close_step(self._cases, record, outcome, self._clock(), self._topics.outcomes)
 
 
 async def subscribe_workers(
@@ -233,11 +219,11 @@ async def subscribe_workers(
     """Engancha los roles pedidos a sus colas. Cada rol puede ir en su propio proceso."""
     subscribed: list[str] = []
     if triage is not None:
-        handler = TriageHandler(triage, cases, bus, topics=topics, clock=clock)
+        handler = TriageHandler(triage, cases, topics=topics, clock=clock)
         await bus.subscribe(topics.emails, handler)
         subscribed.append(topics.emails)
     for agent in (specialists or {}).values():
-        worker = SpecialistHandler(agent, cases, bus, topics=topics, clock=clock)
+        worker = SpecialistHandler(agent, cases, topics=topics, clock=clock)
         await bus.subscribe(worker.topic, worker)
         subscribed.append(worker.topic)
     return subscribed
@@ -245,13 +231,13 @@ async def subscribe_workers(
 
 async def close_step(
     cases: CaseStore,
-    bus: MessageBusPort,
     record: CaseRecord,
     outcome: CaseOutcome,
     now: datetime,
     topic: str = CASE_OUTCOMES,
 ) -> bool:
-    """Avanza el caso con compare-and-set y publica el resultado. False si otro llegó antes."""
+    """Avanza el caso con compare-and-set y deja el resultado en el outbox (misma transacción).
+    False si otro llegó antes."""
     if not can_transition(record.status, outcome.status):
         raise PermanentMessageError(f"Transición inválida {record.status} → {outcome.status}.")
     updated = replace(
@@ -262,10 +248,10 @@ async def close_step(
         guardrails=outcome.guardrails,
         updated_at=now,
     )
-    if not await cases.transition(record.case_id, record.status, updated):
+    event = OutboxEvent(topic, _event(updated.outcome or {}, record.case_id))
+    if not await cases.transition(record.case_id, record.status, updated, events=[event]):
         logger.info("[%s] otra réplica avanzó el caso antes: se descarta", record.case_id)
         return False
-    await bus.publish(topic, _event(updated.outcome or {}, record.case_id))
     return True
 
 
@@ -276,14 +262,12 @@ class CaseReviewService:
         self,
         cases: CaseStore,
         approvals: ApprovalService,
-        bus: MessageBusPort,
         *,
         topics: CaseTopics = DEFAULT_TOPICS,
         clock: Clock = _utcnow,
     ) -> None:
         self._cases = cases
         self._approvals = approvals
-        self._bus = bus
         self._topics = topics
         self._clock = clock
 
@@ -304,7 +288,7 @@ class CaseReviewService:
         reviewed = await apply_review(self._approvals, outcome, decision)
         now = self._clock()
         topic = self._topics.outcomes
-        if not await close_step(self._cases, self._bus, record, reviewed, now, topic):
+        if not await close_step(self._cases, record, reviewed, now, topic):
             raise ReviewError(f"Otra persona ya ha revisado el caso {case_id}.")
         current = await self._cases.get(case_id)
         assert current is not None

@@ -32,6 +32,12 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - Edge: `POST /ask/stream` (SSE: `delta`, `done` con `verified` y `cache`, `error`, latido `: ping`). Se espera al primer evento antes de responder (*priming*): lo anterior es un código HTTP (429/503/504); lo posterior, `event: error`. El hueco de admisión se libera con un `AsyncExitStack` al terminar o si el cliente se va.
 - Modo `generative` (`StreamingAnswerer`): citas `[n]` verificadas al final; sin citas válidas, `verified=false` y no se cachea. Lo que no admite error (importes, reembolsos) no se hace en streaming.
 
+## Casos: 202, idempotencia y outbox (10.5)
+
+- `POST /cases` exige identidad (401) e `Idempotency-Key` (400 sin ella, 422 mal formada). Misma clave y cuerpo ⇒ mismo caso (`Idempotent-Replayed: true`); otro cuerpo ⇒ 409. La clave es por cliente.
+- El alta (`case_submissions`) y el evento `support.emails` van en una transacción (outbox); los workers y el relay hacen el resto. `GET /cases/{id}` y `/cases/{id}/events` (SSE `status`, `retry:`, `timeout` al vencer `EDGE__CASE_STREAM_SECONDS`) solo para el dueño o personal interno (404 si no es suyo).
+- Base de datos caída ⇒ 503 + `Retry-After` (manejadores de `OSError` y `DBAPIError`), nunca 500. `EDGE__CASES_BACKEND=postgres|memory|disabled`.
+
 ## Edge (`services/edge_api`)
 
 ```powershell

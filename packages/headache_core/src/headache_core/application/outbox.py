@@ -1,0 +1,90 @@
+"""Relay del outbox (fase 10.5): lee eventos pendientes y los publica en el broker.
+
+- Reserva un lote (`claim`), publica uno a uno y marca los publicados. Si el broker falla con
+  un evento, ese evento vuelve a la cola con *backoff* exponencial y el resto sigue.
+- Si el relay cae a mitad, la reserva vence y otro relay (u otra réplica) lo retoma.
+- Varios relays en paralelo no se pisan (`FOR UPDATE SKIP LOCKED`): se escala como cualquier
+  consumidor. El atraso (`backlog`) es la métrica para alertar o autoescalar.
+
+Equivalentes gestionados: *change data capture* (Debezium sobre el WAL de PostgreSQL), el
+*change feed* de Cosmos DB o DynamoDB Streams + EventBridge Pipes. Leen el log de la base de
+datos en vez de una tabla, sin *polling*.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+
+from headache_core.ports import MessageBusPort
+from headache_core.ports.outbox import OutboxStore
+
+logger = logging.getLogger(__name__)
+
+
+class OutboxRelay:
+    def __init__(
+        self,
+        store: OutboxStore,
+        bus: MessageBusPort,
+        *,
+        batch_size: int = 100,
+        lease_seconds: float = 30.0,
+        max_backoff_seconds: float = 60.0,
+        topic_prefix: str = "",
+    ) -> None:
+        self._store = store
+        self._bus = bus
+        self._batch_size = batch_size
+        self._lease = lease_seconds
+        self._max_backoff = max_backoff_seconds
+        self._prefix = topic_prefix
+        self.published = 0
+        self.failed = 0
+
+    async def run_once(self) -> int:
+        """Un lote. Devuelve cuántos eventos se publicaron."""
+        events = await self._store.claim(
+            limit=self._batch_size, lease_seconds=self._lease, topic_prefix=self._prefix
+        )
+        done: list[int] = []
+        for event in events:
+            try:
+                await self._bus.publish(event.topic, event.payload)
+            except Exception as exc:
+                self.failed += 1
+                retry = min(self._max_backoff, 2.0 ** (event.attempts - 1))
+                logger.warning(
+                    "Outbox %d no publicado (%s): reintento en %.0f s", event.id, exc, retry
+                )
+                await self._store.release(event.id, error=str(exc), retry_in_seconds=retry)
+                continue
+            done.append(event.id)
+        if done:
+            # Si se cae justo aquí, estos eventos se publicarán otra vez: at-least-once.
+            await self._store.mark_published(done)
+            self.published += len(done)
+        return len(done)
+
+    async def drain(self, *, max_rounds: int = 100) -> int:
+        """Publica hasta vaciar lo disponible (tests y arranque)."""
+        total = 0
+        for _ in range(max_rounds):
+            published = await self.run_once()
+            total += published
+            if published == 0:
+                break
+        return total
+
+    async def run(self, stop: asyncio.Event, *, idle_seconds: float = 0.5) -> None:
+        """Bucle del relay: sin trabajo, espera `idle_seconds` (o hasta que se pida parar)."""
+        while not stop.is_set():
+            try:
+                published = await self.run_once()
+            except Exception:
+                logger.exception("Fallo del relay del outbox; se reintenta")
+                published = 0
+            if published == 0:
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(stop.wait(), idle_seconds)

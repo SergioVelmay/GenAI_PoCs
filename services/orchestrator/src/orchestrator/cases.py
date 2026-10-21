@@ -15,14 +15,12 @@ import asyncio
 from contextlib import AsyncExitStack
 
 from harness.approvals import ApprovalService
-from headache_core.adapters.messaging_factory import open_message_bus
 from headache_core.adapters.ticketing_http import HttpTicketingClient
 from headache_core.config import get_settings
 from headache_core.domain import CaseStatus
 from orchestrator.async_flow import CaseReviewService
 from orchestrator.bootstrap import log_outbox, open_postgres_stores
 from orchestrator.review import ReviewError
-from orchestrator.settings import OrchestratorSettings
 from orchestrator.specialists import approval_registry_for
 
 
@@ -38,7 +36,7 @@ async def main() -> None:
         decide.add_argument("--note", default="")
     args = parser.parse_args()
 
-    settings, config = get_settings(), OrchestratorSettings()
+    settings = get_settings()
     async with AsyncExitStack() as stack:
         approvals, cases = await stack.enter_async_context(
             open_postgres_stores(settings, "orchestrator-cases")
@@ -51,16 +49,9 @@ async def main() -> None:
         ticketing = await stack.enter_async_context(
             HttpTicketingClient.from_settings(settings.ticketing_api)
         )
-        bus = await stack.enter_async_context(
-            open_message_bus(
-                settings,
-                config.broker,
-                max_deliveries=config.max_deliveries,
-                retry_delay_ms=config.retry_delay_ms,
-            )
-        )
+        # El resultado de la revisión va al outbox con el cambio de estado: lo publica el relay.
         service = CaseReviewService(
-            cases, ApprovalService(approvals, approval_registry_for(ticketing, log_outbox)), bus
+            cases, ApprovalService(approvals, approval_registry_for(ticketing, log_outbox))
         )
         try:
             case = await service.review(
