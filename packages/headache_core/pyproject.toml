@@ -47,6 +47,9 @@ llamaindex = [
     "llama-index-storage-docstore-postgres>=0.4",
     "llama-index-vector-stores-postgres>=0.7",
 ]
+redis = [
+    "redis>=5.2",
+]
 
 [build-system]
 requires = ["hatchling"]

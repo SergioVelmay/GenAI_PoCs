@@ -95,7 +95,13 @@ class DevTokenIssuer:
         return cls(keys, issuer=issuer)
 
     def mint(
-        self, *, subject: str, audience: str, scopes: list[str], expires_in_seconds: int = 900
+        self,
+        *,
+        subject: str,
+        audience: str,
+        scopes: list[str] | None = None,
+        expires_in_seconds: int = 900,
+        claims: dict[str, str] | None = None,
     ) -> str:
         return self._keys.create_token(
             subject=subject,
@@ -103,6 +109,7 @@ class DevTokenIssuer:
             audience=audience,
             scopes=scopes,
             expires_in_seconds=expires_in_seconds,
+            additional_claims=claims,
         )
 
 

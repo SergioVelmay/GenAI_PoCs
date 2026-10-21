@@ -59,6 +59,23 @@ def test_gateway_resilience_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     assert gateway.circuit_reset_seconds == 2.5
 
 
+def test_rate_limit_is_local_by_default_and_redis_is_its_own(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    defaults = Settings(_env_file=None)
+    assert defaults.rate_limit.backend == "memory"
+    assert defaults.scale_redis.port == 6380  # No es el Redis de Langfuse.
+
+    monkeypatch.setenv("RATE_LIMIT__BACKEND", "redis")
+    monkeypatch.setenv("RATE_LIMIT__PUBLIC_PER_MINUTE", "7")
+    monkeypatch.setenv("SCALE_REDIS__PASSWORD", "secreto")
+
+    settings = Settings(_env_file=None)
+    assert settings.rate_limit.backend == "redis"
+    assert settings.rate_limit.public_per_minute == 7
+    assert "secreto" not in repr(settings.scale_redis)
+
+
 def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "azure")
     monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[postgres,rabbitmq,llamaindex,azure,aws,gateway,observability,retrieval,tools]",
+    "headache-core[postgres,rabbitmq,llamaindex,azure,aws,gateway,observability,redis,retrieval,tools]",
     "harness",
     "indexer",
     "ticketing-api",
@@ -14,6 +14,7 @@ dependencies = [
     "support-agent",
     "booking-agent",
     "orchestrator",
+    "edge-api",
 ]
 
 [tool.uv.workspace]
@@ -30,6 +31,7 @@ mcp-servers = { workspace = true }
 support-agent = { workspace = true }
 booking-agent = { workspace = true }
 orchestrator = { workspace = true }
+edge-api = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -53,6 +55,7 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC", "RUF"]
 [tool.ruff.lint.isort]
 known-first-party = [
     "booking_agent",
+    "edge_api",
     "harness",
     "headache_core",
     "headache_mcp",
@@ -87,6 +90,8 @@ files = [
     "services/booking_agent/tests",
     "services/orchestrator/src",
     "services/orchestrator/tests",
+    "services/edge_api/src",
+    "services/edge_api/tests",
     "evals/src",
     "evals/tests",
     "scripts",
@@ -126,7 +131,7 @@ asyncio_default_fixture_loop_scope = "function"
 # Con el extra `evals`, el plugin de pytest de DeepEval importa `deepeval`, que vuelca el `.env`
 # en `os.environ` y rompe el aislamiento de los tests: se desactiva (no se usa).
 addopts = "--import-mode=importlib -m 'not integration' -p no:deepeval"
-markers = ["integration: requiere docker compose up -d (PostgreSQL migrado y RabbitMQ)"]
+markers = ["integration: requiere docker compose up -d (PostgreSQL migrado y RabbitMQ) y --profile scale (Redis)"]
 # llama-index-workflows recorre el agente (modelo Pydantic) con inspect.getmembers y toca
 # atributos deprecados: ruido de la librería, no de nuestro código.
 filterwarnings = ["ignore::pydantic.warnings.PydanticDeprecatedSince20:inspect", "ignore::pydantic.warnings.PydanticDeprecatedSince211:inspect"]

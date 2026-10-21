@@ -24,6 +24,13 @@ from headache_core.ports.messaging import (
     MessageHandler,
     PermanentMessageError,
 )
+from headache_core.ports.rate_limit import (
+    RateLimitDecision,
+    RateLimiterPort,
+    RateLimiterUnavailableError,
+    RateLimitRequest,
+    RateLimitRule,
+)
 from headache_core.ports.repositories import (
     ConflictError,
     CustomerRepository,
@@ -73,6 +80,11 @@ __all__ = [
     "MetadataValue",
     "OrderRepository",
     "PermanentMessageError",
+    "RateLimitDecision",
+    "RateLimitRequest",
+    "RateLimitRule",
+    "RateLimiterPort",
+    "RateLimiterUnavailableError",
     "RefundRepository",
     "RefundResult",
     "ResponseSchema",

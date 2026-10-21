@@ -14,9 +14,10 @@ from headache_core.application.llm import (
     PriceTable,
     RateLimitedLLM,
     RoutingLLM,
+    SharedQuotaLLM,
 )
 from headache_core.config import LLMProvider, Settings
-from headache_core.ports import LLMPort, LLMTracer
+from headache_core.ports import LLMPort, LLMTracer, RateLimiterPort
 
 
 def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTier) -> LLMPort:
@@ -54,22 +55,35 @@ def _resilient(
     prices: PriceTable,
     name: str,
     metadata: dict[str, str],
+    limiter: RateLimiterPort | None,
 ) -> LLMPort:
     """Un despliegue con su pila de resiliencia (fase 10.1).
 
     Breaker fuera: con el circuito abierto no se gasta cuota ni hueco. Bulkhead antes de la
     cuota: acota tambi?n a quien espera fichas. Rate limit dentro: lo m?s cerca del proveedor.
+    Con `limiter` (Redis), la cuota RPM/TPM es la del despliegue, no la de cada r?plica.
     """
     gateway = settings.llm_gateway
+    quota: LLMPort = RateLimitedLLM(
+        llm,
+        requests_per_minute=gateway.requests_per_minute,
+        tokens_per_minute=gateway.tokens_per_minute,
+        max_wait=gateway.max_queue_seconds,
+    )
+    if limiter is not None:
+        # Cuota del despliegue compartida entre r?plicas; la local queda como red si Redis cae.
+        quota = SharedQuotaLLM(
+            quota,
+            limiter,
+            key=name,
+            requests_per_minute=gateway.requests_per_minute,
+            tokens_per_minute=gateway.tokens_per_minute,
+            max_wait=gateway.max_queue_seconds,
+        )
     return CircuitBreakerLLM(
         ConcurrencyLimitedLLM(
             ObservedLLM(
-                RateLimitedLLM(
-                    llm,
-                    requests_per_minute=gateway.requests_per_minute,
-                    tokens_per_minute=gateway.tokens_per_minute,
-                    max_wait=gateway.max_queue_seconds,
-                ),
+                quota,
                 tracer=tracer,
                 prices=prices,
                 name=name,
@@ -94,7 +108,11 @@ def _fallback(settings: Settings, candidates: list[LLMPort]) -> LLMPort:
 
 
 def _native_tier(
-    settings: Settings, tier: ModelTier, tracer: LLMTracer, prices: PriceTable
+    settings: Settings,
+    tier: ModelTier,
+    tracer: LLMTracer,
+    prices: PriceTable,
+    limiter: RateLimiterPort | None,
 ) -> LLMPort:
     return _fallback(
         settings,
@@ -106,6 +124,7 @@ def _native_tier(
                 prices=prices,
                 name=f"{provider}:{tier}",
                 metadata={"engine": "native", "provider": provider, "tier": tier},
+                limiter=limiter,
             )
             for provider in settings.provider_chain()
         ],
@@ -145,7 +164,25 @@ def build_judge_provider_llm(settings: Settings, provider: LLMProvider) -> LLMPo
     )
 
 
-def build_judge_llm(settings: Settings, *, tracer: LLMTracer | None = None) -> LLMPort:
+def shared_limiter(
+    settings: Settings, limiter: RateLimiterPort | None = None
+) -> RateLimiterPort | None:
+    """El limitador compartido: el que se inyecta o, con `RATE_LIMIT__BACKEND=redis`, Redis."""
+    if limiter is not None or settings.rate_limit.backend != "redis":
+        return limiter
+    from headache_core.adapters.redis_rate_limit import RedisRateLimiter
+
+    return RedisRateLimiter.from_settings(
+        settings.scale_redis, key_prefix=settings.rate_limit.key_prefix
+    )
+
+
+def build_judge_llm(
+    settings: Settings,
+    *,
+    tracer: LLMTracer | None = None,
+    limiter: RateLimiterPort | None = None,
+) -> LLMPort:
     """Juez fijo, fuera del router: si lo enrutara, juzgaría el mismo modelo que genera."""
     tracer = tracer or build_tracer(settings)
     prices = PriceTable()
@@ -159,22 +196,29 @@ def build_judge_llm(settings: Settings, *, tracer: LLMTracer | None = None) -> L
                 prices=prices,
                 name=f"{provider}:judge",
                 metadata={"engine": "native", "provider": provider, "tier": "judge"},
+                limiter=shared_limiter(settings, limiter),
             )
             for provider in settings.provider_chain()
         ],
     )
 
 
-def build_gateway(settings: Settings, *, tracer: LLMTracer | None = None) -> LLMPort:
+def build_gateway(
+    settings: Settings,
+    *,
+    tracer: LLMTracer | None = None,
+    limiter: RateLimiterPort | None = None,
+) -> LLMPort:
     """Gateway completo: routing barato/potente + fallback + breaker + bulkhead + rate limit +
     trazas y coste. Con `litellm`, los cooldowns y el rate limit son los del Router de LiteLLM."""
     tracer = tracer or build_tracer(settings)
     prices = PriceTable()
-    routes: dict[ModelTier, LLMPort] = (
-        _litellm_routes(settings, tracer, prices)
-        if settings.llm_gateway.engine == "litellm"
-        else {tier: _native_tier(settings, tier, tracer, prices) for tier in ModelTier}
-    )
+    routes: dict[ModelTier, LLMPort]
+    if settings.llm_gateway.engine == "litellm":
+        routes = _litellm_routes(settings, tracer, prices)
+    else:
+        shared = shared_limiter(settings, limiter)
+        routes = {tier: _native_tier(settings, tier, tracer, prices, shared) for tier in ModelTier}
     classifier = (
         LLMClassifier(routes[ModelTier.CHEAP])
         if settings.llm_gateway.router == "llm"

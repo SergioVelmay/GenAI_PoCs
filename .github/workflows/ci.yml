@@ -180,6 +180,16 @@ jobs:
         image: softwaremill/elasticmq-native:1.7.1
         ports:
           - 9324:9324
+      # Rate limiting distribuido (fase 10). Los services no admiten `command`: sin contrase?a.
+      redis-scale:
+        image: redis:8
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 10
     env:
       POSTGRES__PASSWORD: headache-ci
       RABBITMQ__PASSWORD: headache-ci

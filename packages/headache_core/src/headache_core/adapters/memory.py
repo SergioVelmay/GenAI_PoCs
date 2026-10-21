@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+import time
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
@@ -33,6 +34,8 @@ from headache_core.ports import (
     MessageHandler,
     MetadataValue,
     PermanentMessageError,
+    RateLimitDecision,
+    RateLimitRequest,
     ResponseSchema,
     SearchResult,
     TokenUsage,
@@ -502,3 +505,44 @@ class InMemoryCaseStore:
     ) -> list[CaseRecord]:
         found = [r for r in self.items.values() if status is None or r.status is status]
         return sorted(found, key=lambda r: r.created_at)[:limit]
+
+
+class InMemoryRateLimiter:
+    """GCRA (*Generic Cell Rate Algorithm*) en memoria: misma sem?ntica que el script Lua de
+    `RedisRateLimiter`, pero por proceso. Sirve para tests y como plan B si Redis cae.
+
+    Por clave solo se guarda el TAT (*theoretical arrival time*): el instante en que el cubo
+    estar?a lleno otra vez. Coste n con l?mite L por periodo P (intervalo T = P / L):
+    `nuevo_tat = max(tat, ahora) + n?T`; se concede si `nuevo_tat - P <= ahora`.
+    """
+
+    MAX_KEYS = 100_000
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._tat: dict[str, float] = {}
+
+    async def acquire(self, requests: Sequence[RateLimitRequest]) -> RateLimitDecision:
+        now = self._clock()
+        new_tats: dict[str, float] = {}
+        retry_after, remaining, limited_by = 0.0, math.inf, None
+        for request in requests:
+            rule = request.rule
+            interval = rule.period_seconds / rule.limit
+            cost = min(request.cost, rule.limit)
+            new_tat = max(self._tat.get(request.key, now), now) + cost * interval
+            allow_at = new_tat - rule.period_seconds
+            if allow_at > now:
+                limited_by = limited_by or rule.name
+                retry_after = max(retry_after, allow_at - now)
+            else:
+                new_tats[request.key] = new_tat
+                # El ?psilon evita que (P - T) / T = 18,999... cuente una unidad de menos.
+                remaining = min(remaining, math.floor((now - allow_at) / interval + 1e-9))
+        if limited_by is not None:
+            return RateLimitDecision(False, retry_after=retry_after, limited_by=limited_by)
+        self._tat.update(new_tats)
+        if len(self._tat) > self.MAX_KEYS:
+            # Una clave con TAT pasado tiene el cubo lleno: equivale a no existir (como el TTL).
+            self._tat = {key: tat for key, tat in self._tat.items() if tat > now}
+        return RateLimitDecision(True, remaining=0 if math.isinf(remaining) else int(remaining))

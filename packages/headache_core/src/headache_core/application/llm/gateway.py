@@ -2,13 +2,14 @@
 
 Se componen como capas de cebolla, igual que las políticas de APIM:
     RoutingLLM -> FallbackLLM -> CircuitBreakerLLM -> ConcurrencyLimitedLLM -> ObservedLLM
-    -> RateLimitedLLM -> adaptador (Azure / Bedrock)
+    -> SharedQuotaLLM (cuota entre r?plicas, 10.2) -> RateLimitedLLM -> adaptador
 El breaker y el bulkhead están en `resilience.py` (fase 10.1).
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -26,9 +27,15 @@ from headache_core.ports import (
     LLMResponse,
     LLMTracer,
     LLMTransientError,
+    RateLimiterPort,
+    RateLimiterUnavailableError,
+    RateLimitRequest,
+    RateLimitRule,
     ResponseSchema,
     ToolConfig,
 )
+
+logger = logging.getLogger(__name__)
 
 type Sleep = Callable[[float], Awaitable[None]]
 type Clock = Callable[[], float]
@@ -281,6 +288,87 @@ class RateLimitedLLM:
                 self._requests.refund(1)
                 self._tokens.refund(tokens)
                 raise
+
+
+class SharedQuotaLLM:
+    """Cuota del despliegue (RPM y TPM) compartida entre r?plicas mediante `RateLimiterPort`.
+
+    `RateLimitedLLM` limita cada proceso; con 10 r?plicas, 10 veces la cuota llega al
+    proveedor y vuelven los 429. Aqu? todas descuentan del mismo contador (Redis), de forma
+    at?mica: petici?n y tokens a la vez o nada.
+
+    - Si no hay cuota y cabe esperar (`max_wait` o el presupuesto), duerme lo que dice el
+      limitador (con algo de *jitter* para no despertar todas a la vez) y vuelve a pedir.
+    - Si no cabe, `LLMOverloadedError` con `retry_after`: el fallback salta de proveedor.
+    - Si el limitador cae, *fail-open*: queda el `RateLimitedLLM` local como red.
+    """
+
+    def __init__(
+        self,
+        inner: LLMPort,
+        limiter: RateLimiterPort,
+        *,
+        key: str,
+        requests_per_minute: int,
+        tokens_per_minute: int,
+        default_max_tokens: int = 1024,
+        max_wait: float | None = None,
+        clock: Clock = time.monotonic,
+        sleep: Sleep = asyncio.sleep,
+    ) -> None:
+        self._inner = inner
+        self._limiter = limiter
+        self._key = key
+        self._rpm = RateLimitRule("model_rpm", requests_per_minute, 60.0)
+        self._tpm = RateLimitRule("model_tpm", tokens_per_minute, 60.0)
+        self._default_max_tokens = default_max_tokens
+        self._max_wait = max_wait
+        self._clock = clock
+        self._sleep = sleep
+
+    async def complete(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
+    ) -> LLMResponse:
+        tokens = estimate_tokens(messages) + (max_tokens or self._default_max_tokens)
+        await self._reserve(tokens)
+        return await self._inner.complete(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_schema=response_schema,
+            tools=tools,
+        )
+
+    async def _reserve(self, tokens: int) -> None:
+        requests = [
+            RateLimitRequest(f"model:{self._key}:rpm", self._rpm),
+            RateLimitRequest(f"model:{self._key}:tpm", self._tpm, tokens),
+        ]
+        started = self._clock()
+        while True:
+            try:
+                decision = await self._limiter.acquire(requests)
+            except RateLimiterUnavailableError:
+                logger.warning("Cuota compartida no disponible (%s): fail-open.", self._key)
+                return
+            if decision.allowed:
+                return
+            waited = self._clock() - started
+            left = remaining(clock=self._clock)
+            if (self._max_wait is not None and waited + decision.retry_after > self._max_wait) or (
+                left is not None and decision.retry_after > left
+            ):
+                raise LLMOverloadedError(
+                    f"Cuota compartida agotada ({decision.limited_by}).",
+                    retry_after=decision.retry_after,
+                )
+            await self._sleep(decision.retry_after * random.uniform(1.0, 1.1))
 
 
 class ObservedLLM:

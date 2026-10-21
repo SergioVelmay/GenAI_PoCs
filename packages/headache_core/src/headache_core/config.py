@@ -83,6 +83,28 @@ class RabbitMQSettings(BaseModel):
         return f"amqp://{self.user}:{password}@{self.host}:{self.port}/"
 
 
+class ScaleRedisSettings(BaseModel):
+    """Redis de la fase 10 (rate limiting y cach? sem?ntica), distinto del de Langfuse."""
+
+    host: str = "127.0.0.1"
+    port: int = 6380
+    db: int = 0
+    password: SecretStr = SecretStr("")
+    timeout_seconds: float = 0.25
+    max_connections: int = 64
+
+
+class RateLimitSettings(BaseModel):
+    # memory: por proceso (tests y una r?plica). redis: compartido por todas las r?plicas.
+    backend: Literal["memory", "redis"] = "memory"
+    # Hash tag: todas las claves en el mismo slot de un Redis en cl?ster (scripts multiclave).
+    key_prefix: str = "{headache-rl}"
+    # Peticiones por minuto y usuario seg?n el plan (r?faga = el mismo n?mero).
+    anonymous_per_minute: int = 5
+    public_per_minute: int = 20
+    internal_per_minute: int = 120
+
+
 class LangfuseSettings(BaseModel):
     host: str = "http://127.0.0.1:3000"
     public_key: str = ""
@@ -277,6 +299,8 @@ class Settings(BaseSettings):
     content_safety: ContentSafetySettings = ContentSafetySettings()
     bedrock_guardrail: BedrockGuardrailSettings = BedrockGuardrailSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
+    scale_redis: ScaleRedisSettings = ScaleRedisSettings()
+    rate_limit: RateLimitSettings = RateLimitSettings()
 
     def provider_chain(self) -> list[LLMProvider]:
         """Proveedor principal seguido del de respaldo (si lo hay)."""

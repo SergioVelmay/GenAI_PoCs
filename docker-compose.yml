@@ -106,6 +106,32 @@ services:
       ACCEPT_EULA: ${SERVICEBUS_ACCEPT_EULA:-N}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
 
+  # ---------- Escala (fase 10): rate limiting y cach? sem?ntica ----------
+  # Redis 8 propio (el de Langfuse es suyo). Sin persistencia: todo lo que guarda caduca.
+  redis-scale:
+    image: redis:8
+    profiles: [scale]
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --requirepass
+      - ${SCALE_REDIS__PASSWORD}
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-lru
+    ports:
+      - "127.0.0.1:${SCALE_REDIS__PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${SCALE_REDIS__PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
   # ---------- Servidores MCP (fase 6): una imagen, tres contenedores ----------
   mcp-catalog: &mcp
     build:
