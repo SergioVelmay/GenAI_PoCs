@@ -66,6 +66,21 @@ async def test_gcra_allows_the_burst_then_denies_with_retry_after() -> None:
     assert decisions[3].limited_by == "user_public"
 
 
+ROUNDS_UP = 131022.87111697234
+
+
+@pytest.mark.parametrize("now", [ROUNDS_UP, 1000.0])
+async def test_gcra_first_request_is_never_denied_by_float_rounding(now: float) -> None:
+    # Regresión (fase 11.4, CI): con 1 por minuto, (ahora + 60) - 60 puede quedar por encima de
+    # `ahora` en coma flotante, y la primera petición de un cubo vacío salía rechazada.
+    assert (ROUNDS_UP + 60.0) - 60.0 > ROUNDS_UP  # El caso existe de verdad.
+    limiter = InMemoryRateLimiter(clock=lambda: now)
+    request = [RateLimitRequest("user:u1", RateLimitRule("one", 1, 60.0))]
+
+    assert (await limiter.acquire(request)).allowed
+    assert not (await limiter.acquire(request)).allowed
+
+
 async def test_gcra_refills_continuously_not_in_fixed_windows() -> None:
     time = FakeTime()
     limiter = InMemoryRateLimiter(clock=time.clock)

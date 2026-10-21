@@ -50,7 +50,8 @@ for i, key in ipairs(KEYS) do
   if stored then tat = math.max(tonumber(stored), now) end
   local new_tat = tat + cost * interval
   local allow_at = new_tat - period
-  if allow_at > now then
+  -- 1 µs de tolerancia: el redondeo de (now + T) - P no debe rechazar un cubo vacío.
+  if allow_at > now + 0.000001 then
     if denied == 0 then denied = i end
     retry = math.max(retry, allow_at - now)
   else

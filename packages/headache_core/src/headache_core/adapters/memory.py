@@ -614,6 +614,9 @@ class InMemoryCaseStore:
         return sorted(found, key=lambda r: r.created_at)[:limit]
 
 
+GCRA_TOLERANCE = 1e-6
+
+
 class InMemoryRateLimiter:
     """GCRA (*Generic Cell Rate Algorithm*) en memoria: misma semántica que el script Lua de
     `RedisRateLimiter`, pero por proceso. Sirve para tests y como plan B si Redis cae.
@@ -639,7 +642,9 @@ class InMemoryRateLimiter:
             cost = min(request.cost, rule.limit)
             new_tat = max(self._tat.get(request.key, now), now) + cost * interval
             allow_at = new_tat - rule.period_seconds
-            if allow_at > now:
+            # Tolerancia de 1 µs: con coma flotante, (ahora + T) - P puede quedar una millonésima
+            # por encima de `ahora` y rechazar la primera petición de un cubo vacío.
+            if allow_at > now + GCRA_TOLERANCE:
                 limited_by = limited_by or rule.name
                 retry_after = max(retry_after, allow_at - now)
             else:
