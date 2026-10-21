@@ -1,5 +1,5 @@
 ---
-applyTo: "packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
+applyTo: "infra/local/telemetry/**,scripts/telemetry_demo.py,scripts/build_observability.py,packages/headache_core/src/headache_core/adapters/prometheus.py,packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
 description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, logs correlacionados y sin PII."
 ---
 
@@ -35,6 +35,14 @@ description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, 
 - Un stream SSE roto tras el 200 cuenta en `headache.stream.errors`. El TTFT del edge se registra al final, con la caché como atributo.
 - SLO, presupuesto de error, *burn rate* multiventana y presupuesto de coste en `domain/slo.py` (Python puro). Las reglas de alerta (11.6) salen de ese catálogo.
 - Tests: `recording_telemetry()` también graba métricas (`recorded.points(nombre)`, `recorded.total(nombre, **atributos)`).
+
+## Stack local (fase 11.5)
+
+- `docker compose --profile telemetry up -d`: collector (`infra/local/telemetry/otel-collector.yaml`, OTLP en 127.0.0.1:4317/4318), Jaeger (:16686), Prometheus (:9095) y Grafana (:3001, dashboard `Headache · GenAI`). Con `OTEL_COLLECTOR_EXTRA=otel-collector.langfuse` y el perfil `observability`, el collector reenvía a Langfuse (Basic Auth con las claves del proyecto; solo spans GenAI y de entrada).
+- Los servicios exportan con `TELEMETRY__EXPORTER=otlp`. Tráfico sintético sin coste: `uv run python scripts/telemetry_demo.py --rounds 3 [--minutes 3]`.
+- El collector borra prompts y respuestas antes de Jaeger (`attributes/no-content`); el contenido capturado solo llega a Langfuse.
+- Prometheus: `translation_strategy: UnderscoreEscapingWithSuffixes` fijado y solo `service.name` y `deployment.environment.name` como etiquetas de recurso (sin id de instancia).
+- El dashboard se genera desde `metrics.CATALOG` (`adapters/prometheus.py`, `scripts/build_observability.py`); no editar el JSON a mano. Un test comprueba que está al día y que cada métrica usada existe.
 
 ## Contenido y PII
 

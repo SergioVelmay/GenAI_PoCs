@@ -11,22 +11,125 @@ CloudWatch (en CloudWatch, cada combinación es una métrica facturada).
 
 Las trazas responden "¿qué pasó en ESTA petición?"; las métricas, "¿cuántas van mal y desde
 cuándo?". Las alertas y los SLO (11.6) se calculan sobre estas métricas, no sobre trazas.
+
+`CATALOG` es la fuente de verdad: el dashboard y las reglas de alerta (11.5 y 11.6) se generan
+a partir de él, así que renombrar una métrica rompe un test y no un panel en silencio.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from decimal import Decimal
+from enum import StrEnum
 
 from headache_core.application.telemetry import genai
 from headache_core.application.telemetry.runtime import get_telemetry
 from headache_core.ports.llm import TokenUsage
-from headache_core.ports.telemetry import Attributes, AttributeValue
+from headache_core.ports.telemetry import (
+    Attributes,
+    AttributeValue,
+    CounterPort,
+    GaugePort,
+    HistogramPort,
+)
 
 # Latencias en segundos: de una caché (ms) a un agente con varias tools (decenas de s).
 LATENCY_BUCKETS = (0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 15, 30, 60, 120)
 # El TTFT es la experiencia del usuario: más resolución por debajo de 2 s.
 TTFT_BUCKETS = (0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10)
+
+
+class InstrumentKind(StrEnum):
+    COUNTER = "counter"
+    HISTOGRAM = "histogram"
+    GAUGE = "gauge"
+
+
+@dataclass(frozen=True, slots=True)
+class Instrument:
+    name: str
+    kind: InstrumentKind
+    unit: str
+    description: str
+    boundaries: tuple[float, ...] | None = None
+
+
+def _counter(name: str, unit: str, description: str) -> Instrument:
+    return Instrument(name, InstrumentKind.COUNTER, unit, description)
+
+
+def _histogram(name: str, description: str, boundaries: tuple[float, ...]) -> Instrument:
+    return Instrument(name, InstrumentKind.HISTOGRAM, "s", description, boundaries)
+
+
+CATALOG: dict[str, Instrument] = {
+    i.name: i
+    for i in (
+        _histogram(
+            "gen_ai.client.operation.duration",
+            "Duración de las llamadas al modelo.",
+            LATENCY_BUCKETS,
+        ),
+        _counter(
+            "gen_ai.client.inference.usage.input_tokens",
+            "{token}",
+            "Tokens de entrada (incluye los cacheados).",
+        ),
+        _counter("gen_ai.client.inference.usage.output_tokens", "{token}", "Tokens de salida."),
+        _counter(
+            "gen_ai.client.inference.usage.cache_read.input_tokens",
+            "{token}",
+            "Tokens de entrada leídos de la caché del proveedor.",
+        ),
+        _counter("headache.llm.cost", "USD", "Coste estimado del modelo."),
+        _histogram(
+            "headache.llm.time_to_first_token",
+            "Tiempo hasta el primer token de una respuesta en streaming.",
+            TTFT_BUCKETS,
+        ),
+        _counter(
+            "headache.llm.rejections", "{request}", "Llamadas al modelo rechazadas en el cliente."
+        ),
+        _histogram("gen_ai.execute_tool.duration", "Duración de las tools.", LATENCY_BUCKETS),
+        _histogram(
+            "gen_ai.invoke_agent.duration", "Duración de un turno de agente.", LATENCY_BUCKETS
+        ),
+        _counter("headache.guardrail.triggers", "{trigger}", "Reglas del harness disparadas."),
+        _counter(
+            "headache.admission.decisions",
+            "{request}",
+            "Decisiones de admisión del edge (admitted, shed, rate_limited).",
+        ),
+        _counter("headache.answers", "{answer}", "Respuestas del asistente."),
+        _histogram(
+            "headache.answer.duration",
+            "Tiempo hasta la respuesta completa en el edge.",
+            LATENCY_BUCKETS,
+        ),
+        _histogram(
+            "headache.answer.time_to_first_chunk",
+            "Tiempo hasta el primer trozo SSE que ve el usuario.",
+            TTFT_BUCKETS,
+        ),
+        _counter("headache.stream.errors", "{stream}", "Streams SSE rotos tras empezar."),
+        _counter(
+            "headache.cache.lookups", "{lookup}", "Consultas a la caché semántica por motivo."
+        ),
+        _counter("messaging.client.sent.messages", "{message}", "Mensajes publicados."),
+        _histogram(
+            "messaging.process.duration",
+            "Duración del procesado de un mensaje (cada entrega).",
+            LATENCY_BUCKETS,
+        ),
+        Instrument(
+            "headache.outbox.backlog",
+            InstrumentKind.GAUGE,
+            "{event}",
+            "Eventos del outbox sin publicar.",
+        ),
+    )
+}
 
 LLM_DURATION = "gen_ai.client.operation.duration"
 LLM_INPUT_TOKENS = "gen_ai.client.inference.usage.input_tokens"
@@ -52,6 +155,23 @@ OUTBOX_BACKLOG = "headache.outbox.backlog"
 NO_AGENT = "none"
 
 
+def counter(name: str) -> CounterPort:
+    spec = CATALOG[name]
+    return get_telemetry().counter(name, unit=spec.unit, description=spec.description)
+
+
+def histogram(name: str) -> HistogramPort:
+    spec = CATALOG[name]
+    return get_telemetry().histogram(
+        name, unit=spec.unit, description=spec.description, boundaries=spec.boundaries
+    )
+
+
+def gauge(name: str) -> GaugePort:
+    spec = CATALOG[name]
+    return get_telemetry().gauge(name, unit=spec.unit, description=spec.description)
+
+
 def _attributes(**values: AttributeValue | None) -> dict[str, AttributeValue]:
     return {key: value for key, value in values.items() if value is not None}
 
@@ -64,49 +184,28 @@ def llm_call(
     cost_usd: Decimal | None = None,
 ) -> None:
     """Una llamada al modelo: duración (con `error.type` si falló), tokens y coste."""
-    telemetry = get_telemetry()
-    telemetry.histogram(
-        LLM_DURATION,
-        unit="s",
-        description="Duración de las llamadas al modelo.",
-        boundaries=LATENCY_BUCKETS,
-    ).record(seconds, attributes)
+    histogram(LLM_DURATION).record(seconds, attributes)
     if usage is not None:
-        tokens = (
-            (LLM_INPUT_TOKENS, usage.input_tokens, "Tokens de entrada (incluye los cacheados)."),
-            (LLM_OUTPUT_TOKENS, usage.output_tokens, "Tokens de salida."),
-            (LLM_CACHE_READ_TOKENS, usage.cached_input_tokens, "Tokens leídos de la caché."),
-        )
-        for name, amount, description in tokens:
-            telemetry.counter(name, unit="{token}", description=description).add(amount, attributes)
+        counter(LLM_INPUT_TOKENS).add(usage.input_tokens, attributes)
+        counter(LLM_OUTPUT_TOKENS).add(usage.output_tokens, attributes)
+        counter(LLM_CACHE_READ_TOKENS).add(usage.cached_input_tokens, attributes)
     if cost_usd is not None:
-        telemetry.counter(LLM_COST, unit="USD", description="Coste estimado del modelo.").add(
-            float(cost_usd), attributes
-        )
+        counter(LLM_COST).add(float(cost_usd), attributes)
 
 
 def llm_first_token(seconds: float, attributes: Attributes) -> None:
-    get_telemetry().histogram(
-        LLM_TTFT,
-        unit="s",
-        description="Tiempo hasta el primer token de una respuesta en streaming.",
-        boundaries=TTFT_BUCKETS,
-    ).record(seconds, attributes)
+    histogram(LLM_TTFT).record(seconds, attributes)
 
 
 def llm_rejected(*, deployment: str, reason: str) -> None:
     """El gateway rechazó sin llamar al proveedor (circuito abierto, sin hueco, sin cuota)."""
-    get_telemetry().counter(
-        LLM_REJECTIONS,
-        unit="{request}",
-        description="Llamadas al modelo rechazadas en el cliente.",
-    ).add(1, {genai.HEADACHE_DEPLOYMENT: deployment, "headache.llm.reject_reason": reason})
+    counter(LLM_REJECTIONS).add(
+        1, {genai.HEADACHE_DEPLOYMENT: deployment, "headache.llm.reject_reason": reason}
+    )
 
 
 def tool_call(*, tool: str, seconds: float, error: str | None, agent: str | None) -> None:
-    get_telemetry().histogram(
-        TOOL_DURATION, unit="s", description="Duración de las tools.", boundaries=LATENCY_BUCKETS
-    ).record(
+    histogram(TOOL_DURATION).record(
         seconds,
         _attributes(
             **{genai.TOOL_NAME: tool, genai.ERROR_TYPE: error, genai.AGENT_NAME: agent or NO_AGENT}
@@ -117,26 +216,17 @@ def tool_call(*, tool: str, seconds: float, error: str | None, agent: str | None
 def agent_turn(
     *, agent: str, seconds: float, stop_reason: str, guardrails: tuple[str, ...]
 ) -> None:
-    telemetry = get_telemetry()
-    telemetry.histogram(
-        AGENT_DURATION,
-        unit="s",
-        description="Duración de un turno de agente.",
-        boundaries=LATENCY_BUCKETS,
-    ).record(seconds, {genai.AGENT_NAME: agent, genai.HEADACHE_STOP_REASON: stop_reason})
-    triggers = telemetry.counter(
-        GUARDRAIL_TRIGGERS, unit="{trigger}", description="Reglas del harness disparadas."
+    histogram(AGENT_DURATION).record(
+        seconds, {genai.AGENT_NAME: agent, genai.HEADACHE_STOP_REASON: stop_reason}
     )
     for code in guardrails:
-        triggers.add(1, {genai.AGENT_NAME: agent, "headache.guardrail.code": code})
+        counter(GUARDRAIL_TRIGGERS).add(
+            1, {genai.AGENT_NAME: agent, "headache.guardrail.code": code}
+        )
 
 
 def admission(*, route: str, plan: str, outcome: str) -> None:
-    get_telemetry().counter(
-        ADMISSION_DECISIONS,
-        unit="{request}",
-        description="Decisiones de admisión del edge (admitted, shed, rate_limited).",
-    ).add(
+    counter(ADMISSION_DECISIONS).add(
         1, {"headache.route": route, genai.HEADACHE_PLAN: plan, genai.HEADACHE_ADMISSION: outcome}
     )
 
@@ -144,53 +234,31 @@ def admission(*, route: str, plan: str, outcome: str) -> None:
 def answer(*, seconds: float, attributes: Mapping[str, AttributeValue]) -> None:
     """Una respuesta del asistente entregada: base de la tasa de aciertos de caché, de la
     degradación y de la latencia de punta a punta por plan."""
-    telemetry = get_telemetry()
-    telemetry.counter(ANSWERS, unit="{answer}", description="Respuestas del asistente.").add(
-        1, attributes
-    )
-    telemetry.histogram(
-        ANSWER_DURATION,
-        unit="s",
-        description="Tiempo hasta la respuesta completa en el edge.",
-        boundaries=LATENCY_BUCKETS,
-    ).record(seconds, attributes)
+    counter(ANSWERS).add(1, attributes)
+    histogram(ANSWER_DURATION).record(seconds, attributes)
 
 
 def answer_first_chunk(seconds: float, attributes: Attributes) -> None:
-    get_telemetry().histogram(
-        ANSWER_TTFT,
-        unit="s",
-        description="Tiempo hasta el primer trozo SSE que ve el usuario.",
-        boundaries=TTFT_BUCKETS,
-    ).record(seconds, attributes)
+    histogram(ANSWER_TTFT).record(seconds, attributes)
 
 
 def stream_error(reason: str) -> None:
     """Un SSE que se rompe con el 200 ya enviado: no aparece como 5xx en las métricas HTTP."""
-    get_telemetry().counter(
-        STREAM_ERRORS, unit="{stream}", description="Streams SSE rotos tras empezar."
-    ).add(1, {genai.ERROR_TYPE: reason})
+    counter(STREAM_ERRORS).add(1, {genai.ERROR_TYPE: reason})
 
 
 def cache_lookup(reason: str) -> None:
-    get_telemetry().counter(
-        CACHE_LOOKUPS, unit="{lookup}", description="Consultas a la caché semántica por motivo."
-    ).add(1, {genai.HEADACHE_CACHE_REASON: reason})
+    counter(CACHE_LOOKUPS).add(1, {genai.HEADACHE_CACHE_REASON: reason})
 
 
 def message_sent(*, system: str, destination: str) -> None:
-    get_telemetry().counter(
-        MESSAGES_SENT, unit="{message}", description="Mensajes publicados."
-    ).add(1, {"messaging.system": system, "messaging.destination.name": destination})
+    counter(MESSAGES_SENT).add(
+        1, {"messaging.system": system, "messaging.destination.name": destination}
+    )
 
 
 def message_processed(*, system: str, destination: str, seconds: float, error: str | None) -> None:
-    get_telemetry().histogram(
-        MESSAGE_PROCESS_DURATION,
-        unit="s",
-        description="Duración del procesado de un mensaje (cada entrega).",
-        boundaries=LATENCY_BUCKETS,
-    ).record(
+    histogram(MESSAGE_PROCESS_DURATION).record(
         seconds,
         _attributes(
             **{
@@ -203,6 +271,4 @@ def message_processed(*, system: str, destination: str, seconds: float, error: s
 
 
 def outbox_backlog(count: int, *, topic_prefix: str) -> None:
-    get_telemetry().gauge(
-        OUTBOX_BACKLOG, unit="{event}", description="Eventos del outbox sin publicar."
-    ).set(count, {"headache.outbox.topic_prefix": topic_prefix or "*"})
+    gauge(OUTBOX_BACKLOG).set(count, {"headache.outbox.topic_prefix": topic_prefix or "*"})

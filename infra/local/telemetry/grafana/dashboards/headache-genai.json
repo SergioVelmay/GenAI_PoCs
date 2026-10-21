@@ -1,0 +1,536 @@
+{
+  "uid": "headache-genai",
+  "title": "Headache · GenAI",
+  "tags": [
+    "headache",
+    "genai",
+    "fase-11"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "schemaVersion": 41,
+  "editable": false,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Coste",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 1
+    },
+    {
+      "type": "timeseries",
+      "title": "Coste por agente (USD/h)",
+      "description": "Coste estimado con la tabla de precios; `none` = asistente del edge.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "3600 * sum by (gen_ai_agent_name)(rate(headache_llm_cost_USD_total[$__rate_interval]))",
+          "legendFormat": "{{gen_ai_agent_name}}"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "type": "timeseries",
+      "title": "Coste por modelo (USD/h)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "3600 * sum by (gen_ai_response_model)(rate(headache_llm_cost_USD_total[$__rate_interval]))",
+          "legendFormat": "{{gen_ai_response_model}}"
+        }
+      ],
+      "id": 3
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens cacheados (prompt caching)",
+      "description": "Proporción de tokens de entrada servidos desde la caché del proveedor.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(gen_ai_client_inference_usage_cache_read_input_tokens_total[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(gen_ai_client_inference_usage_input_tokens_total[$__rate_interval])), 1e-9)",
+          "legendFormat": "cacheados"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "type": "row",
+      "title": "Latencia",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "TTFT p50 / p95 por caché",
+      "description": "Primer trozo que ve el usuario. SLO: 95 % por debajo de 1,5 s sin caché.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, headache_cache_outcome)(rate(headache_answer_time_to_first_chunk_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50 {{headache_cache_outcome}}"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, headache_cache_outcome)(rate(headache_answer_time_to_first_chunk_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 {{headache_cache_outcome}}"
+        }
+      ],
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Modelo p95 por despliegue",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, headache_llm_deployment)(rate(gen_ai_client_operation_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{headache_llm_deployment}}"
+        }
+      ],
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Turno de agente p95",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_agent_name)(rate(gen_ai_invoke_agent_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{gen_ai_agent_name}}"
+        }
+      ],
+      "id": 8
+    },
+    {
+      "type": "row",
+      "title": "Errores y capacidad",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Errores del modelo por tipo (/s)",
+      "description": "429 del proveedor, cuota agotada en el cliente, circuito abierto...",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (error_type)(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{error_type}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (headache_llm_reject_reason)(rate(headache_llm_rejections_total[$__rate_interval]))",
+          "legendFormat": "rechazo {{headache_llm_reject_reason}}"
+        }
+      ],
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Admisión por plan (/s)",
+      "description": "admitted, shed (503 por saturación) y rate_limited (429) por plan.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 19,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (headache_caller_plan, headache_admission_outcome)(rate(headache_admission_decisions_total[$__rate_interval]))",
+          "legendFormat": "{{headache_caller_plan}} {{headache_admission_outcome}}"
+        }
+      ],
+      "id": 11
+    },
+    {
+      "type": "timeseries",
+      "title": "Colas: procesado p95 y atraso del outbox",
+      "description": "Un atraso que crece es un relay caído o un broker rechazando.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 19,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, messaging_destination_name)(rate(messaging_process_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 {{messaging_destination_name}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(headache_outbox_backlog)",
+          "legendFormat": "atraso outbox"
+        }
+      ],
+      "id": 12
+    },
+    {
+      "type": "row",
+      "title": "Calidad",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 13
+    },
+    {
+      "type": "timeseries",
+      "title": "Aciertos de la caché semántica",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(headache_answers_total{headache_cache_outcome=~\"hit|coalesced\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[$__rate_interval])), 1e-9)",
+          "legendFormat": "aciertos"
+        }
+      ],
+      "id": 14
+    },
+    {
+      "type": "timeseries",
+      "title": "Respuestas degradadas y abstenciones",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(headache_answers_total{headache_answer_degraded=\"true\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[$__rate_interval])), 1e-9)",
+          "legendFormat": "degradadas"
+        },
+        {
+          "refId": "B",
+          "expr": "(sum(rate(headache_answers_total{headache_answer_abstained=\"true\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[$__rate_interval])), 1e-9)",
+          "legendFormat": "sin evidencia"
+        },
+        {
+          "refId": "C",
+          "expr": "(sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!=\"hit\",le=\"1.5\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!=\"hit\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "TTFT < 1,5 s (SLO 95 %)"
+        }
+      ],
+      "id": 15
+    },
+    {
+      "type": "timeseries",
+      "title": "Reglas del harness disparadas (/s)",
+      "description": "Un pico de prompt_injection o pii_redacted es un incidente que mirar.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (headache_guardrail_code)(rate(headache_guardrail_triggers_total[$__rate_interval]))",
+          "legendFormat": "{{headache_guardrail_code}}"
+        }
+      ],
+      "id": 16
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Jaeger",
+      "type": "link",
+      "url": "http://127.0.0.1:16686",
+      "targetBlank": true
+    }
+  ]
+}

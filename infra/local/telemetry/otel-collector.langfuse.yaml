@@ -1,0 +1,40 @@
+# Reenvío a Langfuse (perfil observability + telemetry). Se fusiona sobre otel-collector.yaml:
+#
+#   docker compose --profile observability --profile telemetry up -d
+#   (con OTEL_COLLECTOR_EXTRA=otel-collector.langfuse en .env)
+#
+# Langfuse recibe OTLP/HTTP en /api/public/otel con Basic Auth (clave pública:secreta). Solo
+# se le mandan los spans de GenAI y los de entrada (petición, mensaje): el resto (HTTP
+# interno, outbox, envío a la cola) es ruido para quien revisa calidad, prompts y coste.
+
+extensions:
+  basicauth/langfuse:
+    client_auth:
+      username: ${env:LANGFUSE__PUBLIC_KEY}
+      password: ${env:LANGFUSE__SECRET_KEY}
+
+processors:
+  filter/genai:
+    error_mode: ignore
+    traces:
+      span:
+        - >-
+          attributes["gen_ai.operation.name"] == nil
+          and kind != SPAN_KIND_SERVER and kind != SPAN_KIND_CONSUMER
+
+exporters:
+  otlp_http/langfuse:
+    endpoint: http://langfuse-web:3000/api/public/otel
+    auth:
+      authenticator: basicauth/langfuse
+    headers:
+      # Ingesta en tiempo real en el modelo de datos v4 (si no, hasta 10 min de retraso).
+      x-langfuse-ingestion-version: "4"
+
+service:
+  extensions: [health_check, basicauth/langfuse]
+  pipelines:
+    traces/langfuse:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/genai, batch]
+      exporters: [otlp_http/langfuse]

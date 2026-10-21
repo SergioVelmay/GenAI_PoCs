@@ -3,6 +3,7 @@
 #                Emuladores de colas: --profile sqs (ElasticMQ) | --profile servicebus
 #                Servidores MCP:     --profile mcp (necesitan ticketing_api en el host :8000)
 #                Especialistas A2A:  --profile agents (ídem; coste al recibir casos)
+#                Telemetría:         --profile telemetry (collector, Jaeger, Prometheus, Grafana)
 name: genai-pocs
 
 x-langfuse-env: &langfuse-env
@@ -341,9 +342,74 @@ services:
       retries: 10
       start_period: 2s
 
+  # ---------- Telemetría (fase 11.5): collector + Jaeger + Prometheus + Grafana ----------
+  # Los servicios exportan con TELEMETRY__EXPORTER=otlp a 127.0.0.1:4318. Con
+  # OTEL_COLLECTOR_EXTRA=otel-collector.langfuse (y el perfil observability) reenvía a Langfuse.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.163.1
+    profiles: [telemetry]
+    restart: unless-stopped
+    command:
+      - --config=/etc/otelcol/otel-collector.yaml
+      - --config=/etc/otelcol/${OTEL_COLLECTOR_EXTRA:-otel-collector.none}.yaml
+    environment:
+      LANGFUSE__PUBLIC_KEY: ${LANGFUSE__PUBLIC_KEY:-}
+      LANGFUSE__SECRET_KEY: ${LANGFUSE__SECRET_KEY:-}
+    volumes:
+      - ./infra/local/telemetry:/etc/otelcol:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"
+    depends_on: [jaeger]
+
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    profiles: [telemetry]
+    restart: unless-stopped
+    # Almacenamiento en memoria: las trazas se pierden al parar (suficiente en local).
+    ports:
+      - "127.0.0.1:16686:16686"
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    profiles: [telemetry]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./infra/local/telemetry/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/local/telemetry/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    ports:
+      # 9090 ya lo usa MinIO (perfil observability).
+      - "127.0.0.1:9095:9090"
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    profiles: [telemetry]
+    restart: unless-stopped
+    environment:
+      # Solo local: entrada anónima de solo lectura y admin para editar.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-headachelocal}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/headache-genai.json
+    volumes:
+      - ./infra/local/telemetry/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/local/telemetry/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      # 3000 ya lo usa Langfuse.
+      - "127.0.0.1:3001:3000"
+    depends_on: [prometheus, jaeger]
+
 volumes:
   postgres-data:
   rabbitmq-data:
   clickhouse-data:
   clickhouse-logs:
   minio-data:
+  prometheus-data:

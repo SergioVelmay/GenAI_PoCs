@@ -1,0 +1,3 @@
+# Sin extras: el collector solo exporta a Jaeger y Prometheus (OTEL_COLLECTOR_EXTRA vacío).
+# Existe porque el contenedor siempre recibe un segundo --config.
+extensions: {}
