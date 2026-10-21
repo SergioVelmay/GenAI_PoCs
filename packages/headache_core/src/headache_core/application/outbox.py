@@ -17,7 +17,7 @@ import asyncio
 import contextlib
 import logging
 
-from headache_core.application.telemetry import get_telemetry
+from headache_core.application.telemetry import get_telemetry, metrics
 from headache_core.ports import MessageBusPort
 from headache_core.ports.outbox import OutboxStore
 
@@ -89,11 +89,32 @@ class OutboxRelay:
                 break
         return total
 
-    async def run(self, stop: asyncio.Event, *, idle_seconds: float = 0.5) -> None:
-        """Bucle del relay: sin trabajo, espera `idle_seconds` (o hasta que se pida parar)."""
+    async def report_backlog(self) -> int:
+        """Mide el atraso y lo publica como métrica (la base de la alerta de cola atascada)."""
+        backlog = await self._store.backlog(topic_prefix=self._prefix)
+        metrics.outbox_backlog(backlog, topic_prefix=self._prefix)
+        return backlog
+
+    async def run(
+        self,
+        stop: asyncio.Event,
+        *,
+        idle_seconds: float = 0.5,
+        backlog_every_seconds: float = 15.0,
+    ) -> None:
+        """Bucle del relay: sin trabajo, espera `idle_seconds` (o hasta que se pida parar).
+
+        El atraso se mide cada `backlog_every_seconds`, no en cada vuelta: es un `COUNT` sobre
+        la tabla y el relay da varias vueltas por segundo.
+        """
+        loop = asyncio.get_running_loop()
+        next_report = loop.time()
         while not stop.is_set():
             try:
                 published = await self.run_once()
+                if loop.time() >= next_report:
+                    await self.report_backlog()
+                    next_report = loop.time() + backlog_every_seconds
             except Exception:
                 logger.exception("Fallo del relay del outbox; se reintenta")
                 published = 0

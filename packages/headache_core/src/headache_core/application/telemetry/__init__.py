@@ -6,6 +6,8 @@ from headache_core.application.telemetry.redaction import Redactor, redact_text
 from headache_core.application.telemetry.runtime import (
     NullSpan,
     NullTelemetry,
+    agent_scope,
+    current_agent,
     get_telemetry,
     set_telemetry,
 )
@@ -16,7 +18,9 @@ __all__ = [
     "NullTelemetry",
     "Redactor",
     "TelemetryLLMTracer",
+    "agent_scope",
     "configure_logging",
+    "current_agent",
     "get_telemetry",
     "redact_text",
     "set_telemetry",

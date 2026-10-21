@@ -9,10 +9,14 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
+from contextvars import ContextVar
 
 from headache_core.ports.telemetry import (
     Attributes,
     AttributeValue,
+    CounterPort,
+    GaugePort,
+    HistogramPort,
     SpanKind,
     SpanPort,
     TelemetryPort,
@@ -47,6 +51,20 @@ class NullSpan:
 _NULL_SPAN = NullSpan()
 
 
+class NullInstrument:
+    def add(self, amount: float, attributes: Attributes | None = None) -> None:
+        pass
+
+    def record(self, value: float, attributes: Attributes | None = None) -> None:
+        pass
+
+    def set(self, value: float, attributes: Attributes | None = None) -> None:
+        pass
+
+
+_NULL_INSTRUMENT = NullInstrument()
+
+
 class NullTelemetry:
     def span(
         self,
@@ -61,6 +79,22 @@ class NullTelemetry:
 
     def inject(self) -> dict[str, str]:
         return {}
+
+    def counter(self, name: str, *, unit: str, description: str) -> CounterPort:
+        return _NULL_INSTRUMENT
+
+    def histogram(
+        self,
+        name: str,
+        *,
+        unit: str,
+        description: str,
+        boundaries: Sequence[float] | None = None,
+    ) -> HistogramPort:
+        return _NULL_INSTRUMENT
+
+    def gauge(self, name: str, *, unit: str, description: str) -> GaugePort:
+        return _NULL_INSTRUMENT
 
     def start_span(
         self,
@@ -87,6 +121,23 @@ def _null_span() -> Iterator[SpanPort]:
 
 
 _telemetry: TelemetryPort = NullTelemetry()
+
+# Agente que está ejecutando (lo fija `TracedAgent`): las métricas de modelo y tools lo usan
+# para repartir el coste por agente sin pasarlo por todas las capas del gateway.
+_CURRENT_AGENT: ContextVar[str | None] = ContextVar("current_agent", default=None)
+
+
+def current_agent() -> str | None:
+    return _CURRENT_AGENT.get()
+
+
+@contextmanager
+def agent_scope(name: str) -> Iterator[None]:
+    token = _CURRENT_AGENT.set(name)
+    try:
+        yield
+    finally:
+        _CURRENT_AGENT.reset(token)
 
 
 def set_telemetry(telemetry: TelemetryPort) -> None:

@@ -58,6 +58,24 @@ class SpanPort(Protocol):
     def end(self) -> None: ...
 
 
+class CounterPort(Protocol):
+    """Solo sube (peticiones, tokens, dólares). En Prometheus, `rate()` sobre él."""
+
+    def add(self, amount: float, attributes: Attributes | None = None) -> None: ...
+
+
+class HistogramPort(Protocol):
+    """Distribución (latencias): permite percentiles y contar lo que supera un umbral."""
+
+    def record(self, value: float, attributes: Attributes | None = None) -> None: ...
+
+
+class GaugePort(Protocol):
+    """El último valor observado (atraso del outbox, longitud de cola)."""
+
+    def set(self, value: float, attributes: Attributes | None = None) -> None: ...
+
+
 class TelemetryPort(Protocol):
     def span(
         self,
@@ -94,6 +112,21 @@ class TelemetryPort(Protocol):
     def inject(self) -> dict[str, str]:
         """El contexto del span actual, listo para viajar (vacío si no hay traza)."""
         ...
+
+    # Métricas (fase 11.4). Pedir el mismo nombre devuelve el mismo instrumento. Los
+    # atributos tienen que ser de cardinalidad baja: cada combinación es una serie temporal.
+    def counter(self, name: str, *, unit: str, description: str) -> CounterPort: ...
+
+    def histogram(
+        self,
+        name: str,
+        *,
+        unit: str,
+        description: str,
+        boundaries: Sequence[float] | None = None,
+    ) -> HistogramPort: ...
+
+    def gauge(self, name: str, *, unit: str, description: str) -> GaugePort: ...
 
     def current_span(self) -> SpanPort:
         """El span activo, para enriquecerlo (plan del usuario, resultado de la caché...).

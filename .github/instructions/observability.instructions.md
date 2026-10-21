@@ -1,5 +1,5 @@
 ---
-applyTo: "packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
+applyTo: "packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
 description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, logs correlacionados y sin PII."
 ---
 
@@ -24,6 +24,17 @@ description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, 
 - A2A: `RemoteSpecialist` abre `invoke_agent {especialista}` (CLIENT) e inyecta el contexto con un hook de httpx; el especialista abre el span SERVER con `TraceContextMiddleware`. Sin la instrumentación ASGI genérica (duplicaría el SERVER).
 - `approval_required` no marca el span de la tool como error (`PENDING_OUTCOMES`): queda en `headache.tool.outcome`.
 - Probar la propagación en contexto vacío (`asyncio.create_task(..., context=contextvars.Context())`): si no, el contexto heredado de asyncio oculta que no viaja.
+
+## Métricas y SLO (fase 11.4)
+
+- Instrumentos por el puerto (`counter`, `histogram`, `gauge`), pero los nombres, unidades, cubos y atributos solo en `application/telemetry/metrics.py` (funciones `llm_call`, `tool_call`, `agent_turn`, `admission`, `answer`, `message_processed`, `outbox_backlog`...). Nadie llama a `telemetry.counter("...")` suelto.
+- Histogramas de latencia en segundos con `LATENCY_BUCKETS` / `TTFT_BUCKETS` (los cubos por defecto de OTel son de ms).
+- Cardinalidad baja: modelo, nivel, plan, ruta, agente, tool, resultado, `error.type`. Nunca IDs (caso, usuario, hilo). Tool desconocida → `unknown`. Booleanos como texto (`"true"`/`"false"`).
+- El agente activo lo fija `TracedAgent` con `agent_scope` (contextvar): modelo y tools lo leen con `current_agent()` (coste por agente sin tocar el gateway). Sin agente: `none`.
+- Rechazos del gateway sin llamar al proveedor (`headache.llm.rejections`, motivo `circuit_open`/`bulkhead`/`quota`/`shared_quota`): las capas reciben `name=` del despliegue.
+- Un stream SSE roto tras el 200 cuenta en `headache.stream.errors`. El TTFT del edge se registra al final, con la caché como atributo.
+- SLO, presupuesto de error, *burn rate* multiventana y presupuesto de coste en `domain/slo.py` (Python puro). Las reglas de alerta (11.6) salen de ese catálogo.
+- Tests: `recording_telemetry()` también graba métricas (`recorded.points(nombre)`, `recorded.total(nombre, **atributos)`).
 
 ## Contenido y PII
 

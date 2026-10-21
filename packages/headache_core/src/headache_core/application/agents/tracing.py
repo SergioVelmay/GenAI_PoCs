@@ -7,8 +7,10 @@ los spans `chat` del gateway y `execute_tool` del ejecutor, use el framework que
 
 from __future__ import annotations
 
+import time
+
 from headache_core.application.agents.runtime import AgentRuntime, AgentTurn
-from headache_core.application.telemetry import genai, get_telemetry
+from headache_core.application.telemetry import agent_scope, genai, get_telemetry, metrics
 from headache_core.application.tools.registry import ToolContext
 from headache_core.ports.telemetry import AttributeValue
 
@@ -40,11 +42,21 @@ class TracedAgent:
         prompt = telemetry.content(message)
         if prompt is not None:
             attributes[genai.LANGFUSE_INPUT] = prompt
-        with telemetry.span(
-            genai.span_name(genai.GenAIOperation.INVOKE_AGENT, self._name),
-            attributes=attributes,
-        ) as span:
+        started = time.perf_counter()
+        with (
+            telemetry.span(
+                genai.span_name(genai.GenAIOperation.INVOKE_AGENT, self._name),
+                attributes=attributes,
+            ) as span,
+            agent_scope(self._name),
+        ):
             turn = await self._inner.respond(thread_id, message, context)
+            metrics.agent_turn(
+                agent=self._name,
+                seconds=time.perf_counter() - started,
+                stop_reason=turn.stop_reason,
+                guardrails=turn.guardrails,
+            )
             span.set_attributes(
                 {
                     genai.HEADACHE_STOP_REASON: turn.stop_reason,

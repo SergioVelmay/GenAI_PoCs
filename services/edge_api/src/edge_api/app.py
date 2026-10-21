@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated
@@ -54,7 +55,7 @@ from headache_core.application.case_intake import InvalidIdempotencyKeyError
 from headache_core.application.llm import time_budget
 from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
-from headache_core.application.telemetry import genai, get_telemetry
+from headache_core.application.telemetry import genai, get_telemetry, metrics
 from headache_core.config import LLMProvider, Settings
 from headache_core.domain.admission import Caller, ClientPlan
 from headache_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
@@ -293,7 +294,7 @@ def create_app(
     setup_observability(settings, service_name="edge_api")
     controller = controller or build_controller(settings, edge)
     # Mismo rate limit por usuario, capacidad separada: un bulkhead por ruta (fase 10.7).
-    cases_controller = cases_controller or controller.bulkhead(edge.cases_capacity)
+    cases_controller = cases_controller or controller.bulkhead(edge.cases_capacity, route="cases")
     resolve = resolver or build_resolver(edge)
     close_cases: Callable[[], Awaitable[None]] | None = None
     if cases is None:
@@ -362,13 +363,14 @@ def create_app(
 
     @app.post("/ask", response_model=AskOut, tags=["asistente"])
     async def ask(body: AskIn, request: Request, response: Response, who: CurrentCaller) -> AskOut:
+        started = time.perf_counter()
         async with controller.admit(who) as admission:
             response.headers["RateLimit-Limit"] = str(int(admission.rule.limit))
             response.headers["RateLimit-Remaining"] = str(admission.remaining)
             backend: Assistant = request.app.state.assistant
             with time_budget(edge.request_budget_seconds):
                 answer = await backend.answer(body.question, who)
-        _annotate(answer)
+        _annotate(answer, who, route="/ask", started=started)
         response.headers["X-Cache"] = answer.cache.upper()
         return AskOut.from_answer(answer)
 
@@ -379,6 +381,7 @@ def create_app(
         responses={200: {"content": {"text/event-stream": {}}}},
     )
     async def ask_stream(body: AskIn, request: Request, who: CurrentCaller) -> StreamingResponse:
+        started = time.perf_counter()
         stack = AsyncExitStack()
         # 422, 401, 429 y 503 salen aquí, antes de abrir el stream.
         admission = await stack.enter_async_context(controller.admit(who))
@@ -396,6 +399,7 @@ def create_app(
             raise
         # TTFT visto desde el edge: la distancia entre el inicio del span y este evento.
         get_telemetry().current_span().add_event(genai.EVENT_FIRST_CHUNK)
+        first_chunk = time.perf_counter() - started
         headers = {
             "RateLimit-Limit": str(int(admission.rule.limit)),
             "RateLimit-Remaining": str(admission.remaining),
@@ -405,7 +409,10 @@ def create_app(
         }
 
         def done(answer: Answer) -> AskOut:
-            _annotate(answer)
+            # El TTFT se registra al final porque hasta entonces no se sabe si salió de la
+            # caché (8 ms) o del modelo (~0,8 s): mezclarlos haría inútil el percentil.
+            attributes = _annotate(answer, who, route="/ask/stream", started=started)
+            metrics.answer_first_chunk(first_chunk, attributes)
             return AskOut.from_answer(answer)
 
         return StreamingResponse(
@@ -417,7 +424,9 @@ def create_app(
     return app
 
 
-def _annotate(answer: Answer) -> None:
+def _annotate(answer: Answer, who: Caller, *, route: str, started: float) -> dict[str, str]:
+    """Anota el span de la petición y registra la respuesta en las métricas. Devuelve los
+    atributos de métrica (todos de cardinalidad baja)."""
     get_telemetry().current_span().set_attributes(
         {
             genai.HEADACHE_ANSWER_MODE: answer.mode,
@@ -426,6 +435,17 @@ def _annotate(answer: Answer) -> None:
             genai.HEADACHE_CACHE: answer.cache,
         }
     )
+    attributes = {
+        "headache.route": route,
+        genai.HEADACHE_PLAN: who.plan.value,
+        genai.HEADACHE_CACHE: answer.cache,
+        genai.HEADACHE_ANSWER_MODE: answer.mode,
+        # Como texto: Prometheus convierte las etiquetas a texto y así coincide en las reglas.
+        genai.HEADACHE_DEGRADED: str(answer.degraded).lower(),
+        genai.HEADACHE_ABSTAINED: str(answer.abstained).lower(),
+    }
+    metrics.answer(seconds=time.perf_counter() - started, attributes=attributes)
+    return attributes
 
 
 def _llm_outcomes(settings: Settings) -> dict[str, int]:

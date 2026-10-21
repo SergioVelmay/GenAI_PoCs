@@ -11,13 +11,14 @@ El contenido de los mensajes solo se guarda si la telemetría lo permite (`conte
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from headache_core.application.telemetry import genai
-from headache_core.application.telemetry.runtime import get_telemetry
+from headache_core.application.telemetry import genai, metrics
+from headache_core.application.telemetry.runtime import current_agent, get_telemetry
 from headache_core.ports.llm import ChatMessage, LLMResponse, ToolCall
 from headache_core.ports.telemetry import AttributeValue, SpanKind, SpanPort, TelemetryPort
 
@@ -72,15 +73,20 @@ def _output_messages(response: LLMResponse) -> str:
 
 
 class _SpanGeneration:
-    def __init__(self, span: SpanPort, telemetry: TelemetryPort) -> None:
+    def __init__(
+        self, span: SpanPort, telemetry: TelemetryPort, metric_attributes: dict[str, AttributeValue]
+    ) -> None:
         self._span = span
         self._telemetry = telemetry
+        self._metric_attributes = metric_attributes
+        self._started = time.perf_counter()
 
     def first_token(self) -> None:
         # TTFT: Langfuse lo calcula con este atributo; en Jaeger se ve como evento.
         now = datetime.now(UTC).isoformat()
         self._span.set_attribute(genai.LANGFUSE_COMPLETION_START_TIME, now)
         self._span.add_event(genai.EVENT_FIRST_TOKEN)
+        metrics.llm_first_token(time.perf_counter() - self._started, self._metric_attributes)
 
     def finish(self, response: LLMResponse, *, cost_usd: Decimal | None) -> None:
         span = self._span
@@ -101,11 +107,23 @@ class _SpanGeneration:
             attributes[genai.LANGFUSE_OUTPUT] = output
         span.set_attributes(attributes)
         span.end()
+        metrics.llm_call(
+            seconds=time.perf_counter() - self._started,
+            attributes={**self._metric_attributes, genai.RESPONSE_MODEL: response.model},
+            usage=response.usage,
+            cost_usd=cost_usd,
+        )
 
     def fail(self, error: BaseException) -> None:
         self._span.set_attribute(genai.ERROR_TYPE, type(error).__name__)
         self._span.record_error(error)
         self._span.end()
+        # `error.type` distingue 429 del proveedor (LLMRateLimitError), cuota del cliente
+        # (LLMOverloadedError), presupuesto agotado y cortes del usuario (CancelledError).
+        metrics.llm_call(
+            seconds=time.perf_counter() - self._started,
+            attributes={**self._metric_attributes, genai.ERROR_TYPE: type(error).__name__},
+        )
 
 
 class TelemetryLLMTracer:
@@ -141,4 +159,12 @@ class TelemetryLLMTracer:
             kind=SpanKind.CLIENT,
             attributes=attributes,
         )
-        return _SpanGeneration(span, telemetry)
+        metric_attributes: dict[str, AttributeValue] = {
+            genai.OPERATION_NAME: genai.GenAIOperation.CHAT.value,
+            genai.HEADACHE_DEPLOYMENT: name,
+            genai.HEADACHE_TIER: metadata.get("tier", "unknown"),
+            genai.AGENT_NAME: current_agent() or metrics.NO_AGENT,
+        }
+        if genai.PROVIDER_NAME in attributes:
+            metric_attributes[genai.PROVIDER_NAME] = attributes[genai.PROVIDER_NAME]
+        return _SpanGeneration(span, telemetry, metric_attributes)

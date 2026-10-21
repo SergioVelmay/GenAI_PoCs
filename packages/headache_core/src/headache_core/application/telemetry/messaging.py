@@ -14,10 +14,11 @@ se quiere para depurar). Un consumidor por lotes (un mensaje que agrega muchos) 
 
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping
 from typing import Any
 
-from headache_core.application.telemetry import genai
+from headache_core.application.telemetry import genai, metrics
 from headache_core.application.telemetry.runtime import get_telemetry
 from headache_core.ports.messaging import (
     Message,
@@ -71,6 +72,7 @@ class TracedMessageBus:
             carrier = {**(headers or {}), **telemetry.inject()}
             message = await self._inner.publish(topic, payload, headers=carrier)
             span.set_attribute(MESSAGE_ID, message.id)
+            metrics.message_sent(system=self._system, destination=topic)
             return message
 
     async def subscribe(self, topic: str, handler: MessageHandler) -> None:
@@ -89,12 +91,25 @@ class TracedMessageBus:
                     **_correlation(message.payload),
                 },
             ) as span:
+                started = time.perf_counter()
+                error: str | None = None
                 try:
                     await handler(message)
                 except PermanentMessageError:
                     # A la DLQ sin reintentos: queda marcado para buscarlo en la traza.
-                    span.set_attribute(genai.ERROR_TYPE, "dead_letter")
+                    error = "dead_letter"
+                    span.set_attribute(genai.ERROR_TYPE, error)
                     raise
+                except BaseException as exc:
+                    error = type(exc).__name__
+                    raise
+                finally:
+                    metrics.message_processed(
+                        system=self._system,
+                        destination=topic,
+                        seconds=time.perf_counter() - started,
+                        error=error,
+                    )
 
         await self._inner.subscribe(topic, traced)
 

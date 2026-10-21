@@ -19,6 +19,7 @@ from contextvars import ContextVar
 from enum import StrEnum
 
 from headache_core.application.llm.streaming import stream_from
+from headache_core.application.telemetry import metrics
 from headache_core.ports import (
     ChatMessage,
     LLMDeadlineExceededError,
@@ -186,6 +187,7 @@ class CircuitBreakerLLM:
             self._probing = True
             return True
         retry_after = max(self._open_until - self._clock(), 0.0) or None
+        metrics.llm_rejected(deployment=self._name, reason="circuit_open")
         raise LLMOverloadedError(f"Circuito abierto: {self._name}.", retry_after=retry_after)
 
     def _release(self, probe: bool) -> None:
@@ -233,9 +235,11 @@ class ConcurrencyLimitedLLM:
         max_concurrency: int,
         max_wait: float | None = None,
         clock: Clock = time.monotonic,
+        name: str = "",
     ) -> None:
         if max_concurrency < 1:
             raise ValueError("max_concurrency debe ser >= 1.")
+        self._name = name
         self._inner = inner
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._max_wait = max_wait
@@ -293,14 +297,18 @@ class ConcurrencyLimitedLLM:
             return
         max_wait = bounded_wait(self._max_wait, clock=self._clock)
         if max_wait is not None and max_wait <= 0:
-            self.rejected += 1
+            self._reject()
             raise LLMOverloadedError("Sin hueco de concurrencia para el modelo.")
         self.waiting += 1
         try:
             async with asyncio.timeout(max_wait):
                 await self._semaphore.acquire()
         except TimeoutError as exc:
-            self.rejected += 1
+            self._reject()
             raise LLMOverloadedError("Sin hueco de concurrencia para el modelo.") from exc
         finally:
             self.waiting -= 1
+
+    def _reject(self) -> None:
+        self.rejected += 1
+        metrics.llm_rejected(deployment=self._name, reason="bulkhead")

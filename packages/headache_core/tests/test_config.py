@@ -66,6 +66,7 @@ def test_telemetry_is_off_by_default_and_never_captures_content(
     assert defaults.exporter == "none"
     assert defaults.capture_content is False
     assert defaults.otlp_endpoint == "http://127.0.0.1:4318"
+    assert defaults.metrics_interval_seconds == 15.0
 
     monkeypatch.setenv("TELEMETRY__EXPORTER", "otlp")
     monkeypatch.setenv("TELEMETRY__SAMPLE_RATIO", "0.25")

@@ -17,7 +17,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Literal
 
-from headache_core.application.telemetry import genai, get_telemetry
+from headache_core.application.telemetry import genai, get_telemetry, metrics
 from headache_core.domain.semantic_cache import (
     CacheScope,
     QueryFacets,
@@ -140,4 +140,5 @@ class SemanticCache:
 
     def _count(self, lookup: CacheLookup) -> CacheLookup:
         self.outcomes[lookup.reason] += 1
+        metrics.cache_lookup(lookup.reason)
         return lookup

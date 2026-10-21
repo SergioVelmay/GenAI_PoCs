@@ -18,6 +18,7 @@ from decimal import Decimal
 from headache_core.application.llm.pricing import PriceTable
 from headache_core.application.llm.resilience import bounded_wait, remaining
 from headache_core.application.llm.streaming import stream_from, with_deadline
+from headache_core.application.telemetry import metrics
 from headache_core.ports import (
     ChatMessage,
     GenerationObservation,
@@ -279,7 +280,9 @@ class RateLimitedLLM:
         max_wait: float | None = None,
         clock: Clock = time.monotonic,
         sleep: Sleep = asyncio.sleep,
+        name: str = "",
     ) -> None:
+        self._name = name
         self._inner = inner
         self._requests = TokenBucket(
             requests_per_minute, requests_per_minute / 60, clock=clock, sleep=sleep
@@ -335,6 +338,7 @@ class RateLimitedLLM:
                 self._requests.refund(1)
                 raise
         except WaitTooLongError as exc:
+            metrics.llm_rejected(deployment=self._name, reason="quota")
             raise LLMOverloadedError(
                 "Cuota del modelo agotada en el cliente.", retry_after=exc.wait
             ) from exc
@@ -435,6 +439,7 @@ class SharedQuotaLLM:
             if (self._max_wait is not None and waited + decision.retry_after > self._max_wait) or (
                 left is not None and decision.retry_after > left
             ):
+                metrics.llm_rejected(deployment=self._key, reason="shared_quota")
                 raise LLMOverloadedError(
                     f"Cuota compartida agotada ({decision.limited_by}).",
                     retry_after=decision.retry_after,

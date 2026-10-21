@@ -28,7 +28,7 @@ from fastapi.sse import KEEPALIVE_COMMENT, format_sse_event
 from pydantic import BaseModel
 
 from edge_api.assistant import Answer, AnswerChunk, AssistantEvent
-from headache_core.application.telemetry import get_telemetry
+from headache_core.application.telemetry import get_telemetry, metrics
 from headache_core.ports import LLMDeadlineExceededError, LLMTransientError
 
 logger = logging.getLogger(__name__)
@@ -94,6 +94,7 @@ type Render = Callable[[Answer], BaseModel]
 def _failed(reason: str) -> None:
     # Las cabeceras ya salieron con 200: sin esto, la traza daría por buena una respuesta rota.
     get_telemetry().current_span().mark_error(f"stream_{reason}")
+    metrics.stream_error(f"stream_{reason}")
 
 
 def encode(event: Pumped, *, done: Render) -> bytes:

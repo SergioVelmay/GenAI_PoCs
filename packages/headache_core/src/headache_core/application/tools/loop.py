@@ -21,7 +21,7 @@ from typing import Literal
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 
-from headache_core.application.telemetry import genai, get_telemetry
+from headache_core.application.telemetry import current_agent, genai, get_telemetry, metrics
 from headache_core.application.tools.registry import ToolContext, ToolError, ToolRegistry
 from headache_core.domain.tool_output import render_tool_error, render_tool_output
 from headache_core.ports import ChatMessage, LLMPort, LLMResponse, Role, ToolCall
@@ -196,12 +196,19 @@ class ToolExecutor:
         arguments = telemetry.content(call.arguments)
         if arguments is not None:
             attributes[genai.TOOL_CALL_ARGUMENTS] = arguments
+        started = time.perf_counter()
         try:
             with telemetry.span(
                 genai.span_name(genai.GenAIOperation.EXECUTE_TOOL, call.name),
                 attributes=attributes,
             ) as span:
                 execution = await self._execute(call, context)
+                metrics.tool_call(
+                    tool=call.name if tool is not None else "unknown",
+                    seconds=time.perf_counter() - started,
+                    error=execution.error,
+                    agent=current_agent(),
+                )
                 result = telemetry.content(execution.output)
                 if result is not None:
                     span.set_attribute(genai.TOOL_CALL_RESULT, result)

@@ -18,7 +18,14 @@ from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any, Literal
 
-from opentelemetry import propagate, trace
+from opentelemetry import metrics, propagate, trace
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    InMemoryMetricReader,
+    MetricReader,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -42,6 +49,9 @@ from headache_core.config import Settings, TelemetrySettings
 from headache_core.ports.telemetry import (
     Attributes,
     AttributeValue,
+    CounterPort,
+    GaugePort,
+    HistogramPort,
     SpanKind,
     SpanPort,
     TelemetryPort,
@@ -125,17 +135,83 @@ class OTelSpan:
         self._span.end()
 
 
+class _Counter:
+    def __init__(self, instrument: metrics.Counter) -> None:
+        self._instrument = instrument
+
+    def add(self, amount: float, attributes: Attributes | None = None) -> None:
+        self._instrument.add(amount, _attributes(attributes))
+
+
+class _Histogram:
+    def __init__(self, instrument: metrics.Histogram) -> None:
+        self._instrument = instrument
+
+    def record(self, value: float, attributes: Attributes | None = None) -> None:
+        self._instrument.record(value, _attributes(attributes))
+
+
+class _Gauge:
+    def __init__(self, instrument: metrics._Gauge) -> None:
+        self._instrument = instrument
+
+    def set(self, value: float, attributes: Attributes | None = None) -> None:
+        self._instrument.set(value, _attributes(attributes))
+
+
 class OTelTelemetry:
     def __init__(
         self,
         tracer: trace.Tracer,
         *,
+        meter: metrics.Meter | None = None,
         redact: Redactor = redact_text,
         capture_content: bool = False,
     ) -> None:
         self._tracer = tracer
+        self._meter = meter or metrics.NoOpMeter(INSTRUMENTATION_SCOPE)
         self._redact = redact
         self._capture_content = capture_content
+        # Un instrumento por nombre: OTel avisa si se crea dos veces con otra descripción.
+        self._instruments: dict[str, Any] = {}
+
+    def counter(self, name: str, *, unit: str, description: str) -> CounterPort:
+        if name not in self._instruments:
+            self._instruments[name] = _Counter(
+                self._meter.create_counter(name, unit=unit, description=description)
+            )
+        instrument: CounterPort = self._instruments[name]
+        return instrument
+
+    def histogram(
+        self,
+        name: str,
+        *,
+        unit: str,
+        description: str,
+        boundaries: Sequence[float] | None = None,
+    ) -> HistogramPort:
+        if name not in self._instruments:
+            self._instruments[name] = _Histogram(
+                self._meter.create_histogram(
+                    name,
+                    unit=unit,
+                    description=description,
+                    # Los cubos por defecto de OTel van en ms (0-10 000): en segundos, todo
+                    # caería en los dos primeros y no habría percentiles útiles.
+                    explicit_bucket_boundaries_advisory=list(boundaries) if boundaries else None,
+                )
+            )
+        instrument: HistogramPort = self._instruments[name]
+        return instrument
+
+    def gauge(self, name: str, *, unit: str, description: str) -> GaugePort:
+        if name not in self._instruments:
+            self._instruments[name] = _Gauge(
+                self._meter.create_gauge(name, unit=unit, description=description)
+            )
+        instrument: GaugePort = self._instruments[name]
+        return instrument
 
     def span(
         self,
@@ -214,6 +290,48 @@ def _service_version() -> str:
         return "0.0.0"
 
 
+def _resource(settings: TelemetrySettings, service_name: str, environment: str) -> Resource:
+    return Resource.create(
+        {
+            "service.name": settings.service_name or service_name,
+            "service.namespace": "headache",
+            "service.version": _service_version(),
+            "deployment.environment.name": environment,
+        }
+    )
+
+
+def build_meter_provider(
+    settings: TelemetrySettings,
+    *,
+    service_name: str,
+    environment: str,
+    readers: Sequence[MetricReader] | None = None,
+) -> MeterProvider:
+    """Métricas con el mismo recurso que las trazas, exportadas cada `metrics_interval_seconds`.
+
+    Temporalidad acumulativa (la de Prometheus): cada envío lleva el total desde el arranque y
+    la tasa la calcula el backend con `rate()`. Si se pierde un envío no se pierde la cuenta.
+    """
+    if readers is None:
+        readers = _configured_readers(settings)
+    return MeterProvider(
+        resource=_resource(settings, service_name, environment), metric_readers=list(readers)
+    )
+
+
+def _configured_readers(settings: TelemetrySettings) -> list[MetricReader]:
+    interval = int(settings.metrics_interval_seconds * 1000)
+    if settings.exporter == "console":
+        return [PeriodicExportingMetricReader(ConsoleMetricExporter(), interval)]
+    if settings.exporter == "otlp":
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
+        exporter = OTLPMetricExporter(endpoint=f"{settings.otlp_endpoint.rstrip('/')}/v1/metrics")
+        return [PeriodicExportingMetricReader(exporter, interval)]
+    return []
+
+
 def build_tracer_provider(
     settings: TelemetrySettings,
     *,
@@ -225,16 +343,9 @@ def build_tracer_provider(
 
     `exporters` sustituye a los de la configuración (tests con `InMemorySpanExporter`).
     """
-    resource = Resource.create(
-        {
-            "service.name": settings.service_name or service_name,
-            "service.namespace": "headache",
-            "service.version": _service_version(),
-            "deployment.environment.name": environment,
-        }
-    )
     provider = TracerProvider(
-        resource=resource, sampler=ParentBased(TraceIdRatioBased(settings.sample_ratio))
+        resource=_resource(settings, service_name, environment),
+        sampler=ParentBased(TraceIdRatioBased(settings.sample_ratio)),
     )
     if exporters is None:
         exporters = _configured_exporters(settings)
@@ -276,8 +387,17 @@ def configure_telemetry(
             settings.telemetry, service_name=service_name, environment=settings.environment
         )
         trace.set_tracer_provider(provider)
+    current_meters = metrics.get_meter_provider()
+    if isinstance(current_meters, MeterProvider):
+        meters = current_meters
+    else:
+        meters = build_meter_provider(
+            settings.telemetry, service_name=service_name, environment=settings.environment
+        )
+        metrics.set_meter_provider(meters)
     telemetry = OTelTelemetry(
         provider.get_tracer(INSTRUMENTATION_SCOPE),
+        meter=meters.get_meter(INSTRUMENTATION_SCOPE),
         redact=redact,
         capture_content=settings.telemetry.capture_content,
     )
@@ -331,6 +451,30 @@ class RecordedTelemetry:
     telemetry: OTelTelemetry
     exporter: InMemorySpanExporter
     provider: TracerProvider
+    metrics: InMemoryMetricReader
+
+    def points(self, name: str) -> list[tuple[dict[str, Any], Any]]:
+        """Puntos de una métrica: (atributos, valor). Valor = suma (contador), último valor
+        (gauge) o el punto de histograma (`count`, `sum`, `bucket_counts`)."""
+        data = self.metrics.get_metrics_data()
+        found: list[tuple[dict[str, Any], Any]] = []
+        for resource in data.resource_metrics if data else []:
+            for scope in resource.scope_metrics:
+                for metric in scope.metrics:
+                    if metric.name != name:
+                        continue
+                    for point in metric.data.data_points:
+                        value = getattr(point, "value", point)
+                        found.append((dict(point.attributes or {}), value))
+        return found
+
+    def total(self, name: str, **attributes: Any) -> float:
+        """Suma de un contador (o número de muestras de un histograma) con esos atributos."""
+        total = 0.0
+        for point_attributes, value in self.points(name):
+            if all(point_attributes.get(k) == v for k, v in attributes.items()):
+                total += getattr(value, "count", value)
+        return total
 
     def spans(self) -> dict[str, ReadableSpan]:
         """Spans terminados por nombre (si se repite un nombre, el último)."""
@@ -365,22 +509,33 @@ class RecordedTelemetry:
 
 @contextmanager
 def recording_telemetry(*, capture_content: bool = False) -> Iterator[RecordedTelemetry]:
-    """Telemetría global que guarda los spans en memoria (tests y demos sin collector)."""
+    """Telemetría global que guarda spans y métricas en memoria (tests y demos sin collector)."""
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    telemetry = OTelTelemetry(provider.get_tracer("test"), capture_content=capture_content)
+    reader = InMemoryMetricReader()
+    meters = MeterProvider(metric_readers=[reader])
+    telemetry = OTelTelemetry(
+        provider.get_tracer("test"),
+        meter=meters.get_meter("test"),
+        capture_content=capture_content,
+    )
     previous = get_telemetry()
     set_telemetry(telemetry)
     try:
-        yield RecordedTelemetry(telemetry, exporter, provider)
+        yield RecordedTelemetry(telemetry, exporter, provider, reader)
     finally:
         set_telemetry(previous)
         provider.shutdown()
+        meters.shutdown()
 
 
 def shutdown_telemetry() -> None:
-    """Vacía los lotes pendientes al parar el proceso (si no, se pierden los últimos spans)."""
+    """Vacía lo pendiente al parar el proceso (si no, se pierden los últimos spans y la última
+    ventana de métricas)."""
     provider = trace.get_tracer_provider()
     if isinstance(provider, TracerProvider):
         provider.shutdown()
+    meters = metrics.get_meter_provider()
+    if isinstance(meters, MeterProvider):
+        meters.shutdown()

@@ -82,6 +82,7 @@ def _resilient(
         requests_per_minute=gateway.requests_per_minute,
         tokens_per_minute=gateway.tokens_per_minute,
         max_wait=gateway.max_queue_seconds,
+        name=name,
     )
     if limiter is not None:
         # Cuota del despliegue compartida entre réplicas; la local queda como red si Redis cae.
@@ -104,6 +105,7 @@ def _resilient(
             ),
             max_concurrency=gateway.max_concurrency,
             max_wait=gateway.max_queue_seconds,
+            name=name,
         ),
         name=name,
         failure_threshold=gateway.circuit_failure_threshold,

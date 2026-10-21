@@ -155,6 +155,8 @@ class TelemetrySettings(BaseModel):
     sample_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
     # Guardar prompts y respuestas en los spans (redactados). Más PII y más volumen: opt-in.
     capture_content: bool = False
+    # Cada cuánto se envían las métricas al collector (fase 11.4).
+    metrics_interval_seconds: float = Field(default=15.0, gt=0)
     log_format: Literal["text", "json"] = "text"
     log_level: str = "INFO"
 

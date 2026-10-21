@@ -8,7 +8,7 @@ from opentelemetry.trace import SpanKind, StatusCode
 
 from edge_api.testing import ASK, FakeAssistant, bearer, client, token
 from headache_core.adapters.otel import RecordedTelemetry, recording_telemetry
-from headache_core.application.telemetry import genai
+from headache_core.application.telemetry import genai, metrics
 
 
 def _server(recorded: RecordedTelemetry, name: str) -> list[ReadableSpan]:
@@ -36,6 +36,22 @@ async def test_ask_span_carries_plan_admission_and_answer() -> None:
     (limit,) = [s for s in recorded.exporter.get_finished_spans() if s.name == "rate_limit"]
     assert limit.parent is not None
     assert limit.parent.span_id == span.context.span_id
+
+
+async def test_answers_and_ttft_are_measured_by_plan_and_cache() -> None:
+    with recording_telemetry() as recorded:
+        async with client() as http:
+            headers = bearer(token("usr_1", plan="public"))
+            await http.post("/ask", json=ASK, headers=headers)
+            await http.post("/ask/stream", json=ASK, headers=headers)
+
+    public = {genai.HEADACHE_PLAN: "public", genai.HEADACHE_DEGRADED: "false"}
+    assert recorded.total(metrics.ANSWERS, **public) == 2
+    assert recorded.total(metrics.ANSWER_DURATION, **{"headache.route": "/ask"}) == 1
+    # El TTFT solo en streaming, y con la caché como atributo (acierto y cálculo no se mezclan).
+    [(attributes, _)] = recorded.points(metrics.ANSWER_TTFT)
+    assert attributes["headache.route"] == "/ask/stream"
+    assert attributes[genai.HEADACHE_CACHE] == "miss"
 
 
 async def test_rejections_are_visible_by_reason() -> None:
@@ -67,3 +83,5 @@ async def test_stream_marks_first_chunk_and_mid_stream_errors() -> None:
     # Las cabeceras dijeron 200, pero la traza sabe que la respuesta se rompió.
     assert span.status.status_code is StatusCode.ERROR
     assert dict(span.attributes or {})[genai.ERROR_TYPE] == "stream_internal"
+    # Y cuenta para el SLO de disponibilidad aunque el código HTTP fuera 200.
+    assert recorded.total(metrics.STREAM_ERRORS, **{genai.ERROR_TYPE: "stream_internal"}) == 1

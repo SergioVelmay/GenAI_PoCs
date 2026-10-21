@@ -17,7 +17,7 @@ from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
-from headache_core.application.telemetry import genai, get_telemetry
+from headache_core.application.telemetry import genai, get_telemetry, metrics
 from headache_core.domain.admission import Caller, ClientPlan, has_capacity
 from headache_core.ports import (
     RateLimitDecision,
@@ -26,6 +26,7 @@ from headache_core.ports import (
     RateLimitRequest,
     RateLimitRule,
     SpanKind,
+    SpanPort,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,9 +74,12 @@ class AdmissionController:
         capacity: int,
         fallback: RateLimiterPort | None = None,
         overloaded_retry_after: float = 1.0,
+        route: str = "ask",
     ) -> None:
         if capacity < 1:
             raise ValueError("La capacidad debe ser >= 1.")
+        # Nombre del compartimento (bulkhead): separa en las métricas `/ask` de `/cases`.
+        self.route = route
         self._limiter = limiter
         self._fallback = fallback
         self._rules = dict(rules)
@@ -84,7 +88,7 @@ class AdmissionController:
         self.in_flight = 0
         self.outcomes: Counter[str] = Counter()
 
-    def bulkhead(self, capacity: int) -> AdmissionController:
+    def bulkhead(self, capacity: int, *, route: str) -> AdmissionController:
         """Otro compartimento con su propia capacidad y el mismo rate limit por usuario.
 
         Comparten limitador y reglas (el usuario tiene un único cupo), pero no los huecos: una
@@ -96,6 +100,7 @@ class AdmissionController:
             capacity=capacity,
             fallback=self._fallback,
             overloaded_retry_after=self._overloaded_retry_after,
+            route=route,
         )
 
     @asynccontextmanager
@@ -106,8 +111,7 @@ class AdmissionController:
             {genai.HEADACHE_PLAN: caller.plan.value, genai.HEADACHE_IN_FLIGHT: self.in_flight}
         )
         if not has_capacity(caller.plan, in_flight=self.in_flight, capacity=self.capacity):
-            self.outcomes["shed"] += 1
-            request_span.set_attribute(genai.HEADACHE_ADMISSION, "shed")
+            self._decide(request_span, caller, "shed")
             raise ServiceOverloadedError(
                 "Mucha demanda ahora mismo.",
                 retry_after=self._overloaded_retry_after,
@@ -125,18 +129,21 @@ class AdmissionController:
             ):
                 decision = await self._acquire(RateLimitRequest(f"user:{caller.key}", rule))
             if not decision.allowed:
-                self.outcomes["rate_limited"] += 1
-                request_span.set_attribute(genai.HEADACHE_ADMISSION, "rate_limited")
+                self._decide(request_span, caller, "rate_limited")
                 raise CallerRateLimitedError(
                     "Has hecho demasiadas peticiones.",
                     retry_after=decision.retry_after,
                     rule=rule,
                 )
-            self.outcomes["admitted"] += 1
-            request_span.set_attribute(genai.HEADACHE_ADMISSION, "admitted")
+            self._decide(request_span, caller, "admitted")
             yield Admission(rule, decision.remaining)
         finally:
             self.in_flight -= 1
+
+    def _decide(self, span: SpanPort, caller: Caller, outcome: str) -> None:
+        self.outcomes[outcome] += 1
+        span.set_attribute(genai.HEADACHE_ADMISSION, outcome)
+        metrics.admission(route=self.route, plan=caller.plan.value, outcome=outcome)
 
     async def _acquire(self, request: RateLimitRequest) -> RateLimitDecision:
         try:
