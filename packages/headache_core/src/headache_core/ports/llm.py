@@ -116,11 +116,28 @@ class LLMContentFilterError(LLMError):
 
 
 class LLMTransientError(LLMError):
-    """Fallo pasajero (timeout, 5xx): se puede reintentar o saltar a otro proveedor."""
+    """Fallo pasajero (timeout, 5xx): se puede reintentar o saltar a otro proveedor.
+
+    `retry_after` (segundos) es la pista del proveedor (cabecera `Retry-After`) o del gateway
+    para saber cuándo volver; el borde HTTP la devuelve al cliente.
+    """
+
+    def __init__(self, message: str = "", *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class LLMRateLimitError(LLMTransientError):
     """Cuota agotada (HTTP 429 / ThrottlingException)."""
+
+
+class LLMOverloadedError(LLMTransientError):
+    """Rechazado en el cliente sin llamar al proveedor (circuito abierto, sin hueco de
+    concurrencia o la espera de cuota supera el máximo). Se salta de proveedor sin reintentar."""
+
+
+class LLMDeadlineExceededError(LLMTransientError):
+    """Se agotó el presupuesto de tiempo de la petición: ni se reintenta ni se salta."""
 
 
 class LLMPort(Protocol):

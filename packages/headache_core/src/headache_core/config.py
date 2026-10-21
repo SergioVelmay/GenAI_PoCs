@@ -50,6 +50,14 @@ class LLMGatewaySettings(BaseModel):
     # Límites en cliente por despliegue; ajústalos a la cuota real (TPM) de tu suscripción.
     requests_per_minute: int = 30
     tokens_per_minute: int = 50_000
+    # Resiliencia bajo carga (fase 10.1), por despliegue y por proceso.
+    max_concurrency: int = 16
+    # Espera máxima por cuota o por hueco antes de rechazar (backpressure). None = sin límite.
+    max_queue_seconds: float | None = 10.0
+    circuit_failure_threshold: int = 5
+    circuit_reset_seconds: float = 30.0
+    # Un Retry-After más largo no se espera: se salta de proveedor o se devuelve al cliente.
+    max_retry_after_seconds: float = 5.0
 
 
 class PostgresSettings(BaseModel):

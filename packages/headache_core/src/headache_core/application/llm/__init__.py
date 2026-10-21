@@ -5,6 +5,7 @@ from headache_core.application.llm.gateway import (
     ObservedLLM,
     RateLimitedLLM,
     TokenBucket,
+    WaitTooLongError,
     estimate_tokens,
 )
 from headache_core.application.llm.pricing import (
@@ -12,6 +13,14 @@ from headache_core.application.llm.pricing import (
     ModelPrice,
     PriceTable,
     normalize_model_name,
+)
+from headache_core.application.llm.resilience import (
+    CircuitBreakerLLM,
+    CircuitState,
+    ConcurrencyLimitedLLM,
+    bounded_wait,
+    remaining,
+    time_budget,
 )
 from headache_core.application.llm.routing import (
     ComplexityClassifier,
@@ -31,8 +40,11 @@ from headache_core.application.llm.structured import (
 
 __all__ = [
     "DEFAULT_PRICES",
+    "CircuitBreakerLLM",
+    "CircuitState",
     "ComplexityClassifier",
     "CompositeTracer",
+    "ConcurrencyLimitedLLM",
     "FallbackLLM",
     "HeuristicClassifier",
     "LLMClassifier",
@@ -47,9 +59,13 @@ __all__ = [
     "StructuredOutputError",
     "StructuredResult",
     "TokenBucket",
+    "WaitTooLongError",
+    "bounded_wait",
     "complete_structured",
     "estimate_tokens",
     "normalize_model_name",
+    "remaining",
     "response_schema_for",
     "strict_json_schema",
+    "time_budget",
 ]

@@ -36,6 +36,10 @@ montaje vive en un solo sitio: `adapters/llm_factory.build_gateway(settings)`.
 Errores tipados en `ports/llm.py`: `LLMError` → `LLMTransientError` → `LLMRateLimitError`. Cada
 adaptador traduce los suyos; el gateway solo conoce estos.
 
+> **Fase 10.1:** el gateway suma `CircuitBreakerLLM`, `ConcurrencyLimitedLLM` (bulkhead), espera
+> m?xima en `RateLimitedLLM` (backpressure), `Retry-After` y presupuesto de tiempo (`time_budget`).
+> Detalle en el doc de la fase 10.
+
 ## 2. Los dos proveedores
 
 | Aspecto | Azure OpenAI (Foundry) | Bedrock Converse |

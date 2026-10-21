@@ -46,6 +46,19 @@ def test_a2a_settings_have_one_audience_per_specialist(monkeypatch: pytest.Monke
     assert settings.allowed_callers == ["svc-orchestrator"]
 
 
+def test_gateway_resilience_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    defaults = Settings(_env_file=None).llm_gateway
+    assert defaults.max_queue_seconds == 10.0
+    assert defaults.circuit_failure_threshold == 5
+
+    monkeypatch.setenv("LLM_GATEWAY__MAX_CONCURRENCY", "4")
+    monkeypatch.setenv("LLM_GATEWAY__CIRCUIT_RESET_SECONDS", "2.5")
+
+    gateway = Settings(_env_file=None).llm_gateway
+    assert gateway.max_concurrency == 4
+    assert gateway.circuit_reset_seconds == 2.5
+
+
 def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "azure")
     monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")

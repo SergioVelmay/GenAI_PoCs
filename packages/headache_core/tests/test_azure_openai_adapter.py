@@ -94,6 +94,25 @@ async def test_maps_http_errors(status: int, expected: type[LLMError]) -> None:
     assert type(info.value) is expected
 
 
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"retry-after-ms": "1500", "retry-after": "2"}, 1.5),
+        ({"retry-after": "7"}, 7.0),
+        ({}, None),
+    ],
+)
+async def test_rate_limit_carries_retry_after(
+    headers: dict[str, str], expected: float | None
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, headers=headers, json={"error": {"message": "quota"}})
+
+    with pytest.raises(LLMRateLimitError) as info:
+        await _llm(handler).complete([ChatMessage(Role.USER, "hola")])
+    assert info.value.retry_after == expected
+
+
 async def test_content_filter_is_its_own_error() -> None:
     # Forma real de Azure cuando Prompt Shields detecta un jailbreak (validado en la nube).
     body = {"error": {"message": "filtered", "code": "content_filter", "param": "prompt"}}

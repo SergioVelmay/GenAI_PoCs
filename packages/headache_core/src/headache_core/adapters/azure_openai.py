@@ -7,7 +7,7 @@ Prompt caching: automático para prefijos idénticos de >= 1024 tokens; se lee e
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Self
 
 import openai
@@ -39,16 +39,36 @@ from headache_core.ports import (
 COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
 
 
+def retry_after_seconds(headers: Mapping[str, str]) -> float | None:
+    """`retry-after-ms` (Azure OpenAI) o `retry-after` en segundos; la forma de fecha se ignora."""
+    for name, scale in (("retry-after-ms", 1000.0), ("retry-after", 1.0)):
+        value = headers.get(name)
+        if value is None:
+            continue
+        try:
+            seconds = float(value) / scale
+        except ValueError:
+            continue
+        if seconds >= 0:
+            return seconds
+    return None
+
+
 def to_llm_error(exc: openai.OpenAIError) -> LLMError:
     """Traduce errores del SDK de OpenAI (también los de LiteLLM, que heredan de ellos)."""
+    retry_after = (
+        retry_after_seconds(exc.response.headers)
+        if isinstance(exc, openai.APIStatusError)
+        else None
+    )
     if isinstance(exc, openai.RateLimitError):
-        return LLMRateLimitError(str(exc))
+        return LLMRateLimitError(str(exc), retry_after=retry_after)
     if isinstance(exc, openai.APIConnectionError):  # Incluye APITimeoutError.
         return LLMTransientError(str(exc))
     if isinstance(exc, openai.APIStatusError) and (
         exc.status_code >= 500 or exc.status_code == 408
     ):
-        return LLMTransientError(str(exc))
+        return LLMTransientError(str(exc), retry_after=retry_after)
     if isinstance(exc, openai.BadRequestError) and exc.code == "content_filter":
         return LLMContentFilterError(str(exc))
     return LLMError(str(exc))

@@ -1,7 +1,9 @@
 """LLM Gateway propio (carril B): decoradores que envuelven cualquier `LLMPort`.
 
 Se componen como capas de cebolla, igual que las políticas de APIM:
-    RoutingLLM -> FallbackLLM -> ObservedLLM -> RateLimitedLLM -> adaptador (Azure / Bedrock)
+    RoutingLLM -> FallbackLLM -> CircuitBreakerLLM -> ConcurrencyLimitedLLM -> ObservedLLM
+    -> RateLimitedLLM -> adaptador (Azure / Bedrock)
+El breaker y el bulkhead están en `resilience.py` (fase 10.1).
 """
 
 from __future__ import annotations
@@ -13,9 +15,12 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from decimal import Decimal
 
 from headache_core.application.llm.pricing import PriceTable
+from headache_core.application.llm.resilience import bounded_wait, remaining
 from headache_core.ports import (
     ChatMessage,
     GenerationObservation,
+    LLMDeadlineExceededError,
+    LLMOverloadedError,
     LLMPort,
     LLMRateLimitError,
     LLMResponse,
@@ -32,8 +37,13 @@ type Clock = Callable[[], float]
 class FallbackLLM:
     """Prueba los proveedores en orden. Reintenta los fallos transitorios con backoff.
 
-    Un 429 no se reintenta contra el mismo proveedor (su cuota sigue agotada): se salta al
-    siguiente. Los errores no transitorios (400, credenciales) se propagan sin más.
+    - Un 429 o un rechazo local (`LLMOverloadedError`: circuito abierto, sin cuota en el
+      cliente) no se reintenta contra el mismo proveedor: se salta al siguiente.
+    - Un 5xx con `Retry-After` espera al menos eso; si pide más de `max_retry_after`, se salta.
+    - Con presupuesto de tiempo (`time_budget`) no se espera más de lo que queda y, si se agota,
+      `LLMDeadlineExceededError` sin más intentos: el usuario ya no está esperando.
+    - Los errores no transitorios (400, credenciales) se propagan sin más.
+    - Si todos fallan, el error final lleva el `retry_after` más corto que se conozca.
     """
 
     def __init__(
@@ -42,14 +52,18 @@ class FallbackLLM:
         *,
         max_retries: int = 2,
         base_delay: float = 0.5,
+        max_retry_after: float = 5.0,
         sleep: Sleep = asyncio.sleep,
+        clock: Clock = time.monotonic,
     ) -> None:
         if not candidates:
             raise ValueError("FallbackLLM necesita al menos un proveedor.")
         self._candidates = list(candidates)
         self._max_retries = max_retries
         self._base_delay = base_delay
+        self._max_retry_after = max_retry_after
         self._sleep = sleep
+        self._clock = clock
 
     async def complete(
         self,
@@ -61,29 +75,86 @@ class FallbackLLM:
         tools: ToolConfig | None = None,
     ) -> LLMResponse:
         last_error: LLMTransientError | None = None
+        hints: list[float] = []
         for llm in self._candidates:
             for attempt in range(self._max_retries + 1):
+                self._check_deadline(last_error)
                 try:
-                    return await llm.complete(
-                        messages,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        response_schema=response_schema,
-                        tools=tools,
+                    return await self._call(
+                        llm, messages, temperature, max_tokens, response_schema, tools
                     )
-                except LLMRateLimitError as exc:
+                except LLMDeadlineExceededError:
+                    raise
+                except (LLMRateLimitError, LLMOverloadedError) as exc:
                     last_error = exc
+                    if exc.retry_after:
+                        hints.append(exc.retry_after)
                     break
                 except LLMTransientError as exc:
                     last_error = exc
-                    if attempt < self._max_retries:
-                        # Full jitter: evita que todos los clientes reintenten a la vez.
-                        await self._sleep(random.uniform(0, self._base_delay * 2**attempt))
-        raise LLMTransientError("Todos los proveedores han fallado.") from last_error
+                    if exc.retry_after:
+                        hints.append(exc.retry_after)
+                    if attempt == self._max_retries:
+                        break
+                    # Full jitter: evita que todos los clientes reintenten a la vez.
+                    delay = max(
+                        random.uniform(0, self._base_delay * 2**attempt), exc.retry_after or 0.0
+                    )
+                    left = remaining(clock=self._clock)
+                    if delay > self._max_retry_after or (left is not None and delay >= left):
+                        break
+                    await self._sleep(delay)
+        raise LLMTransientError(
+            "Todos los proveedores han fallado.", retry_after=min(hints, default=None)
+        ) from last_error
+
+    def _check_deadline(self, last_error: LLMTransientError | None) -> None:
+        left = remaining(clock=self._clock)
+        if left is not None and left <= 0:
+            raise LLMDeadlineExceededError(
+                "Presupuesto de tiempo agotado antes de llamar al modelo."
+            ) from last_error
+
+    async def _call(
+        self,
+        llm: LLMPort,
+        messages: Sequence[ChatMessage],
+        temperature: float,
+        max_tokens: int | None,
+        response_schema: ResponseSchema | None,
+        tools: ToolConfig | None,
+    ) -> LLMResponse:
+        timeout = asyncio.timeout(remaining(clock=self._clock))
+        try:
+            async with timeout:
+                return await llm.complete(
+                    messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_schema=response_schema,
+                    tools=tools,
+                )
+        except TimeoutError as exc:
+            if not timeout.expired():
+                raise
+            raise LLMDeadlineExceededError("Presupuesto de tiempo agotado.") from exc
+
+
+class WaitTooLongError(Exception):
+    """Conseguir las fichas exigiría esperar más de lo permitido."""
+
+    def __init__(self, wait: float) -> None:
+        super().__init__(f"Habría que esperar {wait:.2f} s.")
+        self.wait = wait
 
 
 class TokenBucket:
-    """Cubo de fichas: `capacity` de ráfaga y recarga continua de `refill_per_second`."""
+    """Cubo de fichas: `capacity` de ráfaga y recarga continua de `refill_per_second`.
+
+    Funciona por **reservas**: cada llamante descuenta sus fichas al llegar (el saldo puede
+    quedar negativo, es deuda) y duerme lo que le toca. Así cada uno conoce su espera exacta
+    antes de dormir y puede rechazar en vez de quedarse en una cola sin fondo (`max_wait`).
+    """
 
     def __init__(
         self,
@@ -99,25 +170,36 @@ class TokenBucket:
         self._clock = clock
         self._sleep = sleep
         self._updated = clock()
-        self._lock = asyncio.Lock()
 
-    async def acquire(self, amount: float = 1.0) -> float:
-        """Espera hasta tener `amount` fichas. Devuelve los segundos esperados."""
+    def reserve(self, amount: float = 1.0, *, max_wait: float | None = None) -> float:
+        """Reserva `amount` fichas y devuelve cuánto hay que esperar para usarlas.
+
+        Sin `await` entre leer y descontar: en asyncio es atómico sin candado.
+        """
         amount = min(amount, self._capacity)
-        waited = 0.0
-        async with self._lock:
-            while True:
-                now = self._clock()
-                self._tokens = min(
-                    self._capacity, self._tokens + (now - self._updated) * self._rate
-                )
-                self._updated = now
-                if self._tokens >= amount:
-                    self._tokens -= amount
-                    return waited
-                delay = (amount - self._tokens) / self._rate
-                waited += delay
-                await self._sleep(delay)
+        now = self._clock()
+        self._tokens = min(self._capacity, self._tokens + (now - self._updated) * self._rate)
+        self._updated = now
+        wait = max(0.0, (amount - self._tokens) / self._rate)
+        if max_wait is not None and wait > max_wait:
+            raise WaitTooLongError(wait)
+        self._tokens -= amount
+        return wait
+
+    def refund(self, amount: float = 1.0) -> None:
+        """Devuelve una reserva que no se va a usar (rechazo o cancelación)."""
+        self._tokens = min(self._capacity, self._tokens + min(amount, self._capacity))
+
+    async def acquire(self, amount: float = 1.0, *, max_wait: float | None = None) -> float:
+        """Espera hasta tener `amount` fichas. Devuelve los segundos esperados."""
+        wait = self.reserve(amount, max_wait=max_wait)
+        if wait > 0:
+            try:
+                await self._sleep(wait)
+            except asyncio.CancelledError:
+                self.refund(amount)
+                raise
+        return wait
 
 
 def estimate_tokens(messages: Sequence[ChatMessage]) -> int:
@@ -131,6 +213,9 @@ class RateLimitedLLM:
 
     Es por proceso: con varias réplicas el límite debe ser distribuido (Redis, APIM
     `azure-openai-token-limit`, LiteLLM Proxy).
+
+    Con `max_wait` (o con presupuesto de tiempo), si la cuota no llega a tiempo rechaza con
+    `LLMOverloadedError` y su `retry_after` en vez de esperar: eso es *backpressure*.
     """
 
     def __init__(
@@ -140,6 +225,7 @@ class RateLimitedLLM:
         requests_per_minute: int,
         tokens_per_minute: int,
         default_max_tokens: int = 1024,
+        max_wait: float | None = None,
         clock: Clock = time.monotonic,
         sleep: Sleep = asyncio.sleep,
     ) -> None:
@@ -151,6 +237,9 @@ class RateLimitedLLM:
             tokens_per_minute, tokens_per_minute / 60, clock=clock, sleep=sleep
         )
         self._default_max_tokens = default_max_tokens
+        self._max_wait = max_wait
+        self._clock = clock
+        self._sleep = sleep
 
     async def complete(
         self,
@@ -161,10 +250,7 @@ class RateLimitedLLM:
         response_schema: ResponseSchema | None = None,
         tools: ToolConfig | None = None,
     ) -> LLMResponse:
-        await self._requests.acquire()
-        await self._tokens.acquire(
-            estimate_tokens(messages) + (max_tokens or self._default_max_tokens)
-        )
+        await self._reserve(estimate_tokens(messages) + (max_tokens or self._default_max_tokens))
         return await self._inner.complete(
             messages,
             temperature=temperature,
@@ -172,6 +258,29 @@ class RateLimitedLLM:
             response_schema=response_schema,
             tools=tools,
         )
+
+    async def _reserve(self, tokens: int) -> None:
+        """Reserva petición y tokens a la vez (o ninguna) y duerme una sola vez."""
+        max_wait = bounded_wait(self._max_wait, clock=self._clock)
+        try:
+            request_wait = self._requests.reserve(1, max_wait=max_wait)
+            try:
+                token_wait = self._tokens.reserve(tokens, max_wait=max_wait)
+            except WaitTooLongError:
+                self._requests.refund(1)
+                raise
+        except WaitTooLongError as exc:
+            raise LLMOverloadedError(
+                "Cuota del modelo agotada en el cliente.", retry_after=exc.wait
+            ) from exc
+        wait = max(request_wait, token_wait)
+        if wait > 0:
+            try:
+                await self._sleep(wait)
+            except asyncio.CancelledError:
+                self._requests.refund(1)
+                self._tokens.refund(tokens)
+                raise
 
 
 class ObservedLLM:
