@@ -32,3 +32,8 @@ apim_enabled = false
 # imagen del orquestador en un registro (fase 14).
 queue_workers_enabled = false
 # queue_worker_image  = "<registro>.azurecr.io/headache-agents:<versión>"
+
+# Fase 11.7: Application Insights + Log Analytics + alertas (pago por GB, tope diario).
+observability_enabled      = false
+observability_daily_cap_gb = 0.5
+llm_daily_budget_usd       = 20

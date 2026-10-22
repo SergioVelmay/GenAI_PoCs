@@ -1,0 +1,81 @@
+# Collector en Azure (fase 11.7): mismo receptor OTLP y mismos procesadores que en local
+# (infra/local/telemetry/otel-collector.yaml); solo cambia el destino. Se despliega como sidecar
+# o app de Container Apps (fase 14) con identidad gestionada.
+#
+#   servicios ──OTLP──▶ collector ──▶ Application Insights (trazas, métricas, logs)
+#                                 └──▶ Langfuse (opcional, overlay otel-collector.langfuse.yaml)
+#
+# Variables: APPLICATIONINSIGHTS_CONNECTION_STRING (output appinsights_connection_string) y, con
+# identidad asignada por el usuario, AZURE_CLIENT_ID. Con `local_authentication_enabled = false`
+# la connection string solo identifica el recurso: escribe quien tenga Monitoring Metrics
+# Publisher (azureauth pone el token de Entra ID en cada envío).
+#
+# Validar sin coste:
+#   docker run --rm -v ${PWD}/infra/otel:/cfg:ro -e APPLICATIONINSIGHTS_CONNECTION_STRING=InstrumentationKey=x `
+#     otel/opentelemetry-collector-contrib:0.163.1 validate --config=/cfg/collector-azure.yaml
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  azureauth:
+    managed_identity:
+      client_id: ${env:AZURE_CLIENT_ID:-}
+    # La audiencia de la ingesta no coincide con el host del endpoint.
+    scopes:
+      - https://monitor.azure.com/.default
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    timeout: 5s
+  # Igual que en local: prompts y respuestas no salen hacia el backend genérico.
+  attributes/no-content:
+    actions:
+      - {key: gen_ai.input.messages, action: delete}
+      - {key: gen_ai.output.messages, action: delete}
+      - {key: gen_ai.tool.call.arguments, action: delete}
+      - {key: gen_ai.tool.call.result, action: delete}
+      - {key: langfuse.observation.input, action: delete}
+      - {key: langfuse.observation.output, action: delete}
+  # Región, suscripción y nombre del recurso como atributos: filtrar por réplica en el portal.
+  resourcedetection:
+    detectors: [env, azure]
+    timeout: 2s
+    override: false
+
+exporters:
+  azuremonitor:
+    connection_string: ${env:APPLICATIONINSIGHTS_CONNECTION_STRING}
+    auth:
+      authenticator: azureauth
+    # Si Azure Monitor no responde, reintenta y encola en memoria (no bloquea la aplicación).
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+
+service:
+  extensions: [health_check, azureauth]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, attributes/no-content, batch]
+      exporters: [azuremonitor]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [azuremonitor]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [azuremonitor]

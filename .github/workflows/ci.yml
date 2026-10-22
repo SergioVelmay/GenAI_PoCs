@@ -62,6 +62,20 @@ jobs:
           docker run --rm -v "$PWD/infra/local/telemetry/rules:/rules:ro" \
             --entrypoint promtool prom/prometheus:v3.15.1 test rules /rules/tests/headache.test.yml
 
+      # Fase 11.7: el collector local y los de Azure y AWS arrancan con su configuración (sin enviar
+      # nada). Credenciales ficticias: sigv4auth solo las resuelve, no firma.
+      - name: Configuración del collector (local, Azure, AWS)
+        run: |
+          image=otel/opentelemetry-collector-contrib:0.163.1
+          docker run --rm -v "$PWD/infra/local/telemetry:/cfg:ro" "$image" \
+            validate --config=/cfg/otel-collector.yaml
+          docker run --rm -v "$PWD/infra/otel:/cfg:ro" \
+            -e APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=00000000-0000-0000-0000-000000000000" \
+            "$image" validate --config=/cfg/collector-azure.yaml
+          docker run --rm -v "$PWD/infra/otel:/cfg:ro" \
+            -e AWS_REGION=eu-west-1 -e ENVIRONMENT=ci -e AWS_ACCESS_KEY_ID=dummy -e AWS_SECRET_ACCESS_KEY=dummy \
+            "$image" validate --config=/cfg/collector-aws.yaml
+
   evals:
     # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquÃ­.
     runs-on: ubuntu-26.04

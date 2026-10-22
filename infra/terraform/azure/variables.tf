@@ -219,3 +219,23 @@ variable "queue_worker_messages_per_replica" {
   type        = number
   default     = 8
 }
+
+# ---------- Fase 11.7: observabilidad (observability.tf) ----------
+
+variable "observability_enabled" {
+  description = "Crea Log Analytics, Application Insights, el grupo de acciones y las alertas. Pago por GB ingerido."
+  type        = bool
+  default     = false
+}
+
+variable "observability_daily_cap_gb" {
+  description = "Tope diario de ingesta (GB) en Log Analytics y Application Insights: freno ante un bucle."
+  type        = number
+  default     = 0.5
+}
+
+variable "llm_daily_budget_usd" {
+  description = "Presupuesto diario de modelos (domain/slo.py COST_BUDGET): base de la alerta de coste."
+  type        = number
+  default     = 20
+}

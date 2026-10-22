@@ -151,3 +151,17 @@ variable "queue_worker_messages_per_task" {
   type        = number
   default     = 8
 }
+
+# ---------- Fase 11.7: observabilidad (observability.tf) ----------
+
+variable "observability_enabled" {
+  description = "Crea los grupos de logs, el grupo de X-Ray, la política del collector ADOT y las alarmas."
+  type        = bool
+  default     = false
+}
+
+variable "llm_daily_budget_usd" {
+  description = "Presupuesto diario de modelos (domain/slo.py COST_BUDGET): base de la alarma de coste."
+  type        = number
+  default     = 20
+}

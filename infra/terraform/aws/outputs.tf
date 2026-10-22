@@ -53,6 +53,17 @@ output "kb_data_source_id" {
   value       = aws_bedrockagent_data_source.docs.data_source_id
 }
 
+output "observability" {
+  description = "Grupos de logs y política del collector ADOT (null si observability_enabled = false)."
+  value = var.observability_enabled ? {
+    app_log_group         = aws_cloudwatch_log_group.app[0].name
+    metrics_log_group     = aws_cloudwatch_log_group.metrics[0].name
+    collector_policy_arn  = aws_iam_policy.otel_collector[0].arn
+    alerts_topic_arn      = aws_sns_topic.alerts[0].arn
+    cloudwatch_metrics_ns = local.metrics_ns
+  } : null
+}
+
 output "bedrock_guardrail" {
   description = "BEDROCK_GUARDRAIL__GUARDRAIL_ID y __VERSION (null si está desactivado)."
   value = var.bedrock_guardrail_enabled ? {

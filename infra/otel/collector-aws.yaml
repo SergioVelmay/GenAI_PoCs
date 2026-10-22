@@ -1,0 +1,106 @@
+# Collector en AWS (fase 11.7): mismo receptor OTLP y mismos procesadores que en local
+# (infra/local/telemetry/otel-collector.yaml); solo cambia el destino. Con la imagen de ADOT
+# (AWS Distro for OpenTelemetry) como sidecar en ECS o DaemonSet en EKS (fase 13), con el rol
+# IAM de la tarea (política `otel_collector` de observability.tf). Sin claves.
+#
+#   servicios ──OTLP──▶ collector ──OTLP + SigV4──▶ X-Ray (Transaction Search: spans en el
+#                                 │                 grupo de logs aws/spans, con todos los
+#                                 │                 atributos gen_ai.* sin traducir)
+#                                 └──EMF──────────▶ CloudWatch Logs → métricas Headache/GenAI
+#
+# Por qué OTLP a X-Ray y no el exporter `awsxray`: el formato de segmentos de X-Ray solo indexa
+# unas pocas anotaciones y convierte el resto en metadatos; el endpoint OTLP guarda el span tal
+# cual (lo mismo que usa AgentCore Observability para los agentes de Bedrock).
+#
+# Validar sin coste (sigv4auth resuelve credenciales al arrancar: bastan unas ficticias, no firma nada):
+#   docker run --rm -v ${PWD}/infra/otel:/cfg:ro -e AWS_REGION=eu-west-1 -e ENVIRONMENT=dev `
+#     -e AWS_ACCESS_KEY_ID=dummy -e AWS_SECRET_ACCESS_KEY=dummy `
+#     otel/opentelemetry-collector-contrib:0.163.1 validate --config=/cfg/collector-aws.yaml
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  # Firma las peticiones con las credenciales del rol de la tarea (cadena por defecto de AWS).
+  sigv4auth/xray:
+    region: ${env:AWS_REGION}
+    service: xray
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    timeout: 5s
+  attributes/no-content:
+    actions:
+      - {key: gen_ai.input.messages, action: delete}
+      - {key: gen_ai.output.messages, action: delete}
+      - {key: gen_ai.tool.call.arguments, action: delete}
+      - {key: gen_ai.tool.call.result, action: delete}
+      - {key: langfuse.observation.input, action: delete}
+      - {key: langfuse.observation.output, action: delete}
+  resourcedetection:
+    detectors: [env, ecs, ec2]
+    timeout: 2s
+    override: false
+
+exporters:
+  otlphttp/xray:
+    traces_endpoint: https://xray.${env:AWS_REGION}.amazonaws.com/v1/traces
+    auth:
+      authenticator: sigv4auth/xray
+    compression: gzip
+
+  # Métricas como EMF: CloudWatch las extrae de los logs. Cada combinación de dimensiones es una
+  # métrica facturada (0,30 $/mes): solo se declaran las que usan el dashboard y las alarmas.
+  awsemf:
+    region: ${env:AWS_REGION}
+    namespace: Headache/GenAI
+    log_group_name: /headache/${env:ENVIRONMENT}/metrics
+    log_stream_name: "{TaskId}"
+    dimension_rollup_option: NoDimensionRollup
+    resource_to_telemetry_conversion:
+      enabled: true
+    metric_declarations:
+      - dimensions: [[service.name], [service.name, gen_ai.agent.name]]
+        metric_name_selectors:
+          - ^headache\.llm\.cost$
+          - ^gen_ai\.client\.inference\.usage\..*
+      - dimensions: [[service.name], [service.name, error.type]]
+        metric_name_selectors:
+          - ^gen_ai\.client\.operation\.duration$
+          - ^headache\.llm\.rejections$
+          - ^headache\.stream\.errors$
+      - dimensions: [[service.name, headache.caller.plan, headache.admission.outcome]]
+        metric_name_selectors:
+          - ^headache\.admission\.decisions$
+      - dimensions: [[service.name, headache.cache.outcome]]
+        metric_name_selectors:
+          - ^headache\.answers$
+          - ^headache\.answer\.time_to_first_chunk$
+      - dimensions: [[service.name]]
+        metric_name_selectors:
+          - ^headache\.outbox\.backlog$
+          - ^headache\.eval\..*
+          - ^messaging\..*
+
+service:
+  extensions: [health_check, sigv4auth/xray]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, attributes/no-content, batch]
+      exporters: [otlphttp/xray]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [awsemf]

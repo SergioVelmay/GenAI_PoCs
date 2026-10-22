@@ -31,6 +31,10 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | NLTK fallaba en la CI de Linux (fase 5) | uv instala con hardlinks y NLTK rechaza ficheros con `st_nlink > 1` | `UV_LINK_MODE=copy` en la CI |
 | Tests de extras opcionales que "pasaban" sin ejecutarse | `pytest.importorskip` también salta si el import falla por un bug | `skipif` explícito según si el paquete está instalado; con el extra instalado, una rotura falla |
 | 429 en el benchmark de caché de Azure (checkpoint 8→9) | Despliegue de 50 K TPM con prompts de ~10 K tokens (~5 peticiones/min) y un script que no pasaba por el limitador; además, un *token bucket* del tamaño de la capacidad admite ráfaga + recarga en el primer minuto | Dimensionar la capacidad según la carga (en Standard no se paga); todo cliente por `RateLimitedLLM`; límite en cliente por debajo de la capacidad (25 % de margen) |
+| El rate limiter rechazaba a veces la primera petición con el cupo vacío y solo lo vio la CI (fase 11.4) | Redondeo en coma flotante del GCRA: `(now + 60) - 60` puede ser mayor que `now` | Comparaciones de tiempo con tolerancia (1 µs) en todas las implementaciones (memoria y Lua), con test de regresión del caso límite |
+| Un test del outbox con plazos de décimas de segundo fallaba solo en la CI (fase 11.5) | El runner es más lento y el plazo vencía antes de la comprobación | Nada de plazos cortos en tests: reservas largas y sondeo con tope |
+| Un nombre de métrica de la documentación no existía en Prometheus (fase 11.6) | Con unidad `"1"`, el collector solo añade `_ratio` en gauges | Comprobar los nombres contra el collector real (`/api/v1/label/__name__/values`) antes de escribir reglas |
+| Un test de `promtool` pasaba por casualidad (fase 11.6) | Con menos historia que la ventana larga, la ventana entera es el pico | Escenarios con historia mayor que la ventana más larga y cada número del test comprobado a mano |
 | Avisos de Node.js 20 y del cambio de `ubuntu-latest` (fase 8) | Acciones antiguas e imagen flotante | Acciones fijadas por SHA, runner fijado, Dependabot mensual |
 
 ## Sesiones de chat
@@ -39,6 +43,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 |---|---|---|
 | El historial "desapareció" al abrir la carpeta (fase 0) | VS Code guarda las sesiones por espacio de trabajo | El contexto del proyecto vive en `AGENTS.md` y los docs, no en el chat |
 | Al volver a una sesión había 4 ficheros sin guardar que no se reconocían (fase 4) | Cambio de sesión y de modelo a mitad de trabajo: eran restos de otra sesión | Si aparecen cambios sin guardar desconocidos: *File: Revert File*, no guardarlos. Si ya están guardados: diff, copia en `%TEMP%` y decidir |
+| La sesión cambió sola de modelo a mitad de la fase 11 | Enrutado automático del modelo en el cliente de chat | Comprobar el modelo al retomar; si cambió, parar, revisar `git status`/`git log` y retomar desde el último commit |
 | Los pasos se hacían en contextos muy largos (una fase por sesión) | El rendimiento del modelo cae cuando el contexto se llena | Una sesión por fase; si se alarga, cerrar la subfase, hacer commit y abrir sesión nueva con la skill `iniciar-fase` |
 
 ## Validación en la nube (checkpoint 8→9)

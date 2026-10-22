@@ -35,6 +35,12 @@ output "content_safety_endpoint" {
   value       = var.content_safety_enabled ? azurerm_cognitive_account.content_safety[0].endpoint : null
 }
 
+output "appinsights_connection_string" {
+  description = "Valor para APPLICATIONINSIGHTS_CONNECTION_STRING del collector (null si observability_enabled = false). Con ingesta solo por Entra ID, no da permiso de escritura por sí sola."
+  value       = var.observability_enabled ? azurerm_application_insights.main[0].connection_string : null
+  sensitive   = true
+}
+
 # ---------- Fase 2: Azure AI Foundry (null si foundry_enabled = false) ----------
 
 output "azure_openai_endpoint" {

@@ -1,5 +1,5 @@
 ---
-applyTo: "packages/headache_core/src/headache_core/application/online_eval.py,packages/headache_core/src/headache_core/adapters/langfuse_scores.py,docs/runbook-incidentes.md,infra/local/telemetry/**,scripts/telemetry_demo.py,scripts/build_observability.py,packages/headache_core/src/headache_core/adapters/prometheus.py,packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
+applyTo: "infra/otel/**,infra/terraform/aws/observability.tf,infra/terraform/azure/observability.tf,packages/headache_core/src/headache_core/application/online_eval.py,packages/headache_core/src/headache_core/adapters/langfuse_scores.py,docs/runbook-incidentes.md,infra/local/telemetry/**,scripts/telemetry_demo.py,scripts/build_observability.py,packages/headache_core/src/headache_core/adapters/prometheus.py,packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
 description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, logs correlacionados y sin PII."
 ---
 
@@ -51,6 +51,12 @@ description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, 
 - Unidad `"1"`: el collector solo añade `_ratio` en gauges (`headache_eval_faithfulness_bucket`).
 - Evaluación online (`application/online_eval.py`): `OnlineEvaluator.offer` no espera (cola acotada, `dropped` si se llena), muestreo `EDGE__ONLINE_EVAL_RATE` (0 = apagado, por coste) y presupuesto `EDGE__ONLINE_EVAL_PER_MINUTE`. Solo respuestas calculadas (`miss`), no extractivas, degradadas ni abstenciones. Juez `LLMFaithfulnessJudge` (despliegue de juez fijo), span `evaluator` hijo de la traza de la petición, métrica `headache.eval.faithfulness` y score en Langfuse (`LangfuseScoreSink`).
 - Cada alerta lleva `runbook_url` a un ancla de `docs/runbook-incidentes.md`; un test comprueba que existe.
+
+## Nube (fase 11.7)
+
+- Collectors de nube en `infra/otel/` = el local con otro destino (mismo OTLP y mismo `attributes/no-content`). Azure: exporter `azuremonitor` + extensión `azureauth` (identidad gestionada, `scopes: [https://monitor.azure.com/.default]`). AWS: `otlphttp` + `sigv4auth` (servicio `xray`) al endpoint OTLP de X-Ray y `awsemf` (namespace `Headache/GenAI`) con `metric_declarations` solo para las dimensiones que usan las alarmas.
+- Validar con `otelcol-contrib validate` y la imagen fijada (la CI lo hace). `sigv4auth` resuelve credenciales al arrancar: en la validación, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` ficticias.
+- Terraform en `infra/terraform/{azure,aws}/observability.tf` tras `observability_enabled = false`: App Insights sin claves locales y Log Analytics con tope diario; log groups, grupo de X-Ray, política IAM del collector, SNS y alarmas con Metrics Insights. Las alertas de nube replican solo coste y una de fiabilidad por plataforma; la fuente de verdad sigue siendo `domain/slo.py`.
 
 ## Contenido y PII
 

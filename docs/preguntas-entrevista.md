@@ -10,7 +10,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Índice
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11)
 
 <a id="como-responder"></a>
 
@@ -45,6 +45,12 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 | Identidad | Entra ID, Managed Identity | IAM Roles, IAM Identity Center, Cognito (usuarios finales) |
 | Secretos | Key Vault | Secrets Manager, KMS |
 | Observabilidad | Application Insights, Azure Monitor | CloudWatch, X-Ray (OpenTelemetry en ambos) |
+| Trazas distribuidas | Application Insights (*transaction search*, mapa de aplicación) | X-Ray (Transaction Search sobre OTLP) |
+| Logs centralizados | Log Analytics (KQL) | CloudWatch Logs (Logs Insights) |
+| Métricas y alertas | Azure Monitor Metrics, *log search alerts* + *action groups* | CloudWatch Metrics (EMF), *alarms* + SNS |
+| Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) |
+| Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability |
+| Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana |
 | IaC y CI/CD | Bicep, Azure DevOps | CloudFormation/CDK, CodePipeline (Terraform y GitHub Actions en ambas) |
 | Coste | Cost Management, presupuestos | Cost Explorer, AWS Budgets |
 
@@ -673,3 +679,71 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 
    Dejaría fuera el autoescalado fino y la caché multi-región. Antes de la venta pediría ampliar
    la cuota del modelo con el proveedor, porque es el techo que ninguna réplica supera.
+
+<a id="fase-11"></a>
+
+## Fase 11 · Observabilidad de sistemas agénticos ([doc](fase-11-observabilidad.md))
+
+### Técnicas
+
+1. **¿Cómo instrumentas un sistema agéntico sin atarte a un proveedor?** Con OpenTelemetry y su
+   convención GenAI (`gen_ai.request.model`, `gen_ai.usage.input_tokens`...) detrás de un puerto,
+   `TelemetryPort`: el código no importa el SDK. Un collector decide el destino:
+   - en local, Jaeger y Prometheus;
+   - para el equipo de IA, Langfuse;
+   - en AWS, X-Ray por OTLP y CloudWatch con EMF (la imagen ADOT);
+   - en Azure, Application Insights con el exporter `azuremonitor`.
+
+   Cambiar de backend es configuración. La CI valida los tres collectors con la misma imagen.
+2. **¿Cómo sigues un caso que pasa por una cola, tres workers y un agente remoto?** Propagando el
+   contexto W3C (`traceparent`) fuera del cuerpo del mensaje: atributos de SQS, cabeceras AMQP,
+   propiedades de Service Bus, una columna del outbox y una cabecera HTTP en A2A. Cada consumidor
+   continúa la traza como hijo, no como *link*: un caso son 14 spans con un solo `trace_id`, desde
+   el `POST /cases` hasta el resultado. Lo pruebo con el relay y los workers en contextos vacíos,
+   porque el contexto heredado de asyncio ocultaba que no viajaba.
+3. **¿Qué métricas y alertas pondrías a un agente en producción?** RED por servicio (peticiones,
+   errores, duración) más las de GenAI: TTFT, tokens y coste por agente, 429/503 por plan, acierto
+   de la caché, respuestas degradadas, backlog de colas y faithfulness muestreada. Las alertas son
+   de *burn rate* multiventana sobre 6 SLO (14,4× en 1 h y 5 min para despertar, 6×/3×/1× para
+   ticket) más coste desbocado. Se generan desde el dominio (71 reglas) y se prueban con
+   `promtool test rules` en la CI.
+4. **¿Cómo evitas que la observabilidad filtre PII?** En tres capas:
+   - el contenido (prompts, respuestas, argumentos) está apagado por defecto y, si se activa,
+     pasa por el redactor;
+   - el collector borra esos atributos antes de los backends genéricos;
+   - las etiquetas de métricas nunca llevan IDs.
+
+   Solo Langfuse, con acceso restringido, ve el contenido. Los logs JSON llevan `trace_id` para
+   saltar del error a su traza sin copiar datos.
+5. **Langfuse, Phoenix, LangSmith o X-Ray: ¿cuál?** No es uno u otro. Langfuse (o Phoenix) entiende
+   de LLM: sesiones, prompts, coste por modelo, scores. X-Ray o App Insights ven el sistema
+   entero: colas, 503, Redis. Con OTel instrumento una vez y mando cada span a quien lo
+   aprovecha. LangSmith encaja si todo es LangChain, pero es SaaS y ata el formato.
+
+### Negocio y stakeholders
+
+1. **¿Qué gana Headache con esto y qué KPI mirarías?** Menos tiempo en detectar y resolver
+   incidentes (MTTD, MTTR) y coste bajo control. Una alerta de coste desbocado salta en 15
+   minutos, no a fin de mes en la factura. Miraría:
+   - coste por caso resuelto y por agente;
+   - TTFT p95;
+   - porcentaje de errores del modelo frente al presupuesto de error;
+   - faithfulness muestreada.
+
+   Cada alerta enlaza a un runbook, así que cualquiera de guardia sabe qué hacer.
+2. **¿Cuánto cuesta observar y cómo lo contienes?** La ingesta se paga por GB, y un agente genera
+   muchos spans. Lo contengo así:
+   - sin prompts en los backends genéricos;
+   - muestreo configurable (`TELEMETRY__SAMPLE_RATIO`);
+   - tope diario de ingesta en Log Analytics;
+   - solo las dimensiones de métricas que usan las alarmas (en CloudWatch, cada combinación se
+     factura);
+   - retenciones cortas.
+
+   La evaluación online con juez está apagada por defecto y, cuando se active, va con muestreo y
+   tope por minuto. Antes de producción, mediría los GB/mes reales.
+3. **¿Cómo explicas un SLO y un presupuesto de error a dirección?** "Nos comprometemos a que 99 de
+   cada 100 respuestas salgan bien; el 1 % restante es el margen para cambiar cosas". Si lo
+   gastamos muy deprisa, alerta y se congela lo arriesgado. Si sobra, podemos ir más rápido. Así
+   la conversación deja de ser "¿hay errores?" (siempre los hay) y pasa a "¿estamos dentro de lo
+   pactado?".

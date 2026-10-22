@@ -106,3 +106,14 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] Comparar con el carril A: políticas `llm-token-limit` y `azure-openai-semantic-cache-lookup/store` de APIM y *usage plans* de API Gateway frente a `edge_api`.
 - [ ] Carga desde la nube con el mismo `loadtests/locustfile.py`: Azure Load Testing (admite Locust) contra el edge desplegado con varias réplicas, para separar el límite del edge del de un generador en la misma máquina. Repetir los tres perfiles y comparar con `evals/reports/load/README.md`. En AWS, *Distributed Load Testing on AWS* o Locust en ECS.
 - [ ] Prueba pequeña contra Azure OpenAI real (`LLM_PROVIDER=azure`, `LOAD_PEAK=20`, despliegue con poca cuota): ver los 429 reales, su `Retry-After` y que el breaker y la degradación se comportan como con el simulado. Presupuesto acordado antes (~0,50 $).
+
+## Fase 11 · Observabilidad ([doc](fase-11-observabilidad.md))
+
+- [ ] Azure: `observability_enabled = true` (Log Analytics con tope de 0,5 GB/día, Application Insights sin claves locales, action group y 2 alertas). Collector `infra/otel/collector-azure.yaml` con la identidad (rol *Monitoring Metrics Publisher*) y los servicios con `TELEMETRY__EXPORTER=otlp`: ver la traza asíncrona de 14 spans en *transaction search* y el mapa de aplicación, y forzar la alerta de coste con un presupuesto ficticio bajo.
+- [ ] Conectar Application Insights al proyecto de Foundry (Foundry Tracing) y comparar sus trazas de agentes con los spans `invoke_agent`/`execute_tool` propios.
+- [ ] AWS (con la cuenta de la fase 13): activar X-Ray Transaction Search (`aws xray update-trace-segment-destination --destination CloudWatchLogs`), `observability_enabled = true` y el collector `infra/otel/collector-aws.yaml` (imagen ADOT) con el rol de la tarea y la política `otel_collector`. Comprobar que los `gen_ai.*` llegan indexados y que las métricas EMF solo crean las dimensiones declaradas.
+- [ ] AgentCore Observability con los agentes del carril A (fase 7) frente a la instrumentación propia.
+- [ ] Evaluación online con juez real: `EDGE__ONLINE_EVAL_RATE=0.05` y `EDGE__ONLINE_EVAL_PER_MINUTE=10` con Azure OpenAI; medir el coste por 1.000 respuestas evaluadas y la correlación con el faithfulness offline de la fase 5.
+- [ ] Medir los GB/mes de ingesta con tráfico de la demo (`telemetry_demo.py`) en App Insights y CloudWatch, y fijar el muestreo (`TELEMETRY__SAMPLE_RATIO` o *tail sampling* en el collector) a partir del dato.
+- [ ] Portar el resto de alertas de SLO a la nube (KQL / Metrics Insights) o usar Managed Prometheus / Amazon Managed Prometheus con las mismas reglas generadas.
+- [ ] Langfuse v4 (o Langfuse Cloud) y comparar con Arize Phoenix sobre la misma traza OTLP.
