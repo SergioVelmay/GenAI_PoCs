@@ -129,6 +129,7 @@ def build_dashboard() -> dict[str, Any]:
     plan = genai.HEADACHE_PLAN
     m = metrics
     fresh = f'{label(cache)}!="hit"'
+    acceptable = f'{label("headache.eval.acceptable")}="true"'
     panels: list[dict[str, Any]] = [
         _row("Coste", 0),
         _panel(
@@ -325,6 +326,35 @@ def build_dashboard() -> dict[str, Any]:
             y=36,
             w=12,
             description="scored, skipped (fuera de muestra), dropped (cola o presupuesto), failed.",
+        ),
+        _panel(
+            "Agentes: respuestas aceptables (juez online, 1 h)",
+            [
+                (
+                    f"{rate(m.EVAL_AGENT_VERDICTS, by=(agent,), where=acceptable, window='1h')}"
+                    f" / clamp_min({rate(m.EVAL_AGENT_VERDICTS, by=(agent,), window='1h')}, 1e-9)",
+                    f"{{{{{label(agent)}}}}}",
+                ),
+            ],
+            x=0,
+            y=44,
+            w=12,
+            unit="percentunit",
+            description="Resuelve o escala, todo respaldado, sin acciones inventadas y en el "
+            "idioma del cliente (fase 12.3). Calibrar el juez antes de alertar sobre esto.",
+        ),
+        _panel(
+            "Agentes: veredictos por resolución (/min)",
+            [
+                (
+                    f"60 * {rate(m.EVAL_AGENT_VERDICTS, by=('headache.eval.resolution',))}",
+                    "{{headache_eval_resolution}}",
+                )
+            ],
+            x=12,
+            y=44,
+            w=12,
+            description="resuelto, escalado, parcial o no_resuelto según el juez.",
         ),
     ]
     for index, panel in enumerate(panels, start=1):

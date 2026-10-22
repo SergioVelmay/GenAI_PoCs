@@ -16,9 +16,11 @@ from headache_core.application.online_eval import (
     EvalSample,
     LLMFaithfulnessJudge,
     OnlineEvaluator,
+    Score,
 )
 from headache_core.application.telemetry import genai, metrics
 from headache_core.ports import SpanKind
+from headache_core.ports.telemetry import TraceCarrier
 
 SAMPLE = EvalSample("¿Hasta cuándo puedo pedir el reembolso?", "Hasta 48 h antes.", ("doc#0",))
 OFFER = {"cache": "miss", "mode": "generative", "degraded": False, "abstained": False}
@@ -47,8 +49,8 @@ class Sink:
     def __init__(self) -> None:
         self.scores: list[tuple[str, float]] = []
 
-    async def record(self, sample: EvalSample, *, name: str, score: float) -> None:
-        self.scores.append((name, score))
+    async def record(self, trace: TraceCarrier, score: Score) -> None:
+        self.scores.append((score.name, score.value))
 
 
 async def test_llm_judge_scores_the_fraction_of_supported_claims() -> None:

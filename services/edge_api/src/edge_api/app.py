@@ -58,7 +58,6 @@ from headache_core.application.online_eval import (
     EvalSample,
     LLMFaithfulnessJudge,
     OnlineEvaluator,
-    ScoreSink,
 )
 from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
@@ -504,17 +503,14 @@ def build_online_evaluator(
         records = [await service.source(source_id) for source_id in ids]
         return [record.text for record in records if record is not None]
 
-    sinks: list[ScoreSink] = []
-    if settings.langfuse.public_key and settings.langfuse.secret_key.get_secret_value():
-        from headache_core.adapters.langfuse_scores import LangfuseScoreSink
+    from headache_core.adapters.online_eval_factory import build_score_sinks
 
-        sinks.append(LangfuseScoreSink.from_settings(settings.langfuse))
     return OnlineEvaluator(
         LLMFaithfulnessJudge(build_judge_llm(settings)),
         sources,
         sample_rate=edge.online_eval_rate,
         max_per_minute=edge.online_eval_per_minute,
-        sinks=sinks,
+        sinks=build_score_sinks(settings),
     )
 
 

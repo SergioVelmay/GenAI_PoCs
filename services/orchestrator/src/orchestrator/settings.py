@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,3 +30,7 @@ class OrchestratorSettings(BaseSettings):
     # (latencia añadida en el peor caso).
     relay_batch_size: int = 100
     relay_idle_seconds: float = 0.5
+    # Juez online de los especialistas (fase 12.3): fracción de turnos evaluados y tope por
+    # minuto. Cada muestra es una llamada al juez (coste): apagado por defecto.
+    online_eval_rate: float = Field(default=0.0, ge=0, le=1)
+    online_eval_per_minute: int = Field(default=10, ge=1)

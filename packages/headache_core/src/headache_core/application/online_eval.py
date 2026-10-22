@@ -24,6 +24,7 @@ import json
 import logging
 import random
 import time
+from abc import ABC, abstractmethod
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -64,10 +65,23 @@ class FaithfulnessJudge(Protocol):
         ...
 
 
-class ScoreSink(Protocol):
-    """Destino extra de la puntuación (Langfuse scores). La métrica se registra siempre."""
+@dataclass(frozen=True, slots=True)
+class Score:
+    name: str
+    value: float
+    comment: str | None = None
 
-    async def record(self, sample: EvalSample, *, name: str, score: float) -> None: ...
+
+class ScoreSink(Protocol):
+    """Destino extra de las puntuaciones (Langfuse scores), enganchadas a la traza evaluada. Las
+    métricas se registran siempre."""
+
+    async def record(self, trace: TraceCarrier, score: Score) -> None: ...
+
+
+class _Traced(Protocol):
+    @property
+    def trace(self) -> TraceCarrier: ...
 
 
 class _Claim(BaseModel):
@@ -117,11 +131,16 @@ class LLMFaithfulnessJudge:
         return ratio([claim.supported for claim in result.value.claims])
 
 
-class OnlineEvaluator:
+class SampledEvaluator[S: _Traced](ABC):
+    """Maquinaria común de la evaluación online (fases 11.6 y 12.3): muestreo, cola acotada,
+    presupuesto por minuto, span del juez colgado de la traza evaluada, métricas y sinks.
+
+    Cada evaluador concreto solo decide qué se puede evaluar y cómo se puntúa (`_score`)."""
+
+    name: str
+
     def __init__(
         self,
-        judge: FaithfulnessJudge,
-        sources: SourceLookup,
         *,
         sample_rate: float,
         max_per_minute: int = 10,
@@ -132,35 +151,29 @@ class OnlineEvaluator:
     ) -> None:
         if not 0 <= sample_rate <= 1:
             raise ValueError("sample_rate va de 0 a 1.")
-        self._judge = judge
-        self._sources = sources
         self._rate = sample_rate
         self._max_per_minute = max_per_minute
-        self._queue: asyncio.Queue[EvalSample] = asyncio.Queue(maxsize=queue_size)
+        self._queue: asyncio.Queue[S] = asyncio.Queue(maxsize=queue_size)
         self._sinks = tuple(sinks)
         self._rng = rng
         self._clock = clock
         self._started: deque[float] = deque()
 
-    def offer(
-        self,
-        sample: EvalSample,
-        *,
-        cache: str,
-        mode: str,
-        degraded: bool,
-        abstained: bool,
-    ) -> bool:
-        """Decide en el momento y sin esperar si la respuesta se evalúa. Devuelve si se encoló."""
-        if cache != "miss" or mode == "extractive" or degraded or abstained or not sample.citations:
-            return False
+    @abstractmethod
+    async def _score(self, sample: S) -> list[Score] | None:
+        """Puntuaciones de la muestra; `None` si no hay nada que juzgar."""
+
+    def _record_metrics(self, sample: S, scores: Sequence[Score]) -> None:  # noqa: B027
+        """Métricas propias del evaluador (por defecto, ninguna)."""
+
+    def _enqueue(self, sample: S) -> bool:
         if self._rng() >= self._rate:
-            metrics.eval_sample("skipped", evaluator=EVALUATOR)
+            metrics.eval_sample("skipped", evaluator=self.name)
             return False
         try:
             self._queue.put_nowait(sample)
         except asyncio.QueueFull:
-            metrics.eval_sample("dropped", evaluator=EVALUATOR)
+            metrics.eval_sample("dropped", evaluator=self.name)
             return False
         return True
 
@@ -198,40 +211,91 @@ class OnlineEvaluator:
         self._started.append(now)
         return True
 
-    async def _evaluate(self, sample: EvalSample) -> None:
+    async def _evaluate(self, sample: S) -> None:
         if not self._within_budget():
-            metrics.eval_sample("dropped", evaluator=EVALUATOR)
+            metrics.eval_sample("dropped", evaluator=self.name)
             return
         telemetry = get_telemetry()
         with telemetry.span(
-            f"evaluate {EVALUATOR}",
+            f"evaluate {self.name}",
             parent=sample.trace,
             attributes={
                 genai.LANGFUSE_OBSERVATION_TYPE: genai.ObservationType.EVALUATOR.value,
-                "headache.eval.name": EVALUATOR,
+                "headache.eval.name": self.name,
             },
         ) as span:
             try:
-                sources = await self._sources(sample.citations)
-                score = (
-                    await self._judge.faithfulness(sample.question, sample.answer, sources)
-                    if sources
-                    else None
-                )
+                scores = await self._score(sample)
             except Exception as exc:
                 # El juez nunca rompe nada: una evaluación perdida no es un incidente.
                 logger.warning("Evaluación online fallida: %s", type(exc).__name__)
                 span.mark_error(type(exc).__name__)
-                metrics.eval_sample("failed", evaluator=EVALUATOR)
+                metrics.eval_sample("failed", evaluator=self.name)
                 return
-            if score is None:
-                metrics.eval_sample("unscorable", evaluator=EVALUATOR)
+            if not scores:
+                metrics.eval_sample("unscorable", evaluator=self.name)
                 return
-            span.set_attribute("headache.eval.score", score)
-            metrics.eval_sample("scored", evaluator=EVALUATOR)
-            metrics.eval_score(score, evaluator=EVALUATOR, attributes=sample.attributes)
+            for score in scores:
+                span.set_attribute(f"headache.eval.{score.name}", score.value)
+            metrics.eval_sample("scored", evaluator=self.name)
+            self._record_metrics(sample, scores)
             for sink in self._sinks:
-                try:
-                    await sink.record(sample, name=EVALUATOR, score=score)
-                except Exception as exc:
-                    logger.warning("No se pudo guardar la puntuación: %s", type(exc).__name__)
+                for score in scores:
+                    try:
+                        await sink.record(sample.trace, score)
+                    except Exception as exc:
+                        logger.warning("No se pudo guardar la puntuación: %s", type(exc).__name__)
+
+
+class OnlineEvaluator(SampledEvaluator[EvalSample]):
+    """Faithfulness de las respuestas del asistente RAG del edge (fase 11.6)."""
+
+    name = EVALUATOR
+
+    def __init__(
+        self,
+        judge: FaithfulnessJudge,
+        sources: SourceLookup,
+        *,
+        sample_rate: float,
+        max_per_minute: int = 10,
+        queue_size: int = 100,
+        sinks: Sequence[ScoreSink] = (),
+        rng: Callable[[], float] = random.random,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        super().__init__(
+            sample_rate=sample_rate,
+            max_per_minute=max_per_minute,
+            queue_size=queue_size,
+            sinks=sinks,
+            rng=rng,
+            clock=clock,
+        )
+        self._judge = judge
+        self._sources = sources
+
+    def offer(
+        self,
+        sample: EvalSample,
+        *,
+        cache: str,
+        mode: str,
+        degraded: bool,
+        abstained: bool,
+    ) -> bool:
+        """Decide en el momento y sin esperar si la respuesta se evalúa. Devuelve si se encoló."""
+        if cache != "miss" or mode == "extractive" or degraded or abstained or not sample.citations:
+            return False
+        return self._enqueue(sample)
+
+    async def _score(self, sample: EvalSample) -> list[Score] | None:
+        sources = await self._sources(sample.citations)
+        if not sources:
+            return None
+        score = await self._judge.faithfulness(sample.question, sample.answer, sources)
+        return None if score is None else [Score(EVALUATOR, score, "LLM-juez online (fase 11.6)")]
+
+    def _record_metrics(self, sample: EvalSample, scores: Sequence[Score]) -> None:
+        for score in scores:
+            metrics.eval_score(score.value, evaluator=self.name, attributes=sample.attributes)

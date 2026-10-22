@@ -589,6 +589,78 @@
         }
       ],
       "id": 18
+    },
+    {
+      "type": "timeseries",
+      "title": "Agentes: respuestas aceptables (juez online, 1 h)",
+      "description": "Resuelve o escala, todo respaldado, sin acciones inventadas y en el idioma del cliente (fase 12.3). Calibrar el juez antes de alertar sobre esto.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (gen_ai_agent_name)(rate(headache_eval_agent_verdicts_total{headache_eval_acceptable=\"true\"}[1h])) / clamp_min(sum by (gen_ai_agent_name)(rate(headache_eval_agent_verdicts_total[1h])), 1e-9)",
+          "legendFormat": "{{gen_ai_agent_name}}"
+        }
+      ],
+      "id": 19
+    },
+    {
+      "type": "timeseries",
+      "title": "Agentes: veredictos por resolución (/min)",
+      "description": "resuelto, escalado, parcial o no_resuelto según el juez.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 44,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "60 * sum by (headache_eval_resolution)(rate(headache_eval_agent_verdicts_total[$__rate_interval]))",
+          "legendFormat": "{{headache_eval_resolution}}"
+        }
+      ],
+      "id": 20
     }
   ],
   "templating": {

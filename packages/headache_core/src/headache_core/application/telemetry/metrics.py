@@ -143,6 +143,12 @@ CATALOG: dict[str, Instrument] = {
             "{sample}",
             "Respuestas muestreadas para evaluar (scored, skipped, dropped, failed).",
         ),
+        # Juez online de agentes (fase 12.3): veredicto por respuesta y agente.
+        _counter(
+            "headache.eval.agent_verdicts",
+            "{verdict}",
+            "Veredictos del LLM-juez de agentes por agente, aceptabilidad y resolución.",
+        ),
     )
 }
 
@@ -167,6 +173,7 @@ MESSAGE_PROCESS_DURATION = "messaging.process.duration"
 OUTBOX_BACKLOG = "headache.outbox.backlog"
 EVAL_FAITHFULNESS = "headache.eval.faithfulness"
 EVAL_SAMPLES = "headache.eval.samples"
+EVAL_AGENT_VERDICTS = "headache.eval.agent_verdicts"
 
 # Sin agente (el asistente RAG del edge, un script): el coste se atribuye a esto.
 NO_AGENT = "none"
@@ -295,6 +302,18 @@ def eval_sample(outcome: str, *, evaluator: str) -> None:
 
 def eval_score(score: float, *, evaluator: str, attributes: Mapping[str, AttributeValue]) -> None:
     histogram(EVAL_FAITHFULNESS).record(score, {**attributes, "headache.eval.name": evaluator})
+
+
+def agent_verdict(*, agent: str, acceptable: bool, resolution: str) -> None:
+    """Tasa de respuestas aceptables por agente = verdicts{acceptable="true"} / total."""
+    counter(EVAL_AGENT_VERDICTS).add(
+        1,
+        {
+            genai.AGENT_NAME: agent,
+            "headache.eval.acceptable": str(acceptable).lower(),
+            "headache.eval.resolution": resolution,
+        },
+    )
 
 
 def outbox_backlog(count: int, *, topic_prefix: str) -> None:

@@ -11,8 +11,9 @@ from typing import Self
 
 from langfuse import Langfuse
 
-from headache_core.application.online_eval import EvalSample
+from headache_core.application.online_eval import Score
 from headache_core.config import LangfuseSettings
+from headache_core.ports.telemetry import TraceCarrier
 
 
 def trace_id_of(carrier: dict[str, str] | None) -> str | None:
@@ -35,16 +36,16 @@ class LangfuseScoreSink:
             )
         )
 
-    async def record(self, sample: EvalSample, *, name: str, score: float) -> None:
-        trace_id = trace_id_of(dict(sample.trace))
+    async def record(self, trace: TraceCarrier, score: Score) -> None:
+        trace_id = trace_id_of(dict(trace))
         if trace_id is None:
             return
         # El SDK es síncrono (encola y envía en segundo plano): fuera del event loop.
         await asyncio.to_thread(
             self._client.create_score,
-            name=name,
-            value=score,
+            name=score.name,
+            value=score.value,
             trace_id=trace_id,
             data_type="NUMERIC",
-            comment="LLM-juez online (fase 11.6)",
+            comment=score.comment,
         )

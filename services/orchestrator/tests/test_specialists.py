@@ -11,10 +11,13 @@ import pytest
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS
 from harness import APPROVAL_REQUIRED
 from harness.rules.case_reply import SEND_CASE_REPLY
+from headache_core.application.agent_judge import AgentJudgeSample
+from headache_core.application.agent_online_eval import AgentOnlineEvaluator
 from headache_core.application.agents.runtime import AgentTurn
 from headache_core.application.orchestration import InvalidHandoffError, render_handoff
 from headache_core.application.tools import FALLBACK_ANSWER, build_ticketing_tools
 from headache_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
+from headache_core.domain.agent_eval import AgentJudgement, Resolution
 from headache_core.ports import ToolCall
 from headache_core.ports.approvals import ApprovalStatus
 from orchestrator.specialists import (
@@ -59,6 +62,17 @@ COMPLAINT_CASE = _envelope(
     Specialist.CREATIVE,
     summary="Se queja de que el sonido era malo y el evento empez? 40 minutos tarde.",
 )
+
+
+class _RecordingJudge:
+    name = "recording"
+
+    def __init__(self) -> None:
+        self.samples: list[AgentJudgeSample] = []
+
+    async def judge(self, sample: AgentJudgeSample) -> AgentJudgement:
+        self.samples.append(sample)
+        return AgentJudgement(1.0, 1, 0, Resolution.ESCALATED, True)
 
 
 def _call(name: str, **arguments: str) -> list[ToolCall]:
@@ -144,6 +158,26 @@ async def test_refunds_specialist_escalates_a_hallucinated_refund() -> None:
     assert outcome.status is CaseStatus.ESCALATED
     assert outcome.guardrails == ("ungrounded_refund_claim",)
     assert outcome.reply == FALLBACK_ANSWER
+
+
+async def test_online_judge_sees_the_turn_of_the_specialist_not_the_email() -> None:
+    judge = _RecordingJudge()
+    evaluator = AgentOnlineEvaluator(judge, sample_rate=1.0)
+    world = _world([_call("request_refund", order_id=ORDER, reason="No puede asistir."), PENDING])
+    deps = replace(world.deps, evaluator=evaluator)
+
+    await build_specialists(deps)[Specialist.REFUNDS].handle(REFUND_CASE)
+    # Un turno bloqueado por el harness (texto fijo) no se juzga.
+    blocked = _world(["¡Listo! Tu reembolso de 60,00 € ha sido aprobado."])
+    await build_specialists(replace(blocked.deps, evaluator=evaluator))[Specialist.REFUNDS].handle(
+        REFUND_CASE
+    )
+    assert await evaluator.drain() == 1
+
+    [sample] = judge.samples
+    assert sample.user_messages == (render_handoff(REFUND_CASE),)
+    assert sample.answer == PENDING
+    assert [(e.tool, e.error) for e in sample.evidence] == [("request_refund", APPROVAL_REQUIRED)]
 
 
 async def test_specialist_sees_the_handoff_not_the_email_or_the_identity() -> None:

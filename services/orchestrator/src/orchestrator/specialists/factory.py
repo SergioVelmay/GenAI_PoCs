@@ -10,15 +10,20 @@ from booking_agent.guardrails import guarded_agent, guarded_executor
 from booking_agent.runtime import AgentDeps
 from booking_agent.spec import AgentSpec
 from harness.approvals import ApprovalService
-from harness.pii import PiiDetector
+from harness.pii import PiiDetector, RegexPiiDetector, pii_filter
 from harness.rules.case_reply import ReplySender, build_case_reply_tools
 from harness.security import HeuristicShield
+from headache_core.application.agent_online_eval import (
+    AgentOnlineEvaluator,
+    EvaluatedAgent,
+    Redactor,
+)
 from headache_core.application.agents import SkillCatalog
 from headache_core.application.agents.runtime import AgentRuntime
 from headache_core.application.agents.tracing import TracedAgent
 from headache_core.application.orchestration import SpecialistAgent
 from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import ToolRegistry, build_ticketing_tools
+from headache_core.application.tools import ToolContext, ToolRegistry, build_ticketing_tools
 from headache_core.domain import Specialist
 from headache_core.ports import LLMPort, TicketingPort
 from headache_core.ports.approvals import ApprovalStore
@@ -45,6 +50,8 @@ class SpecialistDeps:
     flavor: str = "native"
     skills: SkillCatalog | None = None
     fail_open: bool = False
+    # Juez online de los turnos de Reembolsos y Conocimiento (fase 12.3); None = apagado.
+    evaluator: AgentOnlineEvaluator | None = None
 
 
 def approval_registry_for(ticketing: TicketingPort, send_reply: ReplySender) -> ToolRegistry:
@@ -67,10 +74,32 @@ def _agent_factory(spec: AgentSpec, deps: SpecialistDeps) -> Callable[[], AgentR
         executor = guarded_executor(spec, deps.approvals, shield, fail_open=deps.fail_open)
         agent_deps = AgentDeps(spec, deps.llm, executor, deps.checkpoints, deps.preferences)
         agent = create_agent(deps.flavor, agent_deps)
-        guarded = guarded_agent(agent, shield=shield, pii=deps.pii, fail_open=deps.fail_open)
+        guarded: AgentRuntime = guarded_agent(
+            agent, shield=shield, pii=deps.pii, fail_open=deps.fail_open
+        )
+        if deps.evaluator is not None:
+            # Dentro de TracedAgent: el span del juez cuelga del `invoke_agent` del turno.
+            guarded = EvaluatedAgent(
+                guarded,
+                name=spec.name,
+                evaluator=deps.evaluator,
+                journal=executor.journal,
+                redact=pii_redactor(deps.pii),
+            )
         return TracedAgent(guarded, name=spec.name)
 
     return create
+
+
+def pii_redactor(detector: PiiDetector | None) -> Redactor:
+    """El mismo redactor de entrada que el harness: el juez nunca ve más que el agente."""
+    apply = pii_filter(detector or RegexPiiDetector())
+
+    async def redact(text: str) -> str:
+        redacted, _ = await apply(text, ToolContext(customer_id="online-eval"))
+        return redacted
+
+    return redact
 
 
 def build_specialist(specialist: Specialist, deps: SpecialistDeps) -> SpecialistAgent:

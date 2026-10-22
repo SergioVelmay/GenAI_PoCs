@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterable
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -13,11 +14,13 @@ from booking_agent.guardrails import build_pii_detector, build_shield
 from harness.rules.case_reply import SendCaseReplyArgs
 from headache_core.adapters.llm_factory import build_gateway
 from headache_core.adapters.memory import InMemoryCheckpointStore, InMemoryPreferenceStore
+from headache_core.adapters.online_eval_factory import build_agent_evaluator
 from headache_core.adapters.postgres import create_engine, create_session_factory
 from headache_core.adapters.postgres.approvals import PostgresApprovalStore
 from headache_core.adapters.postgres.cases import PostgresCaseStore
 from headache_core.adapters.postgres.outbox import PostgresOutboxStore
 from headache_core.adapters.ticketing_http import HttpTicketingClient
+from headache_core.application.agent_online_eval import AgentOnlineEvaluator
 from headache_core.application.orchestration import SpecialistAgent
 from headache_core.application.tools import ToolContext
 from headache_core.config import Settings
@@ -25,6 +28,7 @@ from headache_core.domain import Specialist
 from headache_core.ports.cases import CaseStore
 from headache_mcp.auth import DevTokenIssuer
 from orchestrator.remote import BearerAuth, RemoteSpecialist, dev_token_source
+from orchestrator.settings import OrchestratorSettings
 from orchestrator.specialists import SpecialistDeps
 from retrieval.bootstrap import build_runtime
 from retrieval.settings import RetrievalSettings
@@ -78,6 +82,7 @@ async def open_specialist_deps(
             stack.push_async_callback(runtime.aclose)
             retrieval = runtime.service
         shield = await stack.enter_async_context(build_shield(settings))
+        evaluator = await stack.enter_async_context(running_agent_evaluator(settings))
         deps = SpecialistDeps(
             llm=build_gateway(settings),
             ticketing=ticketing,
@@ -91,8 +96,33 @@ async def open_specialist_deps(
             shield=shield,
             pii=build_pii_detector(settings),
             fail_open=settings.guardrails.fail_open,
+            evaluator=evaluator,
         )
         yield deps, cases
+
+
+@asynccontextmanager
+async def running_agent_evaluator(
+    settings: Settings, orchestrator: OrchestratorSettings | None = None
+) -> AsyncIterator[AgentOnlineEvaluator | None]:
+    """Juez online con su worker en segundo plano mientras viva el proceso. Al parar, lo que
+    quede en la cola se descarta: es una muestra, no un trabajo pendiente."""
+    config = orchestrator or OrchestratorSettings()
+    evaluator = build_agent_evaluator(
+        settings,
+        sample_rate=config.online_eval_rate,
+        max_per_minute=config.online_eval_per_minute,
+    )
+    if evaluator is None:
+        yield None
+        return
+    stop = asyncio.Event()
+    task = asyncio.create_task(evaluator.run(stop))
+    try:
+        yield evaluator
+    finally:
+        stop.set()
+        await task
 
 
 @asynccontextmanager
