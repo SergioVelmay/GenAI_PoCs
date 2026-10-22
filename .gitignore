@@ -31,6 +31,11 @@ data/benchmarks/
 *.tfvars
 !*.tfvars.example
 
+# Experimentos A/B (fase 12.7): los runs locales (JSONL y MLflow) no se versionan; el informe sí.
+.experiments/
+.mlflow/
+mlruns/
+
 # Pruebas de carga (fase 10.7): se versionan el informe y los CSV de resumen, no el detalle.
 evals/reports/load/*_stats_history.csv
 evals/reports/load/*_exceptions.csv

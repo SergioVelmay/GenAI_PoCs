@@ -24,6 +24,9 @@ evals = [
 redteam = [
     "pyrit>=1.1.0",
 ]
+llmops = [
+    "mlflow>=3.17",
+]
 
 [tool.uv.sources]
 booking-agent = { workspace = true }

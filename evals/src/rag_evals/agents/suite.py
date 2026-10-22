@@ -44,6 +44,7 @@ from headache_core.adapters.memory import (
 from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
 from headache_core.application.agent_judge import AgentJudge, AgentJudgeSample, Evidence
 from headache_core.application.agents import ContextPolicy, SkillCatalog
+from headache_core.application.prompts import Prompt, prompt_scope
 from headache_core.application.retrieval import RetrievalService
 from headache_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
 from headache_core.application.tools.loop import ToolErrorKind
@@ -324,6 +325,7 @@ async def run_scenario(
     llm: LLMPort | None = None,
     harness: bool = False,
     judge: AgentJudge | None = None,
+    instructions: Prompt | None = None,
 ) -> ScenarioOutcome:
     world = build_world()
     ticketing = UnitOfWorkTicketing(lambda: world, clock=lambda: NOW)
@@ -344,6 +346,7 @@ async def run_scenario(
         skills=skills,
         context=policy,
         max_iterations=scenario.max_iterations,
+        **({"instructions": instructions.text} if instructions else {}),
     )
     model = UsageRecorder(llm or ScenarioLLM(scenario))
     approvals = InMemoryApprovalStore()
@@ -360,7 +363,10 @@ async def run_scenario(
     started = time.perf_counter()
     for turn in scenario.turns:
         try:
-            result = await agent.respond(turn.thread, turn.user, context)
+            # Un prompt candidato (A/B, fase 12.7) no está en el catálogo: se declara aquí para
+            # que cada generación lleve su nombre y versión.
+            with prompt_scope(instructions):
+                result = await agent.respond(turn.thread, turn.user, context)
         except Exception as exc:  # El fallo de un sabor es un resultado, no rompe la suite.
             failures.append(f"excepción en el turno: {type(exc).__name__}: {exc}")
             break
@@ -600,6 +606,7 @@ async def run_agent_suite(
     harness: bool = False,
     corpus: Path = CORPUS_PATH,
     judge: AgentJudge | None = None,
+    instructions: Prompt | None = None,
 ) -> AgentReport:
     if mode == "llm" and llm is None:
         raise ValueError("El modo llm necesita un LLM (con presupuesto)")
@@ -622,6 +629,7 @@ async def run_agent_suite(
                 llm=llm if mode == "llm" else None,
                 harness=harness,
                 judge=judge,
+                instructions=instructions,
             )
             for scenario in scenarios
         ]

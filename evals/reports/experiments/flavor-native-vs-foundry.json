@@ -1,0 +1,134 @@
+{
+  "experiment": {
+    "name": "flavor-native-vs-foundry",
+    "description": "Sabor nativo (control) frente a Foundry Agent Service emulado, suite de agentes.",
+    "dataset": "agents",
+    "metric": "passed",
+    "llm_metric": null,
+    "alpha": 0.05,
+    "assignment": null,
+    "variants": {
+      "control": {
+        "flavor": "native",
+        "harness": null,
+        "prompt": null,
+        "model": null
+      },
+      "tratamiento": {
+        "flavor": "foundry",
+        "harness": null,
+        "prompt": null,
+        "model": null
+      }
+    }
+  },
+  "variants": {
+    "control": {
+      "prompt": "producción",
+      "summary": {
+        "flavor": "native",
+        "mode": "scripted",
+        "scenarios": 14,
+        "passed": 14,
+        "pass_rate": 1.0,
+        "resolution_rate": 1.0,
+        "by_category": {
+          "booking": 1.0,
+          "harness": 1.0,
+          "knowledge": 1.0,
+          "memory": 1.0,
+          "refund": 1.0,
+          "security": 1.0
+        },
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0,
+          "payload_to_model": 0,
+          "unapproved_irreversible": 0
+        },
+        "model_calls": 50,
+        "input_tokens": 97088,
+        "cached_input_tokens": 65996,
+        "output_tokens": 1259,
+        "prefix_reuse": 0.6798,
+        "tool_calls": 31,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "trajectory_exact_rate": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
+        "tool_errors": 2,
+        "latency_p50_ms": 2.32,
+        "latency_p95_ms": 4.28,
+        "failed": [],
+        "cost": null,
+        "judge": null
+      }
+    },
+    "tratamiento": {
+      "prompt": "producción",
+      "summary": {
+        "flavor": "foundry",
+        "mode": "scripted",
+        "scenarios": 14,
+        "passed": 13,
+        "pass_rate": 0.9286,
+        "resolution_rate": 1.0,
+        "by_category": {
+          "booking": 1.0,
+          "harness": 1.0,
+          "knowledge": 1.0,
+          "memory": 0.6667,
+          "refund": 1.0,
+          "security": 1.0
+        },
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0,
+          "payload_to_model": 0,
+          "unapproved_irreversible": 0
+        },
+        "model_calls": 48,
+        "input_tokens": 96697,
+        "cached_input_tokens": 66509,
+        "output_tokens": 1226,
+        "prefix_reuse": 0.6878,
+        "tool_calls": 31,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "trajectory_exact_rate": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
+        "tool_errors": 2,
+        "latency_p50_ms": 2.38,
+        "latency_p95_ms": 5.0,
+        "failed": [
+          "memory-summary-long-thread-es"
+        ],
+        "cost": null,
+        "judge": null
+      }
+    }
+  },
+  "comparison": {
+    "metric": "passed",
+    "control_rate": 1.0,
+    "treatment_rate": 0.9285714285714286,
+    "mcnemar": {
+      "only_control": 1,
+      "only_treatment": 0,
+      "p_value": 1.0
+    },
+    "difference": {
+      "estimate": -0.07142857142857142,
+      "low": -0.21428571428571427,
+      "high": 0.0
+    },
+    "decision": "sin_evidencia",
+    "reason": "solo 1 caso discrepa (menos de 10): falta muestra"
+  }
+}

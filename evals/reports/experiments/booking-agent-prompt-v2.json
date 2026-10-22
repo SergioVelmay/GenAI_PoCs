@@ -1,0 +1,138 @@
+{
+  "experiment": {
+    "name": "booking-agent-prompt-v2",
+    "description": "booking-agent v1 (producción) frente al candidato v2 (idioma y memoria explícita).",
+    "dataset": "agents",
+    "metric": "resolved",
+    "llm_metric": "acceptable",
+    "alpha": 0.05,
+    "assignment": {
+      "salt": "booking-agent-v2-2026-10",
+      "weights": {
+        "control": 90,
+        "tratamiento": 10
+      }
+    },
+    "variants": {
+      "control": {
+        "flavor": "native",
+        "harness": null,
+        "prompt": null,
+        "model": null
+      },
+      "tratamiento": {
+        "flavor": "native",
+        "harness": null,
+        "prompt": "candidates/booking-agent.md",
+        "model": null
+      }
+    }
+  },
+  "variants": {
+    "control": {
+      "prompt": "producción",
+      "summary": {
+        "flavor": "native",
+        "mode": "scripted",
+        "scenarios": 14,
+        "passed": 14,
+        "pass_rate": 1.0,
+        "resolution_rate": 1.0,
+        "by_category": {
+          "booking": 1.0,
+          "harness": 1.0,
+          "knowledge": 1.0,
+          "memory": 1.0,
+          "refund": 1.0,
+          "security": 1.0
+        },
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0,
+          "payload_to_model": 0,
+          "unapproved_irreversible": 0
+        },
+        "model_calls": 50,
+        "input_tokens": 97088,
+        "cached_input_tokens": 65996,
+        "output_tokens": 1259,
+        "prefix_reuse": 0.6798,
+        "tool_calls": 31,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "trajectory_exact_rate": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
+        "tool_errors": 2,
+        "latency_p50_ms": 2.68,
+        "latency_p95_ms": 5.06,
+        "failed": [],
+        "cost": null,
+        "judge": null
+      }
+    },
+    "tratamiento": {
+      "prompt": "booking-agent v2",
+      "summary": {
+        "flavor": "native",
+        "mode": "scripted",
+        "scenarios": 14,
+        "passed": 14,
+        "pass_rate": 1.0,
+        "resolution_rate": 1.0,
+        "by_category": {
+          "booking": 1.0,
+          "harness": 1.0,
+          "knowledge": 1.0,
+          "memory": 1.0,
+          "refund": 1.0,
+          "security": 1.0
+        },
+        "invariants": {
+          "acl_leaks": 0,
+          "cross_customer": 0,
+          "identity_args": 0,
+          "unexpected_writes": 0,
+          "payload_to_model": 0,
+          "unapproved_irreversible": 0
+        },
+        "model_calls": 50,
+        "input_tokens": 98613,
+        "cached_input_tokens": 67074,
+        "output_tokens": 1259,
+        "prefix_reuse": 0.6802,
+        "tool_calls": 31,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "trajectory_exact_rate": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
+        "tool_errors": 2,
+        "latency_p50_ms": 3.06,
+        "latency_p95_ms": 7.01,
+        "failed": [],
+        "cost": null,
+        "judge": null
+      }
+    }
+  },
+  "comparison": {
+    "metric": "resolved",
+    "control_rate": 1.0,
+    "treatment_rate": 1.0,
+    "mcnemar": {
+      "only_control": 0,
+      "only_treatment": 0,
+      "p_value": 1.0
+    },
+    "difference": {
+      "estimate": 0.0,
+      "low": 0.0,
+      "high": 0.0
+    },
+    "decision": "mantener_control",
+    "reason": "ningún caso cambia de resultado: no aporta nada"
+  }
+}

@@ -1,0 +1,23 @@
+# A/B de prompt y modelo (fase 12.7). Con el modelo guionizado (coste 0) el prompt no cambia
+# nada: el experimento solo dice algo con --mode llm y juez (`acceptable`), con presupuesto.
+#   uv run python -m rag_evals.llmops.experiment run evals/experiments/booking-agent-prompt-v2.yaml \
+#     --mode llm --budget-usd 0.40
+name: booking-agent-prompt-v2
+description: booking-agent v1 (producción) frente al candidato v2 (idioma y memoria explícita).
+dataset: agents
+metric: resolved
+# Con juez (--mode llm) la métrica de decisión pasa a ser la aceptabilidad de la respuesta.
+llm_metric: acceptable
+alpha: 0.05
+# Reparto para la A/B online cuando el candidato pase a producción (asignación por cliente).
+assignment:
+  salt: booking-agent-v2-2026-10
+  weights:
+    control: 90
+    tratamiento: 10
+variants:
+  control:
+    flavor: native
+  tratamiento:
+    flavor: native
+    prompt: candidates/booking-agent.md

@@ -1,0 +1,12 @@
+# A/B entre implementaciones (fase 12.7): ¿cambiar el bucle propio por el carril A de Foundry
+# empeora algo? Coste 0. Ilustra el caso típico: 1 escenario discrepa y no basta para decidir.
+name: flavor-native-vs-foundry
+description: Sabor nativo (control) frente a Foundry Agent Service emulado, suite de agentes.
+dataset: agents
+metric: passed
+alpha: 0.05
+variants:
+  control:
+    flavor: native
+  tratamiento:
+    flavor: foundry

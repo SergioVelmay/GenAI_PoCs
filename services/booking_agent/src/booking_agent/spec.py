@@ -52,7 +52,9 @@ def build_booking_spec(
     skills: SkillCatalog | None = None,
     context: ContextPolicy | None = None,
     max_iterations: int = 6,
+    instructions: str = BOOKING_AGENT_PROMPT,
 ) -> AgentSpec:
+    """`instructions`: solo para experimentos A/B (fase 12.7) con un prompt candidato."""
     catalog = skills or SkillCatalog.from_directory(SKILLS_DIR)
     tools = ToolRegistry(
         [
@@ -64,7 +66,7 @@ def build_booking_spec(
     )
     return AgentSpec(
         name="headache-booking-agent",
-        instructions=BOOKING_AGENT_PROMPT,
+        instructions=instructions,
         tools=tools,
         skills=catalog,
         context=context or ContextPolicy(),

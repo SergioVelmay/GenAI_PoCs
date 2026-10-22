@@ -1,0 +1,14 @@
+# A/B de una capa de seguridad (fase 12.7): ¿el harness de la fase 8 mejora de forma
+# significativa los tests de ataque? Coste 0 (modelo comprometido guionizado).
+name: harness-on-vs-off
+description: Agente nativo sin harness (control) frente a con harness, en los tests de ataque.
+dataset: attacks
+metric: passed
+alpha: 0.05
+variants:
+  control:
+    flavor: native
+    harness: false
+  tratamiento:
+    flavor: native
+    harness: true

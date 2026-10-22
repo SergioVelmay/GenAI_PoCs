@@ -128,9 +128,9 @@ module = ["presidio_analyzer", "presidio_analyzer.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 
-# Extra opcional `redteam` (PyRIT, fase 12.4): mismo tratamiento.
+# Extras opcionales `redteam` (PyRIT, fase 12.4) y `llmops` (MLflow, 12.7): mismo tratamiento.
 [[tool.mypy.overrides]]
-module = ["pyrit", "pyrit.*"]
+module = ["pyrit", "pyrit.*", "mlflow", "mlflow.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 

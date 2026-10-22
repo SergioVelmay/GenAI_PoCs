@@ -91,7 +91,9 @@ class PromptCatalog:
         self._prompts = prompts
 
     @classmethod
-    def from_directory(cls, directory: Path) -> PromptCatalog:
+    def from_directory(cls, directory: Path, *, register: bool = True) -> PromptCatalog:
+        """`register=False` para candidatos de un experimento (fase 12.7): comparten nombre con
+        el prompt en producción y no deben suplantarlo en las trazas."""
         raw: dict[str, tuple[dict[str, str], str]] = {}
         for path in sorted(directory.glob("*.md")):
             meta, body = _parse(path)
@@ -120,8 +122,9 @@ class PromptCatalog:
                 format=fmt,  # type: ignore[arg-type]
                 fragment=meta.get("fragment") == "true",
             )
-        for prompt in prompts.values():
-            _register(prompt)
+        if register:
+            for prompt in prompts.values():
+                _register(prompt)
         return cls(prompts)
 
     def get(self, name: str) -> Prompt:
