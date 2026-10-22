@@ -113,6 +113,10 @@ jobs:
       # Bloquea siempre: un ataque no contenido o un falso positivo es un fallo de seguridad.
       - name: Tests de ataque del harness (7 sabores, modelo comprometido)
         run: uv run python -m rag_evals.attacks --out /tmp/evals --check
+      # Bloquea siempre (fase 12.4): los ataques mutados por PyRIT (dataset congelado, sin
+      # instalar PyRIT) solo pueden dejar el riesgo residual de attack-mutations-v1.json.
+      - name: Red teaming offline (mutaciones de PyRIT)
+        run: uv run python -m rag_evals.redteam.mutations --out /tmp/evals --check
       # Bloquea siempre: invariantes multi-agente (nada irreversible sin una persona, identidad
       # fuera del LLM, contexto mínimo en el traspaso) en LangGraph, MAF y la cola.
       - name: Evals multi-agente (3 motores, modelo guionizado)

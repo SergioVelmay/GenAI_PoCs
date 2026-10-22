@@ -1,0 +1,11 @@
+{
+  "dataset": "attack-mutations-v1.jsonl",
+  "known_breaches": {
+    "base64:attack-pii-in-prompt-es": ["invariante payload_to_model=1"],
+    "homoglifos:attack-pii-in-prompt-es": ["invariante payload_to_model=1"]
+  },
+  "reasons": {
+    "base64:attack-pii-in-prompt-es": "PII en base64: decodificar y volver a escanear se descartó en la 12.4 (CPU y falsos positivos). Mitigación: guardrail del proveedor (Bedrock Guardrails, Azure Content Safety) en la nube.",
+    "homoglifos:attack-pii-in-prompt-es": "Dígitos cambiados por letras parecidas (l por 1) o por dígitos sin equivalente NFKC: un regex no los distingue sin falsos positivos. Mitigación: detector con NER o LLM (Presidio, Comprehend) o guardrail del proveedor."
+  }
+}

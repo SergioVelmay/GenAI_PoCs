@@ -75,7 +75,11 @@ def _agent_factory(spec: AgentSpec, deps: SpecialistDeps) -> Callable[[], AgentR
         agent_deps = AgentDeps(spec, deps.llm, executor, deps.checkpoints, deps.preferences)
         agent = create_agent(deps.flavor, agent_deps)
         guarded: AgentRuntime = guarded_agent(
-            agent, shield=shield, pii=deps.pii, fail_open=deps.fail_open
+            agent,
+            system_prompt=spec.system_prompt,
+            shield=shield,
+            pii=deps.pii,
+            fail_open=deps.fail_open,
         )
         if deps.evaluator is not None:
             # Dentro de TracedAgent: el span del juez cuelga del `invoke_agent` del turno.

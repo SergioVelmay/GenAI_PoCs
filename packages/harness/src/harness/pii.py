@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from harness.normalize import detection_view, sanitize
 from harness.rules.patterns import CONTACT_DATA
 from headache_core.application.tools import ToolContext
 
@@ -23,6 +24,8 @@ PII_REDACTED = "pii_redacted"
 _NIF_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
 _NIF = re.compile(r"\b(\d{8})-?([A-Za-z])\b")
 _NIE = re.compile(r"\b([XYZxyz])-?(\d{7})-?([A-Za-z])\b")
+_DIGIT_RUN = re.compile(r"(?<!\d)\d(?:[\s-]{0,3}\d){12,}(?!\d)")
+_CARD_MIN, _CARD_MAX = 13, 19
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,10 +50,45 @@ def _luhn(digits: str) -> bool:
     return total % 10 == 0
 
 
+def card_spans(text: str) -> list[PiiSpan]:
+    """Tarjetas en tramos de dígitos con cualquier separador corto (espacios, guiones).
+
+    Dentro de cada tramo se busca una ventana de 13 a 19 dígitos que pase Luhn: con «pedido 35
+    4111 1111 1111 1111», el tramo entero no pasa el checksum, pero la tarjeta sí (fase 12.4).
+    Las ventanas empiezan y acaban en un separador (o en el borde del tramo): un número largo
+    sin separadores no se trocea, que multiplicaría los falsos positivos de Luhn (1 de cada 10).
+    """
+    spans: list[PiiSpan] = []
+    for match in _DIGIT_RUN.finditer(text):
+        run = match.group()
+        positions = [match.start() + i for i, c in enumerate(run) if c.isdigit()]
+        digits = "".join(text[p] for p in positions)
+        offsets = [p - match.start() for p in positions]
+        starts = [i for i, o in enumerate(offsets) if o == 0 or not run[o - 1].isdigit()]
+        ends = {
+            i + 1 for i, o in enumerate(offsets) if o == len(run) - 1 or not run[o + 1].isdigit()
+        }
+        covered = 0
+        for start in starts:
+            if start < covered:
+                continue
+            for end in sorted(ends, reverse=True):
+                length = end - start
+                if _CARD_MIN <= length <= _CARD_MAX and _luhn(digits[start:end]):
+                    spans.append(PiiSpan("CREDIT_CARD", positions[start], positions[end - 1] + 1))
+                    covered = end
+                    break
+    return spans
+
+
 class RegexPiiDetector:
-    """Patrones con checksum: menos falsos positivos que una regex ingenua, sin modelos."""
+    """Patrones con checksum: menos falsos positivos que una regex ingenua, sin modelos.
+
+    Detecta sobre `detection_view` (dígitos de otros alfabetos y espacios raros → ASCII, misma
+    longitud), así las posiciones valen para redactar el texto original."""
 
     def analyze(self, text: str, language: str) -> list[PiiSpan]:
+        text = detection_view(text)
         spans: list[PiiSpan] = []
         simple = {
             "EMAIL_ADDRESS": CONTACT_DATA["email"],
@@ -59,9 +97,7 @@ class RegexPiiDetector:
         }
         for entity, pattern in simple.items():
             spans += [PiiSpan(entity, m.start(), m.end()) for m in pattern.finditer(text)]
-        for match in CONTACT_DATA["card_number"].finditer(text):
-            if _luhn(re.sub(r"\D", "", match.group())):
-                spans.append(PiiSpan("CREDIT_CARD", match.start(), match.end()))
+        spans += card_spans(text)
         for match in _NIF.finditer(text):
             if _NIF_LETTERS[int(match.group(1)) % 23] == match.group(2).upper():
                 spans.append(PiiSpan("ES_NIF", match.start(), match.end()))
@@ -93,6 +129,9 @@ def redact(text: str, spans: Sequence[PiiSpan]) -> str:
 
 def pii_filter(detector: PiiDetector, *, language: str = "es") -> TextFilter:
     async def apply(text: str, _: ToolContext) -> tuple[str, tuple[str, ...]]:
+        # Al modelo llega el texto saneado: sin invisibles y con lo escondido en etiquetas
+        # Unicode a la vista (fase 12.4). Así tampoco puede leer lo que el filtro no ve.
+        text = sanitize(text)
         # Presidio es CPU (spaCy): fuera del bucle de eventos.
         spans = await asyncio.to_thread(detector.analyze, text, language)
         if not spans:

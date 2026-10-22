@@ -96,6 +96,7 @@ async def main() -> None:
             agent = TracedAgent(
                 guarded_agent(
                     inner,
+                    system_prompt=spec.system_prompt,
                     shield=shield,
                     pii=build_pii_detector(settings),
                     fail_open=fail_open,

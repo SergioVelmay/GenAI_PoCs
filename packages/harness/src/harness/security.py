@@ -22,6 +22,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from harness.executor import TurnTrace
+from harness.normalize import sanitize
 from harness.runtime import TurnRecord
 from harness.validation import Validator, Violation
 from headache_core.application.tools import Tool, ToolContext, ToolExecution, ToolExecutor
@@ -61,7 +62,9 @@ _INJECTION = [
 
 
 def _fold(text: str) -> str:
-    text = _INVISIBLE.sub("", unicodedata.normalize("NFKC", text))
+    # `sanitize` revela lo escondido en etiquetas Unicode (fase 12.4): el escudo ve lo mismo
+    # que leería el modelo.
+    text = _INVISIBLE.sub("", unicodedata.normalize("NFKC", sanitize(text)))
     decomposed = unicodedata.normalize("NFKD", text)
     stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
     return re.sub(r"[ \t]+", " ", stripped.casefold())
@@ -116,6 +119,41 @@ def output_guard(
         except ShieldUnavailableError:
             return [] if fail_open else [_unavailable()]
         return [_category(c) for c in verdict.categories]
+
+    return validate
+
+
+SYSTEM_PROMPT_LEAK = "system_prompt_leak"
+LEAK_WORDS = 8
+
+
+def _shingles(text: str, size: int) -> set[tuple[str, ...]]:
+    words = re.findall(r"\w+", _fold(text))
+    return {tuple(words[i : i + size]) for i in range(len(words) - size + 1)}
+
+
+def system_prompt_leak_guard(
+    system_prompt: str, *, words: int = LEAK_WORDS
+) -> Validator[TurnRecord, ToolContext]:
+    """Bloquea una respuesta que copia el prompt de sistema (fase 12.4, hallazgo de PyRIT).
+
+    Si un ataque esquiva el escudo de entrada (base64, homoglifos...), nada impedía que la
+    respuesta repitiera las instrucciones. Se compara por secuencias de `words` palabras
+    normalizadas: una frase de cortesía no coincide con 8 palabras seguidas del prompt; una copia,
+    aunque sea parcial o cambie mayúsculas y tildes, sí.
+    """
+    reference = _shingles(system_prompt, words)
+
+    async def validate(record: TurnRecord, _: ToolContext) -> list[Violation]:
+        if reference & _shingles(record.answer, words):
+            return [
+                Violation(
+                    SYSTEM_PROMPT_LEAK,
+                    "La respuesta reproduce instrucciones internas.",
+                    correctable=False,
+                )
+            ]
+        return []
 
     return validate
 

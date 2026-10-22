@@ -100,7 +100,8 @@ def _agent(
     llm = FakeLLM(script)
     executor = guarded_executor(spec, approvals or InMemoryApprovalStore())
     deps = AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), InMemoryPreferenceStore())
-    return guarded_agent(create_agent(flavor, deps)), executor, llm
+    agent = guarded_agent(create_agent(flavor, deps), system_prompt=spec.system_prompt)
+    return agent, executor, llm
 
 
 @ALL_FLAVORS

@@ -128,6 +128,12 @@ module = ["presidio_analyzer", "presidio_analyzer.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 
+# Extra opcional `redteam` (PyRIT, fase 12.4): mismo tratamiento.
+[[tool.mypy.overrides]]
+module = ["pyrit", "pyrit.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["packages", "services", "evals"]
 asyncio_mode = "auto"

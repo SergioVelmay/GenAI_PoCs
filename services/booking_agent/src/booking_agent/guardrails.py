@@ -14,7 +14,13 @@ from harness.rules.refunds import (
     refund_claims_grounded,
     refund_tool_guards,
 )
-from harness.security import DocumentShield, HeuristicShield, output_guard, prompt_guard
+from harness.security import (
+    DocumentShield,
+    HeuristicShield,
+    output_guard,
+    prompt_guard,
+    system_prompt_leak_guard,
+)
 from headache_core.config import Settings
 from headache_core.ports.approvals import ApprovalStore
 from headache_core.ports.guardrails import ContentShieldPort
@@ -40,15 +46,21 @@ def guarded_executor(
 def guarded_agent(
     agent: AgentRuntime,
     *,
+    system_prompt: str,
     shield: ContentShieldPort | None = None,
     pii: PiiDetector | None = None,
     fail_open: bool = False,
 ) -> GuardedRuntime:
+    """`system_prompt` es obligatorio: sin él no hay guarda de fuga de instrucciones (12.4)."""
     shield = shield or HeuristicShield()
     return GuardedRuntime(
         agent,
         input_guards=[prompt_guard(shield, fail_open=fail_open)],
-        output_guards=[refund_claims_grounded, output_guard(shield, fail_open=fail_open)],
+        output_guards=[
+            refund_claims_grounded,
+            system_prompt_leak_guard(system_prompt),
+            output_guard(shield, fail_open=fail_open),
+        ],
         # Entrada: el detector configurado (Presidio detecta nombres). Salida: solo patrones,
         # para no borrar por error títulos de eventos que un NER confunda con personas.
         input_filters=[pii_filter(pii or RegexPiiDetector())],

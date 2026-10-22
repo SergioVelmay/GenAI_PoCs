@@ -20,6 +20,9 @@ evals = [
     "langchain-community>=0.4.1,<0.4.2",
     "azure-ai-evaluation>=1.18.9",
 ]
+redteam = [
+    "pyrit>=1.1.0",
+]
 
 [tool.uv.sources]
 booking-agent = { workspace = true }

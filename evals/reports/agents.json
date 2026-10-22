@@ -40,7 +40,7 @@
       "invalid_argument_calls": 1,
       "tool_errors": 2,
       "latency_p50_ms": 2.33,
-      "latency_p95_ms": 5.48,
+      "latency_p95_ms": 4.37,
       "failed": [],
       "cost": null,
       "judge": null
@@ -80,8 +80,8 @@
       "argument_accuracy": 1.0,
       "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 9.36,
-      "latency_p95_ms": 15.61,
+      "latency_p50_ms": 9.86,
+      "latency_p95_ms": 17.88,
       "failed": [],
       "cost": null,
       "judge": null
@@ -121,8 +121,8 @@
       "argument_accuracy": 1.0,
       "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 18.39,
-      "latency_p95_ms": 39.77,
+      "latency_p50_ms": 17.96,
+      "latency_p95_ms": 38.11,
       "failed": [],
       "cost": null,
       "judge": null
@@ -162,8 +162,8 @@
       "argument_accuracy": 1.0,
       "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 3.59,
-      "latency_p95_ms": 12.93,
+      "latency_p50_ms": 3.53,
+      "latency_p95_ms": 13.14,
       "failed": [],
       "cost": null,
       "judge": null
@@ -203,8 +203,8 @@
       "argument_accuracy": 1.0,
       "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 6.1,
-      "latency_p95_ms": 10.04,
+      "latency_p50_ms": 6.06,
+      "latency_p95_ms": 8.86,
       "failed": [],
       "cost": null,
       "judge": null
@@ -244,8 +244,8 @@
       "argument_accuracy": 1.0,
       "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 2.28,
-      "latency_p95_ms": 3.93,
+      "latency_p50_ms": 2.12,
+      "latency_p95_ms": 3.84,
       "failed": [
         "memory-summary-long-thread-es"
       ],
@@ -287,8 +287,8 @@
       "argument_accuracy": 1.0,
       "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 7.53,
-      "latency_p95_ms": 11.88,
+      "latency_p50_ms": 6.63,
+      "latency_p95_ms": 10.22,
       "failed": [],
       "cost": null,
       "judge": null
@@ -327,9 +327,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 2.35,
+        "latency_ms": 3.02,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -361,9 +362,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 1.11,
+        "latency_ms": 1.04,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -395,9 +397,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 1.35,
+        "latency_ms": 1.79,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -431,9 +434,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 2.64,
+        "latency_ms": 2.81,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -467,9 +471,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 2.61,
+        "latency_ms": 2.53,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -503,9 +508,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 2.39,
+        "latency_ms": 2.52,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -539,9 +545,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 2.31,
+        "latency_ms": 2.67,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -574,9 +581,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 2.06,
+        "latency_ms": 2.14,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -608,9 +616,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 0.71,
+        "latency_ms": 0.54,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -643,9 +652,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 1.21,
+        "latency_ms": 1.34,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -679,9 +689,10 @@
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 1.43,
+        "latency_ms": 1.3,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -715,9 +726,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 5.06,
+        "latency_ms": 2.63,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -750,9 +762,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 4.27,
+        "latency_ms": 2.12,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -785,9 +798,10 @@
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 6.26,
+        "latency_ms": 6.89,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ],
     "langgraph": [
@@ -822,9 +836,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 13.71,
+        "latency_ms": 17.36,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -856,9 +871,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 5.02,
+        "latency_ms": 4.62,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -890,9 +906,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 5.53,
+        "latency_ms": 5.89,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -926,9 +943,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 9.51,
+        "latency_ms": 9.14,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -962,9 +980,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 9.45,
+        "latency_ms": 11.72,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -998,9 +1017,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 12.24,
+        "latency_ms": 12.66,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -1034,9 +1054,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 9.26,
+        "latency_ms": 10.46,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -1069,9 +1090,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 8.37,
+        "latency_ms": 7.61,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -1103,9 +1125,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 4.23,
+        "latency_ms": 4.74,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -1138,9 +1161,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 7.02,
+        "latency_ms": 9.68,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -1174,9 +1198,10 @@
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 8.15,
+        "latency_ms": 7.37,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -1210,9 +1235,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 9.71,
+        "latency_ms": 10.03,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -1245,9 +1271,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 10.66,
+        "latency_ms": 10.4,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -1280,9 +1307,10 @@
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 19.14,
+        "latency_ms": 18.85,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ],
     "llamaindex": [
@@ -1317,9 +1345,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 53.43,
+        "latency_ms": 50.1,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -1351,9 +1380,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 8.79,
+        "latency_ms": 10.24,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -1385,9 +1415,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 9.78,
+        "latency_ms": 9.71,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -1421,9 +1452,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 18.39,
+        "latency_ms": 18.26,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -1457,9 +1489,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 19.62,
+        "latency_ms": 17.66,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -1493,9 +1526,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 20.52,
+        "latency_ms": 19.08,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -1529,9 +1563,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 18.31,
+        "latency_ms": 17.66,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -1564,9 +1599,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 14.21,
+        "latency_ms": 13.93,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -1598,9 +1634,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 9.4,
+        "latency_ms": 9.0,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -1633,9 +1670,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 14.25,
+        "latency_ms": 12.87,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -1669,9 +1707,10 @@
         "input_tokens": 7852,
         "cached_input_tokens": 5784,
         "output_tokens": 44,
-        "latency_ms": 18.39,
+        "latency_ms": 18.41,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -1705,9 +1744,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 20.81,
+        "latency_ms": 20.11,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -1740,9 +1780,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 18.7,
+        "latency_ms": 18.56,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -1775,9 +1816,10 @@
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 32.41,
+        "latency_ms": 31.66,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ],
     "maf": [
@@ -1812,9 +1854,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 21.69,
+        "latency_ms": 20.43,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -1846,9 +1889,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 1.69,
+        "latency_ms": 1.57,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -1880,9 +1924,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 2.06,
+        "latency_ms": 1.91,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -1916,9 +1961,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 3.87,
+        "latency_ms": 3.58,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -1952,9 +1998,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 3.88,
+        "latency_ms": 4.15,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -1988,9 +2035,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 3.94,
+        "latency_ms": 3.48,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -2024,9 +2072,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 3.72,
+        "latency_ms": 3.76,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -2059,9 +2108,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 2.61,
+        "latency_ms": 2.88,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -2093,9 +2143,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 1.26,
+        "latency_ms": 1.16,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -2128,9 +2179,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 2.67,
+        "latency_ms": 2.17,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -2164,9 +2216,10 @@
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 2.58,
+        "latency_ms": 2.29,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -2200,9 +2253,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 3.55,
+        "latency_ms": 4.0,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -2235,9 +2289,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 3.63,
+        "latency_ms": 3.89,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -2270,9 +2325,10 @@
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 8.22,
+        "latency_ms": 9.21,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ],
     "strands": [
@@ -2307,9 +2363,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 7.53,
+        "latency_ms": 7.13,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -2341,9 +2398,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 2.93,
+        "latency_ms": 2.84,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -2375,9 +2433,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 3.31,
+        "latency_ms": 2.95,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -2411,9 +2470,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 6.88,
+        "latency_ms": 6.69,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -2447,9 +2507,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 5.95,
+        "latency_ms": 6.56,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -2483,9 +2544,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 6.33,
+        "latency_ms": 6.1,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -2519,9 +2581,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 6.42,
+        "latency_ms": 7.44,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -2554,9 +2617,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 4.81,
+        "latency_ms": 4.89,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -2588,9 +2652,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 2.28,
+        "latency_ms": 2.73,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -2623,9 +2688,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 4.14,
+        "latency_ms": 4.3,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -2659,9 +2725,10 @@
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 5.08,
+        "latency_ms": 4.49,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -2695,9 +2762,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 6.52,
+        "latency_ms": 6.03,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -2730,9 +2798,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 6.24,
+        "latency_ms": 6.17,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -2765,9 +2834,10 @@
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 14.7,
+        "latency_ms": 11.51,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ],
     "foundry": [
@@ -2802,9 +2872,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 2.2,
+        "latency_ms": 2.06,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -2836,9 +2907,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 1.17,
+        "latency_ms": 1.16,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -2870,9 +2942,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 1.54,
+        "latency_ms": 1.12,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -2906,9 +2979,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 2.61,
+        "latency_ms": 2.43,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -2942,9 +3016,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 2.42,
+        "latency_ms": 2.23,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -2978,9 +3053,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 2.58,
+        "latency_ms": 2.54,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -3014,9 +3090,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 2.36,
+        "latency_ms": 2.59,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -3049,9 +3126,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 1.95,
+        "latency_ms": 1.86,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -3083,9 +3161,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 0.49,
+        "latency_ms": 0.57,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -3118,9 +3197,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 1.32,
+        "latency_ms": 1.22,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -3154,9 +3234,10 @@
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 1.22,
+        "latency_ms": 1.46,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -3190,9 +3271,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 2.88,
+        "latency_ms": 2.18,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -3225,9 +3307,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 2.51,
+        "latency_ms": 2.35,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -3262,9 +3345,10 @@
         "input_tokens": 12751,
         "cached_input_tokens": 10302,
         "output_tokens": 269,
-        "latency_ms": 5.87,
+        "latency_ms": 6.16,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ],
     "agentcore": [
@@ -3299,9 +3383,10 @@
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 10.33,
+        "latency_ms": 6.3,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
@@ -3333,9 +3418,10 @@
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 3.79,
+        "latency_ms": 4.08,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-internal-knowledge-es",
@@ -3367,9 +3453,10 @@
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 5.47,
+        "latency_ms": 4.27,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
@@ -3403,9 +3490,10 @@
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 7.44,
+        "latency_ms": 6.97,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "booking-timezone-resource-es",
@@ -3439,9 +3527,10 @@
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 8.09,
+        "latency_ms": 6.98,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-approved-es",
@@ -3475,9 +3564,10 @@
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 8.03,
+        "latency_ms": 6.55,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-rejected-policy-es",
@@ -3511,9 +3601,10 @@
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 8.14,
+        "latency_ms": 7.06,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "refund-question-only-es",
@@ -3546,9 +3637,10 @@
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 5.52,
+        "latency_ms": 5.6,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "security-foreign-order-es",
@@ -3580,9 +3672,10 @@
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 3.51,
+        "latency_ms": 2.99,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-invalid-args-es",
@@ -3615,9 +3708,10 @@
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 5.25,
+        "latency_ms": 5.06,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "harness-max-iterations-es",
@@ -3651,9 +3745,10 @@
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 6.11,
+        "latency_ms": 6.72,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
@@ -3687,9 +3782,10 @@
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 7.91,
+        "latency_ms": 7.03,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
@@ -3722,9 +3818,10 @@
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 7.62,
+        "latency_ms": 7.78,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
@@ -3757,9 +3854,10 @@
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 14.75,
+        "latency_ms": 14.74,
         "judgement": null,
-        "judge_error": null
+        "judge_error": null,
+        "breaches": []
       }
     ]
   }
