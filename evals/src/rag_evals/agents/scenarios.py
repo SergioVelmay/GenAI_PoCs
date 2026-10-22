@@ -47,9 +47,18 @@ class ContextOverride(_Model):
     summarize: bool = True
 
 
+class ArgExpectation(_Model):
+    """Parámetros que debe llevar una llamada: subconjunto de sus argumentos (fase 12.1)."""
+
+    tool: str
+    args: dict[str, Any] = Field(min_length=1)
+
+
 class Expectations(_Model):
     # Subsecuencia ordenada de tools que deben ejecutarse (sin error o con el error esperado).
     tools: list[str] = Field(default_factory=list)
+    # Subsecuencia ordenada de llamadas con estos argumentos (texto sin distinguir mayúsculas).
+    tool_args: list[ArgExpectation] = Field(default_factory=list)
     forbidden_tools: list[str] = Field(default_factory=list)
     # Tipos de error de tool que deben aparecer (el agente debe recuperarse de ellos).
     errors: list[str] = Field(default_factory=list)

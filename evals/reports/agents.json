@@ -10,6 +10,7 @@
       "scenarios": 14,
       "passed": 14,
       "pass_rate": 1.0,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -32,9 +33,14 @@
       "output_tokens": 1259,
       "prefix_reuse": 0.6798,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 3.22,
-      "latency_p95_ms": 7.58,
+      "latency_p50_ms": 2.73,
+      "latency_p95_ms": 4.65,
       "failed": [],
       "cost": null
     },
@@ -44,6 +50,7 @@
       "scenarios": 14,
       "passed": 14,
       "pass_rate": 1.0,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -66,9 +73,14 @@
       "output_tokens": 1259,
       "prefix_reuse": 0.6798,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 18.28,
-      "latency_p95_ms": 47.37,
+      "latency_p50_ms": 19.69,
+      "latency_p95_ms": 36.01,
       "failed": [],
       "cost": null
     },
@@ -78,6 +90,7 @@
       "scenarios": 14,
       "passed": 14,
       "pass_rate": 1.0,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -100,9 +113,14 @@
       "output_tokens": 1270,
       "prefix_reuse": 0.6857,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 38.19,
-      "latency_p95_ms": 91.93,
+      "latency_p50_ms": 41.69,
+      "latency_p95_ms": 87.98,
       "failed": [],
       "cost": null
     },
@@ -112,6 +130,7 @@
       "scenarios": 14,
       "passed": 14,
       "pass_rate": 1.0,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -134,9 +153,14 @@
       "output_tokens": 1259,
       "prefix_reuse": 0.6798,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 7.46,
-      "latency_p95_ms": 24.7,
+      "latency_p50_ms": 7.13,
+      "latency_p95_ms": 31.65,
       "failed": [],
       "cost": null
     },
@@ -146,6 +170,7 @@
       "scenarios": 14,
       "passed": 14,
       "pass_rate": 1.0,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -168,9 +193,14 @@
       "output_tokens": 1259,
       "prefix_reuse": 0.6798,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 15.44,
-      "latency_p95_ms": 20.43,
+      "latency_p50_ms": 14.17,
+      "latency_p95_ms": 21.59,
       "failed": [],
       "cost": null
     },
@@ -180,6 +210,7 @@
       "scenarios": 14,
       "passed": 13,
       "pass_rate": 0.9286,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -202,9 +233,14 @@
       "output_tokens": 1226,
       "prefix_reuse": 0.6878,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 4.63,
-      "latency_p95_ms": 9.89,
+      "latency_p50_ms": 6.48,
+      "latency_p95_ms": 10.79,
       "failed": [
         "memory-summary-long-thread-es"
       ],
@@ -216,6 +252,7 @@
       "scenarios": 14,
       "passed": 14,
       "pass_rate": 1.0,
+      "resolution_rate": 1.0,
       "by_category": {
         "booking": 1.0,
         "harness": 1.0,
@@ -238,9 +275,14 @@
       "output_tokens": 1259,
       "prefix_reuse": 0.6798,
       "tool_calls": 31,
+      "trajectory_precision": 1.0,
+      "trajectory_recall": 1.0,
+      "trajectory_exact_rate": 1.0,
+      "argument_accuracy": 1.0,
+      "invalid_argument_calls": 1,
       "tool_errors": 2,
-      "latency_p50_ms": 15.09,
-      "latency_p95_ms": 23.36,
+      "latency_p50_ms": 16.21,
+      "latency_p95_ms": 28.62,
       "failed": [],
       "cost": null
     }
@@ -251,6 +293,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -267,18 +310,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 3.51
+        "latency_ms": 3.29
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -294,18 +342,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 1.56
+        "latency_ms": 1.59
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -321,18 +374,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 2.39
+        "latency_ms": 1.76
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -350,18 +408,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 4.62
+        "latency_ms": 3.24
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -379,18 +442,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 7.35
+        "latency_ms": 2.72
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -408,18 +476,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 3.67
+        "latency_ms": 3.2
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -437,18 +510,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 3.33
+        "latency_ms": 2.74
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -465,18 +543,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 2.4
+        "latency_ms": 2.2
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -492,18 +575,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 0.75
+        "latency_ms": 0.72
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -520,18 +608,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 1.85
+        "latency_ms": 2.05
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -549,18 +642,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 2.47
+        "latency_ms": 1.43
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -578,18 +676,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 3.31
+        "latency_ms": 3.08
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -606,18 +709,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 3.13
+        "latency_ms": 3.19
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -634,13 +742,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 2,
         "model_calls": 8,
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 8.02
+        "latency_ms": 7.18
       }
     ],
     "langgraph": [
@@ -648,6 +760,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -664,18 +777,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 21.05
+        "latency_ms": 30.45
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -691,18 +809,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 8.77
+        "latency_ms": 8.84
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -718,18 +841,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 9.55
+        "latency_ms": 9.7
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -747,18 +875,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 16.54
+        "latency_ms": 13.71
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -776,18 +909,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 15.81
+        "latency_ms": 27.36
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -805,18 +943,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 18.16
+        "latency_ms": 25.98
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -834,18 +977,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 18.4
+        "latency_ms": 23.78
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -862,18 +1010,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 17.52
+        "latency_ms": 18.82
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -889,18 +1042,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 13.26
+        "latency_ms": 9.11
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -917,18 +1075,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 18.88
+        "latency_ms": 17.17
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -946,18 +1109,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 22.58
+        "latency_ms": 18.16
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -975,18 +1143,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 29.39
+        "latency_ms": 20.56
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1003,18 +1176,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 35.52
+        "latency_ms": 21.11
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1031,13 +1209,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 2,
         "model_calls": 8,
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 69.39
+        "latency_ms": 46.34
       }
     ],
     "llamaindex": [
@@ -1045,6 +1227,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1061,18 +1244,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 102.14
+        "latency_ms": 116.3
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1088,18 +1276,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 21.38
+        "latency_ms": 21.96
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1115,18 +1308,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 19.68
+        "latency_ms": 18.01
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1144,18 +1342,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 41.14
+        "latency_ms": 40.15
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1173,18 +1376,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 38.43
+        "latency_ms": 36.0
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1202,18 +1410,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 33.69
+        "latency_ms": 45.24
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1231,18 +1444,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 37.95
+        "latency_ms": 43.23
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1259,18 +1477,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 34.68
+        "latency_ms": 26.47
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1286,18 +1509,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 20.8
+        "latency_ms": 18.88
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1314,18 +1542,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 33.3
+        "latency_ms": 34.73
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1343,18 +1576,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7852,
         "cached_input_tokens": 5784,
         "output_tokens": 44,
-        "latency_ms": 45.45
+        "latency_ms": 49.67
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1372,18 +1610,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 51.85
+        "latency_ms": 57.56
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1400,18 +1643,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 46.85
+        "latency_ms": 61.43
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1428,13 +1676,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 2,
         "model_calls": 8,
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 86.44
+        "latency_ms": 72.73
       }
     ],
     "maf": [
@@ -1442,6 +1694,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1458,18 +1711,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 38.97
+        "latency_ms": 43.6
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1485,18 +1743,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 4.3
+        "latency_ms": 3.64
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1512,18 +1775,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 4.72
+        "latency_ms": 2.75
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1541,18 +1809,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 10.14
+        "latency_ms": 7.29
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1570,18 +1843,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 9.28
+        "latency_ms": 7.63
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1599,18 +1877,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 7.58
+        "latency_ms": 4.83
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1628,18 +1911,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 8.22
+        "latency_ms": 11.68
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1656,18 +1944,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 6.67
+        "latency_ms": 6.98
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1683,18 +1976,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 2.58
+        "latency_ms": 3.37
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1711,18 +2009,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 5.73
+        "latency_ms": 5.79
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1740,18 +2043,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 4.86
+        "latency_ms": 6.18
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1769,18 +2077,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 8.21
+        "latency_ms": 9.53
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1797,18 +2110,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 7.35
+        "latency_ms": 8.71
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1825,13 +2143,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 2,
         "model_calls": 8,
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 17.02
+        "latency_ms": 25.22
       }
     ],
     "strands": [
@@ -1839,6 +2161,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1855,18 +2178,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 16.28
+        "latency_ms": 16.33
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1882,18 +2210,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 7.19
+        "latency_ms": 9.36
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1909,18 +2242,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 6.51
+        "latency_ms": 11.26
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1938,18 +2276,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 16.19
+        "latency_ms": 12.89
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1967,18 +2310,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 17.18
+        "latency_ms": 14.36
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -1996,18 +2344,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 16.88
+        "latency_ms": 13.98
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2025,18 +2378,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 15.9
+        "latency_ms": 16.86
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2053,18 +2411,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 11.67
+        "latency_ms": 16.75
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2080,18 +2443,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 5.03
+        "latency_ms": 3.38
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2108,18 +2476,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 10.53
+        "latency_ms": 11.08
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2137,18 +2510,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 9.18
+        "latency_ms": 7.94
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2166,18 +2544,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 14.98
+        "latency_ms": 18.9
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2194,18 +2577,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 16.15
+        "latency_ms": 14.38
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2222,13 +2610,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 2,
         "model_calls": 8,
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 26.47
+        "latency_ms": 26.59
       }
     ],
     "foundry": [
@@ -2236,6 +2628,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2252,18 +2645,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 4.89
+        "latency_ms": 4.97
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2279,18 +2677,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 2.47
+        "latency_ms": 2.6
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2306,18 +2709,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 3.09
+        "latency_ms": 3.2
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2335,18 +2743,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 5.85
+        "latency_ms": 7.19
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2364,18 +2777,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 7.13
+        "latency_ms": 6.93
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2393,18 +2811,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 3.5
+        "latency_ms": 7.75
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2422,18 +2845,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 4.92
+        "latency_ms": 7.18
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2450,18 +2878,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 3.87
+        "latency_ms": 6.04
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2477,18 +2910,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 2.14
+        "latency_ms": 1.48
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2505,18 +2943,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 3.48
+        "latency_ms": 3.69
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2534,18 +2977,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 4.37
+        "latency_ms": 4.33
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2563,18 +3011,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 5.5
+        "latency_ms": 7.28
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2591,18 +3044,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 5.57
+        "latency_ms": 7.25
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": false,
+        "resolved": true,
         "failures": [
           "compactaciones 0 < 1"
         ],
@@ -2621,13 +3079,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 6,
         "input_tokens": 12751,
         "cached_input_tokens": 10302,
         "output_tokens": 269,
-        "latency_ms": 15.03
+        "latency_ms": 16.45
       }
     ],
     "agentcore": [
@@ -2635,6 +3097,7 @@
         "scenario_id": "knowledge-policy-candlelit-es",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2651,18 +3114,23 @@
           "load_skill",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6315,
         "cached_input_tokens": 3887,
         "output_tokens": 151,
-        "latency_ms": 14.35
+        "latency_ms": 17.15
       },
       {
         "scenario_id": "knowledge-faq-lisbon-en",
         "category": "knowledge",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2678,18 +3146,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3875,
         "cached_input_tokens": 1859,
         "output_tokens": 121,
-        "latency_ms": 11.69
+        "latency_ms": 10.13
       },
       {
         "scenario_id": "security-internal-knowledge-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2705,18 +3178,23 @@
         "tools": [
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 4168,
         "cached_input_tokens": 1869,
         "output_tokens": 53,
-        "latency_ms": 10.8
+        "latency_ms": 14.46
       },
       {
         "scenario_id": "booking-sessions-madrid-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2734,18 +3212,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8169,
         "cached_input_tokens": 6010,
         "output_tokens": 80,
-        "latency_ms": 17.16
+        "latency_ms": 21.8
       },
       {
         "scenario_id": "booking-timezone-resource-es",
         "category": "booking",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2763,18 +3246,23 @@
           "load_skill",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8370,
         "cached_input_tokens": 6112,
         "output_tokens": 76,
-        "latency_ms": 16.41
+        "latency_ms": 19.9
       },
       {
         "scenario_id": "refund-approved-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2792,18 +3280,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8139,
         "cached_input_tokens": 5981,
         "output_tokens": 58,
-        "latency_ms": 17.81
+        "latency_ms": 22.24
       },
       {
         "scenario_id": "refund-rejected-policy-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2821,18 +3314,23 @@
           "get_order",
           "request_refund"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 8120,
         "cached_input_tokens": 5965,
         "output_tokens": 59,
-        "latency_ms": 16.24
+        "latency_ms": 18.63
       },
       {
         "scenario_id": "refund-question-only-es",
         "category": "refund",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2849,18 +3347,23 @@
           "get_order",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 6086,
         "cached_input_tokens": 3768,
         "output_tokens": 153,
-        "latency_ms": 14.83
+        "latency_ms": 14.81
       },
       {
         "scenario_id": "security-foreign-order-es",
         "category": "security",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2876,18 +3379,23 @@
         "tools": [
           "get_order"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 2,
         "input_tokens": 3763,
         "cached_input_tokens": 1860,
         "output_tokens": 30,
-        "latency_ms": 8.37
+        "latency_ms": 9.5
       },
       {
         "scenario_id": "harness-invalid-args-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2904,18 +3412,23 @@
           "get_order",
           "list_my_orders"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 1,
         "tool_errors": 1,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5760,
         "cached_input_tokens": 3763,
         "output_tokens": 25,
-        "latency_ms": 12.52
+        "latency_ms": 13.42
       },
       {
         "scenario_id": "harness-max-iterations-es",
         "category": "harness",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2933,18 +3446,23 @@
           "search_events",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 3,
         "input_tokens": 5784,
         "cached_input_tokens": 3786,
         "output_tokens": 33,
-        "latency_ms": 11.55
+        "latency_ms": 14.08
       },
       {
         "scenario_id": "memory-preferences-cross-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2962,18 +3480,23 @@
           "remember_preference",
           "search_events"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7667,
         "cached_input_tokens": 5615,
         "output_tokens": 63,
-        "latency_ms": 15.35
+        "latency_ms": 15.95
       },
       {
         "scenario_id": "memory-followup-same-thread-en",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -2990,18 +3513,23 @@
           "search_events",
           "list_sessions"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 0,
         "model_calls": 4,
         "input_tokens": 7730,
         "cached_input_tokens": 5732,
         "output_tokens": 55,
-        "latency_ms": 16.72
+        "latency_ms": 16.48
       },
       {
         "scenario_id": "memory-summary-long-thread-es",
         "category": "memory",
         "passed": true,
+        "resolved": true,
         "failures": [],
         "invariants": {
           "acl_leaks": 0,
@@ -3018,13 +3546,17 @@
           "search_knowledge",
           "search_knowledge"
         ],
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0,
+        "argument_accuracy": 1.0,
+        "invalid_argument_calls": 0,
         "tool_errors": 0,
         "compactions": 2,
         "model_calls": 8,
         "input_tokens": 13142,
         "cached_input_tokens": 9789,
         "output_tokens": 302,
-        "latency_ms": 33.66
+        "latency_ms": 40.47
       }
     ]
   }

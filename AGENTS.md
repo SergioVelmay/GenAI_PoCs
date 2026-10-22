@@ -43,7 +43,7 @@ uv run python scripts/generate_synthetic_data.py --scale small  # datos en data/
 docker compose up -d                                            # PostgreSQL+pgvector, RabbitMQ
 docker compose --profile observability|sqs|servicebus|mcp|agents|scale up -d # Langfuse, colas, MCP, A2A, Redis
 docker compose --profile telemetry up -d                        # collector, Jaeger :16686, Prometheus :9095, Grafana :3001
-uv run python -m rag_evals.gate ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
+uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 ```
 
 ## Arquitectura

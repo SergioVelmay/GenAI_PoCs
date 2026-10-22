@@ -13,7 +13,7 @@ permissions:
 # Runner fijado (ubuntu-26.04) en lugar de ubuntu-latest: la imagen cambia solo cuando lo decidimos.
 
 env:
-  # NLTK (pathsec) rechaza ficheros con st_nlink > 1; uv en Linux instala con hardlinks a su cachÃ©.
+  # NLTK (pathsec) rechaza ficheros con st_nlink > 1; uv en Linux instala con hardlinks a su caché.
   UV_LINK_MODE: copy
 
 concurrency:
@@ -45,7 +45,7 @@ jobs:
       - name: Tests
         run: uv run pytest
 
-      - name: Generador de datos sintÃ©ticos (smoke test)
+      - name: Generador de datos sintéticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
 
       - name: Informe de chunking (smoke test)
@@ -77,7 +77,7 @@ jobs:
             "$image" validate --config=/cfg/collector-aws.yaml
 
   evals:
-    # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquÃ­.
+    # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquí.
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,7 +95,7 @@ jobs:
       - name: Evals de retrieval (B y C, todas las estrategias)
         run: uv run python -m rag_evals.retrieval_eval --out /tmp/evals
 
-      - name: Evals de generaciÃ³n (extractivo)
+      - name: Evals de generación (extractivo)
         run: >-
           uv run python -m rag_evals.generation_eval --out /tmp/evals
           --strategy hybrid --strategy bm25 --strategy parent-child
@@ -104,6 +104,11 @@ jobs:
       # al baseline. Activado en el checkpoint 8→9 tras 15 ejecuciones seguidas con 0 regresiones.
       - name: Gate contra el baseline
         run: uv run python -m rag_evals.gate --reports /tmp/evals --mode enforce
+
+      # Bloquea siempre (fase 12.1): trayectoria, parámetros, resolución e invariantes de los 7
+      # sabores; solo se aceptan los huecos conocidos de evals/baselines/agent-scenarios-v1.json.
+      - name: Evals de agentes (7 sabores, trayectoria y resolución)
+        run: uv run python -m rag_evals.agents --out /tmp/evals --check
 
       # Bloquea siempre: un ataque no contenido o un falso positivo es un fallo de seguridad.
       - name: Tests de ataque del harness (7 sabores, modelo comprometido)
@@ -243,7 +248,7 @@ jobs:
       - name: El modelo ORM coincide con las migraciones
         run: uv run alembic -c packages/headache_core/alembic.ini check
 
-      - name: Tests de integraciÃ³n (concurrencia, bloqueos, idempotencia)
+      - name: Tests de integración (concurrencia, bloqueos, idempotencia)
         run: uv run pytest -m integration
 
       - name: Carga masiva y benchmark (smoke test)
@@ -251,3 +256,19 @@ jobs:
           uv run python scripts/generate_synthetic_data.py --scale small
           uv run python scripts/load_seed.py --truncate
           uv run python scripts/sql_benchmark.py --repeat 1
+
+  release-gate:
+    # Gate obligatorio de despliegue (fase 12.1): un único check que resume todos los demás. Los
+    # workflows de despliegue (fases 13 y 14) dependerán de él, no de cada job por separado.
+    if: always()
+    needs: [quality, evals, mcp-image, agents-image, terraform, integration]
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Todos los jobs en verde
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Resultados: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = "success" ] || { echo "::error::Gate de despliegue: algún job no está en verde"; exit 1; }
+          done

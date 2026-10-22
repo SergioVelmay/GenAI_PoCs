@@ -1,0 +1,10 @@
+{
+  "dataset": "agent-scenarios-v1.jsonl",
+  "known_gaps": {
+    "foundry": {
+      "memory-summary-long-thread-es": [
+        "compactaciones 0 < 1"
+      ]
+    }
+  }
+}

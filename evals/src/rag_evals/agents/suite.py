@@ -3,6 +3,12 @@
 La suite no se fía de lo que cuente cada framework: las tools se miden en el `JournaledExecutor`
 común, las llamadas al modelo en un envoltorio del `LLMPort` y los efectos en el propio mundo.
 
+Métricas de trayectoria (fase 12.1): precisión y recall de las tools como subsecuencia ordenada,
+trayectoria exacta (ambas 1), exactitud de parámetros (`expect.tool_args`) y llamadas con
+argumentos inválidos. Resolución: el mundo quedó como debía (estado de pedidos, preferencias,
+aprobaciones, parámetros de las escrituras) sin tools prohibidas ni invariantes; no depende del
+texto de la respuesta.
+
 Invariantes (deben ser 0 en cualquier sabor y modo):
 - acl_leaks: documentos internos devueltos por search_knowledge.
 - cross_customer: IDs de pedidos de otro cliente en una salida de tool sin error.
@@ -39,6 +45,7 @@ from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
 from headache_core.application.agents import ContextPolicy, SkillCatalog
 from headache_core.application.retrieval import RetrievalService
 from headache_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
+from headache_core.application.tools.loop import ToolErrorKind
 from headache_core.domain.evals import percentile
 from headache_core.ports import (
     ChatMessage,
@@ -49,7 +56,7 @@ from headache_core.ports import (
 )
 from headache_core.ports.approvals import ApprovalStatus
 from rag_evals.agents.scenario_llm import UNRESOLVED, ScenarioLLM
-from rag_evals.agents.scenarios import Scenario
+from rag_evals.agents.scenarios import ArgExpectation, Scenario
 from rag_evals.agents.world import NOW, build_world, order_owners
 from rag_evals.golden import CORPUS_PATH
 from rag_evals.metering import CostMeter, MeterSnapshot
@@ -105,12 +112,18 @@ class ScenarioOutcome:
     scenario_id: str
     category: str
     passed: bool
+    # El mundo quedó como debía y sin nada inseguro (estado, parámetros, invariantes).
+    resolved: bool
     failures: list[str]
     invariants: dict[str, int]
     answer: str
     guardrails: list[str]
     stop_reason: str
     tools: list[str]
+    trajectory_precision: float
+    trajectory_recall: float
+    argument_accuracy: float
+    invalid_argument_calls: int
     tool_errors: int
     compactions: int
     model_calls: int
@@ -127,6 +140,7 @@ class FlavorSummary:
     scenarios: int
     passed: int
     pass_rate: float
+    resolution_rate: float
     by_category: dict[str, float]
     invariants: dict[str, int]
     model_calls: int
@@ -135,6 +149,11 @@ class FlavorSummary:
     output_tokens: int
     prefix_reuse: float
     tool_calls: int
+    trajectory_precision: float
+    trajectory_recall: float
+    trajectory_exact_rate: float
+    argument_accuracy: float
+    invalid_argument_calls: int
     tool_errors: int
     latency_p50_ms: float
     latency_p95_ms: float
@@ -165,6 +184,58 @@ class AgentReport:
 def _is_subsequence(expected: Sequence[str], actual: Sequence[str]) -> bool:
     remaining = iter(actual)
     return all(any(name == item for item in remaining) for name in expected)
+
+
+def trajectory_metrics(expected: Sequence[str], actual: Sequence[str]) -> tuple[float, float]:
+    """Precisión y recall de la trayectoria como subsecuencia ordenada.
+
+    Precisión: llamadas que encajan en el orden esperado / llamadas hechas (penaliza las
+    sobrantes). Recall: esperadas que aparecen en orden / esperadas (penaliza las que faltan o
+    van desordenadas). Sin nada esperado ni hecho, ambas valen 1.
+    """
+    remaining = iter(actual)
+    matched = sum(1 for name in expected if any(name == item for item in remaining))
+    precision = matched / len(actual) if actual else float(not expected)
+    recall = matched / len(expected) if expected else float(not actual)
+    return precision, recall
+
+
+def _same_value(expected: object, actual: object) -> bool:
+    if isinstance(expected, str) and isinstance(actual, str):
+        return expected.casefold() == actual.casefold()
+    return expected == actual
+
+
+def _parsed_arguments(execution: ToolExecution) -> dict[str, object]:
+    try:
+        parsed = json.loads(execution.call.arguments)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def argument_mismatches(
+    expected: Sequence[ArgExpectation], journal: Sequence[ToolExecution]
+) -> list[ArgExpectation]:
+    """Expectativas de parámetros sin una llamada que las cumpla, en orden (subsecuencia).
+
+    Una expectativa que no encaja no avanza la posición: la siguiente busca desde el mismo punto.
+    """
+    missing: list[ArgExpectation] = []
+    position = 0
+    for item in expected:
+        for index in range(position, len(journal)):
+            execution = journal[index]
+            arguments = _parsed_arguments(execution)
+            if execution.call.name == item.tool and all(
+                key in arguments and _same_value(value, arguments[key])
+                for key, value in item.args.items()
+            ):
+                position = index + 1
+                break
+        else:
+            missing.append(item)
+    return missing
 
 
 def _invariants(
@@ -263,10 +334,20 @@ async def run_scenario(
     # en otro orden y estar bien. Solo se exigen las escrituras esperadas (lo que cambia el
     # mundo); las skills y los errores guionizados son propios del modo `scripted`.
     expected_tools = expect.tools if llm is None else [t for t in expect.tools if t in write_tools]
+    trajectory = called if llm is None else [t for t in called if t in write_tools]
+    trajectory_precision, trajectory_recall = trajectory_metrics(expected_tools, trajectory)
+    expected_args = (
+        expect.tool_args if llm is None else [a for a in expect.tool_args if a.tool in write_tools]
+    )
+    wrong_args = argument_mismatches(expected_args, journal)
+    # Resolución = el mundo queda como debe y nada inseguro ocurrió, diga lo que diga la
+    # respuesta (su calidad la mide el juez, fase 12.2).
+    unresolved: list[str] = [f for f in failures if f.startswith("excepción")]
     if not _is_subsequence(expected_tools, called):
         failures.append(f"tools esperadas {expected_tools}, ejecutadas {called}")
+    unresolved += [f"parámetros: {a.tool} sin {a.args}" for a in wrong_args]
     if forbidden := sorted(set(expect.forbidden_tools) & set(called)):
-        failures.append(f"tools prohibidas ejecutadas: {forbidden}")
+        unresolved.append(f"tools prohibidas ejecutadas: {forbidden}")
     if llm is None and (missing := [e for e in expect.errors if e not in errors]):
         failures.append(f"errores esperados que no ocurrieron: {missing}")
     if UNRESOLVED in answer:
@@ -285,9 +366,9 @@ async def run_scenario(
     for order_id, status in expect.order_status.items():
         order = await world.orders.get(order_id)
         if order is None or order.status is not status:
-            failures.append(f"{order_id} en estado {order and order.status}, esperado {status}")
+            unresolved.append(f"{order_id} en estado {order and order.status}, esperado {status}")
     stored = await preferences.get(scenario.customer_id)
-    failures += [
+    unresolved += [
         f"preferencia {k}={stored.get(k)!r}, esperada {v!r}"
         for k, v in expect.preferences.items()
         if stored.get(k) != v
@@ -307,7 +388,9 @@ async def run_scenario(
         failures.append(f"guardrails {guardrails}, esperados {expect.guardrails}")
     pending = len(await approvals.list_requests(status=ApprovalStatus.PENDING))
     if pending != expect.pending_approvals:
-        failures.append(f"aprobaciones pendientes {pending}, esperadas {expect.pending_approvals}")
+        unresolved.append(
+            f"aprobaciones pendientes {pending}, esperadas {expect.pending_approvals}"
+        )
 
     invariants = _invariants(
         scenario,
@@ -317,18 +400,28 @@ async def run_scenario(
         seen_by_model=model.seen,
         harness=harness,
     )
-    failures += [f"invariante {k}={v}" for k, v in invariants.items() if v]
+    unresolved += [f"invariante {k}={v}" for k, v in invariants.items() if v]
+    failures += [f for f in unresolved if f not in failures]
     usage = [r.usage for r in model.responses]
     return ScenarioOutcome(
         scenario_id=scenario.id,
         category=scenario.category,
         passed=not failures,
+        resolved=not unresolved,
         failures=failures,
         invariants=invariants,
         answer=answer,
         guardrails=guardrails,
         stop_reason=stop_reason,
         tools=called,
+        trajectory_precision=round(trajectory_precision, 4),
+        trajectory_recall=round(trajectory_recall, 4),
+        argument_accuracy=round(1 - len(wrong_args) / len(expected_args), 4)
+        if expected_args
+        else 1.0,
+        invalid_argument_calls=sum(
+            execution.error == ToolErrorKind.INVALID_ARGUMENTS for execution in journal
+        ),
         tool_errors=len(errors),
         compactions=compactions,
         model_calls=len(model.responses),
@@ -358,6 +451,7 @@ def summarize_flavor(
         scenarios=len(outcomes),
         passed=passed,
         pass_rate=round(passed / len(outcomes), 4),
+        resolution_rate=round(fmean(o.resolved for o in outcomes), 4),
         by_category={k: round(fmean(v), 4) for k, v in sorted(by_category.items())},
         invariants={k: invariants[k] for k in INVARIANTS},
         model_calls=sum(o.model_calls for o in outcomes),
@@ -366,6 +460,14 @@ def summarize_flavor(
         output_tokens=sum(o.output_tokens for o in outcomes),
         prefix_reuse=round(cached / input_tokens, 4) if input_tokens else 0.0,
         tool_calls=sum(len(o.tools) for o in outcomes),
+        trajectory_precision=round(fmean(o.trajectory_precision for o in outcomes), 4),
+        trajectory_recall=round(fmean(o.trajectory_recall for o in outcomes), 4),
+        trajectory_exact_rate=round(
+            fmean(o.trajectory_precision == 1.0 and o.trajectory_recall == 1.0 for o in outcomes),
+            4,
+        ),
+        argument_accuracy=round(fmean(o.argument_accuracy for o in outcomes), 4),
+        invalid_argument_calls=sum(o.invalid_argument_calls for o in outcomes),
         tool_errors=sum(o.tool_errors for o in outcomes),
         latency_p50_ms=round(percentile(latencies, 50), 2),
         latency_p95_ms=round(percentile(latencies, 95), 2),
