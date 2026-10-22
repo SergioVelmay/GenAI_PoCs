@@ -12,7 +12,14 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 
 from edge_api.app import create_app
-from edge_api.assistant import Answer, AnswerChunk, AssistantEvent, final_answer, replay
+from edge_api.assistant import (
+    Answer,
+    AnswerChunk,
+    AnswerMode,
+    AssistantEvent,
+    final_answer,
+    replay,
+)
 from edge_api.cases import CaseBackend
 from edge_api.identity import jwt_resolver
 from edge_api.settings import EdgeSettings
@@ -24,6 +31,7 @@ from headache_core.adapters.memory import (
 )
 from headache_core.adapters.otel import QUIET_SPANS
 from headache_core.application.admission import AdmissionController, plan_rules
+from headache_core.application.online_eval import OnlineEvaluator
 from headache_core.application.semantic_cache import SemanticCache
 from headache_core.domain.admission import Caller, ClientPlan
 
@@ -42,6 +50,7 @@ class FakeAssistant:
         self.error: Exception | None = None
         self.fail_after: int | None = None
         self.verified = True
+        self.mode: AnswerMode = "extractive"
 
     async def answer(self, question: str, caller: Caller) -> Answer:
         return await final_answer(self.stream(question, caller))
@@ -57,7 +66,7 @@ class FakeAssistant:
             f"Respuesta a: {question}",
             ("doc_1#0",),
             False,
-            "extractive",
+            self.mode,
             verified=self.verified,
         )
         sent = 0
@@ -90,6 +99,7 @@ def client(
     cache: SemanticCache | None = None,
     cases: CaseBackend | None = None,
     tracer_provider: TracerProvider | None = None,
+    evaluator: OnlineEvaluator | None = None,
     **edge: Any,
 ) -> httpx.AsyncClient:
     controller = AdmissionController(
@@ -107,6 +117,7 @@ def client(
         resolver=jwt_resolver(verifier),
         cache=cache,
         cases=cases or memory_cases(),
+        evaluator=evaluator,
     )
     if tracer_provider is not None:
         # Como `instrument_fastapi`, pero con un proveedor en memoria en vez del global.

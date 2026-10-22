@@ -15,10 +15,11 @@ de admisión se ocupa mientras dura el stream, no solo hasta el primer trozo.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated
 
@@ -53,6 +54,12 @@ from headache_core.application.admission import (
 from headache_core.application.answer_stream import StreamingAnswerer
 from headache_core.application.case_intake import InvalidIdempotencyKeyError
 from headache_core.application.llm import time_budget
+from headache_core.application.online_eval import (
+    EvalSample,
+    LLMFaithfulnessJudge,
+    OnlineEvaluator,
+    ScoreSink,
+)
 from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
 from headache_core.application.semantic_cache import SemanticCache
 from headache_core.application.telemetry import genai, get_telemetry, metrics
@@ -288,6 +295,7 @@ def create_app(
     resolver: CallerResolver | None = None,
     cache: SemanticCache | None = None,
     cases: CaseBackend | None = None,
+    evaluator: OnlineEvaluator | None = None,
 ) -> FastAPI:
     edge = edge or EdgeSettings()
     settings = settings or Settings()
@@ -307,6 +315,12 @@ def create_app(
                 stack.push_async_callback(close_cases)
             if assistant is None:
                 stack.push_async_callback(await _load_assistant(app))
+            judge: OnlineEvaluator | None = app.state.evaluator
+            if judge is not None:
+                stop = asyncio.Event()
+                task = asyncio.create_task(judge.run(stop))
+                stack.push_async_callback(lambda: task)
+                stack.callback(stop.set)
             yield
 
     async def _load_assistant(app: FastAPI) -> Callable[[], Awaitable[None]]:
@@ -324,6 +338,8 @@ def create_app(
         app.state.assistant = with_cache(
             build_assistant(runtime.service, settings, edge), semantic, settings, edge
         )
+        if app.state.evaluator is None:
+            app.state.evaluator = build_online_evaluator(runtime.service, settings, edge)
         return runtime.aclose
 
     app = FastAPI(title="Headache edge API", version="0.1.0", lifespan=lifespan)
@@ -333,6 +349,7 @@ def create_app(
         with_cache(assistant, cache, settings, edge) if assistant is not None else None
     )
     app.state.resolve = resolve
+    app.state.evaluator = evaluator
     for exc_type, handler in _handlers(edge).items():
         app.add_exception_handler(exc_type, handler)
 
@@ -370,7 +387,8 @@ def create_app(
             backend: Assistant = request.app.state.assistant
             with time_budget(edge.request_budget_seconds):
                 answer = await backend.answer(body.question, who)
-        _annotate(answer, who, route="/ask", started=started)
+        attributes = _annotate(answer, who, route="/ask", started=started)
+        _offer(request.app.state.evaluator, body.question, answer, attributes)
         response.headers["X-Cache"] = answer.cache.upper()
         return AskOut.from_answer(answer)
 
@@ -413,6 +431,7 @@ def create_app(
             # caché (8 ms) o del modelo (~0,8 s): mezclarlos haría inútil el percentil.
             attributes = _annotate(answer, who, route="/ask/stream", started=started)
             metrics.answer_first_chunk(first_chunk, attributes)
+            _offer(request.app.state.evaluator, body.question, answer, attributes)
             return AskOut.from_answer(answer)
 
         return StreamingResponse(
@@ -446,6 +465,57 @@ def _annotate(answer: Answer, who: Caller, *, route: str, started: float) -> dic
     }
     metrics.answer(seconds=time.perf_counter() - started, attributes=attributes)
     return attributes
+
+
+def _offer(
+    evaluator: OnlineEvaluator | None, question: str, answer: Answer, attributes: dict[str, str]
+) -> None:
+    if evaluator is None:
+        return
+    evaluator.offer(
+        EvalSample(
+            question,
+            answer.text,
+            answer.citations,
+            trace=get_telemetry().inject(),
+            attributes={
+                k: v
+                for k, v in attributes.items()
+                if k in (genai.HEADACHE_PLAN, genai.HEADACHE_ANSWER_MODE)
+            },
+        ),
+        cache=answer.cache,
+        mode=answer.mode,
+        degraded=answer.degraded,
+        abstained=answer.abstained,
+    )
+
+
+def build_online_evaluator(
+    service: RetrievalService, settings: Settings, edge: EdgeSettings
+) -> OnlineEvaluator | None:
+    """Juez con el despliegue fijo de evals (fase 5), fuera del router. Coste por muestra."""
+    if edge.online_eval_rate == 0:
+        return None
+    from headache_core.adapters.llm_factory import build_judge_llm
+
+    async def sources(ids: Sequence[str]) -> list[str]:
+        # Solo fuentes públicas: el juez no necesita ver documentos internos.
+        records = [await service.source(source_id) for source_id in ids]
+        return [record.text for record in records if record is not None]
+
+    sinks: list[ScoreSink] = []
+    if settings.langfuse.public_key and settings.langfuse.secret_key.get_secret_value():
+        from headache_core.adapters.langfuse_scores import LangfuseScoreSink
+
+        sinks.append(LangfuseScoreSink.from_settings(settings.langfuse))
+    return OnlineEvaluator(
+        LLMFaithfulnessJudge(build_judge_llm(settings)),
+        sources,
+        sample_rate=edge.online_eval_rate,
+        max_per_minute=edge.online_eval_per_minute,
+        sinks=sinks,
+    )
 
 
 def _llm_outcomes(settings: Settings) -> dict[str, int]:

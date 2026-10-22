@@ -1,5 +1,5 @@
 ---
-applyTo: "infra/local/telemetry/**,scripts/telemetry_demo.py,scripts/build_observability.py,packages/headache_core/src/headache_core/adapters/prometheus.py,packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
+applyTo: "packages/headache_core/src/headache_core/application/online_eval.py,packages/headache_core/src/headache_core/adapters/langfuse_scores.py,docs/runbook-incidentes.md,infra/local/telemetry/**,scripts/telemetry_demo.py,scripts/build_observability.py,packages/headache_core/src/headache_core/adapters/prometheus.py,packages/headache_core/src/headache_core/domain/slo.py,packages/headache_core/src/headache_core/application/telemetry/messaging.py,services/orchestrator/src/orchestrator/remote/tracing.py,packages/headache_core/src/headache_core/ports/telemetry.py,packages/headache_core/src/headache_core/application/telemetry/**,packages/headache_core/src/headache_core/application/agents/tracing.py,packages/headache_core/src/headache_core/adapters/otel.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"
 description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, logs correlacionados y sin PII."
 ---
 
@@ -43,6 +43,14 @@ description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, 
 - El collector borra prompts y respuestas antes de Jaeger (`attributes/no-content`); el contenido capturado solo llega a Langfuse.
 - Prometheus: `translation_strategy: UnderscoreEscapingWithSuffixes` fijado y solo `service.name` y `deployment.environment.name` como etiquetas de recurso (sin id de instancia).
 - El dashboard se genera desde `metrics.CATALOG` (`adapters/prometheus.py`, `scripts/build_observability.py`); no editar el JSON a mano. Un test comprueba que está al día y que cada métrica usada existe.
+
+## Alertas, evaluación online y runbook (fase 11.6)
+
+- `infra/local/telemetry/rules/headache.rules.yml` se GENERA (`build_rules` en `adapters/prometheus.py`) desde `domain/slo.py`: un SLI por SLO (`_slis`, tasa mala/total) en recording rules `slo:error_ratio:rate{ventana}` y alertas `ErrorBudgetBurn` (multiventana, `severity` page/ticket), más coste, outbox, faithfulness e inyecciones. Un SLO nuevo sin SLI hace fallar la generación.
+- Tests de reglas con `promtool test rules` (`rules/tests/headache.test.yml`, por la serie `ALERTS`, no por el texto). En la CI (job `quality`) y en local con la imagen `prom/prometheus` (`--entrypoint promtool`). Comprobar cada número del test a mano: con menos historia que la ventana larga, la ventana entera es el pico.
+- Unidad `"1"`: el collector solo añade `_ratio` en gauges (`headache_eval_faithfulness_bucket`).
+- Evaluación online (`application/online_eval.py`): `OnlineEvaluator.offer` no espera (cola acotada, `dropped` si se llena), muestreo `EDGE__ONLINE_EVAL_RATE` (0 = apagado, por coste) y presupuesto `EDGE__ONLINE_EVAL_PER_MINUTE`. Solo respuestas calculadas (`miss`), no extractivas, degradadas ni abstenciones. Juez `LLMFaithfulnessJudge` (despliegue de juez fijo), span `evaluator` hijo de la traza de la petición, métrica `headache.eval.faithfulness` y score en Langfuse (`LangfuseScoreSink`).
+- Cada alerta lleva `runbook_url` a un ancla de `docs/runbook-incidentes.md`; un test comprueba que existe.
 
 ## Contenido y PII
 

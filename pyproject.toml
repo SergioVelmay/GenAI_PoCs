@@ -42,7 +42,9 @@ dev = [
     "mypy>=1.13",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
+    "pyyaml>=6.0",
     "ruff>=0.7",
+    "types-pyyaml>=6.0",
 ]
 load = [
     "locust>=2.37",

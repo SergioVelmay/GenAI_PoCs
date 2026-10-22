@@ -1,0 +1,183 @@
+# Tests de las reglas generadas (fase 11.6). Sin Prometheus en marcha:
+#
+#   docker run --rm -v ${PWD}/infra/local/telemetry/rules:/rules:ro --entrypoint promtool `
+#     prom/prometheus:v3.15.1 test rules /rules/tests/headache.test.yml
+#
+# Se comprueba qué alertas están disparadas (serie ALERTS), no el texto de las anotaciones:
+# así un cambio de redacción no rompe los tests, pero un umbral mal calculado sí.
+
+rule_files:
+  - ../headache.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # 10 % de las preguntas admitidas acaban sin respuesta durante 70 min: con un objetivo del
+  # 99,5 %, eso quema el presupuesto a 20x. Saltan las dos páginas (1 h y 6 h) y los tickets.
+  - name: availability-burning
+    interval: 1m
+    input_series:
+      - series: 'headache_admission_decisions_total{headache_route="ask",headache_caller_plan="public",headache_admission_outcome="admitted"}'
+        values: '0+100x80'
+      - series: 'headache_answers_total{headache_answer_degraded="false",headache_caller_plan="public"}'
+        values: '0+90x80'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-availability",severity="page"})
+        eval_time: 70m
+        exp_samples:
+          - value: 2
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-availability",severity="ticket"})
+        eval_time: 70m
+        exp_samples:
+          - value: 2
+      # Solo ese SLO: el resto no tiene errores.
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo!="assistant-availability"}) or vector(0)
+        eval_time: 70m
+        exp_samples:
+          - value: 0
+
+  # 0,2 % de errores: dentro del presupuesto (0,5 %). Ninguna alerta.
+  - name: availability-healthy
+    interval: 1m
+    input_series:
+      - series: 'headache_admission_decisions_total{headache_route="ask",headache_caller_plan="public",headache_admission_outcome="admitted"}'
+        values: '0+1000x80'
+      - series: 'headache_answers_total{headache_answer_degraded="false",headache_caller_plan="public"}'
+        values: '0+998x80'
+    promql_expr_test:
+      - expr: count(ALERTS{alertstate="firing"}) or vector(0)
+        eval_time: 70m
+        exp_samples:
+          - value: 0
+
+  # Un pico corto (5 min con la mitad de errores tras 7 h sanas) no despierta a nadie: en la
+  # ventana de 1 h es un 4 % de error (umbral 7,2 %) y en la de 6 h, un 0,7 % (umbral 3 %).
+  # Con menos de 6 h de historia sí saltaría la página de 6 h: el pico sería toda la historia.
+  - name: availability-short-spike
+    interval: 1m
+    input_series:
+      - series: 'headache_admission_decisions_total{headache_route="ask",headache_caller_plan="public",headache_admission_outcome="admitted"}'
+        values: '0+100x440'
+      - series: 'headache_answers_total{headache_answer_degraded="false",headache_caller_plan="public"}'
+        values: '0+100x420 42050+50x5 42300+100x15'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",severity="page"}) or vector(0)
+        eval_time: 426m
+        exp_samples:
+          - value: 0
+
+  # El 20 % de las respuestas calculadas tarda más de 1,5 s en dar el primer trozo (objetivo
+  # 95 %): 4x el presupuesto. No llega a página (14,4x / 6x), sí a ticket (3x y 1x).
+  - name: ttft-slow
+    interval: 1m
+    input_series:
+      - series: 'headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome="miss"}'
+        values: '0+100x80'
+      - series: 'headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome="miss",le="1.5"}'
+        values: '0+80x80'
+      # Los aciertos de caché no cuentan para este SLO aunque sean muchos y rápidos.
+      - series: 'headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome="hit"}'
+        values: '0+1000x80'
+      - series: 'headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome="hit",le="1.5"}'
+        values: '0+1000x80'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-ttft",severity="ticket"})
+        eval_time: 70m
+        exp_samples:
+          - value: 2
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-ttft",severity="page"}) or vector(0)
+        eval_time: 70m
+        exp_samples:
+          - value: 0
+
+  # Los cortes del usuario (CancelledError) no cuentan como fallo del modelo.
+  - name: llm-errors-exclude-cancellations
+    interval: 1m
+    input_series:
+      - series: 'gen_ai_client_operation_duration_seconds_count{gen_ai_response_model="gpt-4.1-mini"}'
+        values: '0+80x80'
+      - series: 'gen_ai_client_operation_duration_seconds_count{error_type="CancelledError"}'
+        values: '0+20x80'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="llm-calls"}) or vector(0)
+        eval_time: 70m
+        exp_samples:
+          - value: 0
+
+  # Los 429 del proveedor y los rechazos del gateway (circuito abierto) sí cuentan.
+  - name: llm-rate-limited
+    interval: 1m
+    input_series:
+      - series: 'gen_ai_client_operation_duration_seconds_count{gen_ai_response_model="gpt-4.1-mini"}'
+        values: '0+80x80'
+      - series: 'gen_ai_client_operation_duration_seconds_count{error_type="LLMRateLimitError"}'
+        values: '0+10x80'
+      - series: 'headache_llm_rejections_total{headache_llm_reject_reason="circuit_open"}'
+        values: '0+10x80'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="llm-calls",severity="page"})
+        eval_time: 70m
+        exp_samples:
+          - value: 2
+
+  # 0,1 $/min = 144 $/día: supera el aviso (16 $/día) y el triple del presupuesto (60 $/día).
+  - name: cost-runaway
+    interval: 1m
+    input_series:
+      - series: 'headache_llm_cost_USD_total{gen_ai_agent_name="refunds"}'
+        values: '0+0.1x40'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname=~"LlmCostRunaway|LlmCostBudget",alertstate="firing"})
+        eval_time: 30m
+        exp_samples:
+          - value: 2
+
+  # 0,005 $/min = 7,2 $/día: dentro del presupuesto.
+  - name: cost-normal
+    interval: 1m
+    input_series:
+      - series: 'headache_llm_cost_USD_total{gen_ai_agent_name="refunds"}'
+        values: '0+0.005x40'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname=~"LlmCost.*",alertstate="firing"}) or vector(0)
+        eval_time: 30m
+        exp_samples:
+          - value: 0
+
+  - name: outbox-stuck
+    interval: 1m
+    input_series:
+      - series: 'headache_outbox_backlog{headache_outbox_topic_prefix="*"}'
+        values: '150x20'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="OutboxBacklogGrowing",alertstate="firing"})
+        eval_time: 15m
+        exp_samples:
+          - value: 1
+
+  # Faithfulness media de 0,6 con suficientes muestras: ticket. Con pocas muestras, nada
+  # (cinco respuestas malas no son una tendencia).
+  - name: faithfulness-drop
+    interval: 1m
+    input_series:
+      - series: 'headache_eval_faithfulness_count{headache_eval_name="online-faithfulness"}'
+        values: '0+1x60'
+      - series: 'headache_eval_faithfulness_sum{headache_eval_name="online-faithfulness"}'
+        values: '0+0.6x60'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="FaithfulnessDrop",alertstate="firing"})
+        eval_time: 50m
+        exp_samples:
+          - value: 1
+  - name: faithfulness-few-samples
+    interval: 1m
+    input_series:
+      - series: 'headache_eval_faithfulness_count{headache_eval_name="online-faithfulness"}'
+        values: '0+0.1x60'
+      - series: 'headache_eval_faithfulness_sum{headache_eval_name="online-faithfulness"}'
+        values: '0+0.06x60'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="FaithfulnessDrop",alertstate="firing"}) or vector(0)
+        eval_time: 50m
+        exp_samples:
+          - value: 0

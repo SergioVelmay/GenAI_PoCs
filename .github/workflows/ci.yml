@@ -51,6 +51,17 @@ jobs:
       - name: Informe de chunking (smoke test)
         run: uv run python scripts/chunking_report.py --source /tmp/synthetic/knowledge/documents.jsonl
 
+      # Fase 11.6: reglas de SLO y coste generadas al día, válidas y con sus tests.
+      - name: Dashboard y reglas de alerta al día
+        run: uv run python scripts/build_observability.py --check
+
+      - name: Reglas de alerta (promtool check + test)
+        run: |
+          docker run --rm -v "$PWD/infra/local/telemetry/rules:/rules:ro" \
+            --entrypoint promtool prom/prometheus:v3.15.1 check rules /rules/headache.rules.yml
+          docker run --rm -v "$PWD/infra/local/telemetry/rules:/rules:ro" \
+            --entrypoint promtool prom/prometheus:v3.15.1 test rules /rules/tests/headache.test.yml
+
   evals:
     # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquÃ­.
     runs-on: ubuntu-26.04

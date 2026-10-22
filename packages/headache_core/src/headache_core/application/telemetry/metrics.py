@@ -38,6 +38,8 @@ from headache_core.ports.telemetry import (
 LATENCY_BUCKETS = (0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 15, 30, 60, 120)
 # El TTFT es la experiencia del usuario: más resolución por debajo de 2 s.
 TTFT_BUCKETS = (0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10)
+# Puntuaciones de 0 a 1 (faithfulness): 0,8 es el umbral de "respuesta fiel".
+SCORE_BUCKETS = (0.2, 0.4, 0.6, 0.8, 0.9, 1.0)
 
 
 class InstrumentKind(StrEnum):
@@ -128,6 +130,19 @@ CATALOG: dict[str, Instrument] = {
             "{event}",
             "Eventos del outbox sin publicar.",
         ),
+        # Evaluación online (fase 11.6): proporción de afirmaciones respaldadas por las fuentes.
+        Instrument(
+            "headache.eval.faithfulness",
+            InstrumentKind.HISTOGRAM,
+            "1",
+            "Faithfulness de las respuestas muestreadas (LLM-juez).",
+            SCORE_BUCKETS,
+        ),
+        _counter(
+            "headache.eval.samples",
+            "{sample}",
+            "Respuestas muestreadas para evaluar (scored, skipped, dropped, failed).",
+        ),
     )
 }
 
@@ -150,6 +165,8 @@ CACHE_LOOKUPS = "headache.cache.lookups"
 MESSAGES_SENT = "messaging.client.sent.messages"
 MESSAGE_PROCESS_DURATION = "messaging.process.duration"
 OUTBOX_BACKLOG = "headache.outbox.backlog"
+EVAL_FAITHFULNESS = "headache.eval.faithfulness"
+EVAL_SAMPLES = "headache.eval.samples"
 
 # Sin agente (el asistente RAG del edge, un script): el coste se atribuye a esto.
 NO_AGENT = "none"
@@ -268,6 +285,16 @@ def message_processed(*, system: str, destination: str, seconds: float, error: s
             }
         ),
     )
+
+
+def eval_sample(outcome: str, *, evaluator: str) -> None:
+    counter(EVAL_SAMPLES).add(
+        1, {"headache.eval.outcome": outcome, "headache.eval.name": evaluator}
+    )
+
+
+def eval_score(score: float, *, evaluator: str, attributes: Mapping[str, AttributeValue]) -> None:
+    histogram(EVAL_FAITHFULNESS).record(score, {**attributes, "headache.eval.name": evaluator})
 
 
 def outbox_backlog(count: int, *, topic_prefix: str) -> None:

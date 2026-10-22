@@ -8,6 +8,7 @@ from opentelemetry.trace import SpanKind, StatusCode
 
 from edge_api.testing import ASK, FakeAssistant, bearer, client, token
 from headache_core.adapters.otel import RecordedTelemetry, recording_telemetry
+from headache_core.application.online_eval import OnlineEvaluator
 from headache_core.application.telemetry import genai, metrics
 
 
@@ -52,6 +53,30 @@ async def test_answers_and_ttft_are_measured_by_plan_and_cache() -> None:
     [(attributes, _)] = recorded.points(metrics.ANSWER_TTFT)
     assert attributes["headache.route"] == "/ask/stream"
     assert attributes[genai.HEADACHE_CACHE] == "miss"
+
+
+async def test_generated_answers_are_offered_to_the_online_judge() -> None:
+    class Judge:
+        async def faithfulness(self, question: str, answer: str, sources: object) -> float:
+            return 1.0
+
+    async def sources(ids: object) -> list[str]:
+        return ["fuente"]
+
+    evaluator = OnlineEvaluator(Judge(), sources, sample_rate=1.0)
+    assistant = FakeAssistant()
+    assistant.mode = "generative"
+    async with client(assistant, evaluator=evaluator) as http:
+        headers = bearer(token("usr_1", plan="public"))
+        await http.post("/ask", json=ASK, headers=headers)
+        await http.post("/ask/stream", json=ASK, headers=headers)
+        # Extractiva: citas literales, no hay nada que juzgar.
+        assistant.mode = "extractive"
+        await http.post("/ask", json={"question": "Otra pregunta distinta"}, headers=headers)
+
+    # La respuesta no espera al juez: queda en la cola para el worker.
+    assert evaluator.pending == 2
+    assert await evaluator.drain() == 2
 
 
 async def test_rejections_are_visible_by_reason() -> None:

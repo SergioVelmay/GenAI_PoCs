@@ -46,3 +46,7 @@ class EdgeSettings(BaseSettings):
     case_poll_seconds: float = Field(default=1.0, gt=0)
     # Tiempo máximo de un stream de seguimiento; después, `event: timeout` y el cliente reconecta.
     case_stream_seconds: float = Field(default=300.0, gt=0)
+    # Evaluación online (fase 11.6): fracción de respuestas calculadas que puntúa un LLM-juez
+    # (coste: una llamada al modelo juez por muestra). 0 = desactivada.
+    online_eval_rate: float = Field(default=0.0, ge=0, le=1)
+    online_eval_per_minute: int = Field(default=10, ge=1)

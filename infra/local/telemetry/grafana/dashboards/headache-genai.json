@@ -517,6 +517,78 @@
         }
       ],
       "id": 16
+    },
+    {
+      "type": "timeseries",
+      "title": "Faithfulness online (LLM-juez, media 1 h)",
+      "description": "Alerta FaithfulnessDrop por debajo del 80 % con al menos 20 muestras.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(headache_eval_faithfulness_sum[1h])) or vector(0)) / clamp_min(sum(rate(headache_eval_faithfulness_count[1h])), 1e-9)",
+          "legendFormat": "faithfulness"
+        }
+      ],
+      "id": 17
+    },
+    {
+      "type": "timeseries",
+      "title": "Evaluación online: muestras por resultado (/min)",
+      "description": "scored, skipped (fuera de muestra), dropped (cola o presupuesto), failed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "60 * sum by (headache_eval_outcome)(rate(headache_eval_samples_total[$__rate_interval]))",
+          "legendFormat": "{{headache_eval_outcome}}"
+        }
+      ],
+      "id": 18
     }
   ],
   "templating": {

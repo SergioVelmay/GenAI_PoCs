@@ -1,0 +1,654 @@
+# GENERADO por scripts/build_observability.py desde domain/slo.py y metrics.CATALOG.
+# No editar a mano. Tests: rules/tests (promtool test rules).
+groups:
+- name: slo-sli
+  interval: 30s
+  rules:
+  - record: slo:error_ratio:rate5m
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[5m])) - sum(rate(headache_answers_total[5m])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[5m])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate30m
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[30m])) - sum(rate(headache_answers_total[30m])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[30m])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate1h
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[1h])) - sum(rate(headache_answers_total[1h])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[1h])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate2h
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[2h])) - sum(rate(headache_answers_total[2h])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[2h])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate6h
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[6h])) - sum(rate(headache_answers_total[6h])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[6h])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate1d
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[1d])) - sum(rate(headache_answers_total[1d])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[1d])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate3d
+    expr: (clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[3d])) - sum(rate(headache_answers_total[3d])),
+      0) or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_route="ask"}[3d])),
+      1e-9)
+    labels:
+      slo: assistant-availability
+  - record: slo:error_ratio:rate5m
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[5m]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[5m])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[5m])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate30m
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[30m]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[30m])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[30m])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate1h
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[1h]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[1h])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[1h])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate2h
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[2h]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[2h])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[2h])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate6h
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[6h]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[6h])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[6h])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate1d
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[1d]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[1d])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[1d])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate3d
+    expr: ((sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[3d]))
+      - sum(rate(headache_answer_time_to_first_chunk_seconds_bucket{headache_cache_outcome!="hit",le="1.5"}[3d])))
+      or vector(0)) / clamp_min(sum(rate(headache_answer_time_to_first_chunk_seconds_count{headache_cache_outcome!="hit"}[3d])),
+      1e-9)
+    labels:
+      slo: assistant-ttft
+  - record: slo:error_ratio:rate5m
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[5m]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[5m])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate30m
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[30m]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[30m])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate1h
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[1h]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[1h])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate2h
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[2h]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[2h])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate6h
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[6h]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[6h])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate1d
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[1d]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[1d])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate3d
+    expr: (sum(rate(headache_admission_decisions_total{headache_caller_plan="public",headache_admission_outcome="shed"}[3d]))
+      or vector(0)) / clamp_min(sum(rate(headache_admission_decisions_total{headache_caller_plan="public"}[3d])),
+      1e-9)
+    labels:
+      slo: public-admission
+  - record: slo:error_ratio:rate5m
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[5m])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[5m])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate30m
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[30m])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[30m])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate1h
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[1h])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[1h])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate2h
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[2h])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[2h])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate6h
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[6h])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[6h])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate1d
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[1d])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[1d])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate3d
+    expr: (sum(rate(headache_answers_total{headache_answer_degraded="true"}[3d])) or vector(0)) / clamp_min(sum(rate(headache_answers_total[3d])),
+      1e-9)
+    labels:
+      slo: assistant-not-degraded
+  - record: slo:error_ratio:rate5m
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[5m]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[5m])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate30m
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[30m]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[30m])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate1h
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[1h]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[1h])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate2h
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[2h]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[2h])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate6h
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[6h]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[6h])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate1d
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[1d]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[1d])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate3d
+    expr: (sum(rate(messaging_process_duration_seconds_count{error_type!="",error_type!="CancelledError"}[3d]))
+      or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[3d])), 1e-9)
+    labels:
+      slo: case-processing
+  - record: slo:error_ratio:rate5m
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[5m]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[5m])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[5m]))
+      + (sum(rate(headache_llm_rejections_total[5m])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+  - record: slo:error_ratio:rate30m
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[30m]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[30m])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[30m]))
+      + (sum(rate(headache_llm_rejections_total[30m])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+  - record: slo:error_ratio:rate1h
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[1h]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[1h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[1h]))
+      + (sum(rate(headache_llm_rejections_total[1h])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+  - record: slo:error_ratio:rate2h
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[2h]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[2h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[2h]))
+      + (sum(rate(headache_llm_rejections_total[2h])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+  - record: slo:error_ratio:rate6h
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[6h]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[6h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[6h]))
+      + (sum(rate(headache_llm_rejections_total[6h])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+  - record: slo:error_ratio:rate1d
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[1d]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[1d])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[1d]))
+      + (sum(rate(headache_llm_rejections_total[1d])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+  - record: slo:error_ratio:rate3d
+    expr: ((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!="",error_type!="CancelledError"}[3d]))
+      or vector(0)) + (sum(rate(headache_llm_rejections_total[3d])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[3d]))
+      + (sum(rate(headache_llm_rejections_total[3d])) or vector(0)), 1e-9)
+    labels:
+      slo: llm-calls
+- name: slo-burn-rate
+  rules:
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1h{slo="assistant-availability"} > 0.072 and slo:error_ratio:rate5m{slo="assistant-availability"}
+      > 0.072
+    for: 2m
+    labels:
+      severity: page
+      slo: assistant-availability
+      owner: plataforma-ia
+      window: 1h
+    annotations:
+      summary: 'assistant-availability: presupuesto de error quemándose a 14.4x'
+      description: 'Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un
+        429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 1h: {{
+        $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-availability
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate6h{slo="assistant-availability"} > 0.03 and slo:error_ratio:rate30m{slo="assistant-availability"}
+      > 0.03
+    for: 2m
+    labels:
+      severity: page
+      slo: assistant-availability
+      owner: plataforma-ia
+      window: 6h
+    annotations:
+      summary: 'assistant-availability: presupuesto de error quemándose a 6x'
+      description: 'Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un
+        429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 6h: {{
+        $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-availability
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1d{slo="assistant-availability"} > 0.015 and slo:error_ratio:rate2h{slo="assistant-availability"}
+      > 0.015
+    for: 15m
+    labels:
+      severity: ticket
+      slo: assistant-availability
+      owner: plataforma-ia
+      window: 1d
+    annotations:
+      summary: 'assistant-availability: presupuesto de error quemándose a 3x'
+      description: 'Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un
+        429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 1d: {{
+        $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-availability
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate3d{slo="assistant-availability"} > 0.005 and slo:error_ratio:rate6h{slo="assistant-availability"}
+      > 0.005
+    for: 15m
+    labels:
+      severity: ticket
+      slo: assistant-availability
+      owner: plataforma-ia
+      window: 3d
+    annotations:
+      summary: 'assistant-availability: presupuesto de error quemándose a 1x'
+      description: 'Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un
+        429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 3d: {{
+        $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-availability
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1h{slo="assistant-ttft"} > 0.72 and slo:error_ratio:rate5m{slo="assistant-ttft"}
+      > 0.72
+    for: 2m
+    labels:
+      severity: page
+      slo: assistant-ttft
+      owner: plataforma-ia
+      window: 1h
+    annotations:
+      summary: 'assistant-ttft: presupuesto de error quemándose a 14.4x'
+      description: 'Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo
+        95.0% en 28 días. Error en 1h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-ttft
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate6h{slo="assistant-ttft"} > 0.3 and slo:error_ratio:rate30m{slo="assistant-ttft"}
+      > 0.3
+    for: 2m
+    labels:
+      severity: page
+      slo: assistant-ttft
+      owner: plataforma-ia
+      window: 6h
+    annotations:
+      summary: 'assistant-ttft: presupuesto de error quemándose a 6x'
+      description: 'Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo
+        95.0% en 28 días. Error en 6h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-ttft
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1d{slo="assistant-ttft"} > 0.15 and slo:error_ratio:rate2h{slo="assistant-ttft"}
+      > 0.15
+    for: 15m
+    labels:
+      severity: ticket
+      slo: assistant-ttft
+      owner: plataforma-ia
+      window: 1d
+    annotations:
+      summary: 'assistant-ttft: presupuesto de error quemándose a 3x'
+      description: 'Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo
+        95.0% en 28 días. Error en 1d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-ttft
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate3d{slo="assistant-ttft"} > 0.05 and slo:error_ratio:rate6h{slo="assistant-ttft"}
+      > 0.05
+    for: 15m
+    labels:
+      severity: ticket
+      slo: assistant-ttft
+      owner: plataforma-ia
+      window: 3d
+    annotations:
+      summary: 'assistant-ttft: presupuesto de error quemándose a 1x'
+      description: 'Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo
+        95.0% en 28 días. Error en 3d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-ttft
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1h{slo="public-admission"} > 0.144 and slo:error_ratio:rate5m{slo="public-admission"}
+      > 0.144
+    for: 2m
+    labels:
+      severity: page
+      slo: public-admission
+      owner: plataforma-ia
+      window: 1h
+    annotations:
+      summary: 'public-admission: presupuesto de error quemándose a 14.4x'
+      description: 'Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si
+        la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error
+        en 1h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#public-admission
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate6h{slo="public-admission"} > 0.06 and slo:error_ratio:rate30m{slo="public-admission"}
+      > 0.06
+    for: 2m
+    labels:
+      severity: page
+      slo: public-admission
+      owner: plataforma-ia
+      window: 6h
+    annotations:
+      summary: 'public-admission: presupuesto de error quemándose a 6x'
+      description: 'Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si
+        la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error
+        en 6h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#public-admission
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1d{slo="public-admission"} > 0.03 and slo:error_ratio:rate2h{slo="public-admission"}
+      > 0.03
+    for: 15m
+    labels:
+      severity: ticket
+      slo: public-admission
+      owner: plataforma-ia
+      window: 1d
+    annotations:
+      summary: 'public-admission: presupuesto de error quemándose a 3x'
+      description: 'Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si
+        la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error
+        en 1d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#public-admission
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate3d{slo="public-admission"} > 0.01 and slo:error_ratio:rate6h{slo="public-admission"}
+      > 0.01
+    for: 15m
+    labels:
+      severity: ticket
+      slo: public-admission
+      owner: plataforma-ia
+      window: 3d
+    annotations:
+      summary: 'public-admission: presupuesto de error quemándose a 1x'
+      description: 'Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si
+        la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error
+        en 3d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#public-admission
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1h{slo="assistant-not-degraded"} > 0.72 and slo:error_ratio:rate5m{slo="assistant-not-degraded"}
+      > 0.72
+    for: 2m
+    labels:
+      severity: page
+      slo: assistant-not-degraded
+      owner: plataforma-ia
+      window: 1h
+    annotations:
+      summary: 'assistant-not-degraded: presupuesto de error quemándose a 14.4x'
+      description: 'Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0%
+        en 28 días. Error en 1h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-not-degraded
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate6h{slo="assistant-not-degraded"} > 0.3 and slo:error_ratio:rate30m{slo="assistant-not-degraded"}
+      > 0.3
+    for: 2m
+    labels:
+      severity: page
+      slo: assistant-not-degraded
+      owner: plataforma-ia
+      window: 6h
+    annotations:
+      summary: 'assistant-not-degraded: presupuesto de error quemándose a 6x'
+      description: 'Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0%
+        en 28 días. Error en 6h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-not-degraded
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1d{slo="assistant-not-degraded"} > 0.15 and slo:error_ratio:rate2h{slo="assistant-not-degraded"}
+      > 0.15
+    for: 15m
+    labels:
+      severity: ticket
+      slo: assistant-not-degraded
+      owner: plataforma-ia
+      window: 1d
+    annotations:
+      summary: 'assistant-not-degraded: presupuesto de error quemándose a 3x'
+      description: 'Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0%
+        en 28 días. Error en 1d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-not-degraded
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate3d{slo="assistant-not-degraded"} > 0.05 and slo:error_ratio:rate6h{slo="assistant-not-degraded"}
+      > 0.05
+    for: 15m
+    labels:
+      severity: ticket
+      slo: assistant-not-degraded
+      owner: plataforma-ia
+      window: 3d
+    annotations:
+      summary: 'assistant-not-degraded: presupuesto de error quemándose a 1x'
+      description: 'Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0%
+        en 28 días. Error en 3d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#assistant-not-degraded
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1h{slo="case-processing"} > 0.144 and slo:error_ratio:rate5m{slo="case-processing"}
+      > 0.144
+    for: 2m
+    labels:
+      severity: page
+      slo: case-processing
+      owner: soporte-ia
+      window: 1h
+    annotations:
+      summary: 'case-processing: presupuesto de error quemándose a 14.4x'
+      description: 'Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0%
+        en 28 días. Error en 1h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#case-processing
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate6h{slo="case-processing"} > 0.06 and slo:error_ratio:rate30m{slo="case-processing"}
+      > 0.06
+    for: 2m
+    labels:
+      severity: page
+      slo: case-processing
+      owner: soporte-ia
+      window: 6h
+    annotations:
+      summary: 'case-processing: presupuesto de error quemándose a 6x'
+      description: 'Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0%
+        en 28 días. Error en 6h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#case-processing
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1d{slo="case-processing"} > 0.03 and slo:error_ratio:rate2h{slo="case-processing"}
+      > 0.03
+    for: 15m
+    labels:
+      severity: ticket
+      slo: case-processing
+      owner: soporte-ia
+      window: 1d
+    annotations:
+      summary: 'case-processing: presupuesto de error quemándose a 3x'
+      description: 'Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0%
+        en 28 días. Error en 1d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#case-processing
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate3d{slo="case-processing"} > 0.01 and slo:error_ratio:rate6h{slo="case-processing"}
+      > 0.01
+    for: 15m
+    labels:
+      severity: ticket
+      slo: case-processing
+      owner: soporte-ia
+      window: 3d
+    annotations:
+      summary: 'case-processing: presupuesto de error quemándose a 1x'
+      description: 'Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0%
+        en 28 días. Error en 3d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#case-processing
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1h{slo="llm-calls"} > 0.144 and slo:error_ratio:rate5m{slo="llm-calls"}
+      > 0.144
+    for: 2m
+    labels:
+      severity: page
+      slo: llm-calls
+      owner: plataforma-ia
+      window: 1h
+    annotations:
+      summary: 'llm-calls: presupuesto de error quemándose a 14.4x'
+      description: 'Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en
+        28 días. Error en 1h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#llm-calls
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate6h{slo="llm-calls"} > 0.06 and slo:error_ratio:rate30m{slo="llm-calls"}
+      > 0.06
+    for: 2m
+    labels:
+      severity: page
+      slo: llm-calls
+      owner: plataforma-ia
+      window: 6h
+    annotations:
+      summary: 'llm-calls: presupuesto de error quemándose a 6x'
+      description: 'Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en
+        28 días. Error en 6h: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#llm-calls
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate1d{slo="llm-calls"} > 0.03 and slo:error_ratio:rate2h{slo="llm-calls"} >
+      0.03
+    for: 15m
+    labels:
+      severity: ticket
+      slo: llm-calls
+      owner: plataforma-ia
+      window: 1d
+    annotations:
+      summary: 'llm-calls: presupuesto de error quemándose a 3x'
+      description: 'Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en
+        28 días. Error en 1d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#llm-calls
+  - alert: ErrorBudgetBurn
+    expr: slo:error_ratio:rate3d{slo="llm-calls"} > 0.01 and slo:error_ratio:rate6h{slo="llm-calls"} >
+      0.01
+    for: 15m
+    labels:
+      severity: ticket
+      slo: llm-calls
+      owner: plataforma-ia
+      window: 3d
+    annotations:
+      summary: 'llm-calls: presupuesto de error quemándose a 1x'
+      description: 'Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en
+        28 días. Error en 3d: {{ $value | humanizePercentage }}.'
+      runbook_url: docs/runbook-incidentes.md#llm-calls
+- name: operacion
+  rules:
+  - alert: LlmCostBudget
+    expr: 86400 * sum(rate(headache_llm_cost_USD_total[1h])) > 16
+    for: 15m
+    labels:
+      severity: ticket
+      owner: finops
+    annotations:
+      summary: El gasto en modelos va camino de pasar el presupuesto diario
+      description: Al ritmo de la última hora se gastarían {{ $value | printf "%.2f" }} $ al día (presupuesto
+        20 $, aviso al 80%).
+      runbook_url: docs/runbook-incidentes.md#coste
+  - alert: LlmCostRunaway
+    expr: 86400 * sum(rate(headache_llm_cost_USD_total[15m])) > 60
+    for: 5m
+    labels:
+      severity: page
+      owner: plataforma-ia
+    annotations:
+      summary: Gasto en modelos disparado (posible bucle de agente o abuso)
+      description: En los últimos 15 min se gasta a un ritmo de {{ $value | printf "%.2f" }} $/día, el
+        triple del presupuesto.
+      runbook_url: docs/runbook-incidentes.md#coste
+  - alert: OutboxBacklogGrowing
+    expr: sum(headache_outbox_backlog) > 100
+    for: 10m
+    labels:
+      severity: page
+      owner: soporte-ia
+    annotations:
+      summary: 'Eventos atascados en el outbox: los casos no avanzan'
+      description: '{{ $value }} eventos sin publicar desde hace 10 min.'
+      runbook_url: docs/runbook-incidentes.md#outbox
+  - alert: FaithfulnessDrop
+    expr: (sum(rate(headache_eval_faithfulness_sum[1h])) or vector(0)) / clamp_min(sum(rate(headache_eval_faithfulness_count[1h])),
+      1e-9) < 0.8 and sum(increase(headache_eval_faithfulness_count[1h])) >= 20
+    for: 15m
+    labels:
+      severity: ticket
+      owner: plataforma-ia
+    annotations:
+      summary: Las respuestas se apoyan menos en las fuentes (evaluación online)
+      description: 'Faithfulness media de la última hora: {{ $value | humanizePercentage }} (umbral 80
+        %, mínimo 20 muestras).'
+      runbook_url: docs/runbook-incidentes.md#faithfulness
+  - alert: PromptInjectionSpike
+    expr: sum(rate(headache_guardrail_triggers_total{headache_guardrail_code=~"prompt_injection|indirect_injection"}[10m]))
+      > 0.05
+    for: 10m
+    labels:
+      severity: ticket
+      owner: seguridad
+    annotations:
+      summary: Pico de intentos de inyección bloqueados por el harness
+      description: '{{ $value | humanize }} bloqueos/s en 10 min.'
+      runbook_url: docs/runbook-incidentes.md#inyeccion

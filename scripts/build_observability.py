@@ -1,4 +1,4 @@
-"""Genera el dashboard de Grafana desde el catálogo de métricas (fase 11.5). Sin coste.
+"""Genera el dashboard de Grafana (11.5) y las reglas de Prometheus (11.6). Sin coste.
 
 uv run python scripts/build_observability.py          # escribe los ficheros
 uv run python scripts/build_observability.py --check  # falla si no están al día
@@ -11,14 +11,25 @@ import json
 import sys
 from pathlib import Path
 
-from headache_core.adapters.prometheus import build_dashboard
+import yaml
+
+from headache_core.adapters.prometheus import build_dashboard, build_rules
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD = ROOT / "infra/local/telemetry/grafana/dashboards/headache-genai.json"
+RULES = ROOT / "infra/local/telemetry/rules/headache.rules.yml"
+HEADER = (
+    "# GENERADO por scripts/build_observability.py desde domain/slo.py y metrics.CATALOG.\n"
+    "# No editar a mano. Tests: rules/tests (promtool test rules).\n"
+)
 
 
 def render() -> dict[Path, str]:
-    return {DASHBOARD: json.dumps(build_dashboard(), ensure_ascii=False, indent=2) + "\n"}
+    rules = yaml.safe_dump(build_rules(), sort_keys=False, allow_unicode=True, width=100)
+    return {
+        DASHBOARD: json.dumps(build_dashboard(), ensure_ascii=False, indent=2) + "\n",
+        RULES: HEADER + rules,
+    }
 
 
 def main() -> int:
