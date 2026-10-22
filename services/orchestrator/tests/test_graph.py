@@ -9,7 +9,9 @@ import pytest
 from langgraph.types import Command, RetryPolicy
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS
+from headache_core.adapters.otel import recording_telemetry
 from headache_core.application.orchestration import TriageAgent
+from headache_core.application.telemetry import metrics
 from headache_core.domain import CaseStatus, Specialist
 from headache_core.ports import LLMError, LLMTransientError, ToolCall
 from headache_core.ports.approvals import ApprovalStatus
@@ -95,6 +97,14 @@ async def test_information_case_is_resolved_by_knowledge_in_every_flavor(flavor:
     assert run["outcome"].specialist is Specialist.KNOWLEDGE
     assert run["outcome"].status is CaseStatus.RESOLVED
     assert run["outcome"].reply == answer
+
+
+async def test_triage_counts_intents_for_drift_detection() -> None:
+    world = local_world([_triage("event_info", None)])
+    with recording_telemetry() as recorded:
+        await TriageAgent(world.llm).triage(INFO_EMAIL)
+    intent = {"headache.case.intent": "event_info", "headache.case.language": "es"}
+    assert recorded.total(metrics.CASES_TRIAGED, **intent) == 1
 
 
 async def test_rejected_reply_is_escalated_and_never_sent() -> None:

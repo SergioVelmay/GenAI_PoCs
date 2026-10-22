@@ -652,3 +652,91 @@ groups:
       summary: Pico de intentos de inyección bloqueados por el harness
       description: '{{ $value | humanize }} bloqueos/s en 10 min.'
       runbook_url: docs/runbook-incidentes.md#inyeccion
+- name: drift
+  interval: 5m
+  rules:
+  - record: drift:psi
+    expr: sum((clamp_min(((sum by (headache_case_intent)(increase(headache_cases_triaged_total[1d])) /
+      scalar(sum(increase(headache_cases_triaged_total[1d])))) or (sum by (headache_case_intent)(increase(headache_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(headache_cases_triaged_total[7d] offset 1d)))) * 0), 0.0001) -
+      clamp_min(((sum by (headache_case_intent)(increase(headache_cases_triaged_total[7d] offset 1d))
+      / scalar(sum(increase(headache_cases_triaged_total[7d] offset 1d)))) or (sum by (headache_case_intent)(increase(headache_cases_triaged_total[1d]))
+      / scalar(sum(increase(headache_cases_triaged_total[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum by
+      (headache_case_intent)(increase(headache_cases_triaged_total[1d])) / scalar(sum(increase(headache_cases_triaged_total[1d]))))
+      or (sum by (headache_case_intent)(increase(headache_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(headache_cases_triaged_total[7d]
+      offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (headache_case_intent)(increase(headache_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(headache_cases_triaged_total[7d] offset 1d)))) or (sum by (headache_case_intent)(increase(headache_cases_triaged_total[1d]))
+      / scalar(sum(increase(headache_cases_triaged_total[1d])))) * 0), 0.0001)))
+    labels:
+      signal: case-intents
+  - record: drift:psi
+    expr: sum((clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d]))
+      / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])))) or (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d]
+      offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) *
+      0), 0.0001) - clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d]
+      offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) or
+      (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d])) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d]))))
+      * 0), 0.0001)) * ln(clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d]))
+      / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])))) or (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d]
+      offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) *
+      0), 0.0001) / clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d]
+      offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) or
+      (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d])) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d]))))
+      * 0), 0.0001)))
+    labels:
+      signal: agent-tools
+  - record: drift:psi
+    expr: sum((clamp_min(((sum by (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[1d]))
+      / scalar(sum(increase(headache_eval_agent_verdicts_total[1d])))) or (sum by (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[7d]
+      offset 1d)) / scalar(sum(increase(headache_eval_agent_verdicts_total[7d] offset 1d)))) * 0), 0.0001)
+      - clamp_min(((sum by (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[7d]
+      offset 1d)) / scalar(sum(increase(headache_eval_agent_verdicts_total[7d] offset 1d)))) or (sum by
+      (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[1d])) / scalar(sum(increase(headache_eval_agent_verdicts_total[1d]))))
+      * 0), 0.0001)) * ln(clamp_min(((sum by (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[1d]))
+      / scalar(sum(increase(headache_eval_agent_verdicts_total[1d])))) or (sum by (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[7d]
+      offset 1d)) / scalar(sum(increase(headache_eval_agent_verdicts_total[7d] offset 1d)))) * 0), 0.0001)
+      / clamp_min(((sum by (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[7d]
+      offset 1d)) / scalar(sum(increase(headache_eval_agent_verdicts_total[7d] offset 1d)))) or (sum by
+      (headache_eval_resolution)(increase(headache_eval_agent_verdicts_total[1d])) / scalar(sum(increase(headache_eval_agent_verdicts_total[1d]))))
+      * 0), 0.0001)))
+    labels:
+      signal: agent-resolution
+  - alert: DistributionDrift
+    expr: drift:psi{signal="case-intents"} > 0.25 and on() sum(increase(headache_cases_triaged_total[1d]))
+      >= 200
+    for: 1h
+    labels:
+      severity: ticket
+      owner: soporte-ia
+      signal: case-intents
+    annotations:
+      summary: 'case-intents: la distribución de hoy no se parece a la de la semana'
+      description: 'Mezcla de intenciones de los casos de soporte (qué piden los clientes). PSI 1d frente
+        a los 7d anteriores: {{ $value | printf "%.2f" }} (> 0.25 significativo).'
+      runbook_url: docs/runbook-incidentes.md#drift
+  - alert: DistributionDrift
+    expr: drift:psi{signal="agent-tools"} > 0.25 and on() sum(increase(gen_ai_execute_tool_duration_seconds_count[1d]))
+      >= 200
+    for: 1h
+    labels:
+      severity: ticket
+      owner: plataforma-ia
+      signal: agent-tools
+    annotations:
+      summary: 'agent-tools: la distribución de hoy no se parece a la de la semana'
+      description: 'Mezcla de tools que ejecutan los agentes (qué hacen para resolver). PSI 1d frente
+        a los 7d anteriores: {{ $value | printf "%.2f" }} (> 0.25 significativo).'
+      runbook_url: docs/runbook-incidentes.md#drift
+  - alert: DistributionDrift
+    expr: drift:psi{signal="agent-resolution"} > 0.25 and on() sum(increase(headache_eval_agent_verdicts_total[1d]))
+      >= 50
+    for: 1h
+    labels:
+      severity: ticket
+      owner: plataforma-ia
+      signal: agent-resolution
+    annotations:
+      summary: 'agent-resolution: la distribución de hoy no se parece a la de la semana'
+      description: 'Resolución según el juez online (resuelto, escalado, parcial, no resuelto). PSI 1d
+        frente a los 7d anteriores: {{ $value | printf "%.2f" }} (> 0.25 significativo).'
+      runbook_url: docs/runbook-incidentes.md#drift

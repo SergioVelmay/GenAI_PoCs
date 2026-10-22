@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from headache_core.application.support_triage import SupportTriageService
+from headache_core.application.telemetry import metrics
 from headache_core.domain.models import SupportEmail
 from headache_core.domain.orchestration import (
     CaseEnvelope,
@@ -49,4 +50,6 @@ class TriageAgent:
             summary=triage.summary,
             order_id=resolve_order_id(email.order_id, triage.order_id),
         )
+        # Mezcla de intenciones para detectar drift (fase 12.8).
+        metrics.case_triaged(intent=envelope.intent.value, language=envelope.language)
         return TriageResult(envelope, tuple(result.responses))

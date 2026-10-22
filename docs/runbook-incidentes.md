@@ -99,3 +99,11 @@ enlaza a su sección (`runbook_url`). Las reglas se generan desde los SLO del do
 - **Qué mide**: bloqueos del harness por `prompt_injection` o `indirect_injection` por encima de 0,05/s durante 10 min.
 - **Mirar**: `headache.guardrail.triggers` por código; en Jaeger, turnos con `headache.agent.guardrails` y su `headache.caller.plan`.
 - **Mitigar**: el harness ya bloquea. Si viene de un usuario o de un partner concreto (descripciones de eventos), limitarlo y avisar a Seguridad; si es una campaña, endurecer el rate limit del plan anónimo.
+
+<a id="drift"></a>
+### `DistributionDrift` · la mezcla de hoy no se parece a la de la semana
+
+- **Qué mide**: PSI entre el último día y los 7 anteriores por encima de 0,25, durante 1 h y con muestra mínima (200 casos o tools; 50 veredictos del juez). Señales (`domain/drift.py`): `case-intents` (intenciones del triaje), `agent-tools` (tools ejecutadas) y `agent-resolution` (resolución según el juez online). Entre 0,1 y 0,25 no alerta, pero se ve en el panel «Drift» del dashboard.
+- **Mirar**: qué categoría se mueve (`sum by (headache_case_intent)(increase(headache_cases_triaged_total[1d]))` frente a la semana); si coincide con un despliegue (prompt, modelo, router) o con algo de fuera (una ola de cancelaciones, una campaña, un partner nuevo).
+- **Interpretar**: el drift **no es un error**, es una pregunta. Si cambian las intenciones y no la resolución, el sistema aguanta el cambio; si cambia la resolución o las tools sin cambiar las intenciones, algo se ha roto por dentro (modelo del proveedor, prompt, índice).
+- **Mitigar**: si es interno, volver a la versión anterior del prompt o del modelo (fase 12.6) y pasar el gate offline. Si es externo y dura, ampliar los datasets de evals con los casos nuevos (`evals/datasets/`) y recalibrar el juez: la referencia de "normal" ha cambiado.

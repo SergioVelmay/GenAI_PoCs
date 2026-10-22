@@ -20,7 +20,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Un `.ps1` del repo no arrancaba: "running scripts is disabled" (fase 10.7) | La directiva de ejecución de la máquina bloquea scripts | Lanzarlo con `powershell -NoProfile -ExecutionPolicy Bypass -File <script>` (solo para ese proceso); no cambiar la directiva global |
 | Un servidor relanzado "no arrancaba" y la prueba de carga midió 100 % de errores de conexión (fase 10.7) | El log de la ejecución anterior seguía abierto por el proceso viejo y la redirección falló; nadie escuchaba en el puerto | Antes de una prueba, comprobar `/ready` y que el puerto escucha; un log nuevo por ejecución; parar el servidor anterior (`stop_powershell` o PID) y verificar con `Get-NetTCPConnection` |
 | Un reemplazo con `Get-Content -Raw ... \| Set-Content -Encoding utf8` corrompió las tildes y añadió BOM (fase 9.2) | Lee el UTF-8 como ANSI y escribe UTF-8 **con** BOM: el texto queda doblemente codificado | Nunca reescribir ficheros con `Get-Content`/`Set-Content`: usar la tool de edición o Python (`encoding="utf-8"`, `newline="\n"`) |
-
+| Se repitió en la fase 12.8 por un cambio de una línea (una constante) hecho con `Get-Content \| Set-Content` | La prisa: parecía un reemplazo trivial sin tildes, pero el comando reescribe el fichero entero | El escáner lo detectó antes del commit. Reparación exacta: leer con `utf-8-sig`, volver a bytes con `cp1252` (y `ord(c)` para los 5 bytes que cp1252 no define, como `0x9d` de los emojis) y decodificar como UTF-8 |
 ## Verificación y CI
 
 | Qué pasó | Causa | Regla |

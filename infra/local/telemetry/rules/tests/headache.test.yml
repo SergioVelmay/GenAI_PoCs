@@ -181,3 +181,73 @@ tests:
         eval_time: 50m
         exp_samples:
           - value: 0
+  # Drift (fase 12.8): una semana con reembolsos e información al 50 % y, el último día, un 80 %
+  # de reembolsos (una ola de cancelaciones). PSI ~0,42 > 0,25 con 1200 casos: ticket.
+  - name: drift-intents-shift
+    interval: 1h
+    input_series:
+      - series: 'headache_cases_triaged_total{headache_case_intent="refund_request",headache_case_language="es"}'
+        values: '0+10x168 1680+40x24'
+      - series: 'headache_cases_triaged_total{headache_case_intent="event_info",headache_case_language="es"}'
+        values: '0+10x192'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing",signal="case-intents"})
+        eval_time: 192h
+        exp_samples:
+          - value: 1
+      - expr: count(drift:psi{signal="case-intents"} > 0.4 < 0.43)
+        eval_time: 192h
+        exp_samples:
+          - value: 1
+
+  # La misma mezcla toda la semana: PSI ~0, ninguna alerta.
+  - name: drift-intents-stable
+    interval: 1h
+    input_series:
+      - series: 'headache_cases_triaged_total{headache_case_intent="refund_request",headache_case_language="es"}'
+        values: '0+10x192'
+      - series: 'headache_cases_triaged_total{headache_case_intent="event_info",headache_case_language="es"}'
+        values: '0+10x192'
+    promql_expr_test:
+      - expr: count(drift:psi{signal="case-intents"} < 0.01)
+        eval_time: 192h
+        exp_samples:
+          - value: 1
+      - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing"}) or vector(0)
+        eval_time: 192h
+        exp_samples:
+          - value: 0
+
+  # El mismo cambio con 12 casos al día: el PSI es igual de alto, pero con tan poca muestra es
+  # ruido. No se alerta (min_samples = 200).
+  - name: drift-intents-few-samples
+    interval: 1h
+    input_series:
+      - series: 'headache_cases_triaged_total{headache_case_intent="refund_request",headache_case_language="es"}'
+        values: '0+0.1x168 16.8+0.4x24'
+      - series: 'headache_cases_triaged_total{headache_case_intent="event_info",headache_case_language="es"}'
+        values: '0+0.1x192'
+    promql_expr_test:
+      - expr: count(drift:psi{signal="case-intents"} > 0.25)
+        eval_time: 192h
+        exp_samples:
+          - value: 1
+      - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing"}) or vector(0)
+        eval_time: 192h
+        exp_samples:
+          - value: 0
+
+  # Una tool nueva que no existía la semana anterior (categoría solo en la ventana actual):
+  # el relleno con EPSILON evita ln(0) y el PSI sale alto.
+  - name: drift-new-tool
+    interval: 1h
+    input_series:
+      - series: 'gen_ai_execute_tool_duration_seconds_count{gen_ai_tool_name="get_order"}'
+        values: '0+20x192'
+      - series: 'gen_ai_execute_tool_duration_seconds_count{gen_ai_tool_name="issue_refund"}'
+        values: '0x168 0+20x24'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing",signal="agent-tools"})
+        eval_time: 192h
+        exp_samples:
+          - value: 1

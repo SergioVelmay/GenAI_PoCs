@@ -661,6 +661,41 @@
         }
       ],
       "id": 20
+    },
+    {
+      "type": "timeseries",
+      "title": "Drift: PSI del último día frente a la semana anterior",
+      "description": "< 0.1 estable, 0,1-0.25 moderado, > 0.25 significativo (alerta DistributionDrift). Fase 12.8.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "drift:psi",
+          "legendFormat": "{{signal}}"
+        }
+      ],
+      "id": 21
     }
   ],
   "templating": {

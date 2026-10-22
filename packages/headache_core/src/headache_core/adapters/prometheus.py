@@ -18,6 +18,7 @@ from typing import Any
 
 from headache_core.application.telemetry import genai, metrics
 from headache_core.application.telemetry.metrics import CATALOG, InstrumentKind
+from headache_core.domain.drift import DRIFT_SIGNALS, EPSILON, SIGNIFICANT, DriftSignal
 from headache_core.domain.slo import BURN_RATE_ALERTS, COST_BUDGET, SLOS, Severity
 
 # Unidades UCUM que el collector convierte en sufijo; las anotaciones `{token}` desaparecen.
@@ -356,6 +357,15 @@ def build_dashboard() -> dict[str, Any]:
             w=12,
             description="resuelto, escalado, parcial o no_resuelto según el juez.",
         ),
+        _panel(
+            "Drift: PSI del último día frente a la semana anterior",
+            [(f"{DRIFT_RECORD}", "{{signal}}")],
+            x=0,
+            y=52,
+            w=24,
+            description=f"< {0.1} estable, 0,1-{SIGNIFICANT} moderado, > {SIGNIFICANT} "
+            "significativo (alerta DistributionDrift). Fase 12.8.",
+        ),
     ]
     for index, panel in enumerate(panels, start=1):
         panel["id"] = index
@@ -516,8 +526,64 @@ def build_rules() -> dict[str, Any]:
             {"name": "slo-sli", "interval": "30s", "rules": recording},
             {"name": "slo-burn-rate", "rules": alerts},
             {"name": "operacion", "rules": _operational_alerts()},
+            {"name": "drift", "interval": "5m", "rules": _drift_rules()},
         ]
     }
+
+
+DRIFT_RECORD = "drift:psi"
+
+
+def _increase(signal: DriftSignal, window: str, offset: str = "", by: bool = True) -> str:
+    spec = CATALOG[signal.metric]
+    suffix = "count" if spec.kind is InstrumentKind.HISTOGRAM else ""
+    shift = f" offset {offset}" if offset else ""
+    grouping = f" by ({label(signal.attribute)})" if by else ""
+    return f"sum{grouping}(increase({metric(signal.metric, suffix)}[{window}]{shift}))"
+
+
+def drift_psi(signal: DriftSignal) -> str:
+    """PSI en PromQL entre la ventana actual y la de referencia (justo antes). Una categoría que
+    solo aparece en una ventana se rellena con 0 en la otra (`or ... * 0`) y se acota a
+    EPSILON, igual que `domain.drift.psi`: Python y Prometheus dan el mismo número."""
+    current, reference = signal.current_window, signal.reference_window
+    p = f"({_increase(signal, current)} / scalar({_increase(signal, current, by=False)}))"
+    q = (
+        f"({_increase(signal, reference, current)}"
+        f" / scalar({_increase(signal, reference, current, by=False)}))"
+    )
+    p_full = f"clamp_min(({p} or {q} * 0), {EPSILON})"
+    q_full = f"clamp_min(({q} or {p} * 0), {EPSILON})"
+    return f"sum(({p_full} - {q_full}) * ln({p_full} / {q_full}))"
+
+
+def _drift_rules() -> list[dict[str, Any]]:
+    recording: list[dict[str, Any]] = [
+        {"record": DRIFT_RECORD, "expr": drift_psi(s), "labels": {"signal": s.name}}
+        for s in DRIFT_SIGNALS
+    ]
+    alerts: list[dict[str, Any]] = [
+        {
+            "alert": "DistributionDrift",
+            "expr": (
+                f'{DRIFT_RECORD}{{signal="{s.name}"}} > {SIGNIFICANT}'
+                f" and on() {_increase(s, s.current_window, by=False)} >= {s.min_samples}"
+            ),
+            "for": "1h",
+            "labels": {"severity": "ticket", "owner": s.owner, "signal": s.name},
+            "annotations": {
+                "summary": f"{s.name}: la distribución de hoy no se parece a la de la semana",
+                "description": (
+                    f"{s.description} PSI {s.current_window} frente a los "
+                    f'{s.reference_window} anteriores: {{{{ $value | printf "%.2f" }}}} '
+                    f"(> {SIGNIFICANT} significativo)."
+                ),
+                "runbook_url": f"{RUNBOOK}#drift",
+            },
+        }
+        for s in DRIFT_SIGNALS
+    ]
+    return recording + alerts
 
 
 def _operational_alerts() -> list[dict[str, Any]]:

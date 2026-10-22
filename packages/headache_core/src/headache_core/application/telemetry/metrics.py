@@ -143,6 +143,12 @@ CATALOG: dict[str, Instrument] = {
             "{sample}",
             "Respuestas muestreadas para evaluar (scored, skipped, dropped, failed).",
         ),
+        # Drift (fase 12.8): mezcla de intenciones de los casos de soporte.
+        _counter(
+            "headache.cases.triaged",
+            "{case}",
+            "Casos clasificados por el triaje, por intención e idioma.",
+        ),
         # Juez online de agentes (fase 12.3): veredicto por respuesta y agente.
         _counter(
             "headache.eval.agent_verdicts",
@@ -174,6 +180,7 @@ OUTBOX_BACKLOG = "headache.outbox.backlog"
 EVAL_FAITHFULNESS = "headache.eval.faithfulness"
 EVAL_SAMPLES = "headache.eval.samples"
 EVAL_AGENT_VERDICTS = "headache.eval.agent_verdicts"
+CASES_TRIAGED = "headache.cases.triaged"
 
 # Sin agente (el asistente RAG del edge, un script): el coste se atribuye a esto.
 NO_AGENT = "none"
@@ -302,6 +309,12 @@ def eval_sample(outcome: str, *, evaluator: str) -> None:
 
 def eval_score(score: float, *, evaluator: str, attributes: Mapping[str, AttributeValue]) -> None:
     histogram(EVAL_FAITHFULNESS).record(score, {**attributes, "headache.eval.name": evaluator})
+
+
+def case_triaged(*, intent: str, language: str) -> None:
+    counter(CASES_TRIAGED).add(
+        1, {"headache.case.intent": intent, "headache.case.language": language}
+    )
 
 
 def agent_verdict(*, agent: str, acceptable: bool, resolution: str) -> None:
