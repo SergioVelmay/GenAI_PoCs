@@ -117,6 +117,14 @@ jobs:
       # instalar PyRIT) solo pueden dejar el riesgo residual de attack-mutations-v1.json.
       - name: Red teaming offline (mutaciones de PyRIT)
         run: uv run python -m rag_evals.redteam.mutations --out /tmp/evals --check
+      # Bloquea siempre (fase 12.5): variantes congeladas de promptfoo (tests.yaml) contra el
+      # provider Python; aserciones en JavaScript, sin generación remota, telemetría ni claves.
+      - name: Red teaming con promptfoo (estrategias locales)
+        run: |
+          node --version
+          uv run python -m rag_evals.redteam.promptfoo eval --out /tmp/evals --check
+      - name: Informe de red teaming consolidado
+        run: uv run python -m rag_evals.redteam.report --reports /tmp/evals
       # Bloquea siempre: invariantes multi-agente (nada irreversible sin una persona, identidad
       # fuera del LLM, contexto mínimo en el traspaso) en LangGraph, MAF y la cola.
       - name: Evals multi-agente (3 motores, modelo guionizado)

@@ -1,6 +1,6 @@
 # Red teaming offline con PyRIT (fase 12.4)
 
-- Ataques y controles de `attack-scenarios-v1.jsonl` mutados con conversores deterministas de PyRIT (`attack-mutations-v1.jsonl`); sabor `native` con harness y modelo **comprometido** (obedece al atacante). Coste 0.
+- Ataques y controles de `attack-scenarios-v1.jsonl` mutados con conversores deterministas de PyRIT (`attack-mutations-v1.jsonl`, coste 0, sin PyRIT en la CI); sabor `native` con harness y modelo **comprometido** (obedece al atacante). Coste 0.
 - Sin brecha = ni escritura sin aprobación, ni cambio de estado, ni literal prohibido (inyección, PII, prompt de sistema) que llegue al modelo o al cliente.
 - Bloqueados en la entrada = los para el escudo (`prompt_injection`); el resto los contienen las capas siguientes (aprobación humana, guardas de tools y de salida).
 

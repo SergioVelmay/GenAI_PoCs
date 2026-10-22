@@ -6079,6 +6079,7 @@ dependencies = [
     { name = "booking-agent" },
     { name = "headache-core", extra = ["llamaindex", "retrieval"] },
     { name = "orchestrator" },
+    { name = "pyyaml" },
     { name = "retrieval" },
 ]
 
@@ -6102,6 +6103,7 @@ requires-dist = [
     { name = "langchain-community", marker = "extra == 'evals'", specifier = ">=0.4.1,<0.4.2" },
     { name = "orchestrator", editable = "services/orchestrator" },
     { name = "pyrit", marker = "extra == 'redteam'", specifier = ">=1.1.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", marker = "extra == 'evals'", specifier = ">=0.4.3" },
     { name = "retrieval", editable = "services/retrieval" },
 ]

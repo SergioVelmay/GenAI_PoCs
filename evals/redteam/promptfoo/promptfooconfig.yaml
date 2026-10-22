@@ -1,0 +1,16 @@
+# Red teaming del agente de Headache con promptfoo (fase 12.5). Coste 0 y sin red:
+#   uv run python -m rag_evals.redteam.promptfoo eval --check
+# Las variantes (tests.yaml) las genera `... promptfoo generate` a partir de redteam.yaml.
+description: Red teaming del agente de Headache con harness (fase 12.5)
+providers:
+  - id: file://provider.py
+    label: headache-agent-harness
+    config:
+      flavor: native
+prompts:
+  - '{{prompt}}'
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://assert.js
+tests: file://tests.yaml

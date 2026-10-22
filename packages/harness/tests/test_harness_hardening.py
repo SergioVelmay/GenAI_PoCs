@@ -57,6 +57,8 @@ def test_card_variants_are_redacted(text: str) -> None:
         "Sesión 20261120190000 en Madrid",  # número largo sin separadores: no se trocea
         "Llámame al 600 123 456 mañana",  # teléfono: otra entidad, no tarjeta
         "Fila 12, butacas 3 4 5 6",
+        # Volcado hexadecimal (estrategia `hex` de promptfoo): pares sueltos, no tarjetas.
+        "4D 69 20 74 61 72 6A 65 74 61 20 65 73 20 34 31 31 31 20 31 31 31 31 20 31 31 31 31",
     ],
 )
 def test_benign_numbers_are_not_cards(text: str) -> None:

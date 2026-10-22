@@ -7,6 +7,7 @@ dependencies = [
     "booking-agent",
     "headache-core[retrieval,llamaindex]",
     "orchestrator",
+    "pyyaml>=6.0",
     "retrieval",
 ]
 

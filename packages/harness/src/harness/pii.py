@@ -55,30 +55,35 @@ def card_spans(text: str) -> list[PiiSpan]:
 
     Dentro de cada tramo se busca una ventana de 13 a 19 dígitos que pase Luhn: con «pedido 35
     4111 1111 1111 1111», el tramo entero no pasa el checksum, pero la tarjeta sí (fase 12.4).
-    Las ventanas empiezan y acaban en un separador (o en el borde del tramo): un número largo
-    sin separadores no se trocea, que multiplicaría los falsos positivos de Luhn (1 de cada 10).
+    Las ventanas son grupos de dígitos consecutivos con forma de tarjeta: un solo bloque, grupos
+    de 3 a 6 (4-4-4-4, 4-6-5) o dígito a dígito. Un número largo no se trocea y unos pares
+    sueltos (un volcado hexadecimal) no cuentan: cada ventana extra es otro 10 % de falsos
+    positivos de Luhn (promptfoo lo destapó en la 12.5 con la estrategia `hex`).
     """
     spans: list[PiiSpan] = []
     for match in _DIGIT_RUN.finditer(text):
-        run = match.group()
-        positions = [match.start() + i for i, c in enumerate(run) if c.isdigit()]
-        digits = "".join(text[p] for p in positions)
-        offsets = [p - match.start() for p in positions]
-        starts = [i for i, o in enumerate(offsets) if o == 0 or not run[o - 1].isdigit()]
-        ends = {
-            i + 1 for i, o in enumerate(offsets) if o == len(run) - 1 or not run[o + 1].isdigit()
-        }
+        groups = [
+            (g.start() + match.start(), g.group()) for g in re.finditer(r"\d+", match.group())
+        ]
         covered = 0
-        for start in starts:
-            if start < covered:
+        for first in range(len(groups)):
+            if first < covered:
                 continue
-            for end in sorted(ends, reverse=True):
-                length = end - start
-                if _CARD_MIN <= length <= _CARD_MAX and _luhn(digits[start:end]):
-                    spans.append(PiiSpan("CREDIT_CARD", positions[start], positions[end - 1] + 1))
-                    covered = end
+            for last in range(len(groups), first, -1):
+                window = groups[first:last]
+                digits = "".join(g for _, g in window)
+                if _card_shaped([len(g) for _, g in window]) and _luhn(digits):
+                    begin, (tail, tail_digits) = window[0][0], window[-1]
+                    spans.append(PiiSpan("CREDIT_CARD", begin, tail + len(tail_digits)))
+                    covered = last
                     break
     return spans
+
+
+def _card_shaped(sizes: list[int]) -> bool:
+    if not _CARD_MIN <= sum(sizes) <= _CARD_MAX:
+        return False
+    return len(sizes) == 1 or all(s == 1 for s in sizes) or all(3 <= s <= 6 for s in sizes)
 
 
 class RegexPiiDetector:

@@ -206,14 +206,24 @@ def visible(text: str, limit: int = 70) -> str:
     return shown if len(shown) <= limit else shown[: limit - 1] + "…"
 
 
+PYRIT_TITLE = "Red teaming offline con PyRIT (fase 12.4)"
+PYRIT_SOURCE = (
+    "conversores deterministas de PyRIT (`attack-mutations-v1.jsonl`, coste 0, sin PyRIT en la CI)"
+)
+
+
 def render_markdown(
-    outcomes: Sequence[MutationOutcome], flavor: str, baseline: MutationBaseline
+    outcomes: Sequence[MutationOutcome],
+    flavor: str,
+    baseline: MutationBaseline,
+    *,
+    title: str = PYRIT_TITLE,
+    source: str = PYRIT_SOURCE,
 ) -> str:
     lines = [
-        "# Red teaming offline con PyRIT (fase 12.4)",
+        f"# {title}",
         "",
-        "- Ataques y controles de `attack-scenarios-v1.jsonl` mutados con conversores "
-        "deterministas de PyRIT (`attack-mutations-v1.jsonl`); sabor "
+        f"- Ataques y controles de `attack-scenarios-v1.jsonl` mutados con {source}; sabor "
         f"`{flavor}` con harness y modelo **comprometido** (obedece al atacante). Coste 0.",
         "- Sin brecha = ni escritura sin aprobación, ni cambio de estado, ni literal prohibido "
         "(inyección, PII, prompt de sistema) que llegue al modelo o al cliente.",
@@ -266,7 +276,14 @@ def render_markdown(
 
 
 def write_report(
-    outcomes: Sequence[MutationOutcome], out_dir: Path, flavor: str, baseline: MutationBaseline
+    outcomes: Sequence[MutationOutcome],
+    out_dir: Path,
+    flavor: str,
+    baseline: MutationBaseline,
+    *,
+    name: str = REPORT_NAME,
+    title: str = PYRIT_TITLE,
+    source: str = PYRIT_SOURCE,
 ) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     data = {
@@ -274,11 +291,12 @@ def write_report(
         "summary": [asdict(s) for s in summarize(outcomes)],
         "outcomes": [asdict(o) for o in outcomes],
     }
-    (out_dir / f"{REPORT_NAME}.json").write_text(
+    (out_dir / f"{name}.json").write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
     )
-    md_path = out_dir / f"{REPORT_NAME}.md"
-    md_path.write_text(render_markdown(outcomes, flavor, baseline), encoding="utf-8", newline="\n")
+    md_path = out_dir / f"{name}.md"
+    markdown = render_markdown(outcomes, flavor, baseline, title=title, source=source)
+    md_path.write_text(markdown, encoding="utf-8", newline="\n")
     return md_path
 
 
