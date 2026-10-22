@@ -78,6 +78,9 @@ LANGFUSE_INPUT = "langfuse.observation.input"
 LANGFUSE_OUTPUT = "langfuse.observation.output"
 # Inicio de la respuesta en streaming (ISO 8601): Langfuse calcula el TTFT con él.
 LANGFUSE_COMPLETION_START_TIME = "langfuse.observation.completion_start_time"
+# Prompt versionado de la generación (fase 12.6): Langfuse la enlaza con esa versión.
+LANGFUSE_PROMPT_NAME = "langfuse.observation.prompt.name"
+LANGFUSE_PROMPT_VERSION = "langfuse.observation.prompt.version"
 EVENT_FIRST_TOKEN = "gen_ai.first_token"
 
 HEADACHE_DEPLOYMENT = "headache.llm.deployment"
@@ -86,6 +89,8 @@ HEADACHE_TIER = "headache.llm.tier"
 HEADACHE_STREAM = "headache.llm.stream"
 HEADACHE_RESPONSE_SCHEMA = "headache.llm.response_schema"
 HEADACHE_TOOLS_OFFERED = "headache.llm.tools_offered"
+HEADACHE_PROMPT_NAME = "headache.prompt.name"
+HEADACHE_PROMPT_VERSION = "headache.prompt.version"
 HEADACHE_TOOL_READ_ONLY = "headache.tool.read_only"
 HEADACHE_TOOL_OUTCOME = "headache.tool.outcome"
 HEADACHE_AGENT_FLAVOR = "headache.agent.flavor"

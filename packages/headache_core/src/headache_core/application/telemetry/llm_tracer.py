@@ -17,9 +17,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from headache_core.application.prompts import current_prompt
 from headache_core.application.telemetry import genai, metrics
 from headache_core.application.telemetry.runtime import current_agent, get_telemetry
-from headache_core.ports.llm import ChatMessage, LLMResponse, ToolCall
+from headache_core.ports.llm import ChatMessage, LLMResponse, Role, ToolCall
 from headache_core.ports.telemetry import AttributeValue, SpanKind, SpanPort, TelemetryPort
 
 _METADATA = {
@@ -150,6 +151,16 @@ class TelemetryLLMTracer:
         if "provider" in metadata:
             attributes[genai.PROVIDER_NAME] = genai.provider_name(metadata["provider"])
         attributes |= {_METADATA[k]: v for k, v in metadata.items() if k in _METADATA}
+        system = next((m.content for m in messages if m.role is Role.SYSTEM), None)
+        versioned = current_prompt(system)
+        if versioned is not None:
+            # Langfuse enlaza la generación con la versión exacta del prompt (fase 12.6).
+            attributes |= {
+                genai.LANGFUSE_PROMPT_NAME: versioned.name,
+                genai.LANGFUSE_PROMPT_VERSION: versioned.version,
+                genai.HEADACHE_PROMPT_NAME: versioned.name,
+                genai.HEADACHE_PROMPT_VERSION: versioned.version,
+            }
         prompt = telemetry.content(_input_messages(messages))
         if prompt is not None:
             attributes[genai.INPUT_MESSAGES] = prompt

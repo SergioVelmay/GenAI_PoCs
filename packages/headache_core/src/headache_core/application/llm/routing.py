@@ -20,6 +20,7 @@ from headache_core.ports import (
     Role,
     ToolConfig,
 )
+from headache_core.prompts import PROMPTS
 
 
 class ModelTier(StrEnum):
@@ -86,12 +87,7 @@ class RoutingVerdict(BaseModel):
     reason: str = Field(description="Justificación en menos de 15 palabras")
 
 
-ROUTER_PROMPT = (
-    "Eres el router de modelos de Headache. Clasifica la petición del usuario:\n"
-    "- cheap: extracción de datos, clasificación, FAQ, respuestas cortas y factuales.\n"
-    "- strong: razonamiento en varios pasos, quejas delicadas, comparaciones, redacción larga.\n"
-    "Ante la duda, cheap."
-)
+ROUTER_PROMPT = PROMPTS.get("llm-router").text
 
 
 class LLMClassifier:

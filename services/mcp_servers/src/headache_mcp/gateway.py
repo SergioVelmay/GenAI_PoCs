@@ -29,13 +29,11 @@ from starlette.responses import JSONResponse, Response
 from headache_core.application.tools import ToolError
 from headache_core.config import McpSettings
 from headache_mcp.auth import SERVER_SCOPES, DevTokenIssuer
+from headache_mcp.prompts import PROMPTS
 
 logger = logging.getLogger(__name__)
 
-INSTRUCTIONS = (
-    "Gateway MCP de Headache: catálogo, pedidos y reembolsos del cliente autenticado en un "
-    "único endpoint."
-)
+INSTRUCTIONS = PROMPTS.get("mcp-gateway").text
 
 # (servidor, token del servidor) -> cliente MCP hacia ese servidor.
 type BackendConnector = Callable[[str, str], Client[Any]]

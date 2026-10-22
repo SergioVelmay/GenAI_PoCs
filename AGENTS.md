@@ -50,7 +50,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv
 
 - **Clean Architecture / Ports & Adapters** en `packages/headache_core`: `domain/` (Python puro), `application/` (casos de uso), `ports/` (`typing.Protocol`), `adapters/` (`memory` para tests; `postgres`, `azure_*`, `bedrock*`...).
 - Paquetes: `packages/headache_core`, `packages/harness` (depende de core, nunca al revés), `evals/` (`rag_evals`). Servicios en `services/`: `ticketing_api`, `indexer`, `retrieval`, `mcp_servers`, `support_agent`, `booking_agent`, `orchestrator` (multi-agente, fase 9), `edge_api` (puerta pública, fase 10).
-- Todo LLM pasa por `LLMPort` y el gateway (`adapters/llm_factory.build_gateway`). Toda tool, por `JournaledExecutor` + `GuardedExecutor`. Todo agente cumple `AgentRuntime`. Toda traza, por `TelemetryPort` (OpenTelemetry, fase 11).
+- Todo prompt vive en `<paquete>/prompts/*.md` con versión y candado (`prompts.lock.json`, fase 12.6): cambiar el texto exige subir la versión. Todo LLM pasa por `LLMPort` y el gateway (`adapters/llm_factory.build_gateway`). Toda tool, por `JournaledExecutor` + `GuardedExecutor`. Todo agente cumple `AgentRuntime`. Toda traza, por `TelemetryPort` (OpenTelemetry, fase 11).
 - Configuración con Pydantic Settings, variables anidadas con `__` (`BEDROCK__REGION`), secretos `SecretStr`. Por defecto, todo local.
 - IaC: **Terraform** en `infra/terraform/{aws,azure}` (recursos con coste desactivados por defecto). CI/CD: **GitHub Actions**.
 

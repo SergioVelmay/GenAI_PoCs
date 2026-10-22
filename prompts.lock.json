@@ -1,0 +1,124 @@
+{
+  "prompts": {
+    "agent-judge": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "8ceae330d253a97bc8f1088df142797c306ec4d1d7b8ce6730173a87999b3efc",
+      "fragment": false
+    },
+    "analytics-sql": {
+      "package": "harness",
+      "version": 1,
+      "sha256": "65e4a619aa1bce249f53714ced0270390d51f35910b623db8d2752653e6abe40",
+      "fragment": false
+    },
+    "answer-stream": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "ddc9c1722c461a0600dd9abccd7f4941e3e288327c139865ae579d7bc53c70fa",
+      "fragment": false
+    },
+    "booking-agent": {
+      "package": "booking_agent",
+      "version": 1,
+      "sha256": "80b2647e76b2866a7d1b7111ad6e84fd3b2e3a91ea1695891177d1bbd72ca3b7",
+      "fragment": false
+    },
+    "case-reply": {
+      "package": "harness",
+      "version": 1,
+      "sha256": "8b358762b9089764820de0f9c0133dde2b8d6bea9b1a6c4ce39d22fcee128a33",
+      "fragment": false
+    },
+    "case-rules": {
+      "package": "orchestrator",
+      "version": 1,
+      "sha256": "0fee89d7792d4dda453551182486bde4cb0f6a3e5b21d1bd8a030014f99fbadd",
+      "fragment": true
+    },
+    "context-summarizer": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "59c51844884f794848c30f4eaca1cb578d71bb64340e9adfd6b5e6507e6780f5",
+      "fragment": false
+    },
+    "faithfulness-judge": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "5c9d4a73219ce9fc024044474e28cf57b5ce6acd14e09ac316b1dda633338347",
+      "fragment": false
+    },
+    "foundry-iq-agent": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "311d425fcbf4195064238ca920c57c93ac426ccbc4ca74c05e307598be5f285c",
+      "fragment": false
+    },
+    "knowledge-specialist": {
+      "package": "orchestrator",
+      "version": 1,
+      "sha256": "9bbd0eb848bb4e2d34122c359ebf6f3affde13a6051b8a9bd8706ef87c370ae2",
+      "fragment": false
+    },
+    "llm-router": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "7e935d20f78d485d36d6686ecabf269997c5910b825edbf051782bda6f662efd",
+      "fragment": false
+    },
+    "mcp-gateway": {
+      "package": "headache_mcp",
+      "version": 1,
+      "sha256": "eeed30182e84d7c3f6e44c204a55620d9945539193ab45d3100cda77a8247d06",
+      "fragment": false
+    },
+    "partner-email": {
+      "package": "harness",
+      "version": 1,
+      "sha256": "8e0a2d00ca91b014b6a74f9aa806154b73156b29e85e0273009eb7eeb74a4de2",
+      "fragment": false
+    },
+    "partner-email-tone-judge": {
+      "package": "harness",
+      "version": 1,
+      "sha256": "1a7135af114776abdbd51a599637b3cb706afb8e7a56c228f4b70d121b7ea190",
+      "fragment": false
+    },
+    "rag-judge": {
+      "package": "rag_evals",
+      "version": 1,
+      "sha256": "7a0a1de5c8a1e3e8f1a8886de5575a248dbf2863420292518d9b6e201d28d946",
+      "fragment": false
+    },
+    "refund-resolution": {
+      "package": "harness",
+      "version": 1,
+      "sha256": "29e64d211325165aec1930382d59e757f42276552814a68f76e2ecb5b67c9bb3",
+      "fragment": false
+    },
+    "refunds-specialist": {
+      "package": "orchestrator",
+      "version": 1,
+      "sha256": "4a3e8e89d5cb4fc0e030a9c01ac2bd4480a2bb90e5f44e336fb29c96b5f791a9",
+      "fragment": false
+    },
+    "supervisor": {
+      "package": "orchestrator",
+      "version": 1,
+      "sha256": "90f9bc3ece3a2b7c34e9f09ed3bc181173d0c8a4ca2254d70a2356f8d47dd4b3",
+      "fragment": false
+    },
+    "ticketing-agent": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "042507bbc0baf603994ef95cc98b752ee427b68c4775db567f3a1e38f977bd6e",
+      "fragment": false
+    },
+    "triage": {
+      "package": "headache_core",
+      "version": 1,
+      "sha256": "f6bf89efab119b4550872473b3559b248ae7adc3c93cb38f4b57a29c4e335ebd",
+      "fragment": false
+    }
+  }
+}

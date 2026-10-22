@@ -42,6 +42,7 @@ from headache_core.ports.retrieval import (
     ManagedSearchMode,
 )
 from headache_core.ports.vector_store import MetadataValue
+from headache_core.prompts import PROMPTS
 
 if TYPE_CHECKING:
     import httpx
@@ -58,12 +59,7 @@ PREVIEW_API_VERSION = "2026-08-01-preview"
 MCP_API_VERSION = PREVIEW_API_VERSION
 ABSTENTION = "I don't know"
 CITATION = re.compile(r"【(\d+):(\d+)†([^】]*)】")
-AGENT_INSTRUCTIONS = (
-    "You must use the knowledge base tool to answer every question and never answer from "
-    "your own knowledge. Cite every statement right after it as "
-    "【message_idx:search_idx†source_name】. If the knowledge base doesn't contain the "
-    f'answer, respond exactly with "{ABSTENTION}".'
-)
+AGENT_INSTRUCTIONS = PROMPTS.get("foundry-iq-agent").text
 
 
 def knowledge_source_definition(
