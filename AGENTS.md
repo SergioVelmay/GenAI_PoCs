@@ -44,6 +44,7 @@ docker compose up -d                                            # PostgreSQL+pgv
 docker compose --profile observability|sqs|servicebus|mcp|agents|scale up -d # Langfuse, colas, MCP, A2A, Redis
 docker compose --profile telemetry up -d                        # collector, Jaeger :16686, Prometheus :9095, Grafana :3001
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
+uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_evals.llmops.prompts check ; uv run python -m rag_evals.llmops.drift --check   # fase 12 (coste 0)
 ```
 
 ## Arquitectura
@@ -88,7 +89,7 @@ uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | `docs/fase-9-multiagente.md` |
 | 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | ✅ Hecha* | `docs/fase-10-escala.md` |
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | `docs/fase-11-observabilidad.md` |
-| 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B) | | |
+| 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | `docs/fase-12-evals-llmops.md` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | |
 | 15+ | Extras: MLOps, recomendador, multi-región, FinOps, vLLM | | |

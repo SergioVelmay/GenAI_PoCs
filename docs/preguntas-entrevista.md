@@ -10,7 +10,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Índice
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12)
 
 <a id="como-responder"></a>
 
@@ -51,6 +51,11 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 | Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) |
 | Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability |
 | Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana |
+| Evals de agentes y LLM-juez | Foundry evaluators (`ToolCallAccuracy`, `IntentResolution`) | Bedrock evaluations (LLM-as-a-judge), AgentCore Evaluations |
+| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | PyRIT o promptfoo contra Bedrock (sin servicio propio) |
+| Prompts versionados | Prompts de Foundry | Bedrock Prompt Management |
+| Experimentos (MLflow gestionado) | Azure ML (URI de MLflow) | SageMaker con MLflow gestionado |
+| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor | SageMaker Model Monitor, CloudWatch Anomaly Detection |
 | IaC y CI/CD | Bicep, Azure DevOps | CloudFormation/CDK, CodePipeline (Terraform y GitHub Actions en ambas) |
 | Coste | Cost Management, presupuestos | Cost Explorer, AWS Budgets |
 
@@ -747,3 +752,61 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    gastamos muy deprisa, alerta y se congela lo arriesgado. Si sobra, podemos ir más rápido. Así
    la conversación deja de ser "¿hay errores?" (siempre los hay) y pasa a "¿estamos dentro de lo
    pactado?".
+
+<a id="fase-12"></a>
+
+## Fase 12 · Evals de agentes, red teaming y LLMOps ([doc](fase-12-evals-llmops.md))
+
+### Técnicas
+
+1. **¿Cómo evalúas un agente y no solo su respuesta?** Por tres ejes que no dependen de la
+   redacción:
+   - trayectoria: precisión y recall de las tools como subsecuencia ordenada;
+   - parámetros: los argumentos clave de cada tool (`order_id`, idioma, filtros);
+   - resolución: el estado del mundo después del turno (pedido, aprobación, preferencias) y cero
+     invariantes rotos.
+
+   Un agente puede decir «reembolsado» sin haberlo hecho; lo que cuenta es el pedido. Con 14
+   escenarios × 7 sabores, la CI bloquea cualquier fallo fuera de la baseline (job `release-gate`).
+2. **¿Cómo te fías de un LLM-juez?** Primero, el juez no decide: etiqueta hechos verificables
+   (afirmaciones respaldadas, acciones dadas por hechas, resolución, idioma) y una regla del dominio
+   decide si es aceptable. Segundo, se calibra contra etiquetas humanas a ciegas (32 muestras con
+   errores sembrados: cifra cambiada, acción inventada, evasiva) y solo se usa si el kappa de Cohen
+   es ≥ 0,6. Tercero, va fijo y fuera del router: nunca el mismo modelo que genera.
+3. **¿Cómo haces red teaming sin quemar presupuesto ni volver la CI inestable?** Genero las
+   variantes una vez con PyRIT (9 conversores) y promptfoo (9 estrategias locales, sin generación
+   remota) y las congelo en el repo. La CI las ejecuta con un modelo comprometido que obedece al
+   atacante, así que mide el harness: 0 acciones irreversibles sin una persona. Encontró 4 problemas,
+   uno un bug que afectaba a clientes normales (una tarjeta precedida de otro número no se
+   redactaba). Los ataques adaptativos con un LLM atacante (Crescendo, AI Red Teaming Agent de
+   Foundry) van aparte y con presupuesto.
+4. **¿Cómo versionas prompts y decides si uno nuevo es mejor?** Los prompts viven en Git
+   (`<paquete>/prompts/*.md`) con versión y un candado de hashes: cambiar el texto sin subir la
+   versión rompe la CI. Langfuse recibe una copia para enlazar cada generación con su versión. Para
+   decidir, un A/B pareado sobre los mismos casos con McNemar exacto y una regla escrita antes: un
+   invariante roto descarta y con menos de 10 casos discordantes es «falta muestra». Harness sí
+   frente a harness no: 7 a 0, p = 0,016, desplegar.
+5. **¿Cómo detectas drift en un sistema agéntico?** Con el PSI entre el último día y la semana
+   anterior en tres señales: intenciones de los casos, tools que usan los agentes y resolución
+   según el juez online. Alerta a partir de 0,25 y con muestra mínima. Lo útil es el diagnóstico: si
+   cambian las intenciones y no la resolución, es externo y el sistema aguanta; si cambia la
+   resolución sin cambiar lo que se pide, es interno (prompt, modelo del proveedor, índice). En AWS,
+   las mismas reglas en Amazon Managed Prometheus o CloudWatch Anomaly Detection; en Azure, Managed
+   Prometheus o alertas dinámicas.
+
+### Negocio y stakeholders
+
+1. **¿Por qué invertir en evals si el agente ya «funciona»?** Porque sin ellas cada cambio
+   (prompt, modelo, proveedor) es una apuesta. El gate convierte «creo que va bien» en «14
+   escenarios, 7 sabores, 0 invariantes rotos», y el A/B evita discusiones de opinión. KPI: tasa de
+   resolución, regresiones que llegan a producción (objetivo 0) y tiempo de un cambio de prompt de
+   la idea al despliegue.
+2. **¿Cómo cuentas el red teaming a Legal o dirección?** Con el informe consolidado: «ninguna
+   acción irreversible sin una persona en ningún ataque», qué se encontró y se arregló, y el riesgo
+   residual aceptado con su mitigación (PII codificada en base64, que para el guardrail del
+   proveedor). Lo importante es que el riesgo está escrito y firmado, no escondido.
+3. **¿Qué priorizarías si solo tuvieras un mes?** El gate de trayectoria y resolución en la CI y
+   el red teaming congelado: cuestan 0 por ejecución y bloquean lo grave. Después, etiquetar y
+   calibrar el juez (unas horas de una persona y menos de 1 $), porque sin eso el juez online y los
+   A/B con modelo real no son fiables. El drift y MLflow gestionado, al final: necesitan tráfico real
+   para aportar.

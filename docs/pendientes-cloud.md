@@ -118,7 +118,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] Portar el resto de alertas de SLO a la nube (KQL / Metrics Insights) o usar Managed Prometheus / Amazon Managed Prometheus con las mismas reglas generadas.
 - [ ] Langfuse v4 (o Langfuse Cloud) y comparar con Arize Phoenix sobre la misma traza OTLP.
 
-## Fase 12 · Evals de agentes, red teaming y LLMOps (en curso)
+## Fase 12 · Evals de agentes, red teaming y LLMOps ([doc](fase-12-evals-llmops.md))
 
 - [ ] Etiquetar a ciegas `evals/calibration/agents-labels-v1.csv` (Sergio, coste 0) leyendo `agents-v1.md`.
 - [ ] Calibrar el juez de agentes: `uv run python -m rag_evals.agent_calibration judge --budget-usd 0.30` (32 muestras con `gpt-4.1`, ~0,25 $) y `agreement`. Es un gate si el kappa de `acceptable` es ≥ 0,6.
@@ -126,7 +126,7 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] Red teaming con atacante LLM (PyRIT `RedTeamingAttack` / `CrescendoAttack` con Azure OpenAI como atacante y el agente con harness como objetivo) y el carril A de Azure: AI Red Teaming Agent de Foundry (`azure-ai-evaluation[redteam]`, construido sobre PyRIT). Con `--budget-usd`.
 - [ ] promptfoo con LLM (fase 12.5): plugins que generan ataques (`pii`, `bola`, `rbac`, `excessive-agency`, `hijacking`) y estrategias iterativas (`jailbreak`, `crescendo`) con Azure OpenAI como generador y juez (`redteam.provider`), nunca con la generación remota de promptfoo. Con presupuesto acordado antes.
 - [ ] Riesgo residual de la 12.4 y la 12.5 (PII en base64, hexadecimal, morse o con homoglifos): probarlo contra Bedrock Guardrails (filtro de información sensible) y Azure Content Safety; si lo paran, documentar la combinación escudo local + guardrail del proveedor.
-- [ ] Publicar los prompts (fase 12.6) en Langfuse (`rag_evals.llmops.prompts publish --apply`) tras el commit, y ver en una traza real con Azure OpenAI que cada generación queda enlazada con su versión de prompt. Repetir en Langfuse Cloud o v4 si se migra. Equivalentes gestionados: Bedrock Prompt Management (versiones inmutables y variantes) y los prompts de Foundry.
+- [ ] Prompts en Langfuse (fase 12.6): ya publicados en el Langfuse local (`rag_evals.llmops.prompts publish --apply`, 19 en v1). Falta ver en una traza real con Azure OpenAI que cada generación queda enlazada con su versión de prompt. Repetir en Langfuse Cloud o v4 si se migra. Equivalentes gestionados: Bedrock Prompt Management (versiones inmutables y variantes) y los prompts de Foundry.
 - [ ] A/B de prompt con modelo real (fase 12.7): `uv run python -m rag_evals.llmops.experiment run evals/experiments/booking-agent-prompt-v2.yaml --mode llm --budget-usd 0.40 --tracker mlflow` (métrica `acceptable` del juez; requiere calibrarlo antes). Repetir con un experimento de modelo (`model: gpt-4.1-nano` frente a `gpt-4.1-mini`) para medir calidad frente a coste. Con 12 escenarios casi nunca habrá significancia: ampliar el dataset o repetir con temperatura > 0.
 - [ ] MLflow gestionado: SageMaker (MLflow tracking server) y Azure ML (workspace con URI de MLflow) con el mismo `MlflowExperimentTracker` (solo cambia la URI) y A/B online del candidato con `assignment` (10 % por cliente) y el juez online por variante.
 - [ ] Juez online de los especialistas con Azure OpenAI: `ORCHESTRATOR__ONLINE_EVAL_RATE=0.2` y el flujo asíncrono con LLM real (pendiente de la fase 9); ver los scores `agent_*` en la traza del caso en Langfuse y el panel «Agentes: respuestas aceptables». Medir el coste por 1.000 turnos evaluados. Alertar sobre la tasa solo cuando el juez esté calibrado.

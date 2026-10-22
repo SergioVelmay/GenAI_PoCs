@@ -68,6 +68,7 @@ uv run ruff check . ; uv run mypy ; uv run pytest    # calidad (lo mismo que la 
 uv run python -m rag_evals.retrieval_eval            # evals de retrieval (coste 0)
 uv run python -m rag_evals.attacks --check           # tests de ataque del harness (coste 0)
 uv run python -m rag_evals.multiagent --check        # evals multi-agente (coste 0)
+uv run python -m rag_evals.redteam.report            # informe de red teaming (coste 0)
 ```
 
 Perfiles opcionales de Docker: `observability` (Langfuse), `sqs` (ElasticMQ), `servicebus`
@@ -93,7 +94,8 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 9 | Orquestación multi-agente (LangGraph, MAF, cola), A2A y evals de los tres motores | ✅* | [fase-9](docs/fase-9-multiagente.md) |
 | 10 | Escala: rate limiting, caché semántica, streaming, outbox, autoescalado por cola y pruebas de carga | ✅* | [fase-10](docs/fase-10-escala.md) |
 | 11 | Observabilidad: OpenTelemetry GenAI, propagación por colas y A2A, SLO y alertas como código, Langfuse, App Insights y X-Ray | ✅* | [fase-11](docs/fase-11-observabilidad.md) |
-| 12–15 | Red teaming y LLMOps, despliegue en AWS y en Azure, extras | Plan | |
+| 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
+| 13–15 | Despliegue en AWS y en Azure, extras | Plan | |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
 
