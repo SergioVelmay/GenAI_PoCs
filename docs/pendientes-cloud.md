@@ -117,3 +117,9 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] Medir los GB/mes de ingesta con tráfico de la demo (`telemetry_demo.py`) en App Insights y CloudWatch, y fijar el muestreo (`TELEMETRY__SAMPLE_RATIO` o *tail sampling* en el collector) a partir del dato.
 - [ ] Portar el resto de alertas de SLO a la nube (KQL / Metrics Insights) o usar Managed Prometheus / Amazon Managed Prometheus con las mismas reglas generadas.
 - [ ] Langfuse v4 (o Langfuse Cloud) y comparar con Arize Phoenix sobre la misma traza OTLP.
+
+## Fase 12 · Evals de agentes, red teaming y LLMOps (en curso)
+
+- [ ] Etiquetar a ciegas `evals/calibration/agents-labels-v1.csv` (Sergio, coste 0) leyendo `agents-v1.md`.
+- [ ] Calibrar el juez de agentes: `uv run python -m rag_evals.agent_calibration judge --budget-usd 0.30` (32 muestras con `gpt-4.1`, ~0,25 $) y `agreement`. Es un gate si el kappa de `acceptable` es ≥ 0,6.
+- [ ] Suite con modelo real y juez: `uv run python -m rag_evals.agents --mode llm --flavor native --judge native --budget-usd 0.20` y lo mismo con `rag_evals.attacks` (~0,10 $ cada uno): ¿los falsos fallos de la fase 7 eran respuestas aceptables?

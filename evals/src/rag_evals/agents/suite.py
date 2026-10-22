@@ -25,7 +25,7 @@ import json
 import time
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from statistics import fmean
 from typing import Literal
@@ -42,10 +42,12 @@ from headache_core.adapters.memory import (
     InMemoryPreferenceStore,
 )
 from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
+from headache_core.application.agent_judge import AgentJudge, AgentJudgeSample, Evidence
 from headache_core.application.agents import ContextPolicy, SkillCatalog
 from headache_core.application.retrieval import RetrievalService
 from headache_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
 from headache_core.application.tools.loop import ToolErrorKind
+from headache_core.domain.agent_eval import ACCEPTABLE_RESOLUTIONS, AgentJudgement, Resolution
 from headache_core.domain.evals import percentile
 from headache_core.ports import (
     ChatMessage,
@@ -59,7 +61,7 @@ from rag_evals.agents.scenario_llm import UNRESOLVED, ScenarioLLM
 from rag_evals.agents.scenarios import ArgExpectation, Scenario
 from rag_evals.agents.world import NOW, build_world, order_owners
 from rag_evals.golden import CORPUS_PATH
-from rag_evals.metering import CostMeter, MeterSnapshot
+from rag_evals.metering import BudgetExceededError, CostMeter, MeterSnapshot
 from rag_evals.retrieval_eval import local_settings
 from retrieval.bootstrap import build_local_service, load_synthetic
 
@@ -74,6 +76,7 @@ INVARIANTS = (
     "unapproved_irreversible",
 )
 IRREVERSIBLE_TOOLS = frozenset({REFUND_TOOL})
+BUDGET_ERROR = "sin presupuesto"
 
 
 class UsageRecorder:
@@ -131,6 +134,8 @@ class ScenarioOutcome:
     cached_input_tokens: int
     output_tokens: int
     latency_ms: float
+    judgement: JudgeVerdictRecord | None = None
+    judge_error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +164,43 @@ class FlavorSummary:
     latency_p95_ms: float
     failed: list[str]
     cost: MeterSnapshot | None = None
+    judge: JudgeSummary | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class JudgeVerdictRecord:
+    """Veredicto del juez sobre un escenario, serializable (fase 12.2)."""
+
+    acceptable: bool
+    resolution: str
+    grounded: float | None
+    claims: int
+    misstated_actions: int
+    same_language: bool
+
+    @classmethod
+    def of(cls, judgement: AgentJudgement) -> JudgeVerdictRecord:
+        return cls(
+            acceptable=judgement.acceptable,
+            resolution=judgement.resolution.value,
+            grounded=None if judgement.grounded is None else round(judgement.grounded, 4),
+            claims=judgement.claims,
+            misstated_actions=judgement.misstated_actions,
+            same_language=judgement.same_language,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class JudgeSummary:
+    judge: str
+    judged: int
+    errors: int
+    # Sobre los escenarios juzgados (los errores no puntúan ni cuentan como fallo).
+    acceptable_rate: float | None
+    resolved_or_escalated: float | None
+    grounded_mean: float | None
+    misstated_actions: int
+    wrong_language: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +322,7 @@ async def run_scenario(
     internal_documents: frozenset[str],
     llm: LLMPort | None = None,
     harness: bool = False,
+    judge: AgentJudge | None = None,
 ) -> ScenarioOutcome:
     world = build_world()
     ticketing = UnitOfWorkTicketing(lambda: world, clock=lambda: NOW)
@@ -403,6 +446,15 @@ async def run_scenario(
     unresolved += [f"invariante {k}={v}" for k, v in invariants.items() if v]
     failures += [f for f in unresolved if f not in failures]
     usage = [r.usage for r in model.responses]
+    judgement, judge_error = None, None
+    if judge is not None:
+        try:
+            verdict = await judge.judge(judge_sample(scenario, answer, journal))
+            judgement = JudgeVerdictRecord.of(verdict)
+        except BudgetExceededError:
+            judge_error = BUDGET_ERROR
+        except Exception as exc:  # Un veredicto fallido no puntúa ni aborta la suite.
+            judge_error = f"{type(exc).__name__}: {exc}"[:200]
     return ScenarioOutcome(
         scenario_id=scenario.id,
         category=scenario.category,
@@ -429,6 +481,41 @@ async def run_scenario(
         cached_input_tokens=sum(u.cached_input_tokens for u in usage),
         output_tokens=sum(u.output_tokens for u in usage),
         latency_ms=round(latency_ms, 2),
+        judgement=judgement,
+        judge_error=judge_error,
+    )
+
+
+def judge_sample(
+    scenario: Scenario, answer: str, journal: Sequence[ToolExecution]
+) -> AgentJudgeSample:
+    """Lo que vio el agente: los mensajes como le llegaron al modelo (con la PII ya redactada por
+    el harness, `model_sees`) y las salidas de sus tools. El juez nunca ve más que el agente."""
+    return AgentJudgeSample(
+        user_messages=tuple(turn.model_sees or turn.user for turn in scenario.turns),
+        answer=answer,
+        evidence=tuple(Evidence(e.call.name, e.call.arguments, e.output, e.error) for e in journal),
+    )
+
+
+def summarize_judge(judge: str, outcomes: Sequence[ScenarioOutcome]) -> JudgeSummary:
+    verdicts = [o.judgement for o in outcomes if o.judgement is not None]
+    grounded = [v.grounded for v in verdicts if v.grounded is not None]
+
+    def rate(flags: Sequence[bool]) -> float | None:
+        return round(fmean(flags), 4) if flags else None
+
+    return JudgeSummary(
+        judge=judge,
+        judged=len(verdicts),
+        errors=sum(o.judge_error is not None for o in outcomes),
+        acceptable_rate=rate([v.acceptable for v in verdicts]),
+        resolved_or_escalated=rate(
+            [Resolution(v.resolution) in ACCEPTABLE_RESOLUTIONS for v in verdicts]
+        ),
+        grounded_mean=round(fmean(grounded), 4) if grounded else None,
+        misstated_actions=sum(v.misstated_actions for v in verdicts),
+        wrong_language=sum(not v.same_language for v in verdicts),
     )
 
 
@@ -497,6 +584,7 @@ async def run_agent_suite(
     meter: CostMeter | None = None,
     harness: bool = False,
     corpus: Path = CORPUS_PATH,
+    judge: AgentJudge | None = None,
 ) -> AgentReport:
     if mode == "llm" and llm is None:
         raise ValueError("El modo llm necesita un LLM (con presupuesto)")
@@ -518,11 +606,15 @@ async def run_agent_suite(
                 internal_documents=internal,
                 llm=llm if mode == "llm" else None,
                 harness=harness,
+                judge=judge,
             )
             for scenario in scenarios
         ]
         outcomes[flavor] = results
         summaries.append(
-            summarize_flavor(flavor, mode, results, meter.snapshot() if meter else None)
+            replace(
+                summarize_flavor(flavor, mode, results, meter.snapshot() if meter else None),
+                judge=summarize_judge(judge.name, results) if judge else None,
+            )
         )
     return AgentReport(dataset, len(scenarios), mode, summaries, outcomes, harness)

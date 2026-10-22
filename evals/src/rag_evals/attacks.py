@@ -23,7 +23,9 @@ from decimal import Decimal
 from pathlib import Path
 
 from booking_agent.flavors import FLAVORS
+from headache_core.application.agent_judge import AgentJudge
 from headache_core.ports.llm import LLMPort
+from rag_evals.agents.cloud import JUDGES, build_cloud_models
 from rag_evals.agents.scenarios import ATTACKS_PATH, load_scenarios
 from rag_evals.agents.suite import (
     AgentReport,
@@ -91,6 +93,29 @@ def render_markdown(guarded: AgentReport, baseline: AgentReport) -> str:
             f"{attacks}/{attack_total} | {benign}/{benign_total} | "
             f"{sum(summary.invariants.values())} | {summary.model_calls} | {summary.tool_calls} |"
         )
+    judged = [(s, r) for s, r in rows if s.judge is not None]
+    if judged:
+        lines += [
+            "",
+            "## LLM-juez de las respuestas (fase 12.2)",
+            "",
+            "Acciones inventadas = la respuesta da por hecha una acción que no ocurrió (p. ej., "
+            "«reembolso aprobado» con la solicitud pendiente): la respuesta engañosa que el "
+            "harness debe impedir que llegue al cliente.",
+            "",
+            "| Sabor | Harness | Juzgados | Errores | Aceptables | Acciones inventadas "
+            "| Idioma incorrecto |",
+            "|---|---|---:|---:|---:|---:|---:|",
+        ]
+        for summary, report in judged:
+            verdicts = summary.judge
+            assert verdicts is not None
+            rate = verdicts.acceptable_rate
+            lines.append(
+                f"| {summary.flavor} | {'sí' if report.harness else 'no'} | {verdicts.judged} | "
+                f"{verdicts.errors} | {'-' if rate is None else f'{rate:.1%}'} | "
+                f"{verdicts.misstated_actions} | {verdicts.wrong_language} |"
+            )
     reference = {o.scenario_id: o for o in guarded.outcomes.get(BASELINE_FLAVOR, [])}
     lines += [
         "",
@@ -128,6 +153,7 @@ async def run_attacks(
     *,
     llm: LLMPort | None = None,
     meter: CostMeter | None = None,
+    judge: AgentJudge | None = None,
 ) -> tuple[AgentReport, AgentReport]:
     """Con `llm`, el modelo es real (no comprometido): mide qué rechaza él solo y qué el harness."""
     scenarios = load_scenarios(dataset)
@@ -140,6 +166,7 @@ async def run_attacks(
         llm=llm,
         meter=meter,
         harness=True,
+        judge=judge,
     )
     baseline = await run_agent_suite(
         scenarios,
@@ -148,17 +175,9 @@ async def run_attacks(
         mode=mode,
         llm=llm,
         meter=meter,
+        judge=judge,
     )
     return guarded, baseline
-
-
-def _gateway(budget: Decimal) -> tuple[LLMPort, CostMeter]:
-    from headache_core.adapters.llm_factory import build_gateway, build_tracer
-    from headache_core.config import Settings
-
-    settings = Settings()
-    meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))
-    return build_gateway(settings, tracer=meter), meter
 
 
 def main() -> None:
@@ -174,16 +193,30 @@ def main() -> None:
         help="llm: modelo real (no comprometido) por el gateway; exige --budget-usd",
     )
     parser.add_argument("--budget-usd", type=Decimal)
+    parser.add_argument("--judge", choices=JUDGES, help="LLM-juez de las respuestas; con coste")
     args = parser.parse_args()
-    if args.mode == "llm" and args.budget_usd is None:
-        parser.error("--mode llm requiere --budget-usd (llamadas con coste)")
+    if (args.mode == "llm" or args.judge) and args.budget_usd is None:
+        parser.error("--mode llm y --judge requieren --budget-usd (llamadas con coste)")
     # Cada bloqueo se registra como warning: aquí el informe ya lo cuenta.
     logging.getLogger("harness").setLevel(logging.ERROR)
-    llm, meter = _gateway(args.budget_usd) if args.mode == "llm" else (None, None)
-    guarded, baseline = asyncio.run(
-        run_attacks(args.flavor or list(FLAVORS), args.dataset, llm=llm, meter=meter)
+    cloud = (
+        build_cloud_models(args.budget_usd, agent=args.mode == "llm", judge=args.judge)
+        if args.budget_usd is not None
+        else None
     )
-    out = args.out if args.mode == "scripted" else args.out / "azure" / "llm"
+    meter = cloud.meter if cloud else None
+    guarded, baseline = asyncio.run(
+        run_attacks(
+            args.flavor or list(FLAVORS),
+            args.dataset,
+            llm=cloud.agent if cloud else None,
+            meter=meter,
+            judge=cloud.judge if cloud else None,
+        )
+    )
+    out = args.out
+    if args.mode == "llm" or args.judge:
+        out = args.out / "azure" / (args.mode + (f"-judge-{args.judge}" if args.judge else ""))
     md_path = write_report(guarded, baseline, out)
     if meter is not None:
         print(f"Coste: {meter.snapshot().cost_usd} USD")
