@@ -26,6 +26,9 @@ flowchart LR
   EV["evals<br/>RAG · agentes · ataques"] -.gate CI.-> AG
 ```
 
+Zoom por bloques (modelos, RAG, MCP, agente y harness, multi-agente, escala, observabilidad,
+evals, despliegue) y el recorrido de un caso de punta a punta: [arquitectura.md](docs/arquitectura.md).
+
 | Carril | Qué es | Ejemplos |
 |---|---|---|
 | **A. Gestionado** | El servicio de la nube hace el trabajo | Foundry Agent Service, Foundry IQ, Bedrock Knowledge Bases, AgentCore, Prompt Shields, Bedrock Guardrails |
