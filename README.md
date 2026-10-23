@@ -100,7 +100,8 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
 
 Preguntas de entrevista (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
-modelo y una chuleta Azure → AWS: [preguntas-entrevista.md](docs/preguntas-entrevista.md).
+modelo y una chuleta Azure → AWS: [preguntas-entrevista.md](docs/preguntas-entrevista.md). Siglas,
+términos y librerías del proyecto: [glosario.md](docs/glosario.md).
 
 ## Calidad y CI
 

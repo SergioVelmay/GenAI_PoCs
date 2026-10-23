@@ -10,6 +10,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Índice
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
+- Siglas, términos y librerías: [glosario e inventario](glosario.md)
 - Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12)
 
 <a id="como-responder"></a>
