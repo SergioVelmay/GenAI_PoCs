@@ -11,7 +11,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
 - Siglas, términos y librerías: [glosario e inventario](glosario.md) · Diagramas por niveles: [arquitectura](arquitectura.md)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12) · [checkpoint 12→13](#checkpoint-12-13)
 
 <a id="como-responder"></a>
 
@@ -811,3 +811,44 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
    calibrar el juez (unas horas de una persona y menos de 1 $), porque sin eso el juez online y los
    A/B con modelo real no son fiables. El drift y MLflow gestionado, al final: necesitan tráfico real
    para aportar.
+
+<a id="checkpoint-12-13"></a>
+
+## Checkpoint 12→13 · Comunicar la arquitectura y añadir un proveedor ([doc](fase-13-12-checkpoint.md))
+
+### Técnicas
+
+1. **¿Cómo explicarías tu arquitectura en una pizarra en 5 minutos?** Por niveles de zoom: primero
+   el sistema entero en una pantalla (tres entradas y cuatro pasos obligatorios: harness, LLM
+   gateway, MCP gateway y retrieval), luego solo el bloque que interese y, al final, el recorrido
+   de un caso real de punta a punta. Un diagrama único con todo no lo entiende nadie; los tengo en
+   [arquitectura.md](arquitectura.md).
+2. **¿Cuánto cuesta añadir otra nube a tu sistema?** Lo planifiqué con GCP: casi todo son
+   adaptadores de puertos que ya existen (`LLMPort`, broker, vector store, escudo, memoria), más
+   Terraform y documentación. Lo que no es gratis son los sabores nuevos (ADK, Agent Runtime), que
+   pasan la misma suite de 14 escenarios, y el mantenimiento: más dependencias y una CI más larga.
+3. **¿Qué compruebas antes de diseñar sobre un servicio gestionado?** Su ciclo de vida en la
+   documentación oficial, no lo que recuerdo. Al planificar GCP vi que Vertex AI había pasado a
+   llamarse Gemini Enterprise Agent Platform y que el módulo generativo de su SDK se retiró el
+   24-06-2026: con un plan de memoria habría construido sobre algo retirado. También pruebo que las
+   librerías nuevas resuelven con las nuestras en una copia del workspace antes de tocar el lock.
+4. **¿Qué cambia entre Gemini, Bedrock y Azure OpenAI para tu código?** Para el dominio, nada:
+   todos cumplen `LLMPort`. En el adaptador sí: la caché de prompts (automática en Azure, explícita
+   con `cachePoint` en Bedrock, implícita y explícita con almacenamiento por horas en Gemini), el
+   formato de las tools y cómo se señala un bloqueo de seguridad, que el gateway traduce al mismo
+   error.
+
+### Negocio y stakeholders
+
+1. **Producción de Headache está en AWS. ¿Por qué invertir en una tercera nube?** En producción no
+   lo haría sin un motivo de negocio (precio, un modelo concreto, un cliente o una región). Lo que sí
+   defiendo es diseñar para poder hacerlo: con puertos y evals comunes, evaluar Gemini frente a
+   Bedrock es una tarde y una tabla de coste y calidad, no un proyecto. Eso da poder de negociación
+   con los proveedores.
+2. **¿Cómo comunicas la arquitectura a dirección?** Solo el nivel 0 y una historia: "un email de
+   reembolso entra, la IA lo clasifica y redacta, una persona aprueba lo que mueve dinero y todo
+   queda registrado". Los zooms son para el equipo técnico.
+3. **¿Cómo planificas un trabajo largo con un equipo?** Como esta incorporación: decisiones
+   escritas con su porqué, verificación de riesgos antes de empezar (servicios retirados,
+   dependencias), subfases pequeñas con criterio de terminado, coste 0 hasta validar y un orden de
+   sesiones. Así cualquiera puede retomarlo.

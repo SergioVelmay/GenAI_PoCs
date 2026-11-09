@@ -11,6 +11,11 @@ capacidades (Content Safety F0, plan gratuito del Semantic Ranker) y **AI Search
 de coste fijo) para tener identidad gestionada, Semantic Ranker y Foundry IQ. Presupuesto del grupo
 de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 
+**Decisión de GCP (checkpoint 12→13):** región `europe-west4`, presupuesto de 100 $ con alertas al
+50, 75 y 100 % (intentando usar créditos de prueba) y `gcloud` aislado con `CLOUDSDK_CONFIG`. Los
+pendientes de GCP se añaden a la sección de cada fase durante la pasada GCP
+([plan](fase-13-12-checkpoint.md#plan-gcp)); Vector Search y RAG Engine serán efímeros, como AI Search.
+
 **AI Search es efímero** (`search_enabled`): se cobra por hora aunque no se use, así que solo existe
 durante las sesiones de trabajo (p. ej., de viernes a domingo). El nombre y el endpoint no cambian.
 

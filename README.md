@@ -2,8 +2,9 @@
 
 Pruebas de concepto didácticas que recorren el stack completo de un sistema agéntico de producción:
 SQL transaccional, capa de modelos con gateway, indexación event-driven, RAG híbrido, evals, tool
-calling y MCP, agentes en varios frameworks y harness de guardrails. Todo en **Azure y AWS**, y cada
-pieza en hasta **tres carriles comparables** con el mismo dataset y las mismas evals.
+calling y MCP, agentes en varios frameworks y harness de guardrails. Todo en **Azure y AWS** (y
+**GCP**, en curso), y cada pieza en hasta **tres carriles comparables** con el mismo dataset y las
+mismas evals.
 
 Caso de uso: **Headache**, un marketplace global de experiencias y eventos (~300 M de usuarios) con
 agentes para usuarios internos (operaciones, soporte, partners) y para el público.
@@ -98,7 +99,9 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 10 | Escala: rate limiting, caché semántica, streaming, outbox, autoescalado por cola y pruebas de carga | ✅* | [fase-10](docs/fase-10-escala.md) |
 | 11 | Observabilidad: OpenTelemetry GenAI, propagación por colas y A2A, SLO y alertas como código, Langfuse, App Insights y X-Ray | ✅* | [fase-11](docs/fase-11-observabilidad.md) |
 | 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
-| 13–15 | Despliegue en AWS y en Azure, extras | Plan | |
+| 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
+| G | Pasada GCP: Gemini, Pub/Sub, Vector Search, RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12 | Plan | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) |
+| 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
 
