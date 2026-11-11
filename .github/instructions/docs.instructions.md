@@ -10,13 +10,19 @@ description: "Estructura y estilo de la documentación de fases."
 Misma estructura en todas las fases:
 
 1. Título `# Fase N · Tema`, **Objetivo** en 1–2 frases y commits o subfases.
-2. Arquitectura con un diagrama Mermaid y una tabla de piezas (dónde vive cada cosa).
+2. Arquitectura con un diagrama Mermaid y una tabla de piezas (dónde vive cada cosa). Sergio prefiere diagramas **simplificados**: actores y relaciones clave, sin listar servicios ni modelos (el detalle va en la tabla). Etiquetas de flecha siempre entre comillas (`-->|"texto (x)"|`): los paréntesis sin comillas rompen el parser. Validar con `npx.cmd -y @mermaid-js/mermaid-cli` (PowerShell) o `npx -y ...` (Git Bash).
 3. Qué se construye (por subfase), con comandos ejecutables.
 4. Resultados medidos (tablas con números reales; si son de local o con embeddings `hashing`, decirlo).
 5. Comparativa **Azure ↔ AWS ↔ GCP ↔ framework** (carriles A/B/C). En la pasada GCP, además, una sección "GCP (pasada N.G)" con lo construido, sus comandos y sus hallazgos.
 6. Decisiones y límites (para defenderlas).
 7. Pendiente con coste (enlazando a `docs/pendientes-cloud.md`).
 8. **Checkpoint de entrevista**: solo un enlace a la sección de la fase en `docs/preguntas-entrevista.md` (`preguntas-entrevista.md#fase-N`). Las preguntas viven **únicamente** en ese fichero.
+
+## Otros docs
+
+- Checkpoints entre fases: `docs/fase-<N+1>-<N>-checkpoint.md` (p. ej. `fase-13-12-checkpoint.md`), para que en orden alfabético queden entre las dos fases.
+- `docs/plan-fases.md`: plan de todas las fases (fuente de verdad). Un cambio de alcance se apunta ahí en el mismo commit.
+- Al renombrar un título enlazado desde otro doc, conservar el ancla con `<a id="..."></a>` y comprobar los enlaces internos con ancla (slugs de GitHub).
 
 ## Recopilatorio de preguntas (`docs/preguntas-entrevista.md`)
 

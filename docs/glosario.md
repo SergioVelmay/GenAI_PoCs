@@ -153,7 +153,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Test de paridad** | El mismo escenario debe producir las mismas tools en todos los sabores/motores. | Fases 7 y 9. |
 | **Modelo guionizado** | LLM falso que devuelve respuestas predefinidas: tests deterministas y gratis. | Base de todas las suites de la CI. |
 | **Agente gestionado** | El proveedor ejecuta el bucle, la memoria y el escalado. | Foundry Agent Service ↔ Bedrock Agents / AgentCore Runtime. |
-| **Skill** | Paquete de instrucciones que el agente carga solo cuando lo necesita. | Skills del `AgentSpec` y de `.github/skills/` para los agentes de desarrollo. |
+| **Skill** | Paquete de instrucciones que el agente carga solo cuando lo necesita. | Skills del `AgentSpec` y de `.claude/skills/` para los agentes de desarrollo (Copilot y Claude Code). |
 
 <a id="g7"></a>
 

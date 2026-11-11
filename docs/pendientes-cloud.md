@@ -64,7 +64,7 @@ terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 - [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
 - [x] Azure (18-10-2026): `llm_cache_benchmark.py` en los dos tiers (caché −58 % de coste, 98 % de tokens cacheados desde la 2.ª llamada) y `llm_gateway_demo.py` con `native`, `litellm` y router LLM (20/20; el router LLM duplica llamadas sin mejorar el enrutado). Trazas en Langfuse. Capacidad subida a 200 K TPM tras un 429 con 50 K. Detalle en [fase 2](fase-2-modelos.md).
 - [ ] AWS: repetir ambos scripts con `--provider aws` y probar el fallback entre proveedores.
-- [ ] Langfuse local sigue en la imagen `langfuse:3` (OSS v3, parches de seguridad hasta 31-01-2027). El SDK Python v4 es compatible (servidor ≥ 3.63.0). Valorar migrar a la imagen v4 en la fase 11.
+- [ ] Langfuse local sigue en la imagen `langfuse:3` (OSS v3, parches de seguridad hasta 31-01-2027). El SDK Python v4 es compatible (servidor ≥ 3.63.0). Valorar migrar a la imagen v4 en la fase 11. Ojo: las APIs de lectura nuevas del SDK v4 (`api.observations`, `api.metrics`) necesitan servidor v4; contra el v3 se usa `api.legacy.observations_v1`.
 
 ## Fase 3 · Indexación ([doc](fase-3-comparativa.md))
 
