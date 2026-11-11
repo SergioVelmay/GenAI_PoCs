@@ -1,10 +1,10 @@
 [project]
 name = "genai-pocs"
 version = "0.1.0"
-description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
+description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure, AWS y GCP"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[aws,azure,gateway,llamaindex,observability,postgres,rabbitmq,redis,retrieval,telemetry,tools]",
+    "headache-core[aws,azure,gateway,gcp,llamaindex,observability,postgres,rabbitmq,redis,retrieval,telemetry,tools]",
     "harness",
     "indexer",
     "ticketing-api",

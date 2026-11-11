@@ -18,6 +18,7 @@ from headache_core.config import (
     LLMProvider,
     Settings,
 )
+from headache_core.ports import LLMError
 
 
 @pytest.mark.parametrize("engine", ["native", "litellm"])
@@ -50,6 +51,22 @@ def test_judge_is_pinned_to_its_own_deployment() -> None:
     assert isinstance(build_judge_provider_llm(settings, LLMProvider.AZURE), AzureOpenAILLM)
     assert azure.judge_deployment not in {azure.chat_deployment, azure.cheap_chat_deployment}
     assert isinstance(build_judge_llm(settings, tracer=NullTracer()), FallbackLLM)
+
+
+@pytest.mark.parametrize("engine", ["native", "litellm"])
+def test_gcp_fails_loudly_until_its_adapter_exists(engine: str) -> None:
+    """El riesgo no es el error, es el silencio: sin este corte, `gcp` construiría Bedrock."""
+    settings = Settings(
+        _env_file=None,
+        llm_provider=LLMProvider.GCP,
+        llm_gateway=LLMGatewaySettings.model_validate({"engine": engine}),
+    )
+
+    with pytest.raises(LLMError, match=r"2\.G"):
+        build_gateway(settings, tracer=NullTracer())
+
+    with pytest.raises(LLMError, match=r"5\.G1"):
+        build_judge_provider_llm(settings, LLMProvider.GCP)
 
 
 def test_without_langfuse_keys_nothing_is_traced() -> None:

@@ -28,6 +28,7 @@ from headache_core.adapters.azure_openai import (
     to_openai_tool_choice,
     to_openai_tools,
 )
+from headache_core.adapters.llm_factory import unsupported_provider
 from headache_core.application.llm import ModelTier
 from headache_core.config import LLMProvider, Settings
 from headache_core.ports import (
@@ -69,6 +70,9 @@ def _litellm_params(settings: Settings, provider: LLMProvider, tier: ModelTier) 
                 DefaultAzureCredential(), COGNITIVE_SERVICES_SCOPE
             )
         return params
+    if provider is LLMProvider.GCP:
+        # Ruta `vertex_ai/gemini-...` en la 2.G2; hasta entonces, fallo explícito, no Bedrock.
+        raise unsupported_provider(provider, feature="LiteLLM", phase="fase 2.G2")
     bedrock = settings.bedrock
     model_id = bedrock.cheap_chat_model_id if tier is ModelTier.CHEAP else bedrock.chat_model_id
     params = {"model": f"bedrock/converse/{model_id}", "aws_region_name": bedrock.region, **limits}

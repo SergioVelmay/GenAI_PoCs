@@ -37,6 +37,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Un nombre de métrica de la documentación no existía en Prometheus (fase 11.6) | Con unidad `"1"`, el collector solo añade `_ratio` en gauges | Comprobar los nombres contra el collector real (`/api/v1/label/__name__/values`) antes de escribir reglas |
 | Un test de `promtool` pasaba por casualidad (fase 11.6) | Con menos historia que la ventana larga, la ventana entera es el pico | Escenarios con historia mayor que la ventana más larga y cada número del test comprobado a mano |
 | Avisos de Node.js 20 y del cambio de `ubuntu-latest` (fase 8) | Acciones antiguas e imagen flotante | Acciones fijadas por SHA, runner fijado, Dependabot mensual |
+| El lock no resolvía al añadir GCP (fase 0.G1) | `google-genai` iba por la 3.0 y ADK 2.14 exige `<3`: el SDK del proveedor y el framework que lo envuelve no avanzan a la vez | En un monorepo con varios frameworks manda el **techo del framework**, no la última versión del SDK. Las dependencias de una nube nueva se bloquean en una subfase propia y temprana, con toda la suite por delante: un conflicto así descubierto cinco fases después cuesta mucho más |
 
 ## Sesiones de chat
 

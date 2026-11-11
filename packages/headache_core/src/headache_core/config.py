@@ -14,6 +14,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMProvider(StrEnum):
     AZURE = "azure"
     AWS = "aws"
+    # Pasada GCP: declarado desde la 0.G1 para que el enum, el fallback y la configuración ya
+    # lo nombren; el adaptador de Gemini llega en la 2.G1 y hasta entonces el factory falla
+    # con un mensaje explícito en vez de caer de forma silenciosa en otro proveedor.
+    GCP = "gcp"
     # Fase 10.7: proveedor simulado para pruebas de carga (latencia y cuota realistas, coste 0).
     SIMULATED = "simulated"
 
@@ -55,6 +59,53 @@ class BedrockSettings(BaseModel):
     judge_model_id: str = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
     # Bedrock Rerank (p. ej. Cohere Rerank 3.5); la disponibilidad depende de la region.
     rerank_model_arn: str = ""
+
+
+class GcpSettings(BaseModel):
+    """Proyecto, región y credenciales de GCP (fase 0.G1).
+
+    El proyecto es la unidad de aislamiento y de facturación: el equivalente de un resource
+    group de Azure, pero con su propia cuota y sus APIs habilitadas una a una. Nunca hay
+    claves JSON de cuenta de servicio: en local, ADC de usuario (`gcloud auth
+    application-default login`); en la nube, la cuenta de servicio adjunta al recurso; en la
+    CI, Workload Identity Federation.
+    """
+
+    project: str = ""
+    # Región de los recursos (Pub/Sub, Cloud Storage, Vector Search, RAG Engine).
+    region: str = "europe-west4"
+    # Cuenta de servicio a suplantar desde local (impersonation). Vacío = la identidad de ADC.
+    impersonate_service_account: str = ""
+
+
+class GeminiSettings(BaseModel):
+    """Modelos de Gemini (fase 2.G1). El acceso es con `google-genai`, nunca con
+    `vertexai.generative_models` (retirado el 24-06-2026)."""
+
+    # True = Vertex AI (el proyecto paga y manda IAM). False = la Gemini API con clave.
+    use_vertex: bool = True
+    # `global` sirve modelos que una región concreta puede no tener; se fija en la 2.G1.
+    location: str = "global"
+    # Vacío = ADC. Solo para la Gemini API fuera de Vertex (desarrollo).
+    api_key: SecretStr | None = None
+    # Modelo potente (por defecto) y modelo barato para el model routing.
+    chat_model: str = "gemini-3.1-pro"
+    cheap_chat_model: str = "gemini-3-flash"
+    embedding_model: str = "gemini-embedding-001"
+    # Juez de evals: distinto del generador (sesgo de autopreferencia).
+    judge_model: str = "gemini-3.1-pro"
+
+
+class PubSubSettings(BaseModel):
+    """Pub/Sub (fase 3.G1). El emulador local se activa con `PUBSUB__EMULATOR_HOST`."""
+
+    # Vacío = Pub/Sub real con ADC. En local, 127.0.0.1:8085 (el emulador escucha en IPv6
+    # por defecto: se arranca con --host-port=0.0.0.0:8085).
+    emulator_host: str = ""
+    # Vacío = el proyecto de `GCP__PROJECT`; el emulador acepta cualquiera.
+    project: str = ""
+    ack_deadline_s: int = 60
+    max_messages: int = 10
 
 
 class LLMGatewaySettings(BaseModel):
@@ -332,11 +383,14 @@ class Settings(BaseSettings):
     llm_provider: LLMProvider = LLMProvider.AZURE
     azure_openai: AzureOpenAISettings = AzureOpenAISettings()
     bedrock: BedrockSettings = BedrockSettings()
+    gcp: GcpSettings = GcpSettings()
+    gemini: GeminiSettings = GeminiSettings()
     llm_gateway: LLMGatewaySettings = LLMGatewaySettings()
     postgres: PostgresSettings = PostgresSettings()
     rabbitmq: RabbitMQSettings = RabbitMQSettings()
     sqs: SqsSettings = SqsSettings()
     service_bus: ServiceBusSettings = ServiceBusSettings()
+    pubsub: PubSubSettings = PubSubSettings()
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
@@ -354,6 +408,10 @@ class Settings(BaseSettings):
     rate_limit: RateLimitSettings = RateLimitSettings()
     semantic_cache: SemanticCacheSettings = SemanticCacheSettings()
     simulated_llm: SimulatedLLMSettings = SimulatedLLMSettings()
+
+    def pubsub_project(self) -> str:
+        """Proyecto de Pub/Sub: el suyo si se fija, si no el del proyecto de GCP."""
+        return self.pubsub.project or self.gcp.project
 
     def provider_chain(self) -> list[LLMProvider]:
         """Proveedor principal seguido del de respaldo (si lo hay)."""

@@ -11,6 +11,9 @@ dependencies = [
     # Sabores de framework (fase 7.2 y 7.3).
     "agent-framework-core>=1.21,<2",
     "fastapi>=0.115",
+    # ADK es el sabor de la fase 7.G1; se bloquea ya porque fija `websockets<16` y ese
+    # conflicto se resuelve una sola vez, en la 0.G1, con toda la suite por delante.
+    "google-adk>=2.14,<3",
     "httpx>=0.28",
     "langchain-core>=1.6,<2",
     "langgraph>=1.2,<2",
