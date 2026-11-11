@@ -15,11 +15,12 @@ y los procedimientos están en skills (`.github/skills/*/SKILL.md`). Visión gen
 ## Reglas obligatorias
 
 1. El cliente se llama **siempre "Headache"**: código, comentarios, datos, commits, docs y chat. **Nunca** el nombre de la empresa real en que se inspira ni marcas comerciales de terceros (tampoco en ejemplos ni datos sintéticos). El hook `pre-commit` lo comprueba.
-2. **Pedir confirmación** antes de: commit, push, crear recursos cloud, `terraform plan/apply`, cualquier acción con coste y cualquier acción destructiva (borrar ficheros o volúmenes, `docker compose down -v`, `git restore`/`reset`). "Revisado, haz commit y push" autoriza ese commit y ese push.
+2. **Pedir confirmación** antes de: commit, push, crear recursos cloud, `terraform plan/apply`, cualquier acción con coste y cualquier acción destructiva (borrar ficheros o volúmenes, `docker compose down -v`, `git restore`/`reset`). "Revisado, haz commit y push" autoriza ese commit y ese push **a la rama de trabajo**.
 3. **Nunca secretos** en el repo: `.env` en local (ignorado), `.secrets/` para claves de desarrollo, OIDC en CI, Managed Identity / IAM Roles en la nube.
 4. **Solo modelos cloud** (Azure AI Foundry, Amazon Bedrock y Gemini en Gemini Enterprise Agent Platform). Docker en local solo ejecuta infraestructura.
 5. **Local y sin coste primero.** Lo que necesite nube o tenga coste se implementa (código e IaC) pero su ejecución se aplaza a `docs/pendientes-cloud.md`. La fase queda `✅ Hecha*`.
 6. El LLM nunca toma decisiones de negocio: las toma el dominio (código determinista).
+7. **`main` está protegida** (ruleset `proteger-main`, sin bypass): nunca push directo a `main` ni merge de PRs. Se trabaja en una rama por fase y **Sergio revisa y fusiona la PR a mano**.
 
 ## Forma de trabajar
 
@@ -28,6 +29,7 @@ y los procedimientos están en skills (`.github/skills/*/SKILL.md`). Visión gen
 - Ritmo: una sesión por fase; subfases pequeñas; tras cada una, verificar y esperar el "revisado". Skills: `iniciar-fase`, `cerrar-subfase`, `cerrar-fase`, `explicar-concepto`.
 - Explorar y planificar antes de codificar cambios de varios ficheros. Ante una decisión de diseño con varias opciones razonables, preguntar con la opción recomendada primero.
 - Dar evidencia, no afirmaciones: salida de los tests, comando ejecutado, enlace a la ejecución de la CI.
+- **Ramas y PR** (desde la 0.G): una rama por fase desde `main` actualizada (`fase/<N>` o `fase/<N>-g`, p. ej. `fase/0-g`), un commit por subfase tras el "revisado" y una **PR en draft** abierta con el primer push (la CI corre en `pull_request`). Al cerrar la fase, la PR pasa a lista para revisión. `main` exige PR, el check `release-gate` y **merge commit** (squash y rebase desactivados: los docs citan hashes de commits que no deben reescribirse).
 - Tras cada push, **vigilar la CI hasta el final** e informar por job.
 - Al terminar de usarlos, detener contenedores y emuladores para ahorrar recursos (`docker compose --profile <p> stop`; sin `-v`).
 - Coste: modelos baratos por defecto; AI Search Free; sin OpenSearch Serverless (S3 Vectors o pgvector); EKS/AKS/GKE solo efímeros; Vector Search y RAG Engine efímeros; alertas de presupuesto. Presupuesto total: 200 $ Azure + 100 $ AWS + 100 $ GCP.

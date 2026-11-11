@@ -14,3 +14,4 @@ description: Cierra una fase completa del plan de GenAI_PoCs (documentación, es
 7. **Lecciones**: añadir a `docs/lecciones-aprendidas.md` los errores o correcciones de la fase que no deban repetirse.
 8. **Resumen para Sergio**: estado de la fase, métricas clave, pendientes y qué viene en la fase siguiente (sin implementarla).
 9. Commit `docs: cierre de la fase N ...` con la skill `cerrar-subfase`, tras su visto bueno.
+10. **PR lista para revisión**: con la CI en verde, completar el cuerpo de la PR (todas las subfases marcadas, resultados, pendientes y el trailer `Co-authored-by`) y `gh pr ready`. No fusionarla: Sergio la revisa y hace el merge a mano (solo *merge commit*). Tras el merge, volver a `main` y actualizarla (`git switch main ; git pull`) antes de la fase siguiente.

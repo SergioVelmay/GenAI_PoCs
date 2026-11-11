@@ -111,7 +111,10 @@ términos y librerías del proyecto: [glosario.md](docs/glosario.md).
 
 ## Calidad y CI
 
-GitHub Actions ejecuta en cada push: lint, formato, `mypy --strict`, tests, evals deterministas con
+`main` está protegida: los cambios llegan por PR (una por fase, fusionada con *merge commit* tras
+revisión) y solo si pasa el check `release-gate`, que resume todos los jobs de la CI.
+
+GitHub Actions ejecuta en cada PR y en cada merge a `main`: lint, formato, `mypy --strict`, tests, evals deterministas con
 gate contra un baseline, tests de ataque en los 7 sabores, evals multi-agente en los 3 motores,
 build de las imágenes MCP y de especialistas A2A, dashboard y reglas de alerta al día y probadas
 con `promtool`, configuración de los collectors de OpenTelemetry, validación de Terraform y tests de integración con PostgreSQL, RabbitMQ, Redis y SQS emulado. Sin secretos y sin coste.

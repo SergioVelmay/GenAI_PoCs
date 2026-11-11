@@ -11,5 +11,7 @@ description: "GitHub Actions y hooks: acciones por SHA, runner fijado y jobs sin
 - `uv sync --all-packages --locked`; `UV_LINK_MODE=copy` (NLTK rechaza hardlinks). La CI no instala extras opcionales (`evals`, `pii`, `redteam`).
 - Sin secretos ni coste en la CI: nada de LLM ni nube. Cuando lleguen (fases 13/14), OIDC con `permissions: id-token: write` por job.
 - Validar workflows con `uvx --from actionlint-py actionlint -ignore 'ubuntu-26.04'` (su lista de runners va por detrás de GitHub: `ubuntu-26.04` es válido).
+- Disparadores: `push` a `main` (solo llega por merge de PR) y `pull_request`. Las ramas de fase no tienen CI hasta que existe su PR: se abre en draft con el primer push.
+- `main` protegida por el ruleset `proteger-main` (desde la 0.G, sin bypass): PR obligatoria con 0 aprobaciones (un único colaborador no puede aprobar su PR), check `release-gate` emitido por GitHub Actions (`integration_id` 15368), solo *merge commit* (título y cuerpo = los de la PR, que termina con el trailer `Co-authored-by`), sin force-push ni borrado; las ramas se borran tras el merge. **No renombrar el job `release-gate`**: el ruleset lo exige por nombre y una PR quedaría bloqueada para siempre.
 - Tras cada push, vigilar la ejecución hasta el final: `gh run watch <id> --exit-status`, y dar el resultado por job.
 - `.githooks/pre-commit` (activado con `git config core.hooksPath .githooks`) ejecuta `scripts/check_forbidden_terms.py` sobre lo preparado para el commit.
