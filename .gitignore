@@ -41,6 +41,10 @@ evals/reports/load/*_stats_history.csv
 evals/reports/load/*_exceptions.csv
 evals/reports/load/*.html
 
+# Claude Code: ajustes personales (rutas absolutas de az/gcloud aislados). Se versionan
+# settings.json (permisos compartidos), rules/ y skills/.
+.claude/settings.local.json
+
 # IDE / SO
 .vscode/*
 !.vscode/extensions.json

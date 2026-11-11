@@ -49,6 +49,10 @@ jobs:
       - name: Candado de prompts versionados
         run: uv run python -m rag_evals.llmops.prompts check
 
+      # Reglas de Claude Code (.claude/rules) generadas desde .github/instructions: mismos globs.
+      - name: Reglas de agentes al día
+        run: uv run python scripts/sync_agent_rules.py --check
+
       - name: Generador de datos sintéticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
 

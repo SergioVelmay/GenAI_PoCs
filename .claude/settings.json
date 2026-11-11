@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(gh pr merge *)",
+      "Bash(git push origin main*)",
+      "Bash(git push -f *)",
+      "Bash(git push --force *)",
+      "Bash(git commit --no-verify *)",
+      "Bash(git commit -n *)",
+      "Bash(docker compose down -v*)",
+      "Bash(docker compose * down -v*)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git reset *)",
+      "Bash(git restore *)",
+      "Bash(git checkout -- *)",
+      "Bash(git clean *)",
+      "Bash(git branch -d *)",
+      "Bash(git branch -D *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr ready *)",
+      "Bash(gh pr edit *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh api *)",
+      "Bash(terraform *plan*)",
+      "Bash(terraform *apply*)",
+      "Bash(terraform *destroy*)",
+      "Bash(terraform *import*)",
+      "Bash(terraform *state*)",
+      "Bash(az login*)",
+      "Bash(az account set*)",
+      "Bash(gcloud auth *)",
+      "Bash(gcloud config set *)",
+      "Bash(docker compose down*)",
+      "Bash(docker volume rm *)",
+      "Bash(docker system prune*)",
+      "Bash(winget install *)",
+      "Bash(rm -rf *)",
+      "Bash(uv run python scripts/generate_synthetic_data.py *)"
+    ]
+  }
+}
