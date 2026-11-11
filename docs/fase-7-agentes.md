@@ -147,6 +147,8 @@ con la política que trae `search_events` sin consultar la base de conocimiento,
 cliente tenía "varias reservas de gastronomía" sin comprobarlo. Es el tipo de fallo que tiene que
 cazar la suite de agentes con LLM real y un juez (pendiente).
 
+<a id="suite-de-agentes-con-llm-real-18-10-2026"></a>
+
 ### Suite de agentes con LLM real (18-10-2026, ~0,08 $)
 
 `python -m rag_evals.agents --mode llm --budget-usd 0.50`: los 7 sabores con Azure OpenAI
