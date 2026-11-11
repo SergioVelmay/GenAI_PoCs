@@ -1,9 +1,9 @@
 ---
 applyTo: "infra/terraform/**"
-description: "Terraform para AWS y Azure: validación sin coste y recursos desactivados por defecto."
+description: "Terraform para AWS, Azure y GCP: validación sin coste y recursos desactivados por defecto."
 ---
 
-# Terraform (`infra/terraform/{aws,azure}`)
+# Terraform (`infra/terraform/{aws,azure,gcp}`)
 
 - Estado local; `terraform.tfvars` ignorado por Git (`*.tfvars`); se versiona la plantilla `terraform.tfvars.example`.
 - Todo recurso con coste nuevo va detrás de una variable `*_enabled = false` por defecto (como `foundry_enabled`, `agentcore_enabled`, `mcp_gateway_enabled`, `apim_enabled`, `content_safety_enabled`, `bedrock_guardrail_enabled`, `queue_workers_enabled`, `observability_enabled`) y con su coste estimado en un comentario.
@@ -20,3 +20,11 @@ description: "Terraform para AWS y Azure: validación sin coste y recursos desac
 - Identidades sin secretos (Managed Identity / IAM Roles; OIDC en CI). Nada de claves en variables ni outputs no sensibles.
 - Lo que azurerm no gestiona se aprovisiona con scripts idempotentes con dry-run por defecto (`scripts/provision_*.py [--apply]`).
 - Recursos de vista previa en Azure con `azapi` y versión de API explícita.
+- **GCP** (desde la 0.G2): proveedores `google` y `google-beta` (`~> 8.10`; los recursos en preview, con `provider = google-beta`), región `europe-west4`. El proyecto se crea a mano (cuenta de facturación de prueba) y Terraform gestiona lo de dentro.
+  - Antes de cualquier `plan`/`apply`: `$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"`, `gcloud config list` y ADC de usuario (`gcloud auth application-default login`). Nunca claves JSON de cuentas de servicio.
+  - Cada API se habilita en `var.services` (`google_project_service`, `disable_on_destroy = false`); una API nueva de la pasada se añade ahí, no en el recurso que la usa.
+  - El provider lleva `billing_project` + `user_project_override = true`: con ADC de usuario, Billing Budgets devuelve 403 sin ellos.
+  - El presupuesto mide el gasto **bruto** (`EXCLUDE_ALL_CREDITS`): con créditos de prueba, el neto es 0 y las alertas no saltarían.
+  - Nombres `<project>-<environment>-<pieza>` (`headache-dev-app`); IDs cortos (cuentas de servicio 6–30, pools 4–32). Un pool de federación borrado retiene su ID 30 días.
+  - Federación de la CI con condición por IDs numéricos de GitHub (repo y owner) y por `ref` (solo `main`): una PR no obtiene credenciales.
+  - Roles de la cuenta de servicio `headache-dev-app`: cada fase añade solo los suyos.

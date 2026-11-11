@@ -1,0 +1,20 @@
+# Copiar a terraform.tfvars (ignorado por Git) y rellenar. Antes de plan/apply:
+#   $env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache" ; gcloud config list
+#   gcloud auth application-default login   (ADC de usuario; nunca claves JSON)
+
+project_id      = "headache-dev-xxxxxx"    # gcloud config get-value project
+billing_account = "000000-000000-000000"   # gcloud billing accounts list
+region          = "europe-west4"           # RAG Engine GA; misma región para todo
+
+# Presupuesto del proyecto en la moneda de la cuenta de facturación. Mide el gasto bruto (sin
+# descontar créditos de prueba): si no, las alertas no saltarían hasta agotar los créditos.
+budget_email            = "tu-correo@example.com"
+budget_limit            = 100
+budget_alert_thresholds = [50, 75, 100] # gasto real; además, previsión al 100 %
+
+# Quién puede suplantar la cuenta de servicio de la aplicación desde local.
+developer_members = ["user:tu-correo@example.com"]
+
+# Workload Identity Federation para GitHub Actions (gratis). Solo main obtiene credenciales.
+ci_federation_enabled = true
+ci_allowed_refs       = ["refs/heads/main"]
