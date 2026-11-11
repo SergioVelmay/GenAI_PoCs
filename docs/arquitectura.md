@@ -338,7 +338,7 @@ flowchart LR
 - El mismo código en ambas nubes: solo cambian los **adaptadores** y el Terraform.
 - Identidad sin secretos: IAM Roles ↔ Managed Identity; OIDC desde la CI.
 - Aún no desplegado: es el plan de las fases 13 (AWS) y 14 (Azure). Equivalencias completas en la
-  [chuleta Azure → AWS](preguntas-entrevista.md#chuleta).
+  [chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
 
 ---
 

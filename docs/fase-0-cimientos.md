@@ -6,6 +6,9 @@ cualquier nube, base de datos o modelo, y se prueba sin red ni coste.
 
 Commit: `bd044b2 chore: fase 0 - monorepo uv, dominio Headache, puertos y adaptadores, entorno local y CI`.
 
+Pasada GCP ([sección 7](#7-gcp-pasada-0g), PR #2): `ef71b14` (0.G1, dependencias y configuración),
+`03a1f68` (0.G2, Terraform de GCP), `6c1f8dd` (0.G3, emulador de Pub/Sub) y el cierre (0.G4, docs).
+
 ## 1. Arquitectura: puertos y adaptadores
 
 ```mermaid
@@ -74,6 +77,7 @@ Docker solo ejecuta **infraestructura**; los modelos son siempre de nube.
 | RabbitMQ | `rabbitmq:4-management` | por defecto | `5672`, consola `15672` |
 | ElasticMQ (SQS) | `softwaremill/elasticmq-native` | `sqs` (fase 3) | `9324` |
 | Emulador de Service Bus + SQL Server | `servicebus-emulator` | `servicebus` (fase 3) | `5673` |
+| Emulador de Pub/Sub | `google-cloud-cli:<versión>-emulators` | `pubsub` (0.G3) | `8085` |
 | Langfuse v3 (web, worker, ClickHouse, Redis, MinIO) | `langfuse/langfuse:3` | `observability` (fase 2) | `3000` |
 | Servidores MCP y gateway | `headache-mcp:local` | `mcp` (fase 6) | `8100`–`8103` |
 
@@ -107,16 +111,80 @@ Job `quality`: `uv sync --all-packages --locked` (falla si el lock no está al d
 mypy → pytest → smoke test del generador. Las fases siguientes añaden jobs (`integration`, `evals`,
 `terraform`, `mcp-image`). Acciones fijadas por SHA y runner `ubuntu-26.04` fijado (checkpoint 8→9).
 
-## 7. Comparativa Azure ↔ AWS ↔ framework
+## 7. GCP (pasada 0.G)
 
-| Concepto | Este repo | Azure | AWS |
-|---|---|---|---|
-| Configuración y secretos | Pydantic Settings + `.env` local | App Configuration + Key Vault, Managed Identity | Parameter Store / Secrets Manager, IAM Roles |
-| Infra local | Docker Compose | Emuladores (Service Bus, Azurite) | ElasticMQ / LocalStack |
-| CI/CD | GitHub Actions | Azure DevOps Pipelines | CodePipeline / CodeBuild |
-| Identidad en CI | OIDC (fases 13/14) | Federated credentials en Entra ID | `AssumeRoleWithWebIdentity` |
+**Objetivo:** dejar el hueco donde encaja la tercera nube para que las fases 2.G–12.G solo añadan
+adaptadores. No hay capacidad nueva de producto: es la prueba de que la arquitectura es portable.
+Coste 0: nada se ejecuta en la nube.
 
-## 8. Decisiones (para defenderlas)
+| Subfase | Commit | Qué |
+|---|---|---|
+| 0.G1 | `ef71b14` | Dependencias de GCP en el lock y configuración tipada |
+| 0.G2 | `03a1f68` | `infra/terraform/gcp`: APIs, presupuesto e identidades sin claves; `gcp` en la CI |
+| 0.G3 | `6c1f8dd` | Emulador de Pub/Sub en `docker-compose.yml` y en la CI |
+| 0.G4 | (cierre) | Chuleta a tres columnas, comparativas, glosario y pendientes |
+
+### 7.1 Dependencias y configuración (0.G1)
+
+- Extra `gcp` de `headache-core`: `google-genai` (Gemini) y `google-cloud-{aiplatform,
+  discoveryengine,dlp,modelarmor,monitoring,pubsub,storage}`. `google-adk` en `booking-agent`,
+  bloqueado ya aunque su sabor llega en la 7.G1: es el que impone las restricciones.
+- **Conflicto resuelto:** `google-genai` iba por la 3.0, pero ADK 2.14 exige `<3`; manda el techo
+  del framework (`google-genai>=2.34,<3`). El lock baja `websockets` 16.1 → 15.0 y sube `authlib`
+  a 1.9. Toda la suite, los gates y la imagen de agentes pasan con él
+  ([lección](lecciones-aprendidas.md)).
+- `GcpSettings` (`GCP__PROJECT`, `GCP__REGION=europe-west4`, `GCP__IMPERSONATE_SERVICE_ACCOUNT`),
+  `GeminiSettings` (`GEMINI__*`: modelos barato/potente/juez y `location=global`) y
+  `PubSubSettings` (`PUBSUB__EMULATOR_HOST`...).
+- `LLMProvider.GCP` existe (también como fallback) pero aún no tiene adaptador: las raíces de
+  composición fallan con un error que nombra la fase (2.G1, 2.G2, 3.G2, 5.G1). Antes, cualquier
+  valor nuevo del enum acababa construyendo Bedrock **en silencio**; lo fija
+  `test_gcp_fails_loudly_until_its_adapter_exists`.
+
+### 7.2 Terraform (0.G2)
+
+```powershell
+cd infra/terraform/gcp
+terraform fmt -check -recursive ; terraform init -backend=false -input=false ; terraform validate
+```
+
+| Fichero | Qué | Por qué así |
+|---|---|---|
+| `versions.tf` | `google` y `google-beta` `~> 8.10`, `billing_project` + `user_project_override` | Con ADC de usuario, Billing Budgets devuelve 403 sin proyecto de cuota |
+| `main.tf` | 15 APIs con `google_project_service` (`disable_on_destroy = false`) | En GCP cada API se habilita por proyecto; también es control: lo no habilitado no se usa |
+| `budget.tf` | 100 al mes, alertas al 50/75/100 % y previsión al 100 %, por correo | `EXCLUDE_ALL_CREDITS`: con créditos de prueba, el gasto neto es 0 y ninguna alerta saltaría |
+| `identity.tf` | Cuenta de servicio `headache-dev-app` (se suplanta desde local) y Workload Identity Federation para GitHub Actions con `headache-dev-ci` | Sin claves JSON; condición por IDs numéricos del repo y del dueño y solo `refs/heads/main`: una PR no obtiene credenciales |
+
+El proyecto se crea a mano con la cuenta de facturación de prueba; Terraform gestiona lo de dentro.
+
+### 7.3 Emulador de Pub/Sub (0.G3)
+
+```powershell
+docker compose --profile pubsub up -d
+uv run pytest packages/headache_core/tests/integration/test_pubsub_emulator.py -m integration
+```
+
+- Imagen oficial `google-cloud-cli:593.0.0-emulators` (emulador 0.8.38, ~1,7 GB), solo en memoria.
+- **Hallazgo:** sin `--host-port=0.0.0.0:8085` el emulador escucha en el `localhost` *del
+  contenedor* y el puerto publicado no responde (comprobado; el plan decía IPv6 y era incorrecto).
+- En la CI, `docker run` en segundo plano al principio del job `integration` (los *services* no
+  admiten `command`); la descarga se solapa con `uv sync` y la espera posterior es de 0 s.
+- El smoke test publica con un atributo `traceparent` (donde viajará la traza en la 11.G1). El
+  contrato completo (reintentos, *dead-letter topic*) llega con el adaptador en la 3.G1.
+
+## 8. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
+
+| Concepto | Este repo | Azure | AWS | GCP |
+|---|---|---|---|---|
+| Unidad de aislamiento | — | Grupo de recursos (`rg-headache-dev`) | Cuenta | Proyecto (facturación, cuotas, APIs e IAM) |
+| Configuración y secretos | Pydantic Settings + `.env` local | App Configuration + Key Vault, Managed Identity | Parameter Store / Secrets Manager, IAM Roles | Secret Manager, cuenta de servicio adjunta |
+| Credenciales en local | Sin claves en `.env` | `az login` (`AZURE_CONFIG_DIR` aislado) | `aws sso login` + perfil | ADC + *impersonation* (`CLOUDSDK_CONFIG` aislado) |
+| Infra local | Docker Compose | Emuladores (Service Bus, Azurite) | ElasticMQ / LocalStack | Emuladores de `google-cloud-cli` (Pub/Sub) |
+| CI/CD | GitHub Actions | Azure DevOps Pipelines | CodePipeline / CodeBuild | Cloud Build / Cloud Deploy |
+| Identidad en CI | OIDC (fases 13–15) | Federated credentials en Entra ID | `AssumeRoleWithWebIdentity` | Workload Identity Federation (`identity.tf`) |
+| Presupuesto | — | Presupuesto del grupo de recursos | AWS Budgets | Cloud Billing budget (bruto de créditos) |
+
+## 9. Decisiones (para defenderlas)
 
 - **Clean Architecture desde el día 0**: tres carriles (gestionado, SDK nativo, framework) × dos
   nubes solo son comparables si comparten dominio, casos de uso y tests; cambia el adaptador.
@@ -127,8 +195,20 @@ mypy → pytest → smoke test del generador. Las fases siguientes añaden jobs 
 - **Monorepo con un solo lock**: versiones coherentes entre servicios; cada servicio sigue siendo
   desplegable por separado.
 - **Datos sintéticos deterministas** con reglas de negocio: evals reproducibles y sin datos reales.
+- **Las dependencias de una nube nueva, en una subfase propia y temprana** (0.G1): el conflicto
+  `google-genai` 3 frente a ADK se pagó una vez y con toda la suite delante, no a mitad de la 7.G.
+- **Un proveedor declarado sin adaptador falla en voz alta**: un error con la fase es mejor que un
+  sistema que "funciona" hablando con otra nube y se descubre en la factura.
+- **Presupuesto sobre el gasto bruto** en GCP: la alerta debe saltar por el uso, no al agotarse
+  los créditos.
 
-## 9. Checkpoint de entrevista
+## 10. Pendiente con coste
+
+GCP: crear el proyecto, `terraform apply` del módulo `gcp` y conectar la CI por federación de
+identidad ([pendientes-cloud.md](pendientes-cloud.md#fase-0)).
+
+## 11. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 0](preguntas-entrevista.md#fase-0).
+[preguntas de entrevista · fase 0](preguntas-entrevista.md#fase-0), con una subsección de la
+pasada GCP.

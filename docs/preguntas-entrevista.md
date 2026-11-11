@@ -9,7 +9,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 
 ## Índice
 
-- [Cómo responder](#como-responder) · [Chuleta Azure → AWS](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
+- [Cómo responder](#como-responder) · [Chuleta Azure → AWS → GCP](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
 - Siglas, términos y librerías: [glosario e inventario](glosario.md) · Diagramas por niveles: [arquitectura](arquitectura.md)
 - Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12) · [checkpoint 12→13](#checkpoint-12-13)
 
@@ -24,41 +24,52 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 
 <a id="chuleta"></a>
 
-## Chuleta Azure → AWS (lo que se usa en este repo)
+## Chuleta Azure → AWS → GCP (lo que se usa en este repo)
 
-| Necesidad | Azure (experiencia) | AWS (rol) |
-|---|---|---|
-| Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) |
-| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) |
-| Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector |
-| Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) |
-| Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents |
-| Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails |
-| Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway |
-| Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge |
-| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) |
-| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS |
-| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS |
-| Multi-agente gestionado | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (protocolo A2A), Bedrock Agents (*multi-agent collaboration*) |
-| Flujo durable con espera humana | Durable Functions, Logic Apps | Step Functions (*wait for callback*) |
-| Cómputo | Functions, Container Apps, AKS | Lambda, ECS Fargate / App Runner, EKS |
-| Base de datos | PostgreSQL Flexible Server | RDS / Aurora PostgreSQL |
-| Identidad | Entra ID, Managed Identity | IAM Roles, IAM Identity Center, Cognito (usuarios finales) |
-| Secretos | Key Vault | Secrets Manager, KMS |
-| Observabilidad | Application Insights, Azure Monitor | CloudWatch, X-Ray (OpenTelemetry en ambos) |
-| Trazas distribuidas | Application Insights (*transaction search*, mapa de aplicación) | X-Ray (Transaction Search sobre OTLP) |
-| Logs centralizados | Log Analytics (KQL) | CloudWatch Logs (Logs Insights) |
-| Métricas y alertas | Azure Monitor Metrics, *log search alerts* + *action groups* | CloudWatch Metrics (EMF), *alarms* + SNS |
-| Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) |
-| Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability |
-| Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana |
-| Evals de agentes y LLM-juez | Foundry evaluators (`ToolCallAccuracy`, `IntentResolution`) | Bedrock evaluations (LLM-as-a-judge), AgentCore Evaluations |
-| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | PyRIT o promptfoo contra Bedrock (sin servicio propio) |
-| Prompts versionados | Prompts de Foundry | Bedrock Prompt Management |
-| Experimentos (MLflow gestionado) | Azure ML (URI de MLflow) | SageMaker con MLflow gestionado |
-| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor | SageMaker Model Monitor, CloudWatch Anomaly Detection |
-| IaC y CI/CD | Bicep, Azure DevOps | CloudFormation/CDK, CodePipeline (Terraform y GitHub Actions en ambas) |
-| Coste | Cost Management, presupuestos | Cost Explorer, AWS Budgets |
+Azure es la experiencia, AWS el rol y GCP la tercera nube de la pasada GCP. En GCP, Vertex AI se
+presenta ahora como **Gemini Enterprise Agent Platform** (Agent Engine pasa a Agent Runtime); las
+APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas de GCP de las fases
+2–12 se confirman en su subfase de la pasada.
+
+| Necesidad | Azure (experiencia) | AWS (rol) | GCP |
+|---|---|---|---|
+| Unidad de aislamiento y facturación | Suscripción + grupo de recursos | Cuenta (Organizations) | **Proyecto**: facturación, cuotas, APIs e IAM cuelgan de él |
+| Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
+| Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (endpoint `global` o regional) |
+| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus), Vertex AI Search (respuestas citadas) |
+| Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Vector Search, Cloud SQL / AlloyDB + pgvector |
+| Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
+| Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
+| Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
+| Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee, Agent Gateway (parte en preview) |
+| Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge | Pub/Sub (temas + suscripciones, *dead-letter topic*), Eventarc |
+| Emulador local de colas | Emulador de Service Bus (EULA + SQL Server) | ElasticMQ, LocalStack | Emulador oficial de Pub/Sub (perfil `pubsub`) |
+| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (cuotas), Cloud Armor (*rate limiting*), Memorystore (Valkey) |
+| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS | Worker pools de Cloud Run, KEDA `gcp-pubsub` en GKE |
+| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS | Locust en GKE o Cloud Run jobs (sin servicio propio) |
+| Multi-agente gestionado | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (protocolo A2A), Bedrock Agents (*multi-agent collaboration*) | Agent Runtime con A2A, multi-agente de ADK |
+| Flujo durable con espera humana | Durable Functions, Logic Apps | Step Functions (*wait for callback*) | Workflows (*callbacks*) |
+| Cómputo | Functions, Container Apps, AKS | Lambda, ECS Fargate / App Runner, EKS | Cloud Run functions, Cloud Run, GKE |
+| Base de datos | PostgreSQL Flexible Server | RDS / Aurora PostgreSQL | Cloud SQL para PostgreSQL, AlloyDB |
+| Analítica | Fabric / Synapse | Redshift, Athena | BigQuery |
+| Identidad | Entra ID, Managed Identity | IAM Roles, IAM Identity Center, Cognito (usuarios finales) | IAM + cuentas de servicio adjuntas, Identity Platform (usuarios finales) |
+| Credenciales en local | `az login` | `aws sso login` + perfil | ADC de usuario + *impersonation* de una cuenta de servicio (sin claves JSON) |
+| CI sin secretos | Federated credentials de Entra ID | OIDC → `AssumeRoleWithWebIdentity` | Workload Identity Federation (pool + proveedor OIDC de GitHub) |
+| Secretos | Key Vault | Secrets Manager, KMS | Secret Manager, Cloud KMS |
+| Observabilidad | Application Insights, Azure Monitor | CloudWatch, X-Ray (OpenTelemetry en ambos) | Cloud Monitoring, Logging y Trace (OpenTelemetry) |
+| Trazas distribuidas | Application Insights (*transaction search*, mapa de aplicación) | X-Ray (Transaction Search sobre OTLP) | Cloud Trace (OTLP) |
+| Logs centralizados | Log Analytics (KQL) | CloudWatch Logs (Logs Insights) | Cloud Logging (Log Analytics con SQL) |
+| Métricas y alertas | Azure Monitor Metrics, *log search alerts* + *action groups* | CloudWatch Metrics (EMF), *alarms* + SNS | Cloud Monitoring (alertas en PromQL) + canales de notificación |
+| Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) | Collector de OpenTelemetry con los exporters `googlecloud` |
+| Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability | Trazas de Agent Runtime en Cloud Trace |
+| Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana | Managed Service for Prometheus (Grafana autogestionado) |
+| Evals de agentes y LLM-juez | Foundry evaluators (`ToolCallAccuracy`, `IntentResolution`) | Bedrock evaluations (LLM-as-a-judge), AgentCore Evaluations | Gen AI Evaluation Service (métricas de trayectoria) |
+| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | PyRIT o promptfoo contra Bedrock (sin servicio propio) | PyRIT o promptfoo contra Gemini (sin servicio propio) |
+| Prompts versionados | Prompts de Foundry | Bedrock Prompt Management | Gestión de prompts de Agent Platform |
+| Experimentos (MLflow gestionado) | Azure ML (URI de MLflow) | SageMaker con MLflow gestionado | Vertex AI Experiments |
+| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor | SageMaker Model Monitor, CloudWatch Anomaly Detection | Model Monitoring de Vertex AI, alertas de Cloud Monitoring |
+| IaC y CI/CD | Bicep, Azure DevOps | CloudFormation/CDK, CodePipeline | Infrastructure Manager (Terraform gestionado), Cloud Build / Cloud Deploy (Terraform y GitHub Actions en las tres) |
+| Coste | Cost Management, presupuestos | Cost Explorer, AWS Budgets | Informes de Cloud Billing, presupuestos (ojo: miden neto de créditos por defecto) |
 
 <a id="transversales"></a>
 
@@ -137,6 +148,48 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 3. **¿Cómo explicas Clean Architecture a un product manager?** Como enchufes estándar: el negocio
    es el aparato y los proveedores de IA o de nube son los enchufes. Cambiar de proveedor por precio
    o por calidad es cambiar el adaptador, no rehacer el producto.
+
+### GCP (pasada 0.G)
+
+**Técnicas**
+
+1. **¿Qué cambia al llevar el mismo sistema a GCP?** Tres cosas que no tienen equivalente directo.
+   El *proyecto* es la unidad de facturación, cuotas e IAM, más fuerte que un grupo de recursos.
+   Cada API se habilita por proyecto (`google_project_service`), y hay que añadirla al plan de
+   infraestructura. Y la identidad va por cuentas de servicio que se suplantan, sin claves. Lo demás
+   (dominio, puertos, evals, harness) no cambia: en la 0.G solo se añadieron configuración, IaC y
+   un emulador.
+2. **¿Cómo das acceso a GCP a la CI sin guardar claves?** Con Workload Identity Federation: GitHub
+   emite un token OIDC por ejecución y STS lo cambia por uno temporal de una cuenta de servicio. Es
+   el `AssumeRoleWithWebIdentity` de AWS. El matiz importante es la condición: en `identity.tf` uso
+   los IDs numéricos del repositorio y del dueño (los nombres se pueden volver a registrar) y solo
+   `refs/heads/main`, así que una PR con el workflow modificado no obtiene credenciales.
+3. **Al añadir el SDK de una nube nueva el lock no resolvía. ¿Qué hiciste?** `google-genai` iba
+   por la 3.0 y ADK, el framework que lo envuelve, exigía `<3`. En un monorepo con varios
+   frameworks manda el techo del framework, no la última versión del SDK. Por eso metí todas las
+   dependencias de GCP en una subfase propia y temprana, con la suite completa, la CI y la imagen
+   de agentes como prueba: descubrirlo cinco fases después cuesta mucho más.
+4. **¿Cómo evitas que un proveedor nuevo "funcione" por accidente?** Las raíces de composición
+   eligen el adaptador con una cadena de `if` cuyo último caso era Bedrock. Al añadir `gcp` al enum,
+   el sistema habría construido Bedrock sin avisar. Ahora un proveedor declarado sin adaptador
+   lanza un error que dice en qué fase llega, y un test lo fija.
+
+**Negocio y stakeholders**
+
+1. **Producción está en AWS. ¿Para qué una tercera nube?** No para operar en tres a la vez, que
+   multiplica el coste operativo. Es *opcionalidad*: poder mover una pieza (por ejemplo, el
+   proveedor de modelos) por precio, calidad o una caída regional. La prueba de que la arquitectura
+   es portable es que la base para GCP cupo en cuatro subfases pequeñas, con coste 0 y las mismas
+   evals. Esa prueba también da poder de negociación con el proveedor actual.
+2. **Finanzas teme la factura de una cuenta nueva. ¿Qué controles pones el primer día?** El
+   presupuesto existe antes que cualquier recurso, con alertas al 50, 75 y 100 % y previsión al
+   100 %. Mide el gasto *bruto*: por defecto GCP descuenta los créditos de prueba y las alertas no
+   saltarían hasta agotarlos. Además, lo que se cobra por hora nace apagado (`*_enabled = false`) y
+   se enciende solo en sesiones de trabajo.
+3. **¿Cómo explicas la protección de `main` a alguien no técnico?** Como la firma de dos personas
+   en un pago: nada llega a la versión buena sin pasar por una revisión y por todas las
+   comprobaciones automáticas (el check `release-gate`). Aplica también a quien administra el
+   repositorio y a la IA que escribe código.
 
 <a id="fase-1"></a>
 

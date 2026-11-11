@@ -7,7 +7,7 @@ description: Cierra una fase completa del plan de GenAI_PoCs (documentación, es
 
 1. **Comprobar lo hecho** frente al plan de la fase y sus entregables: listar lo cumplido, lo aplazado (coste o nube) y lo descartado con su motivo.
 2. **Doc de la fase**: crear o completar `docs/fase-N-<tema>.md` con la estructura de `.github/instructions/docs.instructions.md` (resultados medidos, comparativa A/B/C, decisiones y enlace al checkpoint).
-3. **Preguntas de entrevista**: añadir la sección `fase-N` a `docs/preguntas-entrevista.md` (técnicas y de negocio/stakeholders, con respuesta modelo) y actualizar la chuleta Azure → AWS si hay servicios nuevos.
+3. **Preguntas de entrevista**: añadir la sección `fase-N` a `docs/preguntas-entrevista.md` (técnicas y de negocio/stakeholders, con respuesta modelo) y actualizar la chuleta Azure → AWS → GCP si hay servicios nuevos.
 4. **Pendientes**: mover lo aplazado a `docs/pendientes-cloud.md`, en su sección.
 5. **Estado**: actualizar la tabla de fases en `AGENTS.md` (`✅ Hecha` o `✅ Hecha*` si queda validación en cloud) y el índice de `README.md`.
 6. **Instrucciones**: si la fase creó un área nueva, añadir su `.github/instructions/<area>.instructions.md` con `applyTo`; si cambió algo que aplica siempre, actualizar `AGENTS.md` (y que siga por debajo de ~150 líneas).
