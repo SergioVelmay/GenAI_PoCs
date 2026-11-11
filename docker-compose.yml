@@ -107,6 +107,27 @@ services:
       ACCEPT_EULA: ${SERVICEBUS_ACCEPT_EULA:-N}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
 
+  # Pub/Sub (fase 0.G3): emulador oficial de Google (Apache-2.0, sin cuenta ni EULA). Solo en
+  # memoria: temas y suscripciones desaparecen al pararlo. Los crea quien lo usa (test o
+  # adaptador): el emulador no admite `gcloud pubsub`, solo las librerías cliente.
+  # Por defecto arranca con --host=localhost: escucha en el loopback del contenedor y el puerto
+  # publicado no llega (comprobado en la 0.G3). Con --host-port=0.0.0.0 escucha en todas.
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:593.0.0-emulators
+    profiles: [pubsub]
+    restart: unless-stopped
+    command: >-
+      gcloud beta emulators pubsub start
+      --project=headache-local --host-port=0.0.0.0:8085
+    ports:
+      - "127.0.0.1:8085:8085"
+    healthcheck:
+      # La raíz devuelve "Ok" cuando el emulador acepta peticiones.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8085"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   # ---------- Escala (fase 10): rate limiting y caché semántica ----------
   # Redis 8 propio (el de Langfuse es suyo). Sin persistencia: todo lo que guarda caduca.
   redis-scale:

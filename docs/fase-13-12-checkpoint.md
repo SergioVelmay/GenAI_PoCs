@@ -55,7 +55,7 @@ Data*) y que sus librerías conviven con las nuestras:
 | **RAG Engine** guarda los vectores en un Spanner gestionado que se factura; GA en `europe-west3/4`, lista de acceso en `us-central1` y `europe-west1` | Región `europe-west4`; elegir el tier más barato y apagar al terminar |
 | **Agent Gateway** gobierna tráfico usuario↔agente, agente↔MCP y agente↔agente, con Model Armor, políticas de IAM, *semantic governance* y cuotas de tokens (algunas en preview) | Equivalente de AgentCore Gateway / APIM en las fases 6 y 10 |
 | **Managed Agents API** está en Pre-GA, con sandbox propio y "no usar datos confidenciales" | Se explora en un *spike* de la 7.G; solo será sabor si admite tools ejecutadas por nuestro harness |
-| El emulador de Pub/Sub escucha en **IPv6** (`::1`) por defecto y no admite `gcloud pubsub` | Arrancarlo con `--host-port=0.0.0.0:8085` y conectar a `127.0.0.1` |
+| El emulador de Pub/Sub escucha por defecto en el `localhost` **del contenedor** (no en IPv6, como se anotó al principio: corregido en la 0.G3 tras comprobarlo) y no admite `gcloud pubsub` | Arrancarlo con `--host-port=0.0.0.0:8085` y conectar a `127.0.0.1` |
 | Los *services* de GitHub Actions no admiten `command` | El emulador de Pub/Sub se arranca en la CI con un paso `docker run` |
 | Prueba de resolución en una copia del workspace (`uv add` de `google-adk`, `google-genai`, `google-cloud-{pubsub,aiplatform,discoveryengine,dlp,modelarmor,monitoring,storage}`): **resuelve** con ADK 2.14 | Cambian `websockets` 16.1 → 15.0 (ADK exige `<16`), `authlib` 1.8 → 1.9 y `beartype` (de rc a estable). Se valida con la CI completa en la 0.G1 |
 

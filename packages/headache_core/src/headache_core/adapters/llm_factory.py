@@ -18,7 +18,20 @@ from headache_core.application.llm import (
 )
 from headache_core.application.telemetry import TelemetryLLMTracer
 from headache_core.config import LLMProvider, Settings
-from headache_core.ports import LLMPort, LLMTracer, RateLimiterPort
+from headache_core.ports import LLMError, LLMPort, LLMTracer, RateLimiterPort
+
+
+def unsupported_provider(provider: LLMProvider, *, feature: str, phase: str) -> LLMError:
+    """Error de un proveedor declarado en el enum pero todavía sin adaptador.
+
+    Las raíces de composición eligen con cadenas de `if` que terminan en Bedrock. Sin este
+    corte, cualquier valor nuevo del enum caería ahí y el sistema "funcionaría" hablando con
+    el proveedor equivocado: un fallo silencioso que solo se vería en la factura.
+    """
+    return LLMError(
+        f"El proveedor '{provider}' aún no tiene adaptador de {feature} (llega en la "
+        f"{phase}). Usa azure o aws."
+    )
 
 
 def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTier) -> LLMPort:
@@ -36,6 +49,8 @@ def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTie
             azure.cheap_chat_deployment if tier is ModelTier.CHEAP else azure.chat_deployment
         )
         return AzureOpenAILLM.from_settings(azure, deployment=deployment)
+    if provider is LLMProvider.GCP:
+        raise unsupported_provider(provider, feature="chat", phase="fase 2.G1")
 
     from headache_core.adapters.bedrock import BedrockConverseLLM
 
@@ -171,6 +186,8 @@ def build_judge_provider_llm(settings: Settings, provider: LLMProvider) -> LLMPo
 
         azure = settings.azure_openai
         return AzureOpenAILLM.from_settings(azure, deployment=azure.judge_deployment)
+    if provider is LLMProvider.GCP:
+        raise unsupported_provider(provider, feature="juez", phase="fase 5.G1")
 
     from headache_core.adapters.bedrock import BedrockConverseLLM
 

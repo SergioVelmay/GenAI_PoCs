@@ -117,3 +117,29 @@ def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
 
     assert Settings(_env_file=None).provider_chain() == [LLMProvider.AZURE, LLMProvider.AWS]
+
+
+def test_gcp_is_a_provider_like_the_other_two(monkeypatch: pytest.MonkeyPatch) -> None:
+    """La pasada GCP empieza por aquí: el enum y el fallback ya admiten la tercera nube."""
+    monkeypatch.setenv("LLM_PROVIDER", "gcp")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
+    monkeypatch.setenv("GCP__PROJECT", "headache-dev")
+    monkeypatch.setenv("GEMINI__CHEAP_CHAT_MODEL", "gemini-3-flash-lite")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.provider_chain() == [LLMProvider.GCP, LLMProvider.AWS]
+    assert (settings.gcp.project, settings.gcp.region) == ("headache-dev", "europe-west4")
+    assert settings.gemini.cheap_chat_model == "gemini-3-flash-lite"
+    # El juez no puede ser el mismo modelo que genera (sesgo de autopreferencia).
+    assert settings.gemini.judge_model != settings.gemini.cheap_chat_model
+
+
+def test_pubsub_falls_back_to_the_gcp_project(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GCP__PROJECT", "headache-dev")
+
+    assert Settings(_env_file=None).pubsub_project() == "headache-dev"
+
+    monkeypatch.setenv("PUBSUB__PROJECT", "headache-messaging")
+
+    assert Settings(_env_file=None).pubsub_project() == "headache-messaging"

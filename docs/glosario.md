@@ -4,7 +4,7 @@ Chuleta para la entrevista: los términos y siglas que más se repiten en el rep
 que usamos, con **qué son**, **para qué sirven** y **dónde aparecen aquí** (para poder anclar
 cada respuesta en algo construido). Las respuestas largas viven en
 [preguntas-entrevista.md](preguntas-entrevista.md); la equivalencia de servicios, en su
-[chuleta Azure → AWS](preguntas-entrevista.md#chuleta).
+[chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
 
 Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a alguien de negocio
 (una frase) y la columna "En este repo" como la evidencia que das si piden detalle.
@@ -132,7 +132,11 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Mínimo privilegio / radio de impacto** | Dar solo los permisos necesarios para que un fallo o ataque afecte a lo mínimo. | Tres servidores MCP en vez de uno. |
 | **Cedar** | Lenguaje de políticas de autorización de AWS. | Políticas de AgentCore Gateway (comparativa). |
 | **Entra ID / Managed Identity ↔ IAM Role** | Identidad de personas y de servicios sin secretos en el código. | Regla del repo: nunca secretos; identidades gestionadas en la nube. |
-| **OIDC en CI** | La CI obtiene credenciales temporales de la nube sin guardar claves. | GitHub Actions → AWS/Azure (fases 13 y 14). |
+| **OIDC en CI** | La CI obtiene credenciales temporales de la nube sin guardar claves. | GitHub Actions → AWS/Azure/GCP (fases 13–15). |
+| **Cuenta de servicio (GCP)** | Identidad de una aplicación en GCP; se adjunta al recurso o la suplanta una persona. Equivale a Managed Identity / IAM Role. | `headache-dev-app` en `infra/terraform/gcp/identity.tf`, sin claves. |
+| **ADC** (*Application Default Credentials*) | Cadena de búsqueda de credenciales de las librerías de Google: usuario en local, cuenta de servicio en la nube. Como `DefaultAzureCredential`. | `gcloud auth application-default login` con `CLOUDSDK_CONFIG` aislado. |
+| **Impersonation (suplantación)** | Una persona obtiene un token temporal (1 h) de una cuenta de servicio; queda auditado a su nombre. Sustituye a las claves JSON. | `GCP__IMPERSONATE_SERVICE_ACCOUNT`; rol `serviceAccountTokenCreator`. |
+| **Workload Identity Federation** | GCP acepta tokens de otro proveedor (el OIDC de GitHub) y los cambia por uno de una cuenta de servicio. Con condición, solo para un repo y una rama. | Pool `headache-dev-github`; solo `main` de este repo (por IDs numéricos). |
 
 <a id="g6"></a>
 
@@ -273,7 +277,12 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Bloqueo optimista / pesimista** | Detectar conflicto al escribir (versión) / bloquear la fila antes. | `UPDATE ... WHERE available >= :q RETURNING` evita la sobreventa. |
 | **`CREATE INDEX CONCURRENTLY`** | Crear índice sin bloquear escrituras (puede quedar `INVALID`). | Migraciones de la fase 1. |
 | **Migración (Alembic)** | Cambio de esquema versionado y reproducible. | `packages/headache_core/migrations`. |
-| **IaC** (*Infrastructure as Code*) | Infraestructura definida en ficheros versionados. | Terraform en `infra/terraform/{aws,azure}`, recursos con coste apagados. |
+| **IaC** (*Infrastructure as Code*) | Infraestructura definida en ficheros versionados. | Terraform en `infra/terraform/{aws,azure,gcp}`, recursos con coste apagados. |
+| **Proyecto (GCP)** | Unidad de aislamiento de GCP: facturación, cuotas, APIs e IAM cuelgan de él. Más fuerte que un grupo de recursos de Azure. | `GCP__PROJECT`; se crea a mano y Terraform gestiona lo de dentro. |
+| **Habilitar una API (GCP)** | En GCP cada servicio se enciende por proyecto antes de usarlo; si no, `SERVICE_DISABLED`. | `google_project_service` en `infra/terraform/gcp/main.tf`. |
+| **Gemini Enterprise Agent Platform** | Nombre actual de Vertex AI como plataforma de agentes y modelos (Agent Runtime, Sessions, Memory Bank, evaluación...). | Pasada GCP (fases 2.G–12.G). |
+| **Emulador** | Imitación local de un servicio de nube para probar sin cuenta ni coste. | ElasticMQ (SQS), Service Bus y Pub/Sub en `docker-compose.yml`. |
+| **Branch protection / ruleset** | Reglas de GitHub sobre una rama: PR obligatoria, checks en verde, sin force-push. | `main` protegida con `proteger-main` y el check `release-gate` (desde la 0.G). |
 | **CI/CD** | Integración continua (calidad automática en cada push) y despliegue continuo. | GitHub Actions: ruff, mypy, pytest, gates de evals, validación de IaC. |
 | **Datos sintéticos** | Datos generados con semilla, sin PII real. | `scripts/generate_synthetic_data.py`. |
 | **`✅ Hecha*`** | Implementación cerrada en local; falta validar en la nube. | `docs/pendientes-cloud.md`. |
@@ -289,7 +298,8 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **CSAT** | Satisfacción del cliente medida con encuesta. | KPI del asistente de soporte. |
 | **TCO** | Coste total de propiedad: licencias + nube + operación + personas. | Argumento de gestionado vs propio. |
 | **Build vs buy** | Construir o comprar (servicio gestionado). | Comprar lo que no diferencia; construir dominio, harness y evals. |
-| **Lock-in** | Dependencia de un proveedor difícil de abandonar. | Mitigado con puertos y Terraform en ambas nubes. |
+| **Lock-in** | Dependencia de un proveedor difícil de abandonar. | Mitigado con puertos y Terraform en las tres nubes. |
+| **Opcionalidad** | Poder cambiar de proveedor de forma barata cuando convenga, sin estar en varios a la vez (multi-cloud activo-activo multiplica la operación). | La pasada GCP: tercera nube con las mismas evals. |
 | **PoC → piloto → producción** | Prueba de concepto, uso real acotado y despliegue general, con criterios de salida. | Transversales de `preguntas-entrevista.md`. |
 | **RGPD / DPO** | Reglamento europeo de protección de datos / delegado de protección de datos. | Datos sintéticos y redacción de PII. |
 | **Postmortem sin culpables** | Análisis de un incidente centrado en el sistema, no en personas, con acciones. | Cada ataque encontrado se convierte en test de regresión. |
@@ -312,6 +322,9 @@ equivalente o alternativa.
 | `boto3` | SDK oficial de AWS para Python. | Bedrock (Converse, Knowledge Bases, Guardrails, Rerank), SQS, S3. | `aioboto3` para async. |
 | `litellm` | Librería/proxy que unifica +100 proveedores de LLM con la API de OpenAI. | Segundo gateway tras `LLMPort` para comparar con el propio (fase 2). | Gateway propio, APIM AI Gateway, Portkey. |
 | `azure-identity` | Autenticación con Entra ID (`DefaultAzureCredential`). | Llamar a Azure sin claves (CLI en local, Managed Identity en la nube). | Credenciales de IAM en `boto3`. |
+| `google-genai` | SDK oficial unificado de Gemini (Gemini API y Vertex). Sustituye al módulo generativo de `vertexai`, retirado el 24-06-2026. | Adaptador de Gemini (fase 2.G1). En 2.x: ADK exige `<3`. | `openai` / `boto3` (Bedrock). |
+| `google-cloud-aiplatform` | SDK de Agent Platform (Vertex) para lo que no es generar texto. | RAG Engine, Agent Runtime, evaluación y experimentos (pasada GCP). | `azure-ai-projects`, `boto3` (AgentCore). |
+| `google-cloud-*` (`pubsub`, `storage`, `discoveryengine`, `dlp`, `modelarmor`, `monitoring`) | SDKs por servicio de GCP. | Pub/Sub, Cloud Storage, Vertex AI Search, Sensitive Data Protection, Model Armor y métricas (pasada GCP). | `azure-*` / `boto3`. |
 
 <a id="l2"></a>
 
@@ -325,6 +338,7 @@ equivalente o alternativa.
 | `llama-index-core` | Framework centrado en **datos/RAG**: ingesta, índices, retrievers, también agentes. | Carril C de indexación y retrieval (fases 3–4) y un sabor del agente. | LangChain retrievers, Haystack. |
 | `agent-framework-core` (MAF) | Microsoft Agent Framework: sucesor de Semantic Kernel + AutoGen; agentes y workflows tipados. | Sabor del agente y motor alternativo del orquestador. | LangGraph. |
 | `strands-agents` | SDK de agentes de AWS, *model-driven* (el modelo decide el bucle), muy ligero. | Sabor del agente; candidato natural en AWS con AgentCore. | Bedrock Agents, LangGraph. |
+| `google-adk` (ADK) | Agent Development Kit de Google: agentes, multi-agente y despliegue en Agent Runtime. | Sabor `adk` (7.G1) y cuarto motor del orquestador (9.G1); en el lock desde la 0.G1. | Strands, MAF. |
 
 <a id="l3"></a>
 
@@ -417,7 +431,7 @@ equivalente o alternativa.
 | `ruff` | Linter y formateador de Python muy rápido. | `ruff check` y `ruff format --check` en la CI. |
 | `mypy` | Comprobador de tipos estático. | Tipado estricto en todo el monorepo. |
 | `pytest` + `pytest-asyncio` | Framework de tests y soporte de async. | Tests unitarios; `-m integration` para los que necesitan Docker. |
-| Terraform | IaC multi-nube declarativa. | `infra/terraform/{aws,azure}`, `fmt -check` y `validate` en la CI. |
+| Terraform | IaC multi-nube declarativa. | `infra/terraform/{aws,azure,gcp}`, `fmt -check` y `validate` en la CI. |
 | GitHub Actions | CI/CD integrado en GitHub. | Calidad, gates de evals, `release-gate`, validación de IaC. |
 | `gh` | CLI de GitHub. | Vigilar la CI tras cada push. |
 
@@ -431,6 +445,7 @@ equivalente o alternativa.
 | `rabbitmq:4-management` | Broker de mensajería AMQP con consola web. | Colas en local (por defecto). |
 | `softwaremill/elasticmq-native` | Emulador compatible con la API de SQS. | Perfil `sqs`. |
 | `servicebus-emulator` + `mssql/server` | Emulador oficial de Service Bus (necesita SQL Server). | Perfil `servicebus`. |
+| `google-cloud-cli:<versión>-emulators` | CLI de Google con sus emuladores (Pub/Sub y otros), ~1,7 GB. | Perfil `pubsub` (`--host-port=0.0.0.0:8085`) y job `integration`. |
 | `redis` | Almacén en memoria clave-valor. | Perfil `scale` (y dependencia de Langfuse). |
 | `langfuse/langfuse` + worker, ClickHouse, MinIO | Langfuse v3 autoalojado (analítica en ClickHouse, ficheros en MinIO, compatible con S3). | Perfil `observability`. |
 | `otel/opentelemetry-collector-contrib`, `jaegertracing/jaeger`, `prom/prometheus`, `grafana/grafana` | Stack de telemetría. | Perfil `telemetry`. |

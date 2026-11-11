@@ -4,7 +4,8 @@ Todo lo que se aplazó al cerrar cada fase: la implementación local está hecha
 la validación en la nube. **Todo tiene coste o crea recursos: pedir confirmación antes de cada paso.**
 Al completar uno, se marca `[x]` y se documenta el resultado en el doc de su fase.
 
-Orden recomendado: primero la fase 2 (credenciales y modelos), que desbloquea el resto.
+Orden recomendado: primero la fase 2 (credenciales y modelos), que desbloquea el resto. En GCP,
+antes la [fase 0](#fase-0) (proyecto, APIs y presupuesto).
 
 **Decisión de Azure (checkpoint 8→9):** región `swedencentral`, tiers gratuitos donde no recorten
 capacidades (Content Safety F0, plan gratuito del Semantic Ranker) y **AI Search Basic** (~70 €/mes
@@ -34,6 +35,26 @@ uv run python scripts/provision_foundry_iq.py --apply
 # Al terminar: search_enabled = false y
 terraform -chdir=infra/terraform/azure apply
 ```
+
+<a id="fase-0"></a>
+
+## Fase 0 · Cimientos: GCP ([doc](fase-0-cimientos.md#7-gcp-pasada-0g))
+
+Desbloquea todos los pendientes de GCP de las fases siguientes. Coste 0: APIs, presupuesto,
+cuentas de servicio y federación no se facturan.
+
+```powershell
+$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
+gcloud auth login ; gcloud auth application-default login     # ADC de usuario, sin claves JSON
+terraform -chdir=infra/terraform/gcp init
+terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
+```
+
+- [ ] **Cuenta y proyecto**: cuenta nueva con créditos de prueba, proyecto `headache-dev-<sufijo>` vinculado a la cuenta de facturación y `gcloud` aislado con `CLOUDSDK_CONFIG`. Anotar la moneda de la cuenta (el presupuesto la hereda).
+- [ ] **`terraform apply`** de `infra/terraform/gcp` con `terraform.tfvars` (copia de la plantilla): 15 APIs, presupuesto de 100 con alertas al 50/75/100 % sobre el gasto **bruto**, cuenta de servicio `headache-dev-app` con *impersonation* para el usuario y federación de GitHub Actions. Comprobar que llega el correo de prueba del canal de notificación.
+- [ ] **Suplantación desde local**: `GCP__IMPERSONATE_SERVICE_ACCOUNT` en el `.env` y `gcloud auth print-access-token --impersonate-service-account=<cuenta>` responde.
+- [ ] **Federación de la CI** (fase 15): workflow en `main` con `google-github-actions/auth` (`workload_identity_provider` y `service_account` de los outputs) y comprobar que un workflow de una PR **no** obtiene credenciales.
+- [ ] **Pub/Sub real frente al emulador** (con la 3.G1): el smoke test contra un tema real y anotar diferencias (p. ej., *dead-letter topic*, que el emulador puede no soportar).
 
 ## Fase 2 · Capa de modelos ([doc](fase-2-modelos.md))
 

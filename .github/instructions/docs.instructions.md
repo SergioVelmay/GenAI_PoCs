@@ -13,7 +13,7 @@ Misma estructura en todas las fases:
 2. Arquitectura con un diagrama Mermaid y una tabla de piezas (dónde vive cada cosa).
 3. Qué se construye (por subfase), con comandos ejecutables.
 4. Resultados medidos (tablas con números reales; si son de local o con embeddings `hashing`, decirlo).
-5. Comparativa **Azure ↔ AWS ↔ framework** (carriles A/B/C).
+5. Comparativa **Azure ↔ AWS ↔ GCP ↔ framework** (carriles A/B/C). En la pasada GCP, además, una sección "GCP (pasada N.G)" con lo construido, sus comandos y sus hallazgos.
 6. Decisiones y límites (para defenderlas).
 7. Pendiente con coste (enlazando a `docs/pendientes-cloud.md`).
 8. **Checkpoint de entrevista**: solo un enlace a la sección de la fase en `docs/preguntas-entrevista.md` (`preguntas-entrevista.md#fase-N`). Las preguntas viven **únicamente** en ese fichero.
@@ -23,7 +23,8 @@ Misma estructura en todas las fases:
 - Fichero único para preparar la entrevista de AI Technical Lead (50 % técnico, 50 % negocio y stakeholders). Una sección por fase con ancla `<a id="fase-N"></a>`, título `## Fase N · Tema ([doc](fase-N-...md))` y dos subsecciones: `### Técnicas` (4–5) y `### Negocio y stakeholders` (2–3).
 - Respuestas modelo de 2–4 frases, ancladas en lo construido (rutas, números medidos, hallazgos), sin depender de leer el doc de la fase.
 - Negocio: valor para Headache y KPI, coste y ROI, riesgos y mitigación, cómo contarlo a operaciones, Legal o dirección, priorización.
-- Nube: responder primero en AWS y dar el equivalente de Azure. Si aparece un servicio nuevo, añadirlo a la chuleta Azure → AWS.
+- Nube: responder primero en AWS y dar el equivalente de Azure (y el de GCP si aporta). Si aparece un servicio nuevo, añadirlo a la chuleta Azure → AWS → GCP.
+- Pasada GCP: lo de GCP de cada fase va en una subsección `### GCP (pasada N.G)` dentro de la sección de su fase, con preguntas técnicas y de negocio.
 - Preguntas generales de liderazgo que surjan van a la sección "Transversales".
 
 ## Estilo

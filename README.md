@@ -51,7 +51,7 @@ services/
   booking_agent/   el mismo agente en 7 sabores
   orchestrator/    multi-agente: triaje y especialistas (LangGraph, MAF, cola, A2A)
 evals/             golden datasets, evals de RAG, de agentes, multi-agente y tests de ataque
-infra/             Terraform (aws, azure), SQL de benchmark, config de emuladores
+infra/             Terraform (aws, azure, gcp), SQL de benchmark, config de emuladores
 scripts/           datos sintéticos, carga, benchmarks, aprovisionamiento (dry-run por defecto)
 docs/              un documento por fase, pendientes y lecciones aprendidas
 ```
@@ -76,7 +76,7 @@ uv run python -m rag_evals.redteam.report            # informe de red teaming (c
 ```
 
 Perfiles opcionales de Docker: `observability` (Langfuse), `sqs` (ElasticMQ), `servicebus`
-(emulador), `mcp` (servidores MCP), `agents` (especialistas A2A), `scale` (Redis 8 y workers
+(emulador), `pubsub` (emulador de Pub/Sub), `mcp` (servidores MCP), `agents` (especialistas A2A), `scale` (Redis 8 y workers
 autoescalables de la fase 10) y `telemetry` (collector de OpenTelemetry, Jaeger, Prometheus y
 Grafana de la fase 11). Todo lo que usa modelos o nube es explícito y tiene coste:
 ver [pendientes con coste](docs/pendientes-cloud.md).
@@ -100,18 +100,21 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 11 | Observabilidad: OpenTelemetry GenAI, propagación por colas y A2A, SLO y alertas como código, Langfuse, App Insights y X-Ray | ✅* | [fase-11](docs/fase-11-observabilidad.md) |
 | 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
-| G | Pasada GCP: Gemini, Pub/Sub, Vector Search, RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12 | Plan | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) |
+| G | Pasada GCP: Gemini, Pub/Sub, Vector Search, RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hecha la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) |
 | 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
 
 Preguntas de entrevista (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
-modelo y una chuleta Azure → AWS: [preguntas-entrevista.md](docs/preguntas-entrevista.md). Siglas,
+modelo y una chuleta Azure → AWS → GCP: [preguntas-entrevista.md](docs/preguntas-entrevista.md). Siglas,
 términos y librerías del proyecto: [glosario.md](docs/glosario.md).
 
 ## Calidad y CI
 
-GitHub Actions ejecuta en cada push: lint, formato, `mypy --strict`, tests, evals deterministas con
+`main` está protegida: los cambios llegan por PR (una por fase, fusionada con *merge commit* tras
+revisión) y solo si pasa el check `release-gate`, que resume todos los jobs de la CI.
+
+GitHub Actions ejecuta en cada PR y en cada merge a `main`: lint, formato, `mypy --strict`, tests, evals deterministas con
 gate contra un baseline, tests de ataque en los 7 sabores, evals multi-agente en los 3 motores,
 build de las imágenes MCP y de especialistas A2A, dashboard y reglas de alerta al día y probadas
 con `promtool`, configuración de los collectors de OpenTelemetry, validación de Terraform y tests de integración con PostgreSQL, RabbitMQ, Redis y SQS emulado. Sin secretos y sin coste.

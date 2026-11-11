@@ -29,6 +29,20 @@ azure = [
 aws = [
     "boto3>=1.38",
 ]
+# El módulo generativo de `vertexai` se retiró el 24-06-2026: Gemini se habla con `google-genai`
+# y `google-cloud-aiplatform` queda para RAG Engine, Agent Runtime, evaluación y experimentos.
+gcp = [
+    "google-cloud-aiplatform>=2.7",
+    "google-cloud-discoveryengine>=0.20",
+    "google-cloud-dlp>=3.40",
+    "google-cloud-modelarmor>=0.7",
+    "google-cloud-monitoring>=2.32",
+    "google-cloud-pubsub>=2.43",
+    "google-cloud-storage>=3.17",
+    # Hay 3.0, pero ADK 2.14 (sabor de la 7.G) exige `google-genai<3`: manda el techo del
+    # framework para que las tres nubes y los seis sabores quepan en un solo lock.
+    "google-genai>=2.34,<3",
+]
 gateway = [
     "litellm>=1.70",
 ]

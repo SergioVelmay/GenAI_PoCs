@@ -127,15 +127,19 @@ Job `integration` con servicios `pgvector/pgvector:pg17` y RabbitMQ: migraciones
 arriba (las `downgrade` también se prueban), `alembic check` (el ORM coincide con las migraciones),
 tests de integración y smoke test de carga + benchmark.
 
-## 7. Comparativa Azure ↔ AWS
+## 7. Comparativa Azure ↔ AWS ↔ GCP
 
-| Necesidad | Azure | AWS |
-|---|---|---|
-| PostgreSQL gestionado | Azure Database for PostgreSQL Flexible Server (pgvector como extensión) | Aurora PostgreSQL / RDS (pgvector) |
-| Escala de lectura | Réplicas de lectura | Réplicas de Aurora (hasta 15, endpoint lector) |
-| Analítica (consulta 05) | Fabric / Synapse, vistas materializadas | Redshift, Athena sobre S3, vistas materializadas |
-| Pool de conexiones | PgBouncer integrado en Flexible Server | RDS Proxy |
-| Autenticación sin contraseña | Entra ID | IAM database authentication |
+| Necesidad | Azure | AWS | GCP |
+|---|---|---|---|
+| PostgreSQL gestionado | Azure Database for PostgreSQL Flexible Server (pgvector como extensión) | Aurora PostgreSQL / RDS (pgvector) | Cloud SQL para PostgreSQL (pgvector) o AlloyDB (compatible con PostgreSQL, motor columnar para analítica) |
+| Escala de lectura | Réplicas de lectura | Réplicas de Aurora (hasta 15, endpoint lector) | Réplicas de lectura de Cloud SQL; *read pool* de AlloyDB |
+| Analítica (consulta 05) | Fabric / Synapse, vistas materializadas | Redshift, Athena sobre S3, vistas materializadas | BigQuery (con consultas federadas a Cloud SQL), vistas materializadas |
+| Pool de conexiones | PgBouncer integrado en Flexible Server | RDS Proxy | *Managed connection pooling* de Cloud SQL (edición Enterprise Plus) o PgBouncer propio |
+| Autenticación sin contraseña | Entra ID | IAM database authentication | Autenticación IAM de Cloud SQL (con el Cloud SQL Auth Proxy o los conectores) |
+
+**Pasada GCP (0.G):** la fase 1 es solo documental en GCP. El esquema, las migraciones, los
+bloqueos y la idempotencia son PostgreSQL estándar y el código no cambia: cambia la cadena de
+conexión. Cloud SQL / AlloyDB y su autenticación por IAM se despliegan en la fase 15.
 
 Frameworks: SQLAlchemy 2 async (Core para las sentencias críticas, ORM para el mapeo) y Alembic;
 alternativas habituales son SQLModel, asyncpg directo o Django ORM.

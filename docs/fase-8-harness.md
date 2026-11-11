@@ -124,6 +124,8 @@ Invariantes nuevos en la suite de agentes (además de los de la fase 7):
   - Si el proceso cae entre `APPROVED` y `EXECUTED`, la solicitud se concilia (no se reejecuta).
   - `refund_claims_grounded` solo mira el turno actual: criterio conservador (escala de más).
 
+<a id="7-resultados-en-azure-18-10-2026"></a>
+
 ## 7. Resultados en Azure (18-10-2026, ~0,07 $)
 
 **Text-to-SQL de operaciones** (`analytics_sql_demo.py`, PostgreSQL local con 3 M de pedidos):

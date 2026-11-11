@@ -1,10 +1,10 @@
 [project]
 name = "genai-pocs"
 version = "0.1.0"
-description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure y AWS"
+description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure, AWS y GCP"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[aws,azure,gateway,llamaindex,observability,postgres,rabbitmq,redis,retrieval,telemetry,tools]",
+    "headache-core[aws,azure,gateway,gcp,llamaindex,observability,postgres,rabbitmq,redis,retrieval,telemetry,tools]",
     "harness",
     "indexer",
     "ticketing-api",
@@ -110,6 +110,13 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["rank_bm25"]
 ignore_missing_imports = true
+
+# La capa de alto nivel de Pub/Sub (`google.cloud.pubsub_v1`: lotes, streaming pull, emulador por
+# PUBSUB_EMULATOR_HOST) no publica py.typed, pero su código sí está anotado: mypy lo analiza en
+# lugar de tratarlo como Any (el cliente generado `google.pubsub_v1` sí publica py.typed).
+[[tool.mypy.overrides]]
+module = ["google.cloud.pubsub_v1", "google.cloud.pubsub_v1.*", "google.cloud.pubsub", "google.cloud.pubsub.*"]
+follow_untyped_imports = true
 
 # Extra opcional `evals`: puede no estar instalado (CI). Se tratan como Any en ambos casos
 # para que mypy de el mismo resultado con y sin el extra.

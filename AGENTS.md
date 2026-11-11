@@ -15,11 +15,12 @@ y los procedimientos están en skills (`.github/skills/*/SKILL.md`). Visión gen
 ## Reglas obligatorias
 
 1. El cliente se llama **siempre "Headache"**: código, comentarios, datos, commits, docs y chat. **Nunca** el nombre de la empresa real en que se inspira ni marcas comerciales de terceros (tampoco en ejemplos ni datos sintéticos). El hook `pre-commit` lo comprueba.
-2. **Pedir confirmación** antes de: commit, push, crear recursos cloud, `terraform plan/apply`, cualquier acción con coste y cualquier acción destructiva (borrar ficheros o volúmenes, `docker compose down -v`, `git restore`/`reset`). "Revisado, haz commit y push" autoriza ese commit y ese push.
+2. **Pedir confirmación** antes de: commit, push, crear recursos cloud, `terraform plan/apply`, cualquier acción con coste y cualquier acción destructiva (borrar ficheros o volúmenes, `docker compose down -v`, `git restore`/`reset`). "Revisado, haz commit y push" autoriza ese commit y ese push **a la rama de trabajo**.
 3. **Nunca secretos** en el repo: `.env` en local (ignorado), `.secrets/` para claves de desarrollo, OIDC en CI, Managed Identity / IAM Roles en la nube.
 4. **Solo modelos cloud** (Azure AI Foundry, Amazon Bedrock y Gemini en Gemini Enterprise Agent Platform). Docker en local solo ejecuta infraestructura.
 5. **Local y sin coste primero.** Lo que necesite nube o tenga coste se implementa (código e IaC) pero su ejecución se aplaza a `docs/pendientes-cloud.md`. La fase queda `✅ Hecha*`.
 6. El LLM nunca toma decisiones de negocio: las toma el dominio (código determinista).
+7. **`main` está protegida** (ruleset `proteger-main`, sin bypass): nunca push directo a `main` ni merge de PRs. Se trabaja en una rama por fase y **Sergio revisa y fusiona la PR a mano**.
 
 ## Forma de trabajar
 
@@ -28,6 +29,7 @@ y los procedimientos están en skills (`.github/skills/*/SKILL.md`). Visión gen
 - Ritmo: una sesión por fase; subfases pequeñas; tras cada una, verificar y esperar el "revisado". Skills: `iniciar-fase`, `cerrar-subfase`, `cerrar-fase`, `explicar-concepto`.
 - Explorar y planificar antes de codificar cambios de varios ficheros. Ante una decisión de diseño con varias opciones razonables, preguntar con la opción recomendada primero.
 - Dar evidencia, no afirmaciones: salida de los tests, comando ejecutado, enlace a la ejecución de la CI.
+- **Ramas y PR** (desde la 0.G): una rama por fase desde `main` actualizada (`fase/<N>` o `fase/<N>-g`, p. ej. `fase/0-g`), un commit por subfase tras el "revisado" y una **PR en draft** abierta con el primer push (la CI corre en `pull_request`). Al cerrar la fase, la PR pasa a lista para revisión. `main` exige PR, el check `release-gate` y **merge commit** (squash y rebase desactivados: los docs citan hashes de commits que no deben reescribirse).
 - Tras cada push, **vigilar la CI hasta el final** e informar por job.
 - Al terminar de usarlos, detener contenedores y emuladores para ahorrar recursos (`docker compose --profile <p> stop`; sin `-v`).
 - Coste: modelos baratos por defecto; AI Search Free; sin OpenSearch Serverless (S3 Vectors o pgvector); EKS/AKS/GKE solo efímeros; Vector Search y RAG Engine efímeros; alertas de presupuesto. Presupuesto total: 200 $ Azure + 100 $ AWS + 100 $ GCP.
@@ -41,7 +43,7 @@ uv run pytest -m integration                                    # requiere docke
 uv run alembic -c packages/headache_core/alembic.ini upgrade head
 uv run python scripts/generate_synthetic_data.py --scale small  # datos en data/synthetic/ (no versionados)
 docker compose up -d                                            # PostgreSQL+pgvector, RabbitMQ
-docker compose --profile observability|sqs|servicebus|mcp|agents|scale up -d # Langfuse, colas, MCP, A2A, Redis
+docker compose --profile observability|sqs|servicebus|pubsub|mcp|agents|scale up -d # Langfuse, colas, MCP, A2A, Redis
 docker compose --profile telemetry up -d                        # collector, Jaeger :16686, Prometheus :9095, Grafana :3001
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_evals.llmops.prompts check ; uv run python -m rag_evals.llmops.drift --check   # fase 12 (coste 0)
@@ -78,8 +80,8 @@ uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_eval
 
 | Fase | Tema | Estado | GCP | Doc |
 |---|---|---|---|---|
-| 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha | 0.G | `docs/fase-0-cimientos.md` |
-| 1 | SQL avanzado + `ticketing_api` | ✅ Hecha | 0.G | `docs/fase-1-sql.md` |
+| 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha | ✅* | `docs/fase-0-cimientos.md` |
+| 1 | SQL avanzado + `ticketing_api` | ✅ Hecha | ✅* | `docs/fase-1-sql.md` |
 | 2 | Capa de modelos, LLM gateway, routing, prompt caching, coste | ✅ Hecha* | 2.G | `docs/fase-2-modelos.md` |
 | 3 | Indexación event-driven, 3 carriles × 2 nubes | ✅ Hecha* | 3.G | `docs/fase-3-comparativa.md` |
 | 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | 4.G | `docs/fase-4-retrieval.md` |
@@ -93,7 +95,7 @@ uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_eval
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (siguiente: 0.G) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hecha: 0.G; siguiente: 2.G) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | |
