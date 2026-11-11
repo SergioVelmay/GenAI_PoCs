@@ -249,8 +249,21 @@ jobs:
       POSTGRES__PASSWORD: headache-ci
       RABBITMQ__PASSWORD: headache-ci
       SQS__ENDPOINT_URL: http://127.0.0.1:9324
+      PUBSUB__EMULATOR_HOST: 127.0.0.1:8085
+      # Misma imagen que el perfil `pubsub` de docker-compose.yml.
+      PUBSUB_IMAGE: gcr.io/google.com/cloudsdktool/google-cloud-cli:593.0.0-emulators
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Pub/Sub emulado (fase 0.G3). Los services no admiten `command` y el emulador lo necesita
+      # (--host-port=0.0.0.0: por defecto escucha en el localhost del contenedor, inalcanzable desde
+      # el puerto publicado). La imagen pesa ~1,7 GB: se descarga y
+      # arranca en segundo plano mientras se instalan dependencias y se migra la base de datos.
+      - name: Arrancar el emulador de Pub/Sub (en segundo plano)
+        run: |
+          nohup docker run -d --name pubsub -p 127.0.0.1:8085:8085 "$PUBSUB_IMAGE" \
+            gcloud beta emulators pubsub start --project=headache-local --host-port=0.0.0.0:8085 \
+            > /tmp/pubsub-start.log 2>&1 &
 
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
@@ -267,6 +280,11 @@ jobs:
 
       - name: El modelo ORM coincide con las migraciones
         run: uv run alembic -c packages/headache_core/alembic.ini check
+
+      - name: Esperar al emulador de Pub/Sub
+        run: |
+          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8085 && exit 0; sleep 2; done
+          cat /tmp/pubsub-start.log; docker logs pubsub || true; exit 1
 
       - name: Tests de integración (concurrencia, bloqueos, idempotencia)
         run: uv run pytest -m integration

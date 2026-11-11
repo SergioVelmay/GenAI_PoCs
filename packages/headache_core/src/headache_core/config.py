@@ -99,8 +99,8 @@ class GeminiSettings(BaseModel):
 class PubSubSettings(BaseModel):
     """Pub/Sub (fase 3.G1). El emulador local se activa con `PUBSUB__EMULATOR_HOST`."""
 
-    # Vacío = Pub/Sub real con ADC. En local, 127.0.0.1:8085 (el emulador escucha en IPv6
-    # por defecto: se arranca con --host-port=0.0.0.0:8085).
+    # Vacío = Pub/Sub real con ADC. En local, 127.0.0.1:8085 (el emulador escucha por defecto
+    # en el localhost del contenedor: se arranca con --host-port=0.0.0.0:8085).
     emulator_host: str = ""
     # Vacío = el proyecto de `GCP__PROJECT`; el emulador acepta cualquiera.
     project: str = ""
