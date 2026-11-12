@@ -104,6 +104,17 @@ añade ~2 s por conexión).
 - Corpus de conocimiento (políticas, FAQs por ciudad, guías de recintos, fichas de evento y un
   manual largo) en JSONL y Markdown: la base de las fases 3–5.
 - Los pedidos se escriben en streaming: la escala `large` no cabe en memoria.
+- **Trampas intencionadas** para medir precisión: la apertura de puertas varía por ciudad (15, 30
+  o 45 min) y las ventanas de reembolso por categoría coinciden entre las políticas (RAG) y los
+  datos de los eventos (SQL), para comprobar que el agente responde lo mismo que la regla de dominio.
+  Cada email lleva `expected_intent`.
+- **Invariantes:** ningún pedido posterior a `--reference-date` (corregido en la fase 1). Al añadir
+  datos nuevos (fichas de evento en la 3.1) no se consume el RNG de las rutas existentes, para que
+  el resto de la salida con la misma semilla no cambie.
+- El `data/synthetic/` de trabajo está en escala `large`: para pruebas se genera `small` en otro
+  directorio, sin sobrescribirlo.
+- Python 3.12 y no 3.14 (la instalada en el equipo): varias librerías de GenAI no soportaban la
+  3.14 cuando se creó el repo. Revisarlo antes de subir de versión.
 
 ## 6. CI (GitHub Actions)
 

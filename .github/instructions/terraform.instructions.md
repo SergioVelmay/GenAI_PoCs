@@ -17,6 +17,14 @@ description: "Terraform para AWS, Azure y GCP: validación sin coste y recursos 
   `terraform fmt -check -recursive` · `terraform init -backend=false -input=false` · `terraform validate`.
   Usar `-check -recursive`, no solo `terraform fmt`: la CI de la 7.4 falló por eso.
 - `plan` y `apply` requieren credenciales y **confirmación explícita**; antes, revisar coste y presupuesto (alertas de presupuesto activas). EKS/AKS solo efímeros (`apply` → probar → `destroy`).
+  - Repetir `plan` justo antes de cada `apply` y comprobar que solo cambia lo aprobado.
+  - Antes del primer `plan` con modelos, comprobar versión y cuota en la región (`az cognitiveservices model list` / `usage list -l swedencentral`): `validate` no lo detecta.
+  - Un 401/403 justo después de asignar roles suele ser propagación: esperar unos minutos y repetir.
+  - El estado es **local** hasta la fase 14 (backend remoto): no borrar `terraform.tfstate`.
+  - Tiers gratuitos: uno por tipo de servicio y suscripción (Sergio ya tiene un AI Search Free en otra carga; Content Safety F0 puede chocar igual). El presupuesto del grupo se suma a los de la suscripción: pueden llegar dos avisos por el mismo gasto.
+  - Sergio agrupa en una sola sesión (normalmente de viernes a domingo) todo lo que necesita AI Search u otro recurso efímero, en lugar de encenderlo y apagarlo muchas veces.
+  - Coste real: Cost Management (Cost analysis, agrupado por *Meter* y día) / Cost Explorer; los datos tardan 8–24 h. El medidor de la aplicación sirve para cortar, no para informar.
+- Entra ID: si se pueden registrar apps se comprueba con `az rest` contra Graph (`authorizationPolicy.allowedToCreateApps`); las App Registrations van como código (`azuread`) en la fase 14, nunca a mano en el tenant.
 - Identidades sin secretos (Managed Identity / IAM Roles; OIDC en CI). Nada de claves en variables ni outputs no sensibles.
 - Lo que azurerm no gestiona se aprovisiona con scripts idempotentes con dry-run por defecto (`scripts/provision_*.py [--apply]`).
 - Recursos de vista previa en Azure con `azapi` y versión de API explícita.

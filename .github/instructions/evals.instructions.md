@@ -12,6 +12,11 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 - Corpus congelado `evals/corpus/knowledge.jsonl` (escala small, semilla 42) y golden `evals/datasets/golden-v1.jsonl` + `.meta.json` con el sha256 del corpus. Gold por `document_id` (cambiar el chunking no invalida el dataset).
 - Regenerar/verificar: `uv run python -m rag_evals.golden [--check]`. Un cambio de corpus exige versión nueva del dataset, no editar la existente.
 - Métricas puras en `headache_core/domain/evals.py` (hit rate, MRR, nDCG...), con sus tests.
+- `data/synthetic/` local de Sergio está en escala **large** (millones de pedidos para la fase 1): no regenerarlo sin preguntar. Para pruebas, `--scale small` en otro directorio. Al añadir datos al generador, no consumir más del RNG en las rutas existentes: con la misma semilla, el resto de la salida debe quedar idéntica. Trampas intencionadas del generador (no "arreglarlas"): la apertura de puertas varía por ciudad (15/30/45 min) y las ventanas de reembolso por categoría coinciden entre las políticas (RAG) y los eventos (SQL).
+
+## Informes regenerados
+
+Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran con `git restore`, con confirmación de Sergio; si cambian campos, resultados o baselines, entran en el commit de la subfase.
 
 ## Ejecutar (coste 0)
 

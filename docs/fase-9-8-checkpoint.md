@@ -69,7 +69,8 @@ bloquea el commit si lo preparado contiene un término de `.secrets/forbidden_te
 por Git, ~70 términos). Sin mayúsculas ni tildes, por palabra completa, y sin mostrar nunca el
 término. Verificado: bloquea un commit de prueba y el repo actual está limpio. El historial solo
 contiene cuatro nombres de artistas en títulos de la fase 0, ya sustituidos en la fase 1; se decidió
-no reescribirlo.
+no reescribirlo. Con el repo ya público, Sergio lo reconfirmó el 11-11-2026: se acepta, porque
+reescribir `main` rompería los hashes que citan los docs.
 
 ## 4. Conexión con Azure
 

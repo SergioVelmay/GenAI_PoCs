@@ -101,7 +101,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
 | G | Pasada GCP: Gemini, Pub/Sub, Vector Search, RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hecha la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) |
-| 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | |
+| 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | [plan de fases](docs/plan-fases.md) |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
 
@@ -121,13 +121,46 @@ con `promtool`, configuración de los collectors de OpenTelemetry, validación d
 
 ## Desarrollo con IA
 
-Las instrucciones para agentes de código están en [AGENTS.md](AGENTS.md) (también lo lee Claude Code
-a través de `CLAUDE.md`), con reglas por área en `.github/instructions/` y procedimientos en
-`.github/skills/`. Lo aprendido por el camino: [lecciones aprendidas](docs/lecciones-aprendidas.md).
+El repo funciona igual con GitHub Copilot y con Claude Code, y todo el contexto vive en él (nada
+depende de chats anteriores ni de la memoria privada de un agente):
 
-Activa el hook que impide subir términos prohibidos (una vez por clon):
+| Qué | Dónde | Copilot | Claude Code |
+|---|---|---|---|
+| Reglas que aplican siempre | [AGENTS.md](AGENTS.md) | Lo carga solo | Por `CLAUDE.md` (`@AGENTS.md`) |
+| Reglas por área | `.github/instructions/*.instructions.md` | Por `applyTo` | Por los punteros de `.claude/rules/` (generados con `scripts/sync_agent_rules.py`) |
+| Procedimientos (skills) | `.claude/skills/*/SKILL.md` | Sí (lee `.claude/skills`) | Sí |
+| Permisos y entorno | `.claude/settings.json` (versionado) y `.claude/settings.local.json` (personal) | — | Confirmación en commit, push, Terraform y borrados; `az`/`gcloud` aislados |
+| Plan de todas las fases | [docs/plan-fases.md](docs/plan-fases.md) | | |
+| Lo aprendido por el camino | [docs/lecciones-aprendidas.md](docs/lecciones-aprendidas.md) | | |
+
+### Sesiones de trabajo
+
+Una sesión por fase o por subfase, con un mensaje corto; la skill reconstruye el contexto desde el
+repo (plan, rama, PR draft, docs y CI):
+
+```text
+Vamos a por la 2.G de la pasada GCP. Usa la skill iniciar-fase.        # fase nueva (rama fase/2-g desde main)
+Seguimos con la 2.G. Usa la skill retomar-fase.                       # fase empezada, en sesión nueva
+revisado                                                              # commit + push + PR de la subfase
+dale                                                                  # empieza la subfase propuesta
+```
+
+Comprueba que la sesión arranca con el modelo Claude Opus más reciente y que, antes de implementar,
+propone el plan de subfases (o la siguiente subfase) y espera tu visto bueno.
+
+### Puesta en marcha de un clon
 
 ```powershell
-git config core.hooksPath .githooks
-# y crea .secrets/forbidden_terms.txt (ignorado por Git) con un término por línea
+git config core.hooksPath .githooks          # hook de términos prohibidos (una vez por clon)
+# crea .secrets/forbidden_terms.txt (ignorado por Git): un término por línea (nombre real del
+# cliente y sus variantes, marcas y medios, terceros); sin él el hook avisa y no bloquea
+git config --local user.email <tu email personal de GitHub>   # la identidad global no se toca
+```
+
+Para Claude Code, crea `.claude/settings.local.json` (ignorado) con las rutas absolutas de los
+perfiles aislados de las CLI:
+
+```json
+{ "env": { "AZURE_CONFIG_DIR": "C:\\Users\\<usuario>\\.azure-headache",
+           "CLOUDSDK_CONFIG": "C:\\Users\\<usuario>\\.gcloud-headache", "PYTHONUTF8": "1" } }
 ```

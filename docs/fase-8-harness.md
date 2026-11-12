@@ -117,8 +117,8 @@ Invariantes nuevos en la suite de agentes (además de los de la fase 7):
 - **La aprobación autoriza, no se salta la política**: el dominio vuelve a decidir al ejecutar.
 - Límites conocidos:
   - El escudo heurístico es fácil de esquivar por un atacante decidido; es la primera capa (y la
-    que corre en CI), no la única. La comparativa con Prompt Shields y Bedrock Guardrails sobre
-    los mismos ataques queda pendiente (coste).
+    que corre en CI), no la única. La comparativa con Prompt Shields sobre los mismos ataques
+    ya está hecha (§7); la de Bedrock Guardrails queda pendiente (coste).
   - Con un turno bloqueado, el hilo del framework conserva la respuesta descartada; el turno queda
     marcado para revisión.
   - Si el proceso cae entre `APPROVED` y `EXECUTED`, la solicitud se concilia (no se reejecuta).
