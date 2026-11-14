@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from enum import StrEnum
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import quote
 
-from pydantic import BaseModel, Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class LLMProvider(StrEnum):
@@ -124,8 +124,9 @@ class LLMGatewaySettings(BaseModel):
     # native: gateway propio (carril B). litellm: Router de LiteLLM (carril C).
     engine: Literal["native", "litellm"] = "native"
     router: Literal["heuristic", "llm"] = "heuristic"
-    # Proveedor al que saltar si el principal (`LLM_PROVIDER`) falla. None = sin fallback.
-    fallback_provider: LLMProvider | None = None
+    # Proveedores a los que saltar, en orden, si el principal (`LLM_PROVIDER`) falla (2.G2: con
+    # tres nubes, una cadena). En el entorno, separados por comas: `aws,gcp`. Vacío = sin fallback.
+    fallback_providers: Annotated[tuple[LLMProvider, ...], NoDecode] = ()
     max_retries: int = 2
     # Límites en cliente por despliegue; ajústalos a la cuota real (TPM) de tu suscripción.
     requests_per_minute: int = 30
@@ -138,6 +139,13 @@ class LLMGatewaySettings(BaseModel):
     circuit_reset_seconds: float = 30.0
     # Un Retry-After más largo no se espera: se salta de proveedor o se devuelve al cliente.
     max_retry_after_seconds: float = 5.0
+
+    @field_validator("fallback_providers", mode="before")
+    @classmethod
+    def _split_providers(cls, value: object) -> object:
+        if isinstance(value, str):
+            return tuple(part.strip() for part in value.split(",") if part.strip())
+        return value
 
 
 class PostgresSettings(BaseModel):
@@ -426,11 +434,11 @@ class Settings(BaseSettings):
         return self.pubsub.project or self.gcp.project
 
     def provider_chain(self) -> list[LLMProvider]:
-        """Proveedor principal seguido del de respaldo (si lo hay)."""
-        fallback = self.llm_gateway.fallback_provider
+        """Proveedor principal seguido de los de respaldo, en orden y sin repetir ninguno."""
         chain = [self.llm_provider]
-        if fallback is not None and fallback is not self.llm_provider:
-            chain.append(fallback)
+        for provider in self.llm_gateway.fallback_providers:
+            if provider not in chain:
+                chain.append(provider)
         return chain
 
 

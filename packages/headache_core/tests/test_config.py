@@ -28,12 +28,12 @@ def test_secrets_are_masked_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_empty_values_fall_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AZURE_OPENAI__API_KEY", "")
-    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "")
 
     settings = Settings(_env_file=None)
 
     assert settings.azure_openai.api_key is None
-    assert settings.llm_gateway.fallback_provider is None
+    assert settings.llm_gateway.fallback_providers == ()
 
 
 def test_a2a_settings_have_one_audience_per_specialist(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,15 +115,34 @@ def test_semantic_cache_threshold_is_calibrated_unless_set(
 
 def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "azure")
-    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws")
 
     assert Settings(_env_file=None).provider_chain() == [LLMProvider.AZURE, LLMProvider.AWS]
+
+
+def test_provider_chain_spans_three_clouds_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2.G2: una cadena, no un único respaldo. El principal o un repetido no se duplican."""
+    monkeypatch.setenv("LLM_PROVIDER", "azure")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws, gcp,azure,aws")
+
+    assert Settings(_env_file=None).provider_chain() == [
+        LLMProvider.AZURE,
+        LLMProvider.AWS,
+        LLMProvider.GCP,
+    ]
+
+
+def test_unknown_fallback_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws,nube-x")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
 
 
 def test_gcp_is_a_provider_like_the_other_two(monkeypatch: pytest.MonkeyPatch) -> None:
     """La pasada GCP empieza por aquí: el enum y el fallback ya admiten la tercera nube."""
     monkeypatch.setenv("LLM_PROVIDER", "gcp")
-    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws")
     monkeypatch.setenv("GCP__PROJECT", "headache-dev")
     monkeypatch.setenv("GEMINI__CHEAP_CHAT_MODEL", "gemini-3.1-flash-lite")
     monkeypatch.setenv("GEMINI__THINKING_LEVEL", "medium")

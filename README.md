@@ -135,8 +135,9 @@ depende de chats anteriores ni de la memoria privada de un agente):
 
 ### Sesiones de trabajo
 
-Una sesión por fase o por subfase, con un mensaje corto; la skill reconstruye el contexto desde el
-repo (plan, rama, PR draft, docs y CI):
+Una sesión por fase con todas sus subfases (un commit por subfase, una PR por fase), con un
+mensaje corto; la skill reconstruye el contexto desde el repo (plan, rama, PR draft, docs y CI).
+Sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 % o se sigue otro día:
 
 ```text
 Vamos a por la 2.G de la pasada GCP. Usa la skill iniciar-fase.        # fase nueva (rama fase/2-g desde main)

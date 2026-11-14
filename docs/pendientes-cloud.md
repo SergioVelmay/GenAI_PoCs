@@ -82,6 +82,8 @@ terraform -chdir=infra/terraform/gcp plan     # solo debe añadir roles/aiplatfo
 - [ ] **Prueba de humo** con `LLM_PROVIDER=gcp`: `gemini-4-hydrogen` y `gemini-3.5-flash-lite` responden en `global`; anotar el `model_version` real, los tokens de razonamiento con `thinking_level=low` y si `eu` sirve los dos modelos.
 - [ ] **Tools con firma**: un bucle de dos pasos con llamadas en paralelo (`scripts/tool_loop_demo.py`) y otro con historial de Azure (fallback a mitad de conversación) para ver el valor ficticio aceptado. Capturar las respuestas reales y sustituir los dobles de `test_gemini_adapter.py`.
 - [ ] **Precios en Agent Platform**: confirmar los de `pricing.py` (se tomaron de la Developer API) y el recargo de `eu`.
+- [ ] **Gateway con tres nubes** (2.G2): `llm_gateway_demo.py --limit 20` con `LLM_PROVIDER=gcp` en los dos motores (`native` y `litellm`) y comparar acierto, enrutado y coste con los de Azure; después, la cadena `LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp` forzando un fallo del principal (p. ej., un despliegue inexistente) y ver en Langfuse el salto.
+- [ ] **LiteLLM con firmas reales**: un bucle de tools con `LLM_GATEWAY__ENGINE=litellm` y Gemini, para confirmar que la firma separada del id (`provider_specific_fields`) es la que LiteLLM devuelve a Gemini, y el aviso de temperatura en el log.
 
 ## Fase 3 · Indexación ([doc](fase-3-comparativa.md))
 

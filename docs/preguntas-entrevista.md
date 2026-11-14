@@ -280,6 +280,13 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    (`skip_thought_signature_validator`) para ese caso, que el adaptador pone solo en la primera
    llamada de cada paso (duplicarla también da 400). Es un "último recurso" que degrada algo el
    razonamiento, pero mantiene vivo el fallback, que es lo que importa en una caída.
+4. **¿Cómo encadenas tres nubes en el fallback y qué cambia entre tu gateway y LiteLLM?** Una
+   lista ordenada (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`). Cada eslabón tiene su propio
+   breaker y su cuota. Un 429 salta al siguiente sin reintentar; un 5xx se reintenta con backoff y
+   después salta. En LiteLLM es la misma cadena declarada como *fallbacks* del Router. La
+   diferencia que encontré fue la firma de Gemini: LiteLLM la mete dentro del id de la llamada para
+   clientes OpenAI, y un id de 100 caracteres en base64 rompe el salto a Bedrock, que solo acepta
+   `[a-zA-Z0-9_-]`. Por eso el adaptador la saca a `ToolCall.signature`, igual que en el carril B.
 3. **¿Por qué el adaptador de Gemini ignora la temperatura?** Porque los modelos actuales (3.5+ y
    Gemini 4) la ignoran y Google anuncia que la rechazará. Lo comprobé en la documentación antes de
    escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran

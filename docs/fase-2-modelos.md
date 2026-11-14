@@ -134,7 +134,7 @@ local con `docker compose --profile observability up -d`.
 | Variable | Uso |
 |---|---|
 | `LLM_PROVIDER=azure\|aws\|gcp` | Proveedor principal |
-| `LLM_GATEWAY__FALLBACK_PROVIDER` | Proveedor de respaldo (vacío = sin fallback) |
+| `LLM_GATEWAY__FALLBACK_PROVIDERS` | Cadena de respaldo en orden, separada por comas (`aws,gcp`; vacío = sin fallback) |
 | `LLM_GATEWAY__ENGINE=native\|litellm`, `LLM_GATEWAY__ROUTER=heuristic\|llm` | Motor y clasificador |
 | `LLM_GATEWAY__MAX_RETRIES`, `__REQUESTS_PER_MINUTE`, `__TOKENS_PER_MINUTE` | Reintentos y límites (ajustar a la cuota real) |
 | `AZURE_OPENAI__ENDPOINT`, `__CHAT_DEPLOYMENT`, `__CHEAP_CHAT_DEPLOYMENT` | Azure (sin `API_KEY` ⇒ Entra ID) |
@@ -203,7 +203,7 @@ trazas y coste funcionen igual con las tres nubes. Coste 0: todo se prueba con d
 | Subfase | Commit | Qué |
 |---|---|---|
 | 2.G1 | (pendiente) | Adaptador `GeminiLLM`, *thought signatures* en el puerto, precios y rol de IAM |
-| 2.G2 | — | Gateway con tres proveedores, fallback en cadena y LiteLLM `vertex_ai/` |
+| 2.G2 | (pendiente) | Gateway con tres proveedores, fallback en cadena y LiteLLM `vertex_ai/` |
 | 2.G3 | — | Caché implícita frente a explícita (`CachedContent`) y benchmark `--provider gcp` |
 
 ### 10.1 Verificación previa (14-11-2026)
@@ -257,6 +257,50 @@ terraform -chdir=infra/terraform/gcp validate   # roles/aiplatform.user para hea
   salvo `prefix_mismatch_behavior="DROP"` en `ThinkingConfig`, que el SDK 2.34 aún no expone
   (habría que mandarlo por `extra_body`). Afecta al context engineering de la 7.G1.
 
+### 10.3 Gateway con tres proveedores (2.G2)
+
+```mermaid
+flowchart LR
+  R["RoutingLLM"] --> F["FallbackLLM"]
+  F -->|"1.º"| AZ["Azure OpenAI"]
+  F -->|"2.º"| BR["Bedrock"]
+  F -->|"3.º"| GE["Gemini"]
+```
+
+- **Cadena de respaldo:** `LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp` (antes
+  `FALLBACK_PROVIDER`, de un solo valor). `provider_chain()` pone el principal delante y no repite
+  ninguno; cada eslabón lleva su pila de resiliencia (breaker, bulkhead, cuota, trazas). Un 429
+  salta al siguiente sin reintentar; un 5xx se reintenta con backoff y después salta
+  (`test_fallback_walks_a_chain_of_three_clouds`).
+- **Carril C (LiteLLM):** `vertex_ai/<modelo>` con `vertex_project` y `vertex_location`
+  (credenciales por ADC), o `gemini/<modelo>` con clave si `GEMINI__ENTERPRISE=false`. El
+  `thinking_level` de cada tier viaja como `reasoning_effort` del despliegue, que LiteLLM traduce
+  al `thinkingLevel` de Gemini. Los *fallbacks* del Router son la misma cadena por tier
+  (`azure-cheap → [aws-cheap, gcp-cheap]`).
+- **Firmas en LiteLLM:** las incrusta en el id de la llamada (`<id>__thought__<firma>`, pensado para
+  clientes OpenAI) y en `provider_specific_fields`. `LiteLLMGateway` las separa: el id limpio va a
+  `ToolCall.id` y la firma a `ToolCall.signature`, como en el carril B. Un id con ~100 caracteres
+  de base64 rompería el salto a Bedrock, que solo admite `[a-zA-Z0-9_-]`. Al reenviar, la firma va
+  en `provider_specific_fields`, donde LiteLLM la busca (comprobado con su propia conversión a
+  Gemini en `test_litellm_gateway.py`), y solo si existe: a Azure no le llega ningún campo extra.
+- **Trazas y coste:** sin cambios. `ObservedLLM` ya etiqueta cada *generation* con
+  `provider`/`tier` y `llm_gateway_demo.py` imprime la cadena y el coste por ruta, así que Langfuse
+  muestra `gcp:strong` igual que `azure:strong`.
+
+```powershell
+$env:LLM_PROVIDER="azure"; $env:LLM_GATEWAY__FALLBACK_PROVIDERS="aws,gcp"
+uv run python scripts/llm_gateway_demo.py --limit 20                  # con coste: pedir confirmación
+$env:LLM_GATEWAY__ENGINE="litellm"; uv run python scripts/llm_gateway_demo.py --limit 20
+```
+
+**Límites del carril C:**
+
+- LiteLLM reenvía la temperatura del puerto con un aviso de parámetro obsoleto (el modelo la
+  ignora). En el carril B no se envía.
+- No aplica `GCP__IMPERSONATE_SERVICE_ACCOUNT`, porque solo acepta credenciales en JSON y no un
+  objeto. Suplanta quien configure ADC (`gcloud auth application-default login
+  --impersonate-service-account=...`), y el adaptador lo avisa en el log.
+
 ## 11. Pendiente con coste (validación en cloud)
 
 - [x] Azure: Foundry con `gpt-4.1-mini` y `gpt-4.1-nano`, benchmark de caché, demo del gateway con
@@ -264,7 +308,8 @@ terraform -chdir=infra/terraform/gcp validate   # roles/aiplatform.user para hea
 - [ ] AWS: `aws configure sso`, habilitar Claude Haiku 4.5 y Nova Lite en Bedrock (`eu-west-1`) y
   repetir ambos scripts con `--provider aws` (comparar `cachePoint` explícito frente a la caché
   automática de Azure y el coste de escritura de Claude).
-- [ ] Fallback real entre proveedores (`LLM_GATEWAY__FALLBACK_PROVIDER=aws`), cuando haya AWS.
+- [ ] Fallback real entre proveedores (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`), cuando haya
+  AWS y GCP.
 - [ ] Valorar migrar Langfuse a la imagen v4 en la fase 11.
 - [ ] GCP: prueba de humo de los dos modelos de Gemini y respuestas reales capturadas para
   sustituir los dobles ([pendientes](pendientes-cloud.md#fase-2-gcp)).

@@ -33,7 +33,7 @@ def test_gateway_wires_up_without_network(engine: str) -> None:
             endpoint="https://x.openai.azure.com", api_key=SecretStr("k")
         ),
         llm_gateway=LLMGatewaySettings.model_validate(
-            {"engine": engine, "fallback_provider": "aws"}
+            {"engine": engine, "fallback_providers": "aws"}
         ),
     )
 
@@ -56,32 +56,39 @@ def test_judge_is_pinned_to_its_own_deployment() -> None:
     assert isinstance(build_judge_llm(settings, tracer=NullTracer()), FallbackLLM)
 
 
-def test_gcp_builds_gemini_for_each_tier() -> None:
-    settings = Settings(
+def _three_clouds(engine: str) -> Settings:
+    return Settings(
         _env_file=None,
         llm_provider=LLMProvider.GCP,
         gcp=GcpSettings(project="headache-dev"),
+        azure_openai=AzureOpenAISettings(
+            endpoint="https://x.openai.azure.com", api_key=SecretStr("k")
+        ),
+        llm_gateway=LLMGatewaySettings.model_validate(
+            {"engine": engine, "fallback_providers": "azure,aws"}
+        ),
     )
+
+
+def test_gcp_builds_gemini_for_each_tier() -> None:
+    settings = _three_clouds("native")
 
     for tier in ModelTier:
         assert isinstance(build_provider_llm(settings, LLMProvider.GCP, tier), GeminiLLM)
+
+
+@pytest.mark.parametrize("engine", ["native", "litellm"])
+def test_gateway_wires_up_the_three_clouds(engine: str) -> None:
+    settings = _three_clouds(engine)
+
+    assert settings.provider_chain() == [LLMProvider.GCP, LLMProvider.AZURE, LLMProvider.AWS]
     assert isinstance(build_gateway(settings, tracer=NullTracer()), RoutingLLM)
 
 
 def test_gcp_fails_loudly_where_its_adapter_does_not_exist_yet() -> None:
     """El riesgo no es el error, es el silencio: sin este corte, `gcp` construiría Bedrock."""
-    settings = Settings(
-        _env_file=None,
-        llm_provider=LLMProvider.GCP,
-        gcp=GcpSettings(project="headache-dev"),
-        llm_gateway=LLMGatewaySettings.model_validate({"engine": "litellm"}),
-    )
-
-    with pytest.raises(LLMError, match=r"2\.G2"):
-        build_gateway(settings, tracer=NullTracer())
-
     with pytest.raises(LLMError, match=r"5\.G1"):
-        build_judge_provider_llm(settings, LLMProvider.GCP)
+        build_judge_provider_llm(_three_clouds("native"), LLMProvider.GCP)
 
 
 def test_without_langfuse_keys_nothing_is_traced() -> None:

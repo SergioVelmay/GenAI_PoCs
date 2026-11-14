@@ -43,7 +43,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 ## Sesiones y contexto
 
 - **El contexto vive en el repo, nunca en el chat ni en la memoria del agente**: plan (`docs/plan-fases.md`), estado (tabla de abajo), subfases de la fase en curso (cuerpo de su PR draft), lo hecho (`docs/fase-N-*.md`), el porqué de las reglas (`docs/lecciones-aprendidas.md`). Lo que aprendas y deba sobrevivir a la sesión se escribe ahí, no en una memoria privada.
-- Una sesión por fase o por subfase: cada una arranca con `iniciar-fase` (fase nueva) o `retomar-fase` (fase empezada) y termina con el commit de la subfase. Mensajes de arranque en `README.md` ("Sesiones de trabajo").
+- **Una sesión por fase**, con todas sus subfases: arranca con `iniciar-fase` (fase nueva), sigue subfase a subfase en la misma sesión (un commit por subfase como mínimo, todos en la **PR de la fase**) y termina con `cerrar-fase`. Solo se abre una sesión nueva con `retomar-fase` si el contexto pasa del ~70 % o la fase se retoma otro día. Mensajes de arranque en `README.md` ("Sesiones de trabajo").
 - Modelo: el Claude Opus más reciente. Si la sesión arranca en automático o cambia sola de modelo, parar antes de implementar y avisar.
 - Exportaciones de chats antiguos: **nunca** dentro del repo (contienen el nombre real).
 
