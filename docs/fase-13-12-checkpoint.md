@@ -121,7 +121,7 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **7.G · Agentes** (la más grande: dos sesiones)
 
-- 7.G1: puente `bridges/adk.py` (un `BaseLlm` de ADK que llama a nuestro `LLMPort`, tools por `JournaledExecutor`) y sabor `adk`: 14 escenarios, paridad de tools, invariantes y context engineering (compactación propia frente a la de ADK).
+- 7.G1: puente `bridges/adk.py` (un `BaseLlm` de ADK que llama a nuestro `LLMPort`, tools por `JournaledExecutor`) y sabor `adk`: 14 escenarios, paridad de tools, invariantes y context engineering (compactación propia frente a la de ADK). **Heredado de la 2.G:** que los puentes de los sabores (LangChain, LlamaIndex, MAF, Strands) conserven `ToolCall.signature` al reconstruir el historial, y que la compactación con Gemini 4 envíe `prefix_mismatch_behavior="DROP"` (el SDK 2.34 no lo expone: `extra_body`).
 - 7.G2: sabor `agentplatform` (Agent Runtime con emulador local que **avisa** cuando no toca la nube) y `adapters/memory_bank.py` (`CheckpointStore` con Sessions y `PreferenceStore` con Memory Bank); Terraform `agent_platform.tf`.
 - 7.G3: *spike* de la Managed Agents API; baselines, informes y ataques con **9 sabores**.
 
@@ -136,7 +136,7 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **10.G · Escala**
 
-- 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar).
+- 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).
 - 10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.
 
 **11.G · Observabilidad**

@@ -5,7 +5,8 @@ por `LLMPort` y por un **gateway** que decide modelo, reintenta, cambia de prove
 calcula el coste de cada llamada. Los agentes de las fases 6–8 heredan todo esto sin saberlo.
 
 Commits: `be68163 feat: fase 2 - capa de modelos, LLM gateway, model routing y prompt caching` y
-`1f87a99 docs: cierre de la fase 2 con validación en cloud pendiente`.
+`1f87a99 docs: cierre de la fase 2 con validación en cloud pendiente`. Pasada GCP (Gemini como
+tercer proveedor): `7b000cd`, `2beec92` y `ea14f4e`, detalle en la [sección 10](#10-gcp-pasada-2g).
 
 ## 1. Arquitectura: capas de cebolla
 
@@ -120,7 +121,8 @@ pagar almacenamiento por hora (2.G3).
 Carril A (gestionado): **APIM como AI Gateway** (`azure-openai-token-limit`, `emit-token-metric`,
 backends con balanceo y *circuit breaker*, caché semántica) y en AWS **cross-region inference
 profiles** + cuotas de Bedrock (no hay un gateway gestionado equivalente a APIM; se usa API Gateway
-o LiteLLM desplegado).
+o LiteLLM desplegado). En GCP, el **endpoint `global`** reparte la capacidad entre regiones y las
+cuotas de tokens llegan con **Agent Gateway** (en preview; se monta en la 6.G2) o con Apigee.
 
 ## 7. Observabilidad
 
@@ -203,9 +205,13 @@ trazas y coste funcionen igual con las tres nubes. Coste 0: todo se prueba con d
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 2.G1 | (pendiente) | Adaptador `GeminiLLM`, *thought signatures* en el puerto, precios y rol de IAM |
-| 2.G2 | (pendiente) | Gateway con tres proveedores, fallback en cadena y LiteLLM `vertex_ai/` |
-| 2.G3 | (pendiente) | Caché implícita frente a explícita (`CachedContent`) y benchmark `--provider gcp` |
+| 2.G1 | `7b000cd` | Adaptador `GeminiLLM`, *thought signatures* en el puerto, precios y rol de IAM |
+| 2.G2 | `2beec92` | Gateway con tres proveedores, fallback en cadena y LiteLLM `vertex_ai/` |
+| 2.G3 | `ea14f4e` | Caché implícita frente a explícita (`CachedContent`) y benchmark `--provider gcp` |
+
+Resultados: solo locales (dobles construidos desde la documentación; suite completa en verde). Las
+medidas reales (caché, gateway, firmas) están en [pendientes](pendientes-cloud.md#fase-2-gcp) y se
+anotarán aquí, como los [resultados en Azure](#resultados-en-azure-18-10-2026).
 
 ### 10.1 Verificación previa (14-11-2026)
 
@@ -371,6 +377,12 @@ cifras reales saldrán del benchmark en la nube.
   del context engineering de la fase 7).
 - **El estado opaco del proveedor viaja en el puerto** (`ToolCall.signature`), no en un canal
   aparte: el historial es el único sitio que sobrevive a reintentos, fallback y checkpoints.
+- **Fallback como cadena ordenada**, no como "un respaldo": con tres nubes, el orden es una
+  decisión de negocio (coste, residencia de datos, calidad medida) y se cambia por configuración.
+- **Una optimización de coste nunca tumba una petición**: si la caché explícita no se puede crear,
+  se sigue con la implícita y se avisa en el log.
+- **Verificar modelos y API al empezar, no al planificar**: el plan de GCP tenía cinco días y los
+  modelos que nombraba ya no eran válidos.
 
 ## 13. Checkpoint de entrevista
 

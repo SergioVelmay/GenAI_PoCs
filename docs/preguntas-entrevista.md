@@ -35,7 +35,8 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 |---|---|---|---|
 | Unidad de aislamiento y facturación | Suscripción + grupo de recursos | Cuenta (Organizations) | **Proyecto**: facturación, cuotas, APIs e IAM cuelgan de él |
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
-| Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (endpoint `global` o regional) |
+| Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
+| Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus), Vertex AI Search (respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Vector Search, Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
@@ -307,6 +308,17 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    subidas), el coste se mide por petición y cambiar de modelo es configuración, no un proyecto.
    Antes de cambiar, las evals de la fase 5 dicen si el modelo alternativo mantiene la calidad, así
    que la decisión se toma con datos de coste y calidad, no por miedo a la factura.
+2. **Dirección pregunta: ¿tres proveedores de modelos no es complicarse?** El código de negocio
+   solo conoce un puerto, así que el tercer proveedor ha sido un adaptador más (tres subfases sin
+   tocar casos de uso). A cambio, el asistente de Headache sigue respondiendo si una nube se cae o
+   agota su cuota, y negociamos precios con alternativas reales. Lo que sí cuesta es operarlo:
+   tres cuotas, tres facturas y evals que validen cada modelo. Por eso en producción dejaría AWS
+   como principal y las otras dos como respaldo, no reparto de tráfico.
+3. **¿Cómo explicas la caché de prompts a Finanzas?** Como un descuento por repetir: el manual de
+   políticas que acompaña a cada pregunta se cobra entero la primera vez y un 90 % más barato las
+   siguientes. En una nube el descuento es automático pero no garantizado; en otra lo garantizas
+   pagando un pequeño "alquiler" por hora. Decidimos con el benchmark, por volumen: con tráfico
+   continuo, el descuento automático basta.
 
 <a id="fase-3"></a>
 

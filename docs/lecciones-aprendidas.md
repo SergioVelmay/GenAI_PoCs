@@ -91,6 +91,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Qué pasó | Causa | Regla |
 |---|---|---|
 | Carril A de Azure en la fase 4 | Microsoft retiró *On Your Data* el 14-10-2026 | Antes de diseñar sobre un servicio gestionado, comprobar su estado (retiradas, previews) en la documentación oficial |
+| Los modelos del plan de GCP (09-11-2026) ya no eran IDs válidos al empezar la 2.G (14-11-2026): salió Gemini 4 y 3 Flash pasó a *legacy*; además, Gemini 4 ignora `temperature` y no admite caché explícita | La gama de modelos cambia en días, y cada modelo trae restricciones propias | Fijar modelos, precios y parámetros admitidos **al empezar la subfase**, con la página de cada modelo, nunca desde el plan. Los valores por defecto de `config.py` son la fuente; el plan solo orienta |
 | `strands-agents` exige `mcp<2.2` (fase 7) | Conflicto de versiones entre frameworks | Documentar el pin y el motivo en el `pyproject.toml` y en las instrucciones |
 | AgentCore Memory rechazaba ids (fase 7) | `sessionId` solo admite `[a-zA-Z0-9-_]` | Derivar ids externos con hash; probar con `Stubber`, que valida los patrones |
 | PostgreSQL comprueba permisos antes que `READ ONLY` (fase 8) | Son dos capas independientes | Defensa en profundidad: cada capa debe funcionar sola |
