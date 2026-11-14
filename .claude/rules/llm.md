@@ -5,6 +5,7 @@ paths:
   - "packages/headache_core/src/headache_core/ports/llm.py"
   - "packages/headache_core/src/headache_core/adapters/azure_openai.py"
   - "packages/headache_core/src/headache_core/adapters/bedrock.py"
+  - "packages/headache_core/src/headache_core/adapters/gemini.py"
   - "packages/headache_core/src/headache_core/adapters/litellm_gateway.py"
   - "packages/headache_core/src/headache_core/adapters/llm_factory.py"
   - "packages/headache_core/src/headache_core/adapters/langfuse_tracer.py"

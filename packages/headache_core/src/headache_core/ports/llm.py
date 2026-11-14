@@ -1,4 +1,4 @@
-"""Puerto de modelos de lenguaje: Azure OpenAI, Bedrock y LiteLLM lo implementan igual."""
+"""Puerto de modelos de lenguaje: Azure OpenAI, Bedrock, Gemini y LiteLLM lo implementan igual."""
 
 from __future__ import annotations
 
@@ -24,6 +24,10 @@ class ToolCall:
     name: str
     # JSON crudo tal como lo generó el modelo: puede ser inválido y se valida al ejecutar.
     arguments: str
+    # Estado opaco del razonamiento del modelo (base64) que hay que devolverle en el turno
+    # siguiente: la *thought signature* de Gemini 3/4 (sin ella, 400). Los demás proveedores no
+    # la generan y la ignoran; en texto para que el historial siga siendo JSON serializable.
+    signature: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -40,6 +40,13 @@ DEFAULT_PRICES: Mapping[str, ModelPrice] = {
     "amazon.nova-pro": _p("0.80", "3.20", "0.20"),
     "anthropic.claude-haiku-4-5": _p("1.00", "5.00", "0.10", "1.25"),
     "anthropic.claude-sonnet-4-5": _p("3.00", "15.00", "0.30", "3.75"),
+    # Gemini (endpoint `global`, hasta 200 K tokens; `eu` ~+10 %), verificado el 14-11-2026. La
+    # caché implícita no cobra escritura. Ya con las subidas anunciadas: Argon pasa de 2/10 el
+    # 1-12-2026 y 3.8 Flash de 0,75/3,75 el 1-1-2027 (la validación en la nube será después).
+    "gemini-4-hydrogen": _p("1.50", "7.50", "0.075"),
+    "gemini-4-argon": _p("4.00", "20.00", "0.20"),
+    "gemini-3.8-flash": _p("1.50", "7.50", "0.15"),
+    "gemini-3.5-flash-lite": _p("0.30", "2.50", "0.03"),
 }
 
 

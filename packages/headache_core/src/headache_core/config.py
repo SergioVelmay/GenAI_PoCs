@@ -14,9 +14,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMProvider(StrEnum):
     AZURE = "azure"
     AWS = "aws"
-    # Pasada GCP: declarado desde la 0.G1 para que el enum, el fallback y la configuración ya
-    # lo nombren; el adaptador de Gemini llega en la 2.G1 y hasta entonces el factory falla
-    # con un mensaje explícito en vez de caer de forma silenciosa en otro proveedor.
+    # Pasada GCP: Gemini desde la 2.G1. Lo que aún no tiene adaptador (juez, embeddings...)
+    # falla con un mensaje explícito en vez de caer de forma silenciosa en otro proveedor.
     GCP = "gcp"
     # Fase 10.7: proveedor simulado para pruebas de carga (latencia y cuota realistas, coste 0).
     SIMULATED = "simulated"
@@ -78,22 +77,35 @@ class GcpSettings(BaseModel):
     impersonate_service_account: str = ""
 
 
+# Profundidad de razonamiento de Gemini 3+/4 (sustituye a `thinking_budget`). Vacío = el valor
+# por defecto del modelo. Cada modelo admite un subconjunto: `minimal` da 400 en Gemini 4.
+type ThinkingLevel = Literal["", "minimal", "low", "medium", "high"]
+
+
 class GeminiSettings(BaseModel):
     """Modelos de Gemini (fase 2.G1). El acceso es con `google-genai`, nunca con
     `vertexai.generative_models` (retirado el 24-06-2026)."""
 
-    # True = Vertex AI (el proyecto paga y manda IAM). False = la Gemini API con clave.
-    use_vertex: bool = True
-    # `global` sirve modelos que una región concreta puede no tener; se fija en la 2.G1.
+    # True = Gemini Enterprise Agent Platform (antes Vertex AI): el proyecto paga y manda IAM.
+    # False = la Gemini Developer API con clave (solo desarrollo).
+    enterprise: bool = True
+    # `global` sirve todos los modelos y es el más barato; `eu` (multirregión, ~+10 %) garantiza
+    # residencia de datos en la UE. Gemini 4 no se sirve en regiones sueltas como europe-west4.
     location: str = "global"
-    # Vacío = ADC. Solo para la Gemini API fuera de Vertex (desarrollo).
+    # Solo para la Gemini Developer API (enterprise=false); con Agent Platform se deja vacío.
     api_key: SecretStr | None = None
-    # Modelo potente (por defecto) y modelo barato para el model routing.
-    chat_model: str = "gemini-3.1-pro"
-    cheap_chat_model: str = "gemini-3-flash"
+    # Modelo potente (por defecto) y modelo barato para el model routing (verificado 14-11-2026).
+    chat_model: str = "gemini-4-hydrogen"
+    cheap_chat_model: str = "gemini-3.5-flash-lite"
+    # Por defecto, Hydrogen piensa en `high` (salida más cara y lenta) y Flash-Lite en `minimal`
+    # (puede cortar antes de tiempo un bucle de tools). `low` en los dos: se calibra en la nube.
+    thinking_level: ThinkingLevel = "low"
+    cheap_thinking_level: ThinkingLevel = "low"
     embedding_model: str = "gemini-embedding-001"
-    # Juez de evals: distinto del generador (sesgo de autopreferencia).
-    judge_model: str = "gemini-3.1-pro"
+    # Juez de evals: distinto y más capaz que el generador (sesgo de autopreferencia); 5.G1.
+    judge_model: str = "gemini-4-argon"
+    # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
+    timeout_seconds: float = 120.0
 
 
 class PubSubSettings(BaseModel):

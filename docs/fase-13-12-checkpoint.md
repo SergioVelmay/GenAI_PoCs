@@ -50,7 +50,7 @@ Data*) y que sus librerías conviven con las nuestras:
 |---|---|
 | Vertex AI se presenta ahora como **Gemini Enterprise Agent Platform**: Agent Engine pasa a **Agent Runtime**, con Sessions, Memory Bank, Example Store, Evaluation Service, Agent Gateway, Agent Registry y Agent Identity | Usar los nombres nuevos en docs y código; los recursos de Terraform y las rutas del SDK pueden conservar el nombre antiguo (verificar en cada subfase) |
 | El módulo generativo del SDK de Vertex (`vertexai.generative_models`, `caching`...) **se retiró el 24-06-2026** | Todo el acceso a Gemini con **`google-genai`**; `google-cloud-aiplatform` solo para RAG Engine, Agent Runtime, evaluación y experimentos |
-| Modelos actuales: **Gemini 3 Flash** y **Gemini 3.1 Pro** | Barato/potente del router; el nombre exacto y los precios se fijan en la 2.G1 |
+| Modelos actuales: **Gemini 3 Flash** y **Gemini 3.1 Pro** | Barato/potente del router; el nombre exacto y los precios se fijan en la 2.G1. **Corregido en la 2.G1 (14-11-2026):** la gama ya era Gemini 4 y 3.x Flash; se eligen `gemini-4-hydrogen` / `gemini-3.5-flash-lite` ([fase 2](fase-2-modelos.md#10-gcp-pasada-2g)) |
 | **Vector Search** se paga por VMs que sirven el índice (mínimo del orden de < 100 $/mes) | Carril B efímero, igual que AI Search: `vector_search_enabled` solo durante las sesiones |
 | **RAG Engine** guarda los vectores en un Spanner gestionado que se factura; GA en `europe-west3/4`, lista de acceso en `us-central1` y `europe-west1` | Región `europe-west4`; elegir el tier más barato y apagar al terminar |
 | **Agent Gateway** gobierna tráfico usuario↔agente, agente↔MCP y agente↔agente, con Model Armor, políticas de IAM, *semantic governance* y cuotas de tokens (algunas en preview) | Equivalente de AgentCore Gateway / APIM en las fases 6 y 10 |
@@ -95,8 +95,9 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **2.G · Modelos y gateway**
 
-- 2.G1: `adapters/gemini.py` con `google-genai` (**2.x**: la 0.G1 lo fijó en `>=2.34,<3` porque ADK 2.14 exige `<3`; verificar las *thought signatures* contra esa versión, no contra la 3.0), sustituyendo el corte `unsupported_provider` de `llm_factory.py`: chat, tools (incluidas las *thought signatures* que Gemini 3 pide devolver en el siguiente turno; comprobarlo al empezar), salida estructurada, `StreamingLLMPort`, uso con tokens cacheados, mapeo de errores (429 → `LLMRateLimitError`, safety → `LLMContentFilterError`, 503, *deadline*). Precios en la tabla versionada.
-- 2.G2: gateway con tres proveedores (routing barato/potente, fallback en cadena), LiteLLM con `vertex_ai/`, Langfuse; caché implícita frente a explícita (`CachedContent` con TTL y coste de almacenamiento) en `llm_cache_benchmark.py --provider gcp`.
+- 2.G1: `adapters/gemini.py` con `google-genai` (**2.x**: la 0.G1 lo fijó en `>=2.34,<3` porque ADK 2.14 exige `<3`; verificar las *thought signatures* contra esa versión, no contra la 3.0), sustituyendo el corte `unsupported_provider` de `llm_factory.py`: chat, tools (incluidas las *thought signatures* que Gemini 3 pide devolver en el siguiente turno; comprobarlo al empezar), salida estructurada, `StreamingLLMPort`, uso con tokens cacheados, mapeo de errores (429 → `LLMRateLimitError`, safety → `LLMContentFilterError`, 503, *deadline*). Precios en la tabla versionada. **Al empezar (14-11-2026)** cambió el plan: `ToolCall.signature` en el puerto, modelos `gemini-4-hydrogen` / `gemini-3.5-flash-lite`, `GEMINI__ENTERPRISE` en lugar de `USE_VERTEX`, `thinking_level` por tier y sin temperatura, y `roles/aiplatform.user` en Terraform.
+- 2.G2: gateway con tres proveedores (routing barato/potente, fallback en cadena; `fallback_provider` solo admite uno, hay que decidir cómo encadenar tres), LiteLLM con `vertex_ai/` (comprobar cómo pasa las firmas), Langfuse y `llm_gateway_demo.py` con GCP.
+- 2.G3 (nueva al partir la 2.G2): caché implícita frente a explícita (`CachedContent` con TTL y coste de almacenamiento por hora) en `llm_cache_benchmark.py --provider gcp`. Hydrogen no admite la explícita: se mide con el modelo barato.
 
 **3.G · Indexación**
 

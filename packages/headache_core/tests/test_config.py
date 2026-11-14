@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from headache_core.config import LLMProvider, Settings
 
@@ -124,15 +125,27 @@ def test_gcp_is_a_provider_like_the_other_two(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("LLM_PROVIDER", "gcp")
     monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
     monkeypatch.setenv("GCP__PROJECT", "headache-dev")
-    monkeypatch.setenv("GEMINI__CHEAP_CHAT_MODEL", "gemini-3-flash-lite")
+    monkeypatch.setenv("GEMINI__CHEAP_CHAT_MODEL", "gemini-3.1-flash-lite")
+    monkeypatch.setenv("GEMINI__THINKING_LEVEL", "medium")
 
     settings = Settings(_env_file=None)
 
     assert settings.provider_chain() == [LLMProvider.GCP, LLMProvider.AWS]
     assert (settings.gcp.project, settings.gcp.region) == ("headache-dev", "europe-west4")
-    assert settings.gemini.cheap_chat_model == "gemini-3-flash-lite"
+    gemini = settings.gemini
+    assert gemini.cheap_chat_model == "gemini-3.1-flash-lite"
+    assert (gemini.thinking_level, gemini.cheap_thinking_level) == ("medium", "low")
+    # Agent Platform en el endpoint `global` por defecto; la clave solo para la Developer API.
+    assert (gemini.enterprise, gemini.location, gemini.api_key) == (True, "global", None)
     # El juez no puede ser el mismo modelo que genera (sesgo de autopreferencia).
-    assert settings.gemini.judge_model != settings.gemini.cheap_chat_model
+    assert gemini.judge_model not in {gemini.chat_model, gemini.cheap_chat_model}
+
+
+def test_gemini_rejects_an_unknown_thinking_level(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GEMINI__THINKING_LEVEL", "xhigh")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
 
 
 def test_pubsub_falls_back_to_the_gcp_project(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -265,6 +265,35 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    de 20 emails fueron al modelo barato con un 100 % de acierto. Y un router "inteligente" con otro
    LLM tomó las mismas decisiones a un 42 % más de coste: lo sencillo ganó, y lo demuestro con datos.
 
+### GCP (pasada 2.G)
+
+**Técnicas**
+
+1. **¿Qué tuviste que cambiar en el puerto para añadir Gemini?** Un campo: `ToolCall.signature`.
+   Gemini 3 y 4 devuelven una *thought signature*, un estado opaco de su razonamiento, en la
+   primera llamada a tool de cada paso, y si no se la devuelves en el turno siguiente responde 400.
+   El SDK lo hace solo si reenvías sus objetos, pero nuestro historial es neutro (`ChatMessage`),
+   así que la firma tiene que viajar en él: es lo único que sobrevive a reintentos, fallback y
+   checkpoints. Va en base64 para que el historial siga siendo JSON.
+2. **¿Qué pasa si el gateway salta a Gemini a mitad de una conversación que empezó en Azure?** Las
+   llamadas de Azure no tienen firma y Gemini daría 400. Google documenta un valor ficticio
+   (`skip_thought_signature_validator`) para ese caso, que el adaptador pone solo en la primera
+   llamada de cada paso (duplicarla también da 400). Es un "último recurso" que degrada algo el
+   razonamiento, pero mantiene vivo el fallback, que es lo que importa en una caída.
+3. **¿Por qué el adaptador de Gemini ignora la temperatura?** Porque los modelos actuales (3.5+ y
+   Gemini 4) la ignoran y Google anuncia que la rechazará. Lo comprobé en la documentación antes de
+   escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran
+   *legacy*. Lo que se controla es `thinking_level`, por tier, porque el razonamiento se factura
+   como salida: Hydrogen piensa en `high` por defecto y eso multiplica coste y latencia.
+
+**Negocio y stakeholders**
+
+1. **Google duplica los precios de dos modelos en las próximas semanas. ¿Qué haces?** Es el riesgo
+   de proveedor que justifica el gateway: los precios viven en una tabla versionada (ya con las
+   subidas), el coste se mide por petición y cambiar de modelo es configuración, no un proyecto.
+   Antes de cambiar, las evals de la fase 5 dicen si el modelo alternativo mantiene la calidad, así
+   que la decisión se toma con datos de coste y calidad, no por miedo a la factura.
+
 <a id="fase-3"></a>
 
 ## Fase 3 · Indexación event-driven ([doc](fase-3-comparativa.md))

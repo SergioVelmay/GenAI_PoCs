@@ -40,20 +40,22 @@ adaptador traduce los suyos; el gateway solo conoce estos.
 > máxima en `RateLimitedLLM` (backpressure), `Retry-After` y presupuesto de tiempo (`time_budget`).
 > Detalle en el doc de la fase 10.
 
-## 2. Los dos proveedores
+## 2. Los proveedores
 
-| Aspecto | Azure OpenAI (Foundry) | Bedrock Converse |
-|---|---|---|
-| SDK | `openai` (`AsyncAzureOpenAI`) | `boto3` `bedrock-runtime` (síncrono → `asyncio.to_thread`) |
-| Autenticación | Entra ID: `DefaultAzureCredential` + token provider (sin claves) | Perfil de AWS SSO (`BEDROCK__PROFILE`) / IAM Role |
-| Modelos (strong / cheap) | `gpt-4.1-mini` / `gpt-4.1-nano` | Claude Haiku 4.5 / Nova Lite (perfiles de inferencia `eu.`) |
-| Prompt caching | **Automático** para prefijos idénticos ≥ 1024 tokens; no se marca ni se desactiva; se lee en `prompt_tokens_details.cached_tokens` | **Explícito**: bloque `cachePoint` al final del prefijo estable; informa `cacheWriteInputTokens` y `cacheReadInputTokens` |
-| Tokens de entrada | Incluyen los cacheados | Excluyen lo leído/escrito en caché: el adaptador los suma (semántica OpenAI) |
-| Structured outputs | `response_format` JSON Schema en modo `strict` | Tool use forzado (portable entre Claude y Nova) o `outputConfig` nativo |
+| Aspecto | Azure OpenAI (Foundry) | Bedrock Converse | Gemini en Agent Platform (2.G) |
+|---|---|---|---|
+| SDK | `openai` (`AsyncAzureOpenAI`) | `boto3` `bedrock-runtime` (síncrono → `asyncio.to_thread`) | `google-genai` 2.x, `client.aio.models` (asíncrono nativo) |
+| Autenticación | Entra ID: `DefaultAzureCredential` + token provider (sin claves) | Perfil de AWS SSO (`BEDROCK__PROFILE`) / IAM Role | ADC + *impersonation* de `headache-dev-app` (`roles/aiplatform.user`), sin claves |
+| Modelos (strong / cheap) | `gpt-4.1-mini` / `gpt-4.1-nano` | Claude Haiku 4.5 / Nova Lite (perfiles de inferencia `eu.`) | `gemini-4-hydrogen` / `gemini-3.5-flash-lite` (endpoint `global`) |
+| Prompt caching | **Automático** para prefijos idénticos ≥ 1024 tokens; no se marca ni se desactiva; se lee en `prompt_tokens_details.cached_tokens` | **Explícito**: bloque `cachePoint` al final del prefijo estable; informa `cacheWriteInputTokens` y `cacheReadInputTokens` | **Implícito** (≥ 4096 tokens, *best-effort*, sin coste de escritura) y **explícito** con `CachedContent` (2.G3; Hydrogen no lo admite) |
+| Tokens de entrada | Incluyen los cacheados | Excluyen lo leído/escrito en caché: el adaptador los suma (semántica OpenAI) | Incluyen los cacheados; los de razonamiento se suman a la **salida** |
+| Structured outputs | `response_format` JSON Schema en modo `strict` | Tool use forzado (portable entre Claude y Nova) o `outputConfig` nativo | `response_json_schema` + `application/json` |
+| Estado entre turnos | — | — | ***Thought signature*** en la primera `functionCall` de cada paso: hay que devolverla (si no, 400) |
+| Temperatura | Se respeta | Se respeta | **Ignorada** en 3.5+ y Gemini 4 (no se envía); se controla `thinking_level` |
 
 `ChatMessage(cache_checkpoint=True)` marca dónde termina el prefijo estable: en Bedrock se convierte
-en `cachePoint`; en Azure no hace nada (ya cachea solo). El mismo código de aplicación aprovecha la
-caché de ambos.
+en `cachePoint`; en Azure y en la caché implícita de Gemini no hace nada (cachean solos). El mismo
+código de aplicación aprovecha la caché de los tres.
 
 ## 3. Structured outputs
 
@@ -96,10 +98,14 @@ cacheada y escritura en caché; coincidencia por el prefijo más largo
 | `gpt-4.1-mini` | 0,40 | 1,60 | 0,10 | = entrada |
 | `amazon.nova-lite` | 0,06 | 0,24 | 0,015 | = entrada |
 | `anthropic.claude-haiku-4-5` | 1,00 | 5,00 | 0,10 | 1,25 |
+| `gemini-3.5-flash-lite` | 0,30 | 2,50 | 0,03 | = entrada (la implícita no cobra escritura) |
+| `gemini-4-hydrogen` | 1,50 | 7,50 | 0,075 | = entrada (la implícita no cobra escritura) |
 
 Precios orientativos (revisar la página oficial: cambian y varían por región). Lección clave: en
 Azure la caché es un 75 % más barata y gratis de escribir; en Claude es un 90 % más barata pero
-**escribir cuesta un 25 % más**, así que solo compensa si el prefijo se reutiliza.
+**escribir cuesta un 25 % más**, así que solo compensa si el prefijo se reutiliza. En Gemini la
+implícita es un 90–95 % más barata y gratis, pero no está garantizada; la explícita sí, a cambio de
+pagar almacenamiento por hora (2.G3).
 
 ## 6. Dos motores de gateway (carriles B y C)
 
@@ -127,12 +133,14 @@ local con `docker compose --profile observability up -d`.
 
 | Variable | Uso |
 |---|---|
-| `LLM_PROVIDER=azure\|aws` | Proveedor principal |
+| `LLM_PROVIDER=azure\|aws\|gcp` | Proveedor principal |
 | `LLM_GATEWAY__FALLBACK_PROVIDER` | Proveedor de respaldo (vacío = sin fallback) |
 | `LLM_GATEWAY__ENGINE=native\|litellm`, `LLM_GATEWAY__ROUTER=heuristic\|llm` | Motor y clasificador |
 | `LLM_GATEWAY__MAX_RETRIES`, `__REQUESTS_PER_MINUTE`, `__TOKENS_PER_MINUTE` | Reintentos y límites (ajustar a la cuota real) |
 | `AZURE_OPENAI__ENDPOINT`, `__CHAT_DEPLOYMENT`, `__CHEAP_CHAT_DEPLOYMENT` | Azure (sin `API_KEY` ⇒ Entra ID) |
 | `BEDROCK__REGION`, `__PROFILE`, `__CHAT_MODEL_ID`, `__CHEAP_CHAT_MODEL_ID` | Bedrock |
+| `GCP__PROJECT`, `__IMPERSONATE_SERVICE_ACCOUNT` | Proyecto y cuenta de servicio a suplantar |
+| `GEMINI__ENTERPRISE`, `__LOCATION`, `__CHAT_MODEL`, `__CHEAP_CHAT_MODEL`, `__THINKING_LEVEL`, `__CHEAP_THINKING_LEVEL`, `__TIMEOUT_SECONDS` | Gemini (sin `API_KEY` con Agent Platform) |
 | `LANGFUSE__HOST`, `__PUBLIC_KEY`, `__SECRET_KEY` | Trazas |
 
 ## 9. Scripts (con coste; pedir confirmación)
@@ -187,7 +195,69 @@ minuto: las 5 llamadas sin caché agotaron el minuto y la siguiente devolvió 42
    `LLM_GATEWAY__TOKENS_PER_MINUTE` por debajo de la capacidad (150 K, 25 % de margen): el *token
    bucket* admite una ráfaga del tamaño del cubo **más** la recarga, y Azure cuenta por ventana.
 
-## 10. Pendiente con coste (validación en cloud)
+## 10. GCP (pasada 2.G)
+
+**Objetivo:** Gemini como tercer proveedor detrás del mismo `LLMPort`, para que routing, fallback,
+trazas y coste funcionen igual con las tres nubes. Coste 0: todo se prueba con dobles.
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 2.G1 | (pendiente) | Adaptador `GeminiLLM`, *thought signatures* en el puerto, precios y rol de IAM |
+| 2.G2 | — | Gateway con tres proveedores, fallback en cadena y LiteLLM `vertex_ai/` |
+| 2.G3 | — | Caché implícita frente a explícita (`CachedContent`) y benchmark `--provider gcp` |
+
+### 10.1 Verificación previa (14-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Modelos | Los del plan (`gemini-3.1-pro`, `gemini-3-flash`) no eran IDs válidos: la gama es Gemini 4 (`carbon`, `argon`, `hydrogen`), 3.8 Flash, 3.5 y 3.1 Flash-Lite; 3 Flash es *legacy* | `gemini-4-hydrogen` (GA desde el 12-11-2026) / `gemini-3.5-flash-lite`, los que Google recomienda para proyectos nuevos; juez provisional `gemini-4-argon` (5.G1). Plan B: `gemini-3.8-flash` |
+| Precios | Argon dobla el 1-12-2026 y 3.8 Flash el 1-1-2027 | La tabla ya lleva los precios nuevos |
+| Regiones | Gemini 4 solo en `global` y en las multirregiones `us`/`eu` | `GEMINI__LOCATION=global`; `eu` (~+10 %) es la respuesta de residencia de datos para Headache |
+| SDK | `google-genai` 2.34 (3.3 publicada; ADK 2.14 exige `<3`). `Client(enterprise=True)` sustituye a `vertexai=True`. Sin `retry_options` hace un solo intento. Si `aiohttp` está instalado, lo usa en asíncrono | `GEMINI__USE_VERTEX` → `GEMINI__ENTERPRISE`; errores de transporte de `httpx` **y** `aiohttp` |
+| *Thought signatures* | Gemini 3/4 dan 400 si no se devuelve la firma de la primera `functionCall` de cada paso; duplicarla también da 400. Para historial de otro modelo, `skip_thought_signature_validator` ("último recurso") | `ToolCall.signature` en el puerto |
+| Muestreo | Hydrogen y 3.5+ **ignoran** `temperature`/`top_p`/`top_k` y Google anuncia 400 en generaciones futuras | El adaptador no los envía |
+| Razonamiento | Hydrogen piensa en `high` por defecto y rechaza `minimal`; Flash-Lite piensa en `minimal`, que puede cortar un bucle de tools antes de tiempo | `thinking_level=low` en los dos, por tier; se calibra en la nube |
+| Caché | Implícita desde 4096 tokens; Hydrogen **no admite** la explícita | La 2.G3 mide la explícita con el modelo barato |
+
+### 10.2 Adaptador `GeminiLLM` (2.G1)
+
+`adapters/gemini.py`, con `adapters/gcp_auth.py` (ADC + *impersonation*, compartido con las fases
+siguientes de la pasada):
+
+- **Mensajes:** los `SYSTEM` van a `system_instruction`; `ASSISTANT` → turno `model` con su texto y
+  sus `functionCall`; los `TOOL` consecutivos (llamadas en paralelo) se agrupan en un único turno
+  `user` de `functionResponse`, en orden y con `id` y `name` (el nombre se recupera del historial).
+  La salida va en `{"output": ...}` y un fallo en `{"error": ...}`, la convención de Gemini.
+- ***Thought signatures*:** la firma (bytes) viaja en base64 en `ToolCall.signature`, para que el
+  historial siga siendo JSON (`agentcore_memory` lo serializa con `asdict`). Al reenviar el
+  historial se coloca solo en la primera llamada de cada paso. Si falta (historial de Azure o
+  Bedrock tras un fallback a mitad de conversación), se pone el valor ficticio documentado.
+- **Uso y coste:** entrada = `prompt_token_count` (ya incluye los cacheados) + tokens de tools
+  integradas; salida = respuesta + razonamiento (`thoughts_token_count`), que también consume
+  `max_output_tokens`. Las partes `thought` no forman parte del texto.
+- **Errores:** 429 → `LLMRateLimitError` con `retry_after` desde `RetryInfo.retryDelay`;
+  408/5xx (incluido 504 `DEADLINE_EXCEEDED`) y errores de transporte → `LLMTransientError`;
+  `block_reason` (incluido `MODEL_ARMOR`) o `finish_reason` de seguridad → `LLMContentFilterError`;
+  `MALFORMED_FUNCTION_CALL` → transitorio (suele salir al repetir); credenciales → `LLMError`.
+- **Streaming:** `generate_content_stream`; la firma puede llegar en una parte de texto vacía al
+  final, que no se emite.
+
+```powershell
+uv run pytest packages/headache_core/tests/test_gemini_adapter.py packages/headache_core/tests/test_llm_factory.py
+terraform -chdir=infra/terraform/gcp validate   # roles/aiplatform.user para headache-dev-app
+```
+
+**Límites conocidos** (se abordan cuando toca):
+
+- Las firmas de las partes de **texto** finales no se conservan (el puerto no las transporta). Google
+  no las valida (sin 400), pero avisa de que perderlas degrada el razonamiento entre turnos.
+- Los puentes de los sabores de framework (fase 7) reconstruyen `ToolCall` sin firma: con Gemini
+  caerían en el valor ficticio. Se resuelve en la 7.G1.
+- En Gemini 4 la firma va ligada al prefijo: **compactar** el historial con el mismo modelo da 400
+  salvo `prefix_mismatch_behavior="DROP"` en `ThinkingConfig`, que el SDK 2.34 aún no expone
+  (habría que mandarlo por `extra_body`). Afecta al context engineering de la 7.G1.
+
+## 11. Pendiente con coste (validación en cloud)
 
 - [x] Azure: Foundry con `gpt-4.1-mini` y `gpt-4.1-nano`, benchmark de caché, demo del gateway con
   los dos motores y trazas en Langfuse (resultados arriba).
@@ -196,8 +266,10 @@ minuto: las 5 llamadas sin caché agotaron el minuto y la siguiente devolvió 42
   automática de Azure y el coste de escritura de Claude).
 - [ ] Fallback real entre proveedores (`LLM_GATEWAY__FALLBACK_PROVIDER=aws`), cuando haya AWS.
 - [ ] Valorar migrar Langfuse a la imagen v4 en la fase 11.
+- [ ] GCP: prueba de humo de los dos modelos de Gemini y respuestas reales capturadas para
+  sustituir los dobles ([pendientes](pendientes-cloud.md#fase-2-gcp)).
 
-## 11. Decisiones (para defenderlas)
+## 12. Decisiones (para defenderlas)
 
 - **Gateway como decoradores del puerto**: cada responsabilidad se prueba aislada y el orden es
   explícito (el rate limit va por proveedor, debajo del fallback; las trazas registran cada intento).
@@ -208,8 +280,10 @@ minuto: las 5 llamadas sin caché agotaron el minuto y la siguiente devolvió 42
   petición (`CostMeter` en las evals de la fase 5) y comparar proveedores.
 - **Prefijo estable primero** en los prompts: condición para que cualquier caché funcione (la base
   del context engineering de la fase 7).
+- **El estado opaco del proveedor viaja en el puerto** (`ToolCall.signature`), no en un canal
+  aparte: el historial es el único sitio que sobrevive a reintentos, fallback y checkpoints.
 
-## 12. Checkpoint de entrevista
+## 13. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 2](preguntas-entrevista.md#fase-2).

@@ -1,5 +1,5 @@
 ---
-applyTo: "packages/headache_core/src/headache_core/application/llm/**,packages/headache_core/src/headache_core/application/tools/**,packages/headache_core/src/headache_core/ports/llm.py,packages/headache_core/src/headache_core/adapters/azure_openai.py,packages/headache_core/src/headache_core/adapters/bedrock.py,packages/headache_core/src/headache_core/adapters/litellm_gateway.py,packages/headache_core/src/headache_core/adapters/llm_factory.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py,packages/headache_core/src/headache_core/adapters/ticketing_*.py,scripts/llm_*.py,scripts/tool_loop_demo.py"
+applyTo: "packages/headache_core/src/headache_core/application/llm/**,packages/headache_core/src/headache_core/application/tools/**,packages/headache_core/src/headache_core/ports/llm.py,packages/headache_core/src/headache_core/adapters/azure_openai.py,packages/headache_core/src/headache_core/adapters/bedrock.py,packages/headache_core/src/headache_core/adapters/gemini.py,packages/headache_core/src/headache_core/adapters/litellm_gateway.py,packages/headache_core/src/headache_core/adapters/llm_factory.py,packages/headache_core/src/headache_core/adapters/langfuse_tracer.py,packages/headache_core/src/headache_core/adapters/ticketing_*.py,scripts/llm_*.py,scripts/tool_loop_demo.py"
 description: "Capa de modelos, LLM gateway y tool calling manual (fases 2 y 6.1)."
 ---
 
@@ -19,7 +19,8 @@ Doc: `docs/fase-2-modelos.md`, `docs/fase-6-tools-mcp.md`.
 - Errores tipados `LLMError` → `LLMTransientError` (`retry_after`) → `LLMRateLimitError` / `LLMOverloadedError` / `LLMDeadlineExceededError`; cada adaptador traduce los suyos.
 - Trazas (fase 11.1): `build_tracer` usa `TelemetryLLMTracer` (span OTel `chat {modelo}` con la convención GenAI, coste y `langfuse.observation.type=generation`) si `TELEMETRY__EXPORTER` no es `none`; si no, el SDK de Langfuse si hay claves. Nunca los dos (Langfuse ya recibe los spans por el collector). Contenido solo con `TELEMETRY__CAPTURE_CONTENT=true`, redactado.
 - Coste con `application/llm/pricing.py` (`PriceTable`, prefijo más largo). Un modelo nuevo necesita su precio (entrada, salida, cacheada, escritura).
-- Prompt caching: `ChatMessage(cache_checkpoint=True)` al final del prefijo estable (Bedrock `cachePoint`; Azure automático ≥ 1024 tokens). Prefijo estable primero, siempre.
+- Prompt caching: `ChatMessage(cache_checkpoint=True)` al final del prefijo estable (Bedrock `cachePoint`; Azure automático ≥ 1024 tokens; Gemini implícito ≥ 4096). Prefijo estable primero, siempre.
+- Gemini (2.G1, `adapters/gemini.py`, `google-genai` 2.x por el techo de ADK): `ToolCall.signature` lleva la *thought signature* (base64) y hay que conservarla en todo historial que se reconstruya (puentes, checkpoints); sin ella, el adaptador pone `skip_thought_signature_validator` en la primera llamada del paso (duplicarla da 400). No se envía `temperature` (ignorada en 3.5+/4); se controla `GEMINI__THINKING_LEVEL` por tier. Credenciales con `adapters/gcp_auth.py` (ADC + *impersonation*).
 - Structured outputs: `complete_structured` (strict en Azure, tool use forzado en Bedrock) con reintento con feedback; `StructuredResult.responses` para el coste real.
 
 ## Tool calling (6.1)

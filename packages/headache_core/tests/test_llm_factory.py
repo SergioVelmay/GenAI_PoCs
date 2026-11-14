@@ -4,15 +4,18 @@ import pytest
 from pydantic import SecretStr
 
 from headache_core.adapters.azure_openai import AzureOpenAILLM
+from headache_core.adapters.gemini import GeminiLLM
 from headache_core.adapters.llm_factory import (
     build_gateway,
     build_judge_llm,
     build_judge_provider_llm,
+    build_provider_llm,
     build_tracer,
 )
-from headache_core.application.llm import FallbackLLM, NullTracer, RoutingLLM
+from headache_core.application.llm import FallbackLLM, ModelTier, NullTracer, RoutingLLM
 from headache_core.config import (
     AzureOpenAISettings,
+    GcpSettings,
     LangfuseSettings,
     LLMGatewaySettings,
     LLMProvider,
@@ -53,16 +56,28 @@ def test_judge_is_pinned_to_its_own_deployment() -> None:
     assert isinstance(build_judge_llm(settings, tracer=NullTracer()), FallbackLLM)
 
 
-@pytest.mark.parametrize("engine", ["native", "litellm"])
-def test_gcp_fails_loudly_until_its_adapter_exists(engine: str) -> None:
+def test_gcp_builds_gemini_for_each_tier() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_provider=LLMProvider.GCP,
+        gcp=GcpSettings(project="headache-dev"),
+    )
+
+    for tier in ModelTier:
+        assert isinstance(build_provider_llm(settings, LLMProvider.GCP, tier), GeminiLLM)
+    assert isinstance(build_gateway(settings, tracer=NullTracer()), RoutingLLM)
+
+
+def test_gcp_fails_loudly_where_its_adapter_does_not_exist_yet() -> None:
     """El riesgo no es el error, es el silencio: sin este corte, `gcp` construiría Bedrock."""
     settings = Settings(
         _env_file=None,
         llm_provider=LLMProvider.GCP,
-        llm_gateway=LLMGatewaySettings.model_validate({"engine": engine}),
+        gcp=GcpSettings(project="headache-dev"),
+        llm_gateway=LLMGatewaySettings.model_validate({"engine": "litellm"}),
     )
 
-    with pytest.raises(LLMError, match=r"2\.G"):
+    with pytest.raises(LLMError, match=r"2\.G2"):
         build_gateway(settings, tracer=NullTracer())
 
     with pytest.raises(LLMError, match=r"5\.G1"):

@@ -66,6 +66,23 @@ terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 - [ ] AWS: repetir ambos scripts con `--provider aws` y probar el fallback entre proveedores.
 - [ ] Langfuse local sigue en la imagen `langfuse:3` (OSS v3, parches de seguridad hasta 31-01-2027). El SDK Python v4 es compatible (servidor ≥ 3.63.0). Valorar migrar a la imagen v4 en la fase 11. Ojo: las APIs de lectura nuevas del SDK v4 (`api.observations`, `api.metrics`) necesitan servidor v4; contra el v3 se usa `api.legacy.observations_v1`.
 
+<a id="fase-2-gcp"></a>
+
+### GCP (pasada 2.G)
+
+Requiere la [fase 0 de GCP](#fase-0) (proyecto, `apply` y suplantación). Gemini se paga por token:
+la prueba de humo cuesta céntimos.
+
+```powershell
+$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
+terraform -chdir=infra/terraform/gcp plan     # solo debe añadir roles/aiplatform.user
+```
+
+- [ ] **`apply` del rol** `roles/aiplatform.user` para `headache-dev-app` (2.G1) y comprobar la suplantación con una llamada real (un 403 justo después suele ser propagación).
+- [ ] **Prueba de humo** con `LLM_PROVIDER=gcp`: `gemini-4-hydrogen` y `gemini-3.5-flash-lite` responden en `global`; anotar el `model_version` real, los tokens de razonamiento con `thinking_level=low` y si `eu` sirve los dos modelos.
+- [ ] **Tools con firma**: un bucle de dos pasos con llamadas en paralelo (`scripts/tool_loop_demo.py`) y otro con historial de Azure (fallback a mitad de conversación) para ver el valor ficticio aceptado. Capturar las respuestas reales y sustituir los dobles de `test_gemini_adapter.py`.
+- [ ] **Precios en Agent Platform**: confirmar los de `pricing.py` (se tomaron de la Developer API) y el recargo de `eu`.
+
 ## Fase 3 · Indexación ([doc](fase-3-comparativa.md))
 
 - [x] Azure (18-10-2026): Terraform aplicado (AI Search Basic en `francecentral`), outputs en el `.env`, corpus clasificado con ACL (`scripts/classify_corpus.py`), carril B con Service Bus + Foundry + AI Search y carril A con indexer + skillset (vectorizador verificado). Medidas y hallazgos en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026).

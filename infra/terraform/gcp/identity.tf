@@ -28,6 +28,15 @@ resource "google_project_iam_member" "app_service_usage" {
   member  = google_service_account.app.member
 }
 
+# Fase 2.G1: llamar a Gemini en Agent Platform (equivalente de "Cognitive Services OpenAI User"
+# en Azure y de `bedrock:InvokeModel` en AWS). Incluye más permisos de Agent Platform de los que
+# usa el chat; se acota con un rol propio si una fase posterior lo justifica.
+resource "google_project_iam_member" "app_agent_platform" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = google_service_account.app.member
+}
+
 # Quién puede suplantarla desde local (GCP__IMPERSONATE_SERVICE_ACCOUNT).
 resource "google_service_account_iam_member" "app_impersonation" {
   for_each = toset(var.developer_members)

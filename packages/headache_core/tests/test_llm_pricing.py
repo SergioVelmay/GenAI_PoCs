@@ -45,5 +45,17 @@ def test_cache_writes_have_their_own_price() -> None:
     assert cost == Decimal("0.0067")
 
 
+def test_gemini_implicit_cache_and_thinking_tokens() -> None:
+    # 4096 cacheados (dentro de la entrada) y 38 de salida, de ellos 30 de razonamiento.
+    usage = TokenUsage(input_tokens=5000, output_tokens=38, cached_input_tokens=4096)
+
+    # (904 x 1.50 + 4096 x 0.075 + 38 x 7.50) / 1M
+    assert PriceTable().cost("gemini-4-hydrogen", usage) == Decimal("0.0019482")
+    # LiteLLM (2.G2) antepone la ruta; el prefijo más largo separa Flash-Lite de Flash.
+    lite = PriceTable().lookup("vertex_ai/gemini-3.5-flash-lite")
+    assert lite is not None
+    assert lite.input == Decimal("0.30")
+
+
 def test_unknown_model_has_no_cost() -> None:
     assert PriceTable().cost("modelo-desconocido", TokenUsage(10, 10)) is None
