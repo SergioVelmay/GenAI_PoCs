@@ -5,8 +5,9 @@ description: Retoma en una sesión nueva una fase ya empezada (con rama o PR dra
 
 # Retomar una fase empezada
 
-Una sesión por subfase es tan válida como una por fase: el estado vive en git, en la PR y en los
-docs, no en el chat anterior. Esta skill lo reconstruye.
+Lo normal es hacer la fase entera en una sesión; esta skill es para cuando se retoma otro día o el
+contexto se llenó (~70 %). El estado vive en git, en la PR y en los docs, no en el chat anterior:
+esta skill lo reconstruye y se sigue en la misma sesión hasta cerrar la fase.
 
 ## 1. Reconstruir el estado (solo lectura)
 

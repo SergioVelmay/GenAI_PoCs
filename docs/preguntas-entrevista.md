@@ -35,7 +35,8 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 |---|---|---|---|
 | Unidad de aislamiento y facturación | Suscripción + grupo de recursos | Cuenta (Organizations) | **Proyecto**: facturación, cuotas, APIs e IAM cuelgan de él |
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
-| Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (endpoint `global` o regional) |
+| Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
+| Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus), Vertex AI Search (respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Vector Search, Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
@@ -264,6 +265,60 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    lo difícil al potente y las evals confirman que la calidad no baja. En el triaje de soporte, 18
    de 20 emails fueron al modelo barato con un 100 % de acierto. Y un router "inteligente" con otro
    LLM tomó las mismas decisiones a un 42 % más de coste: lo sencillo ganó, y lo demuestro con datos.
+
+### GCP (pasada 2.G)
+
+**Técnicas**
+
+1. **¿Qué tuviste que cambiar en el puerto para añadir Gemini?** Un campo: `ToolCall.signature`.
+   Gemini 3 y 4 devuelven una *thought signature*, un estado opaco de su razonamiento, en la
+   primera llamada a tool de cada paso, y si no se la devuelves en el turno siguiente responde 400.
+   El SDK lo hace solo si reenvías sus objetos, pero nuestro historial es neutro (`ChatMessage`),
+   así que la firma tiene que viajar en él: es lo único que sobrevive a reintentos, fallback y
+   checkpoints. Va en base64 para que el historial siga siendo JSON.
+2. **¿Qué pasa si el gateway salta a Gemini a mitad de una conversación que empezó en Azure?** Las
+   llamadas de Azure no tienen firma y Gemini daría 400. Google documenta un valor ficticio
+   (`skip_thought_signature_validator`) para ese caso, que el adaptador pone solo en la primera
+   llamada de cada paso (duplicarla también da 400). Es un "último recurso" que degrada algo el
+   razonamiento, pero mantiene vivo el fallback, que es lo que importa en una caída.
+4. **¿Cómo encadenas tres nubes en el fallback y qué cambia entre tu gateway y LiteLLM?** Una
+   lista ordenada (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`). Cada eslabón tiene su propio
+   breaker y su cuota. Un 429 salta al siguiente sin reintentar; un 5xx se reintenta con backoff y
+   después salta. En LiteLLM es la misma cadena declarada como *fallbacks* del Router. La
+   diferencia que encontré fue la firma de Gemini: LiteLLM la mete dentro del id de la llamada para
+   clientes OpenAI, y un id de 100 caracteres en base64 rompe el salto a Bedrock, que solo acepta
+   `[a-zA-Z0-9_-]`. Por eso el adaptador la saca a `ToolCall.signature`, igual que en el carril B.
+5. **Caché implícita o explícita en Gemini: ¿cuál eliges?** La implícita es gratis pero no está
+   garantizada. La explícita (`CachedContent`) garantiza el 90 % de descuento a cambio de pagar
+   la escritura y el almacenamiento por hora, y congela sistema y tools (no pueden ir en la
+   petición). Con un manual de 9 K tokens en Flash-Lite, la explícita compensa a partir de unas 5
+   peticiones por hora con el mismo prefijo. Además, Gemini 4 no la admite: el adaptador degrada
+   a la implícita en vez de fallar, porque una optimización de coste nunca debe tumbar una
+   petición.
+3. **¿Por qué el adaptador de Gemini ignora la temperatura?** Porque los modelos actuales (3.5+ y
+   Gemini 4) la ignoran y Google anuncia que la rechazará. Lo comprobé en la documentación antes de
+   escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran
+   *legacy*. Lo que se controla es `thinking_level`, por tier, porque el razonamiento se factura
+   como salida: Hydrogen piensa en `high` por defecto y eso multiplica coste y latencia.
+
+**Negocio y stakeholders**
+
+1. **Google duplica los precios de dos modelos en las próximas semanas. ¿Qué haces?** Es el riesgo
+   de proveedor que justifica el gateway: los precios viven en una tabla versionada (ya con las
+   subidas), el coste se mide por petición y cambiar de modelo es configuración, no un proyecto.
+   Antes de cambiar, las evals de la fase 5 dicen si el modelo alternativo mantiene la calidad, así
+   que la decisión se toma con datos de coste y calidad, no por miedo a la factura.
+2. **Dirección pregunta: ¿tres proveedores de modelos no es complicarse?** El código de negocio
+   solo conoce un puerto, así que el tercer proveedor ha sido un adaptador más (tres subfases sin
+   tocar casos de uso). A cambio, el asistente de Headache sigue respondiendo si una nube se cae o
+   agota su cuota, y negociamos precios con alternativas reales. Lo que sí cuesta es operarlo:
+   tres cuotas, tres facturas y evals que validen cada modelo. Por eso en producción dejaría AWS
+   como principal y las otras dos como respaldo, no reparto de tráfico.
+3. **¿Cómo explicas la caché de prompts a Finanzas?** Como un descuento por repetir: el manual de
+   políticas que acompaña a cada pregunta se cobra entero la primera vez y un 90 % más barato las
+   siguientes. En una nube el descuento es automático pero no garantizado; en otra lo garantizas
+   pagando un pequeño "alquiler" por hora. Decidimos con el benchmark, por volumen: con tráfico
+   continuo, el descuento automático basta.
 
 <a id="fase-3"></a>
 

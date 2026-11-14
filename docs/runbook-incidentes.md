@@ -27,7 +27,7 @@ enlaza a su sección (`runbook_url`). Las reglas se generan desde los SLO del do
 - **Causas típicas**: proveedor con 429 o 5xx; presupuesto de tiempo corto para el modelo actual; retrieval caído (`RetrievalUnavailableError`).
 - **Mitigar**:
   - Activar la degradación si no lo está (`EDGE__DEGRADE_ON_SATURATION=true`): mejor citas literales que un error.
-  - Pasar al proveedor de respaldo (`LLM_GATEWAY__FALLBACK_PROVIDER`).
+  - Pasar a la cadena de respaldo (`LLM_GATEWAY__FALLBACK_PROVIDERS`, p. ej. `aws,gcp`).
   - Subir `EDGE__REQUEST_BUDGET_SECONDS` solo si el p95 del modelo ha subido de forma estable.
 
 <a id="assistant-ttft"></a>

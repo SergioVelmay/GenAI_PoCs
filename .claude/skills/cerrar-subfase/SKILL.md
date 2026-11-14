@@ -64,4 +64,4 @@ Si algo falla, arreglar la causa raíz (no silenciar) y volver a verificar.
 
 ## 5. Siguiente paso
 
-Resumir en 3–5 líneas lo hecho y proponer la siguiente subfase, sin empezarla salvo que Sergio ya lo haya pedido ("dale"). Si la sesión ya es larga, proponer seguir en una sesión nueva con `retomar-fase`.
+Resumir en 3–5 líneas lo hecho y proponer la siguiente subfase, sin empezarla salvo que Sergio ya lo haya pedido ("dale"). La fase entera se hace en la misma sesión (un commit por subfase en la PR de la fase); proponer una sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 %.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from headache_core.config import LLMProvider, Settings
 
@@ -27,12 +28,12 @@ def test_secrets_are_masked_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_empty_values_fall_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AZURE_OPENAI__API_KEY", "")
-    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "")
 
     settings = Settings(_env_file=None)
 
     assert settings.azure_openai.api_key is None
-    assert settings.llm_gateway.fallback_provider is None
+    assert settings.llm_gateway.fallback_providers == ()
 
 
 def test_a2a_settings_have_one_audience_per_specialist(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,25 +115,74 @@ def test_semantic_cache_threshold_is_calibrated_unless_set(
 
 def test_provider_chain_puts_fallback_after_primary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "azure")
-    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws")
 
     assert Settings(_env_file=None).provider_chain() == [LLMProvider.AZURE, LLMProvider.AWS]
+
+
+def test_provider_chain_spans_three_clouds_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2.G2: una cadena, no un único respaldo. El principal o un repetido no se duplican."""
+    monkeypatch.setenv("LLM_PROVIDER", "azure")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws, gcp,azure,aws")
+
+    assert Settings(_env_file=None).provider_chain() == [
+        LLMProvider.AZURE,
+        LLMProvider.AWS,
+        LLMProvider.GCP,
+    ]
+
+
+def test_unknown_fallback_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws,nube-x")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
 
 
 def test_gcp_is_a_provider_like_the_other_two(monkeypatch: pytest.MonkeyPatch) -> None:
     """La pasada GCP empieza por aquí: el enum y el fallback ya admiten la tercera nube."""
     monkeypatch.setenv("LLM_PROVIDER", "gcp")
-    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDER", "aws")
+    monkeypatch.setenv("LLM_GATEWAY__FALLBACK_PROVIDERS", "aws")
     monkeypatch.setenv("GCP__PROJECT", "headache-dev")
-    monkeypatch.setenv("GEMINI__CHEAP_CHAT_MODEL", "gemini-3-flash-lite")
+    monkeypatch.setenv("GEMINI__CHEAP_CHAT_MODEL", "gemini-3.1-flash-lite")
+    monkeypatch.setenv("GEMINI__THINKING_LEVEL", "medium")
 
     settings = Settings(_env_file=None)
 
     assert settings.provider_chain() == [LLMProvider.GCP, LLMProvider.AWS]
     assert (settings.gcp.project, settings.gcp.region) == ("headache-dev", "europe-west4")
-    assert settings.gemini.cheap_chat_model == "gemini-3-flash-lite"
+    gemini = settings.gemini
+    assert gemini.cheap_chat_model == "gemini-3.1-flash-lite"
+    assert (gemini.thinking_level, gemini.cheap_thinking_level) == ("medium", "low")
+    # Agent Platform en el endpoint `global` por defecto; la clave solo para la Developer API.
+    assert (gemini.enterprise, gemini.location, gemini.api_key) == (True, "global", None)
     # El juez no puede ser el mismo modelo que genera (sesgo de autopreferencia).
-    assert settings.gemini.judge_model != settings.gemini.cheap_chat_model
+    assert gemini.judge_model not in {gemini.chat_model, gemini.cheap_chat_model}
+
+
+def test_gemini_cache_is_implicit_by_default_and_its_ttl_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert (
+        Settings(_env_file=None).gemini.cache,
+        Settings(_env_file=None).gemini.cache_ttl_seconds,
+    ) == (
+        "implicit",
+        600,
+    )
+
+    monkeypatch.setenv("GEMINI__CACHE", "explicit")
+    monkeypatch.setenv("GEMINI__CACHE_TTL_SECONDS", "30")  # Por debajo del mínimo de la API.
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_gemini_rejects_an_unknown_thinking_level(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GEMINI__THINKING_LEVEL", "xhigh")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
 
 
 def test_pubsub_falls_back_to_the_gcp_project(monkeypatch: pytest.MonkeyPatch) -> None:

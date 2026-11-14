@@ -150,7 +150,8 @@ Coste 0: nada se ejecuta en la nube.
 - `LLMProvider.GCP` existe (también como fallback) pero aún no tiene adaptador: las raíces de
   composición fallan con un error que nombra la fase (2.G1, 2.G2, 3.G2, 5.G1). Antes, cualquier
   valor nuevo del enum acababa construyendo Bedrock **en silencio**; lo fija
-  `test_gcp_fails_loudly_until_its_adapter_exists`.
+  `test_gcp_fails_loudly_where_its_adapter_does_not_exist_yet` (desde la 2.G1, el chat ya
+  construye Gemini).
 
 ### 7.2 Terraform (0.G2)
 

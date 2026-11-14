@@ -62,6 +62,21 @@ async def test_rate_limit_jumps_straight_to_next_provider() -> None:
     assert time.sleeps == []
 
 
+async def test_fallback_walks_a_chain_of_three_clouds() -> None:
+    """2.G2: Azure sin cuota (salta sin reintentar), Bedrock caído (reintenta y salta), Gemini."""
+    time = FakeTime()
+    azure = FakeLLM([LLMRateLimitError("429")])
+    aws = FakeLLM([LLMTransientError("503"), LLMTransientError("503")])
+    gcp = FakeLLM(["desde gemini"])
+    llm = FallbackLLM([azure, aws, gcp], max_retries=1, sleep=time.sleep)
+
+    response = await llm.complete(HELLO)
+
+    assert response.content == "desde gemini"
+    assert (len(azure.calls), len(aws.calls), len(gcp.calls)) == (1, 2, 1)
+    assert len(time.sleeps) == 1  # Un solo backoff: el reintento de Bedrock.
+
+
 async def test_non_transient_errors_are_not_retried() -> None:
     secondary = FakeLLM(["no debería llamarse"])
     llm = FallbackLLM([FakeLLM([LLMError("400")]), secondary])

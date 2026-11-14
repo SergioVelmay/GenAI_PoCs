@@ -1,11 +1,17 @@
 """Benchmark de prompt caching: el mismo manual de políticas largo, con y sin caché.
 
 Sin caché: se antepone un nonce distinto en cada llamada, así ningún prefijo se repite
-(Azure cachea solo y no se puede desactivar) y no se marca `cachePoint` (Bedrock).
+(Azure y la caché implícita de Gemini cachean solos) y no se marca `cachePoint` (Bedrock).
 Con caché: prefijo idéntico y `cache_checkpoint=True` al final del manual.
 
     uv run python scripts/llm_cache_benchmark.py --provider azure --tier strong --runs 5
     uv run python scripts/llm_cache_benchmark.py --provider aws --tier strong --runs 5
+    uv run python scripts/llm_cache_benchmark.py --provider gcp --tier cheap --gemini-cache implicit
+    uv run python scripts/llm_cache_benchmark.py --provider gcp --tier cheap --gemini-cache explicit
+
+Con `--gemini-cache explicit`, el manual va a un `CachedContent` (2.G3): la creación se cobra a
+precio de entrada y el almacenamiento por hora mientras viva; al terminar se borra y su coste se
+suma al del modo con caché. Gemini 4 (tier `strong`) no admite la explícita y degrada a implícita.
 
 Tiene coste (pequeño): ~10 k tokens de entrada por llamada x 2 modos x runs.
 """
@@ -16,12 +22,14 @@ import argparse
 import asyncio
 import json
 import statistics
+import time
 import uuid
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from headache_core.adapters.gemini_cache import ExplicitCache
 from headache_core.adapters.llm_factory import build_provider_llm, build_tracer
 from headache_core.application.llm import ModelTier, ObservedLLM, PriceTable, RateLimitedLLM
 from headache_core.config import LLMProvider, get_settings
@@ -108,6 +116,25 @@ def summarize(calls: list[Call]) -> dict[str, Any]:
     }
 
 
+async def close_explicit_cache(llm: LLMPort, prices: PriceTable) -> Decimal | None:
+    """Borra las cachés explícitas de Gemini y devuelve lo que costó almacenarlas (None si no
+    hubo: otros proveedores, caché implícita o un modelo que no la admite)."""
+    cache = getattr(llm, "explicit_cache", None)
+    if not isinstance(cache, ExplicitCache):
+        return None
+    await cache.aclose()
+    if not cache.created:
+        return None
+    now = time.monotonic()
+    total = Decimal(0)
+    for created in cache.created:
+        seconds = created.stored_seconds(now)
+        cost = prices.storage_cost(created.model, created.tokens, seconds) or Decimal(0)
+        print(f"  caché {created.name}: {created.tokens} tokens, {seconds:.0f} s, ${cost:.6f}")
+        total += cost
+    return total
+
+
 async def main() -> None:
     settings = get_settings()
     parser = argparse.ArgumentParser(description="Benchmark de prompt caching")
@@ -116,16 +143,23 @@ async def main() -> None:
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--max-tokens", type=int, default=120)
     parser.add_argument("--knowledge-dir", type=Path, default=ROOT / "data/synthetic/knowledge")
+    parser.add_argument(
+        "--gemini-cache", choices=("implicit", "explicit"), default=settings.gemini.cache
+    )
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
+    settings = settings.model_copy(
+        update={"gemini": settings.gemini.model_copy(update={"cache": args.gemini_cache})}
+    )
 
     manual = build_manual(args.knowledge_dir)
     prices = PriceTable()
     tracer = build_tracer(settings)
+    provider_llm = build_provider_llm(settings, args.provider, args.tier)
     # Mismo límite en cliente que el gateway: ~10 K tokens por llamada agotan rápido el TPM del
     # despliegue. La espera no cuenta en la latencia (la mide el adaptador).
     limited = RateLimitedLLM(
-        build_provider_llm(settings, args.provider, args.tier),
+        provider_llm,
         requests_per_minute=settings.llm_gateway.requests_per_minute,
         tokens_per_minute=settings.llm_gateway.tokens_per_minute,
     )
@@ -145,8 +179,15 @@ async def main() -> None:
         llm, manual, prices, cached=True, runs=args.runs, max_tokens=args.max_tokens
     )
     summary = {"sin_cache": summarize(without), "con_cache": summarize(with_cache)}
+    storage = await close_explicit_cache(provider_llm, prices)
+    if storage is not None:
+        # El almacenamiento no depende de las peticiones sino del tiempo que vive la caché.
+        summary["con_cache"]["storage_usd"] = storage
+        summary["con_cache"]["cost_usd"] += storage
 
-    out = args.out or ROOT / f"data/benchmarks/llm_cache_{args.provider}_{args.tier}.json"
+    suffix = f"_{args.gemini_cache}" if args.provider is LLMProvider.GCP else ""
+    name = f"llm_cache_{args.provider}_{args.tier}{suffix}.json"
+    out = args.out or ROOT / "data/benchmarks" / name
     out.parent.mkdir(parents=True, exist_ok=True)
     report = {"summary": summary, "calls": [asdict(c) for c in without + with_cache]}
     out.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")

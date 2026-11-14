@@ -45,5 +45,31 @@ def test_cache_writes_have_their_own_price() -> None:
     assert cost == Decimal("0.0067")
 
 
+def test_gemini_implicit_cache_and_thinking_tokens() -> None:
+    # 4096 cacheados (dentro de la entrada) y 38 de salida, de ellos 30 de razonamiento.
+    usage = TokenUsage(input_tokens=5000, output_tokens=38, cached_input_tokens=4096)
+
+    # (904 x 1.50 + 4096 x 0.075 + 38 x 7.50) / 1M
+    assert PriceTable().cost("gemini-4-hydrogen", usage) == Decimal("0.0019482")
+    # LiteLLM (2.G2) antepone la ruta; el prefijo más largo separa Flash-Lite de Flash.
+    lite = PriceTable().lookup("vertex_ai/gemini-3.5-flash-lite")
+    assert lite is not None
+    assert lite.input == Decimal("0.30")
+
+
+def test_gemini_explicit_cache_bills_write_read_and_storage() -> None:
+    # Petición que crea la caché: 4500 escritos (precio de entrada) que además se leen (90 % de
+    # descuento) y 20 sin cachear; el adaptador suma la escritura a la entrada (9020).
+    usage = TokenUsage(9020, 5, cached_input_tokens=4500, cache_write_tokens=4500)
+    prices = PriceTable()
+
+    # (20 x 0.30 + 4500 x 0.03 + 4500 x 0.30 + 5 x 2.50) / 1M
+    assert prices.cost("gemini-3.5-flash-lite", usage) == Decimal("0.0015035")
+    # El almacenamiento va aparte: 4500 tokens durante 30 minutos a 1 $ por millón y hora.
+    assert prices.storage_cost("gemini-3.5-flash-lite", 4500, 1800) == Decimal("0.00225")
+    # Gemini 4 no tiene caché explícita.
+    assert prices.storage_cost("gemini-4-hydrogen", 4500, 1800) is None
+
+
 def test_unknown_model_has_no_cost() -> None:
     assert PriceTable().cost("modelo-desconocido", TokenUsage(10, 10)) is None

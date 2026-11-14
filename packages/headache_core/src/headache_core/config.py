@@ -4,19 +4,18 @@ from __future__ import annotations
 
 from enum import StrEnum
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import quote
 
-from pydantic import BaseModel, Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class LLMProvider(StrEnum):
     AZURE = "azure"
     AWS = "aws"
-    # Pasada GCP: declarado desde la 0.G1 para que el enum, el fallback y la configuración ya
-    # lo nombren; el adaptador de Gemini llega en la 2.G1 y hasta entonces el factory falla
-    # con un mensaje explícito en vez de caer de forma silenciosa en otro proveedor.
+    # Pasada GCP: Gemini desde la 2.G1. Lo que aún no tiene adaptador (juez, embeddings...)
+    # falla con un mensaje explícito en vez de caer de forma silenciosa en otro proveedor.
     GCP = "gcp"
     # Fase 10.7: proveedor simulado para pruebas de carga (latencia y cuota realistas, coste 0).
     SIMULATED = "simulated"
@@ -78,22 +77,42 @@ class GcpSettings(BaseModel):
     impersonate_service_account: str = ""
 
 
+# Profundidad de razonamiento de Gemini 3+/4 (sustituye a `thinking_budget`). Vacío = el valor
+# por defecto del modelo. Cada modelo admite un subconjunto: `minimal` da 400 en Gemini 4.
+type ThinkingLevel = Literal["", "minimal", "low", "medium", "high"]
+
+
 class GeminiSettings(BaseModel):
     """Modelos de Gemini (fase 2.G1). El acceso es con `google-genai`, nunca con
     `vertexai.generative_models` (retirado el 24-06-2026)."""
 
-    # True = Vertex AI (el proyecto paga y manda IAM). False = la Gemini API con clave.
-    use_vertex: bool = True
-    # `global` sirve modelos que una región concreta puede no tener; se fija en la 2.G1.
+    # True = Gemini Enterprise Agent Platform (antes Vertex AI): el proyecto paga y manda IAM.
+    # False = la Gemini Developer API con clave (solo desarrollo).
+    enterprise: bool = True
+    # `global` sirve todos los modelos y es el más barato; `eu` (multirregión, ~+10 %) garantiza
+    # residencia de datos en la UE. Gemini 4 no se sirve en regiones sueltas como europe-west4.
     location: str = "global"
-    # Vacío = ADC. Solo para la Gemini API fuera de Vertex (desarrollo).
+    # Solo para la Gemini Developer API (enterprise=false); con Agent Platform se deja vacío.
     api_key: SecretStr | None = None
-    # Modelo potente (por defecto) y modelo barato para el model routing.
-    chat_model: str = "gemini-3.1-pro"
-    cheap_chat_model: str = "gemini-3-flash"
+    # Modelo potente (por defecto) y modelo barato para el model routing (verificado 14-11-2026).
+    chat_model: str = "gemini-4-hydrogen"
+    cheap_chat_model: str = "gemini-3.5-flash-lite"
+    # Por defecto, Hydrogen piensa en `high` (salida más cara y lenta) y Flash-Lite en `minimal`
+    # (puede cortar antes de tiempo un bucle de tools). `low` en los dos: se calibra en la nube.
+    thinking_level: ThinkingLevel = "low"
+    cheap_thinking_level: ThinkingLevel = "low"
     embedding_model: str = "gemini-embedding-001"
-    # Juez de evals: distinto del generador (sesgo de autopreferencia).
-    judge_model: str = "gemini-3.1-pro"
+    # Juez de evals: distinto y más capaz que el generador (sesgo de autopreferencia); 5.G1.
+    judge_model: str = "gemini-4-argon"
+    # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
+    timeout_seconds: float = 120.0
+    # implicit: Gemini cachea solo los prefijos repetidos (best-effort, sin coste de escritura).
+    # explicit (2.G3): `cache_checkpoint` crea un CachedContent con TTL (lectura garantizada,
+    # creación a precio de entrada y almacenamiento por hora). Gemini 4 no la admite: degrada a
+    # implícita.
+    cache: Literal["implicit", "explicit"] = "implicit"
+    # Vida de cada caché explícita: acota lo que se paga de almacenamiento si nadie la borra.
+    cache_ttl_seconds: int = Field(default=600, ge=60)
 
 
 class PubSubSettings(BaseModel):
@@ -112,8 +131,9 @@ class LLMGatewaySettings(BaseModel):
     # native: gateway propio (carril B). litellm: Router de LiteLLM (carril C).
     engine: Literal["native", "litellm"] = "native"
     router: Literal["heuristic", "llm"] = "heuristic"
-    # Proveedor al que saltar si el principal (`LLM_PROVIDER`) falla. None = sin fallback.
-    fallback_provider: LLMProvider | None = None
+    # Proveedores a los que saltar, en orden, si el principal (`LLM_PROVIDER`) falla (2.G2: con
+    # tres nubes, una cadena). En el entorno, separados por comas: `aws,gcp`. Vacío = sin fallback.
+    fallback_providers: Annotated[tuple[LLMProvider, ...], NoDecode] = ()
     max_retries: int = 2
     # Límites en cliente por despliegue; ajústalos a la cuota real (TPM) de tu suscripción.
     requests_per_minute: int = 30
@@ -126,6 +146,13 @@ class LLMGatewaySettings(BaseModel):
     circuit_reset_seconds: float = 30.0
     # Un Retry-After más largo no se espera: se salta de proveedor o se devuelve al cliente.
     max_retry_after_seconds: float = 5.0
+
+    @field_validator("fallback_providers", mode="before")
+    @classmethod
+    def _split_providers(cls, value: object) -> object:
+        if isinstance(value, str):
+            return tuple(part.strip() for part in value.split(",") if part.strip())
+        return value
 
 
 class PostgresSettings(BaseModel):
@@ -414,11 +441,11 @@ class Settings(BaseSettings):
         return self.pubsub.project or self.gcp.project
 
     def provider_chain(self) -> list[LLMProvider]:
-        """Proveedor principal seguido del de respaldo (si lo hay)."""
-        fallback = self.llm_gateway.fallback_provider
+        """Proveedor principal seguido de los de respaldo, en orden y sin repetir ninguno."""
         chain = [self.llm_provider]
-        if fallback is not None and fallback is not self.llm_provider:
-            chain.append(fallback)
+        for provider in self.llm_gateway.fallback_providers:
+            if provider not in chain:
+                chain.append(provider)
         return chain
 
 

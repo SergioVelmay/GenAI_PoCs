@@ -50,7 +50,16 @@ def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTie
         )
         return AzureOpenAILLM.from_settings(azure, deployment=deployment)
     if provider is LLMProvider.GCP:
-        raise unsupported_provider(provider, feature="chat", phase="fase 2.G1")
+        from headache_core.adapters.gemini import GeminiLLM
+
+        gemini = settings.gemini
+        cheap = tier is ModelTier.CHEAP
+        return GeminiLLM.from_settings(
+            settings.gcp,
+            gemini,
+            model=gemini.cheap_chat_model if cheap else gemini.chat_model,
+            thinking_level=gemini.cheap_thinking_level if cheap else gemini.thinking_level,
+        )
 
     from headache_core.adapters.bedrock import BedrockConverseLLM
 

@@ -43,7 +43,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 ## Sesiones y contexto
 
 - **El contexto vive en el repo, nunca en el chat ni en la memoria del agente**: plan (`docs/plan-fases.md`), estado (tabla de abajo), subfases de la fase en curso (cuerpo de su PR draft), lo hecho (`docs/fase-N-*.md`), el porqué de las reglas (`docs/lecciones-aprendidas.md`). Lo que aprendas y deba sobrevivir a la sesión se escribe ahí, no en una memoria privada.
-- Una sesión por fase o por subfase: cada una arranca con `iniciar-fase` (fase nueva) o `retomar-fase` (fase empezada) y termina con el commit de la subfase. Mensajes de arranque en `README.md` ("Sesiones de trabajo").
+- **Una sesión por fase**, con todas sus subfases: arranca con `iniciar-fase` (fase nueva), sigue subfase a subfase en la misma sesión (un commit por subfase como mínimo, todos en la **PR de la fase**) y termina con `cerrar-fase`. Solo se abre una sesión nueva con `retomar-fase` si el contexto pasa del ~70 % o la fase se retoma otro día. Mensajes de arranque en `README.md` ("Sesiones de trabajo").
 - Modelo: el Claude Opus más reciente. Si la sesión arranca en automático o cambia sola de modelo, parar antes de implementar y avisar.
 - Exportaciones de chats antiguos: **nunca** dentro del repo (contienen el nombre real).
 
@@ -101,7 +101,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 |---|---|---|---|---|
 | 0 | Cimientos: monorepo, Clean Architecture, docker compose, datos sintéticos, CI | ✅ Hecha | ✅* | `docs/fase-0-cimientos.md` |
 | 1 | SQL avanzado + `ticketing_api` | ✅ Hecha | ✅* | `docs/fase-1-sql.md` |
-| 2 | Capa de modelos, LLM gateway, routing, prompt caching, coste | ✅ Hecha* | 2.G | `docs/fase-2-modelos.md` |
+| 2 | Capa de modelos, LLM gateway, routing, prompt caching, coste | ✅ Hecha* | ✅* | `docs/fase-2-modelos.md` |
 | 3 | Indexación event-driven, 3 carriles × 2 nubes | ✅ Hecha* | 3.G | `docs/fase-3-comparativa.md` |
 | 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | 4.G | `docs/fase-4-retrieval.md` |
 | 5 | Evals de RAG y gate en CI | ✅ Hecha* | 5.G | `docs/fase-5-evals.md` |
@@ -114,7 +114,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hecha: 0.G; siguiente: **2.G**, rama `fase/2-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G y 2.G; siguiente: **3.G**, rama `fase/3-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |

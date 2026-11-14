@@ -1,8 +1,8 @@
 """Carril C: LiteLLM como LLM Gateway.
 
-Su `Router` resuelve lo mismo que nuestro gateway propio (reintentos, fallback entre
-proveedores, límites RPM/TPM) con configuración declarativa. Sus excepciones heredan de las
-de `openai`, así que se traducen igual que en el adaptador de Azure.
+Su `Router` resuelve lo mismo que nuestro gateway propio (reintentos, fallback en cadena entre
+Azure, Bedrock y Gemini, límites RPM/TPM) con configuración declarativa. Sus excepciones heredan
+de las de `openai`, así que se traducen igual que en el adaptador de Azure.
 """
 
 from __future__ import annotations
@@ -15,11 +15,15 @@ os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 # proceso: pisaba la configuración (Pydantic Settings) y rompía el aislamiento de los tests.
 os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 
+import logging
 import time
 from collections.abc import Sequence
 from typing import Any
 
 import openai
+from litellm.litellm_core_utils.prompt_templates.factory import (
+    THOUGHT_SIGNATURE_SEPARATOR as THOUGHT_SEPARATOR,
+)
 from litellm.router import Router
 
 from headache_core.adapters.azure_openai import (
@@ -28,7 +32,6 @@ from headache_core.adapters.azure_openai import (
     to_openai_tool_choice,
     to_openai_tools,
 )
-from headache_core.adapters.llm_factory import unsupported_provider
 from headache_core.application.llm import ModelTier
 from headache_core.config import LLMProvider, Settings
 from headache_core.ports import (
@@ -42,9 +45,46 @@ from headache_core.ports import (
     ToolConfig,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def model_group(provider: LLMProvider, tier: ModelTier) -> str:
     return f"{provider}-{tier}"
+
+
+def _gemini_params(settings: Settings, tier: ModelTier, limits: dict[str, int]) -> dict[str, Any]:
+    """`vertex_ai/` (Agent Platform, credenciales por ADC) o `gemini/` (Developer API con clave).
+
+    `thinking_level` viaja como `reasoning_effort` del despliegue: LiteLLM lo traduce al
+    `thinkingLevel` de Gemini 3+. La temperatura del puerto sí la reenvía (con un aviso de
+    obsoleta); el modelo la ignora.
+    """
+    gemini = settings.gemini
+    cheap = tier is ModelTier.CHEAP
+    model = gemini.cheap_chat_model if cheap else gemini.chat_model
+    level = gemini.cheap_thinking_level if cheap else gemini.thinking_level
+    params: dict[str, Any] = {**limits}
+    if level:
+        params["reasoning_effort"] = level
+    if not gemini.enterprise:
+        key = gemini.api_key.get_secret_value() if gemini.api_key else ""
+        if not key:
+            raise LLMError("Falta GEMINI__API_KEY (o usa GEMINI__ENTERPRISE=true).")
+        return {"model": f"gemini/{model}", "api_key": key, **params}
+    if not settings.gcp.project:
+        raise LLMError("Falta GCP__PROJECT (Gemini en Agent Platform).")
+    if settings.gcp.impersonate_service_account:
+        # LiteLLM solo acepta credenciales en JSON, no un objeto: suplanta quien configure ADC.
+        logger.warning(
+            "LiteLLM no aplica GCP__IMPERSONATE_SERVICE_ACCOUNT: usa la identidad de ADC "
+            "(gcloud auth application-default login --impersonate-service-account=...)."
+        )
+    return {
+        "model": f"vertex_ai/{model}",
+        "vertex_project": settings.gcp.project,
+        "vertex_location": gemini.location,
+        **params,
+    }
 
 
 def _litellm_params(settings: Settings, provider: LLMProvider, tier: ModelTier) -> dict[str, Any]:
@@ -71,8 +111,7 @@ def _litellm_params(settings: Settings, provider: LLMProvider, tier: ModelTier) 
             )
         return params
     if provider is LLMProvider.GCP:
-        # Ruta `vertex_ai/gemini-...` en la 2.G2; hasta entonces, fallo explícito, no Bedrock.
-        raise unsupported_provider(provider, feature="LiteLLM", phase="fase 2.G2")
+        return _gemini_params(settings, tier, limits)
     bedrock = settings.bedrock
     model_id = bedrock.cheap_chat_model_id if tier is ModelTier.CHEAP else bedrock.chat_model_id
     params = {"model": f"bedrock/converse/{model_id}", "aws_region_name": bedrock.region, **limits}
@@ -110,6 +149,35 @@ def build_router(settings: Settings) -> Router:
     )
 
 
+def _to_litellm_call(call: ToolCall) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": call.id,
+        "type": "function",
+        "function": {"name": call.name, "arguments": call.arguments},
+    }
+    if call.signature:
+        # Donde LiteLLM busca la firma de Gemini; sin ella pone su valor ficticio.
+        payload["provider_specific_fields"] = {"thought_signature": call.signature}
+    return payload
+
+
+def _from_litellm_call(call: Any) -> ToolCall:
+    """LiteLLM incrusta la firma de Gemini en el id (`<id>__thought__<firma>`) para clientes
+    OpenAI y también la deja en `provider_specific_fields`. En el puerto va aparte: un id con
+    ~100 caracteres de base64 rompería el fallback (Bedrock solo admite `[a-zA-Z0-9_-]`)."""
+    call_id, _, embedded = str(call.id).partition(THOUGHT_SEPARATOR)
+    fields = getattr(call, "provider_specific_fields", None) or getattr(
+        call.function, "provider_specific_fields", None
+    )
+    signature = fields.get("thought_signature") if isinstance(fields, dict) else None
+    return ToolCall(
+        id=call_id,
+        name=call.function.name,
+        arguments=call.function.arguments,
+        signature=signature or embedded or None,
+    )
+
+
 def _to_litellm(message: ChatMessage) -> dict[str, Any]:
     if message.role is Role.TOOL:
         return {"role": "tool", "tool_call_id": message.tool_call_id, "content": message.content}
@@ -117,14 +185,7 @@ def _to_litellm(message: ChatMessage) -> dict[str, Any]:
         return {
             "role": "assistant",
             "content": message.content or None,
-            "tool_calls": [
-                {
-                    "id": c.id,
-                    "type": "function",
-                    "function": {"name": c.name, "arguments": c.arguments},
-                }
-                for c in message.tool_calls
-            ],
+            "tool_calls": [_to_litellm_call(c) for c in message.tool_calls],
         }
     if not message.cache_checkpoint:
         return {"role": message.role.value, "content": message.content}
@@ -201,7 +262,6 @@ class LiteLLMGateway:
             latency_ms=latency_ms,
             finish_reason=choice.finish_reason,
             tool_calls=tuple(
-                ToolCall(id=c.id, name=c.function.name, arguments=c.function.arguments)
-                for c in getattr(choice.message, "tool_calls", None) or ()
+                _from_litellm_call(c) for c in getattr(choice.message, "tool_calls", None) or ()
             ),
         )
