@@ -106,6 +106,13 @@ class GeminiSettings(BaseModel):
     judge_model: str = "gemini-4-argon"
     # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
     timeout_seconds: float = 120.0
+    # implicit: Gemini cachea solo los prefijos repetidos (best-effort, sin coste de escritura).
+    # explicit (2.G3): `cache_checkpoint` crea un CachedContent con TTL (lectura garantizada,
+    # creación a precio de entrada y almacenamiento por hora). Gemini 4 no la admite: degrada a
+    # implícita.
+    cache: Literal["implicit", "explicit"] = "implicit"
+    # Vida de cada caché explícita: acota lo que se paga de almacenamiento si nadie la borra.
+    cache_ttl_seconds: int = Field(default=600, ge=60)
 
 
 class PubSubSettings(BaseModel):

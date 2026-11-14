@@ -14,17 +14,28 @@ _REGION_PREFIXES = frozenset({"eu", "us", "apac", "global", "jp", "au", "ca", "u
 
 @dataclass(frozen=True, slots=True)
 class ModelPrice:
-    """USD por millón de tokens. `cache_write=None` => la escritura en caché cuesta como `input`."""
+    """USD por millón de tokens. `cache_write=None` => la escritura en caché cuesta como `input`.
+
+    `cache_storage_per_hour`: USD por millón de tokens y hora de una caché explícita (Gemini
+    `CachedContent`); None = el modelo no la tiene o no se cobra aparte.
+    """
 
     input: Decimal
     output: Decimal
     cached_input: Decimal
     cache_write: Decimal | None = None
+    cache_storage_per_hour: Decimal | None = None
 
 
-def _p(inp: str, out: str, cached: str, write: str | None = None) -> ModelPrice:
+def _p(
+    inp: str, out: str, cached: str, write: str | None = None, *, storage: str | None = None
+) -> ModelPrice:
     return ModelPrice(
-        Decimal(inp), Decimal(out), Decimal(cached), None if write is None else Decimal(write)
+        Decimal(inp),
+        Decimal(out),
+        Decimal(cached),
+        None if write is None else Decimal(write),
+        None if storage is None else Decimal(storage),
     )
 
 
@@ -43,10 +54,12 @@ DEFAULT_PRICES: Mapping[str, ModelPrice] = {
     # Gemini (endpoint `global`, hasta 200 K tokens; `eu` ~+10 %), verificado el 14-11-2026. La
     # caché implícita no cobra escritura. Ya con las subidas anunciadas: Argon pasa de 2/10 el
     # 1-12-2026 y 3.8 Flash de 0,75/3,75 el 1-1-2027 (la validación en la nube será después).
+    # La explícita (2.G3) cobra la creación como entrada y el almacenamiento por hora; Gemini 4
+    # no la admite (sin `storage`).
     "gemini-4-hydrogen": _p("1.50", "7.50", "0.075"),
     "gemini-4-argon": _p("4.00", "20.00", "0.20"),
-    "gemini-3.8-flash": _p("1.50", "7.50", "0.15"),
-    "gemini-3.5-flash-lite": _p("0.30", "2.50", "0.03"),
+    "gemini-3.8-flash": _p("1.50", "7.50", "0.15", storage="1.00"),
+    "gemini-3.5-flash-lite": _p("0.30", "2.50", "0.03", storage="1.00"),
 }
 
 
@@ -80,3 +93,12 @@ class PriceTable:
             + usage.output_tokens * price.output
         )
         return total / _PER_MILLION
+
+    def storage_cost(self, model: str, tokens: int, seconds: float) -> Decimal | None:
+        """Almacenamiento de una caché explícita: no depende de las peticiones, sino del tiempo
+        que vive. Por eso no entra en `cost()` y se suma aparte (p. ej., en el benchmark)."""
+        price = self.lookup(model)
+        if price is None or price.cache_storage_per_hour is None:
+            return None
+        hours = Decimal(str(seconds)) / Decimal(3600)
+        return tokens * price.cache_storage_per_hour * hours / _PER_MILLION

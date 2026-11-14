@@ -287,6 +287,13 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    diferencia que encontré fue la firma de Gemini: LiteLLM la mete dentro del id de la llamada para
    clientes OpenAI, y un id de 100 caracteres en base64 rompe el salto a Bedrock, que solo acepta
    `[a-zA-Z0-9_-]`. Por eso el adaptador la saca a `ToolCall.signature`, igual que en el carril B.
+5. **Caché implícita o explícita en Gemini: ¿cuál eliges?** La implícita es gratis pero no está
+   garantizada. La explícita (`CachedContent`) garantiza el 90 % de descuento a cambio de pagar
+   la escritura y el almacenamiento por hora, y congela sistema y tools (no pueden ir en la
+   petición). Con un manual de 9 K tokens en Flash-Lite, la explícita compensa a partir de unas 5
+   peticiones por hora con el mismo prefijo. Además, Gemini 4 no la admite: el adaptador degrada
+   a la implícita en vez de fallar, porque una optimización de coste nunca debe tumbar una
+   petición.
 3. **¿Por qué el adaptador de Gemini ignora la temperatura?** Porque los modelos actuales (3.5+ y
    Gemini 4) la ignoran y Google anuncia que la rechazará. Lo comprobé en la documentación antes de
    escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran

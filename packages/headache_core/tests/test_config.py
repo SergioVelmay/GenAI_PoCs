@@ -160,6 +160,24 @@ def test_gcp_is_a_provider_like_the_other_two(monkeypatch: pytest.MonkeyPatch) -
     assert gemini.judge_model not in {gemini.chat_model, gemini.cheap_chat_model}
 
 
+def test_gemini_cache_is_implicit_by_default_and_its_ttl_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert (
+        Settings(_env_file=None).gemini.cache,
+        Settings(_env_file=None).gemini.cache_ttl_seconds,
+    ) == (
+        "implicit",
+        600,
+    )
+
+    monkeypatch.setenv("GEMINI__CACHE", "explicit")
+    monkeypatch.setenv("GEMINI__CACHE_TTL_SECONDS", "30")  # Por debajo del mínimo de la API.
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gemini_rejects_an_unknown_thinking_level(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEMINI__THINKING_LEVEL", "xhigh")
 

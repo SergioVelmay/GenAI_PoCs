@@ -2,8 +2,9 @@
 
 Prompt caching: **implícito** por defecto (prefijos idénticos de >= 4096 tokens en los modelos
 actuales, *best-effort* y sin coste de escritura). Se lee en `cached_content_token_count`, que
-ya va incluido en `prompt_token_count` (la semántica de OpenAI: no hay que sumar nada). La caché
-explícita (`CachedContent`, con TTL y almacenamiento por hora) llega en la 2.G3.
+ya va incluido en `prompt_token_count` (la semántica de OpenAI: no hay que sumar nada). Con
+`GEMINI__CACHE=explicit`, el prefijo hasta el último `cache_checkpoint` se sirve desde un
+`CachedContent` (`gemini_cache.py`, 2.G3).
 
 Tres diferencias con Azure y Bedrock que el adaptador absorbe:
 
@@ -22,6 +23,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import logging
 import re
 import time
 import uuid
@@ -34,6 +36,7 @@ from google.auth.exceptions import GoogleAuthError
 from google.genai import Client, errors, types
 
 from headache_core.adapters.gcp_auth import gcp_credentials
+from headache_core.adapters.gemini_cache import CachePrefix, ExplicitCache
 from headache_core.config import GcpSettings, GeminiSettings, ThinkingLevel
 from headache_core.ports import (
     ChatMessage,
@@ -54,6 +57,8 @@ from headache_core.ports import (
 # Valor documentado por Google para `functionCall` que Gemini no generó (historial de otro
 # proveedor). Es el "último recurso": degrada el razonamiento, pero sin él la petición da 400.
 SKIP_SIGNATURE = b"skip_thought_signature_validator"
+
+logger = logging.getLogger(__name__)
 
 _TRANSIENT_STATUS = frozenset({408, 500, 502, 503, 504})
 # El SDK usa aiohttp en asíncrono si está instalado (lo está: lo trae LiteLLM) y httpx si no.
@@ -273,14 +278,20 @@ def _tool_calls(parts: Sequence[types.Part]) -> tuple[ToolCall, ...]:
     return tuple(calls)
 
 
-def _usage(meta: types.GenerateContentResponseUsageMetadata | None) -> TokenUsage:
+def _usage(meta: types.GenerateContentResponseUsageMetadata | None, written: int = 0) -> TokenUsage:
+    """`written`: tokens de una caché explícita creada para esta petición. Se cobran aparte, a
+    precio de entrada, y además se leen de la caché: se suman a la entrada para que
+    `PriceTable` cobre escritura + lectura + lo no cacheado sin contar nada dos veces."""
     if meta is None:
-        return TokenUsage(0, 0)
+        return TokenUsage(written, 0, cache_write_tokens=written)
     return TokenUsage(
         # `tool_use_prompt_token_count`: resultados de tools integradas, facturados como entrada.
-        input_tokens=(meta.prompt_token_count or 0) + (meta.tool_use_prompt_token_count or 0),
+        input_tokens=(meta.prompt_token_count or 0)
+        + (meta.tool_use_prompt_token_count or 0)
+        + written,
         output_tokens=(meta.candidates_token_count or 0) + (meta.thoughts_token_count or 0),
         cached_input_tokens=meta.cached_content_token_count or 0,
+        cache_write_tokens=written,
     )
 
 
@@ -290,11 +301,27 @@ def _finish_name(reason: types.FinishReason | None) -> str | None:
 
 class GeminiLLM:
     def __init__(
-        self, models: GeminiModels, model: str, *, thinking_level: ThinkingLevel = ""
+        self,
+        models: GeminiModels,
+        model: str,
+        *,
+        thinking_level: ThinkingLevel = "",
+        explicit_cache: ExplicitCache | None = None,
     ) -> None:
         self._models = models
         self._model = model
         self._thinking_level = thinking_level
+        self._explicit_cache = explicit_cache
+
+    @property
+    def explicit_cache(self) -> ExplicitCache | None:
+        """El registro de cachés explícitas (None = caché implícita)."""
+        return self._explicit_cache
+
+    async def aclose(self) -> None:
+        """Borra las cachés explícitas vivas (si no, se paga su almacenamiento hasta el TTL)."""
+        if self._explicit_cache is not None:
+            await self._explicit_cache.aclose()
 
     @classmethod
     def from_settings(
@@ -322,19 +349,24 @@ class GeminiLLM:
             if not key:
                 raise LLMError("Falta GEMINI__API_KEY (o usa GEMINI__ENTERPRISE=true).")
             client = Client(api_key=key, http_options=http_options)
-        return cls(client.aio.models, model, thinking_level=thinking_level)
+        explicit = (
+            ExplicitCache(client.aio.caches, ttl_seconds=gemini.cache_ttl_seconds)
+            if gemini.cache == "explicit"
+            else None
+        )
+        return cls(client.aio.models, model, thinking_level=thinking_level, explicit_cache=explicit)
 
-    def _request(
+    async def _request(
         self,
         messages: Sequence[ChatMessage],
         max_tokens: int | None,
         response_schema: ResponseSchema | None,
         tools: ToolConfig | None,
-    ) -> tuple[list[types.Content], types.GenerateContentConfig]:
+    ) -> tuple[list[types.Content], types.GenerateContentConfig, int]:
+        """Contenidos, configuración y tokens escritos en una caché explícita creada ahora."""
         system, contents = to_contents(messages)
         level = self._thinking_level
         config = types.GenerateContentConfig(
-            system_instruction=system,
             max_output_tokens=max_tokens,
             thinking_config=(
                 types.ThinkingConfig(thinking_level=types.ThinkingLevel(level.upper()))
@@ -342,13 +374,53 @@ class GeminiLLM:
                 else None
             ),
         )
-        if tools is not None:
-            declared, config.tool_config = _tools(tools)
-            config.tools = list(declared)
         if response_schema is not None:
             config.response_mime_type = "application/json"
             config.response_json_schema = dict(response_schema.json_schema)
-        return contents, config
+        declared, tool_config = _tools(tools) if tools is not None else ([], None)
+
+        hit = await self._explicit_prefix(messages, system, contents, declared, tool_config)
+        if hit is not None:
+            # Con `cached_content`, sistema y tools viven en la caché (pasarlos aquí da 400).
+            name, rest, written = hit
+            config.cached_content = name
+            return rest, config, written
+        config.system_instruction = system
+        if tools is not None:
+            config.tools = list(declared)
+            config.tool_config = tool_config
+        return contents, config, 0
+
+    async def _explicit_prefix(
+        self,
+        messages: Sequence[ChatMessage],
+        system: str | None,
+        contents: list[types.Content],
+        declared: list[types.Tool],
+        tool_config: types.ToolConfig | None,
+    ) -> tuple[str, list[types.Content], int] | None:
+        """El prefijo hasta el último `cache_checkpoint`, si se puede servir desde una caché
+        explícita. Si no (sin marca, prefijo no exacto o fallo al crearla), None: implícita."""
+        if self._explicit_cache is None:
+            return None
+        marks = [i for i, message in enumerate(messages) if message.cache_checkpoint]
+        if not marks:
+            return None
+        prefix_system, prefix = to_contents(messages[: marks[-1] + 1])
+        size = len(prefix)
+        # Tiene que ser un prefijo exacto: un SYSTEM después de la marca o resultados de tools
+        # agrupados a caballo de ella lo cambiarían. Y tiene que quedar algo que preguntar.
+        if prefix_system != system or contents[:size] != prefix or len(contents) == size:
+            return None
+        cache_prefix = CachePrefix(self._model, system, tuple(prefix), tuple(declared), tool_config)
+        try:
+            hit = await self._explicit_cache.lookup_or_create(cache_prefix)
+        except _SDK_ERRORS as exc:
+            logger.warning("Caché explícita no disponible (%s): se sigue con la implícita.", exc)
+            return None
+        if hit is None:
+            return None
+        return hit.name, contents[size:], hit.write_tokens
 
     async def complete(
         self,
@@ -359,7 +431,9 @@ class GeminiLLM:
         response_schema: ResponseSchema | None = None,
         tools: ToolConfig | None = None,
     ) -> LLMResponse:
-        contents, config = self._request(messages, max_tokens, response_schema, tools)
+        contents, config, written = await self._request(
+            messages, max_tokens, response_schema, tools
+        )
         started = time.perf_counter()
         try:
             response = await self._models.generate_content(
@@ -378,7 +452,7 @@ class GeminiLLM:
         return LLMResponse(
             content=_text(parts),
             model=response.model_version or self._model,
-            usage=_usage(response.usage_metadata),
+            usage=_usage(response.usage_metadata, written),
             provider="gcp",
             latency_ms=latency_ms,
             finish_reason=_finish_name(candidate.finish_reason),
@@ -394,7 +468,7 @@ class GeminiLLM:
     ) -> AsyncGenerator[LLMStreamEvent, None]:
         """`generate_content_stream`: el uso llega acumulado en los trozos (vale el último) y la
         firma puede venir en una parte de texto vacía al final, que no se emite."""
-        contents, config = self._request(messages, max_tokens, None, None)
+        contents, config, written = await self._request(messages, max_tokens, None, None)
         started = time.perf_counter()
         chunks_text: list[str] = []
         model = self._model
@@ -423,7 +497,7 @@ class GeminiLLM:
         yield LLMResponse(
             content="".join(chunks_text),
             model=model,
-            usage=_usage(usage),
+            usage=_usage(usage, written),
             provider="gcp",
             latency_ms=(time.perf_counter() - started) * 1000,
             finish_reason=_finish_name(reason),

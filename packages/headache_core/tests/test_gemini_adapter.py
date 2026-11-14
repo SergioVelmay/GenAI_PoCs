@@ -12,6 +12,7 @@ from google.genai import errors, types
 from pydantic import SecretStr
 
 from headache_core.adapters.gemini import SKIP_SIGNATURE, GeminiLLM, to_llm_error
+from headache_core.adapters.gemini_cache import ExplicitCache
 from headache_core.config import GcpSettings, GeminiSettings
 from headache_core.ports import (
     ChatMessage,
@@ -381,4 +382,135 @@ def test_enterprise_needs_a_project_and_developer_api_needs_a_key() -> None:
             GcpSettings(), GeminiSettings(enterprise=False, api_key=SecretStr("k")), model=MODEL
         ),
         GeminiLLM,
+    )
+
+
+# --- Caché explícita (2.G3) ---
+
+CHEAP = "gemini-3.5-flash-lite"
+MANUAL = [
+    ChatMessage(Role.SYSTEM, "Manual de políticas", cache_checkpoint=True),
+    ChatMessage(Role.USER, "¿Puedo cambiar la fecha?"),
+]
+
+
+class FakeCaches:
+    def __init__(self, *, error: BaseException | None = None) -> None:
+        self.error = error
+        self.created: list[types.CreateCachedContentConfig] = []
+
+    async def create(
+        self, *, model: str, config: types.CreateCachedContentConfig
+    ) -> types.CachedContent:
+        if self.error is not None:
+            raise self.error
+        self.created.append(config)
+        return types.CachedContent(
+            name="cachedContents/manual",
+            usage_metadata=types.CachedContentUsageMetadata(total_token_count=4500),
+        )
+
+    async def delete(self, *, name: str) -> object:
+        return None
+
+
+def _explicit(models: FakeModels, caches: FakeCaches, model: str = CHEAP) -> GeminiLLM:
+    return GeminiLLM(models, model, explicit_cache=ExplicitCache(caches, ttl_seconds=600))
+
+
+def _cached_response() -> types.GenerateContentResponse:
+    usage = {"promptTokenCount": 4520, "cachedContentTokenCount": 4500, "candidatesTokenCount": 5}
+    return _response([{"text": "Sí."}], usage=usage)
+
+
+async def test_explicit_cache_serves_the_prefix_by_name_and_bills_the_write_once() -> None:
+    models, caches = FakeModels(_cached_response()), FakeCaches()
+    llm = _explicit(models, caches)
+
+    first = await llm.complete(MANUAL)
+    second = await llm.complete(MANUAL)
+
+    config = models.calls[0]["config"]
+    assert config.cached_content == "cachedContents/manual"
+    # Sistema y tools viven en la caché: mandarlos junto a `cached_content` da 400.
+    assert (config.system_instruction, config.tools, config.tool_config) == (None, None, None)
+    assert [c.parts[0].text for c in models.calls[0]["contents"]] == ["¿Puedo cambiar la fecha?"]
+    assert caches.created[0].system_instruction == "Manual de políticas"
+    # 1.ª: escribe 4500 (precio de entrada) y además los lee; 2.ª: solo los lee.
+    assert first.usage == TokenUsage(9020, 5, cached_input_tokens=4500, cache_write_tokens=4500)
+    assert second.usage == TokenUsage(4520, 5, cached_input_tokens=4500)
+    assert len(caches.created) == 1
+
+
+async def test_explicit_cache_freezes_the_tools_with_the_prefix() -> None:
+    models, caches = FakeModels(_cached_response()), FakeCaches()
+
+    await _explicit(models, caches).complete(MANUAL, tools=TOOLS)
+
+    assert caches.created[0].tools is not None
+    assert caches.created[0].tool_config is not None
+    assert models.calls[0]["config"].tools is None
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        # Sin marca: no hay prefijo que congelar.
+        [ChatMessage(Role.SYSTEM, "Manual"), ChatMessage(Role.USER, "hola")],
+        # Un SYSTEM después de la marca cambiaría la instrucción de sistema de la caché.
+        [*MANUAL, ChatMessage(Role.SYSTEM, "Extra")],
+        # Nada detrás de la marca: no queda qué preguntar.
+        [ChatMessage(Role.USER, "solo prefijo", cache_checkpoint=True)],
+    ],
+)
+async def test_without_an_exact_prefix_it_falls_back_to_the_implicit_cache(
+    messages: list[ChatMessage],
+) -> None:
+    models, caches = FakeModels(_response([{"text": "ok"}])), FakeCaches()
+
+    await _explicit(models, caches).complete(messages)
+
+    assert caches.created == []
+    assert models.calls[0]["config"].cached_content is None
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _api_error(400, "INVALID_ARGUMENT"),  # p. ej., Gemini 4: sin caché explícita.
+        httpx.ConnectError("sin red"),
+    ],
+)
+async def test_a_cache_that_cannot_be_created_never_fails_the_request(error: Exception) -> None:
+    models = FakeModels(_response([{"text": "ok"}]))
+
+    response = await _explicit(models, FakeCaches(error=error), MODEL).complete(MANUAL)
+
+    assert response.content == "ok"
+    config = models.calls[0]["config"]
+    assert (config.cached_content, config.system_instruction) == (None, "Manual de políticas")
+
+
+async def test_stream_uses_the_explicit_cache_too() -> None:
+    models, caches = FakeModels(chunks=[_cached_response()]), FakeCaches()
+
+    events = [e async for e in _explicit(models, caches).stream(MANUAL)]
+
+    final = events[-1]
+    assert isinstance(final, LLMResponse)
+    assert final.usage.cache_write_tokens == 4500
+    assert models.calls[0]["config"].cached_content == "cachedContents/manual"
+
+
+def test_settings_turn_the_explicit_cache_on() -> None:
+    gemini = GeminiSettings(cache="explicit", cache_ttl_seconds=300)
+
+    llm = GeminiLLM.from_settings(GcpSettings(project="headache-dev"), gemini, model=CHEAP)
+
+    assert llm.explicit_cache is not None
+    assert (
+        GeminiLLM.from_settings(
+            GcpSettings(project="headache-dev"), GeminiSettings(), model=CHEAP
+        ).explicit_cache
+        is None
     )

@@ -141,6 +141,7 @@ local con `docker compose --profile observability up -d`.
 | `BEDROCK__REGION`, `__PROFILE`, `__CHAT_MODEL_ID`, `__CHEAP_CHAT_MODEL_ID` | Bedrock |
 | `GCP__PROJECT`, `__IMPERSONATE_SERVICE_ACCOUNT` | Proyecto y cuenta de servicio a suplantar |
 | `GEMINI__ENTERPRISE`, `__LOCATION`, `__CHAT_MODEL`, `__CHEAP_CHAT_MODEL`, `__THINKING_LEVEL`, `__CHEAP_THINKING_LEVEL`, `__TIMEOUT_SECONDS` | Gemini (sin `API_KEY` con Agent Platform) |
+| `GEMINI__CACHE=implicit\|explicit`, `GEMINI__CACHE_TTL_SECONDS` | Caché de Gemini (2.G3) |
 | `LANGFUSE__HOST`, `__PUBLIC_KEY`, `__SECRET_KEY` | Trazas |
 
 ## 9. Scripts (con coste; pedir confirmación)
@@ -204,7 +205,7 @@ trazas y coste funcionen igual con las tres nubes. Coste 0: todo se prueba con d
 |---|---|---|
 | 2.G1 | (pendiente) | Adaptador `GeminiLLM`, *thought signatures* en el puerto, precios y rol de IAM |
 | 2.G2 | (pendiente) | Gateway con tres proveedores, fallback en cadena y LiteLLM `vertex_ai/` |
-| 2.G3 | — | Caché implícita frente a explícita (`CachedContent`) y benchmark `--provider gcp` |
+| 2.G3 | (pendiente) | Caché implícita frente a explícita (`CachedContent`) y benchmark `--provider gcp` |
 
 ### 10.1 Verificación previa (14-11-2026)
 
@@ -293,13 +294,56 @@ uv run python scripts/llm_gateway_demo.py --limit 20                  # con cost
 $env:LLM_GATEWAY__ENGINE="litellm"; uv run python scripts/llm_gateway_demo.py --limit 20
 ```
 
-**Límites del carril C:**
+**Límites del carril C** (LiteLLM):
 
 - LiteLLM reenvía la temperatura del puerto con un aviso de parámetro obsoleto (el modelo la
   ignora). En el carril B no se envía.
 - No aplica `GCP__IMPERSONATE_SERVICE_ACCOUNT`, porque solo acepta credenciales en JSON y no un
   objeto. Suplanta quien configure ADC (`gcloud auth application-default login
   --impersonate-service-account=...`), y el adaptador lo avisa en el log.
+
+### 10.4 Caché implícita frente a explícita (2.G3)
+
+| | Implícita (por defecto) | Explícita (`GEMINI__CACHE=explicit`) |
+|---|---|---|
+| Cómo | Gemini cachea solo los prefijos repetidos | Recurso `CachedContent` con el prefijo; las peticiones lo citan por nombre |
+| Acierto | *Best-effort*: no garantizado | Garantizado mientras viva (TTL) |
+| Escritura | Gratis | A precio de entrada, una vez por caché |
+| Lectura | 90 % de descuento | 90 % de descuento |
+| Almacenamiento | — | Por millón de tokens y hora (1 $ en `gemini-3.5-flash-lite`) |
+| Modelos | Todos (≥ 4096 tokens) | Gemini 3.x; **no Gemini 4** |
+| Equivalente | Azure (automática) | Bedrock `cachePoint`, pero como recurso aparte con su propio ciclo de vida |
+
+- **`adapters/gemini_cache.py`** (`ExplicitCache`): un `CachedContent` por prefijo (hash de modelo,
+  sistema, turnos hasta el último `cache_checkpoint`, tools y `tool_config`). Lo crea la primera
+  petición y lo reutilizan las siguientes hasta 30 s antes de caducar; después se recrea.
+- **Lo que se congela:** con `cached_content`, Gemini no admite `system_instruction`, `tools` ni
+  `tool_config` en la petición (400), así que van dentro de la caché. Un cambio en las tools es
+  otra caché. Si el prefijo no es exacto (un `SYSTEM` después de la marca, resultados de tools a
+  caballo de ella o nada detrás), la petición sigue con la implícita.
+- **Nunca rompe una petición:** si no se puede crear (Gemini 4, prefijo por debajo del mínimo,
+  cuota, red), se usa la implícita y se avisa en el log. Un 400 por modelo o por prefijo no se
+  reintenta; un 429 o un fallo de red, sí, en la siguiente petición.
+- **Coste:** la petición que crea la caché suma los tokens escritos a la entrada y los marca como
+  `cache_write_tokens`: `PriceTable.cost` cobra escritura + lectura + lo no cacheado sin contar nada
+  dos veces. El almacenamiento no depende de las peticiones, sino del tiempo que vive la caché:
+  `PriceTable.storage_cost(model, tokens, seconds)`, que el benchmark suma al borrarla.
+- **Límite:** el registro vive en el proceso, así que cada réplica crea su propia caché del mismo
+  prefijo. En producción se compartiría el nombre (p. ej. en Redis, como la cuota de la 10.1)
+  para pagar un solo almacenamiento.
+
+```powershell
+uv run python scripts/llm_cache_benchmark.py --provider gcp --tier cheap --gemini-cache implicit
+uv run python scripts/llm_cache_benchmark.py --provider gcp --tier cheap --gemini-cache explicit
+uv run python scripts/llm_cache_benchmark.py --provider gcp --tier strong   # Hydrogen: implícita
+```
+
+**Cuándo compensa cada una** (con los precios de `gemini-3.5-flash-lite` y un manual de ~9 K
+tokens): la explícita paga ~0,0027 $ de escritura y ~0,009 $ por hora de almacenamiento, y ahorra
+~0,0024 $ por petición frente a no cachear. Compensa a partir de unas 5 peticiones por hora con el
+mismo prefijo, o cuando el acierto de la implícita sea bajo (Google no lo garantiza). Con tráfico
+continuo, como el del asistente de Headache, la implícita suele bastar y no cuesta nada. Las
+cifras reales saldrán del benchmark en la nube.
 
 ## 11. Pendiente con coste (validación en cloud)
 
