@@ -69,8 +69,8 @@ La columna GCP es lo que se construye en la pasada. **Local** = verificable sin 
 | 0 | Bicep→Terraform, Entra ID, emulador de Service Bus | Terraform, IAM, ElasticMQ | `infra/terraform/gcp` (proveedores `google` y `google-beta`), presupuesto de Cloud Billing, Workload Identity Federation, emulador de Pub/Sub | `terraform validate`, perfil `pubsub` | `apply` |
 | 1 | PostgreSQL Flexible | RDS/Aurora | Cloud SQL para PostgreSQL / AlloyDB, BigQuery como almacén analítico | Docs (el código no cambia) | Fase 15 |
 | 2 | Azure OpenAI, caché automática | Bedrock Converse, `cachePoint` | `GeminiLLM` (`google-genai`): tools, salida estructurada, streaming, caché **implícita y explícita**, errores 429/safety; LiteLLM `vertex_ai/`; fallback entre 3 nubes | Tests con cliente falso | Benchmarks de caché y gateway |
-| 3 | Service Bus, AI Search (B), indexer + skillset (A) | SQS, S3 Vectors (B), Bedrock KB (A) | **Pub/Sub** (contrato común + DLQ), embeddings Gemini a 1024, **Vector Search** (B), **RAG Engine** desde Cloud Storage (A), LlamaIndex + pgvector (C) | Emulador, dobles | Ingesta y coste |
-| 4 | AI Search híbrida + Semantic Ranker, Foundry IQ | KB Retrieve/RetrieveAndGenerate, Bedrock Rerank | Vector Search híbrida (denso + disperso) con `restricts` como ACL, **Ranking API**, RAG Engine `retrieveContexts`, **Vertex AI Search** con respuestas citadas | Dobles | Comparativa A/B/C |
+| 3 | Service Bus, AI Search (B), indexer + skillset (A) | SQS, S3 Vectors (B), Bedrock KB (A) | **Pub/Sub** (contrato común + DLQ), embeddings Gemini a 1024, **Agent Retrieval** (antes Vector Search 2.0; B), **RAG Engine** desde Cloud Storage (A), LlamaIndex + pgvector (C) | Emulador, dobles | Ingesta y coste |
+| 4 | AI Search híbrida + Semantic Ranker, Foundry IQ | KB Retrieve/RetrieveAndGenerate, Bedrock Rerank | Agent Retrieval híbrida (vector + texto completo con RRF) con filtros JSON como ACL, **Ranking API**, RAG Engine `retrieveContexts`, **Vertex AI Search** (posible nombre nuevo: Agent Search) con respuestas citadas | Dobles | Comparativa A/B/C |
 | 5 | Jueces con Azure, Foundry Evaluation | Bedrock Evaluations | Juez Gemini fijo fuera del router, RAGAS/DeepEval con Gemini, **Gen AI Evaluation Service** | Dobles | Calibración (kappa) |
 | 6 | APIM, Entra OBO | AgentCore Gateway, Cognito | **Agent Gateway** + Agent Registry + Agent Identity, Apigee (equivalente de APIM), intercambio de tokens con STS / Identity Platform, MCP en Cloud Run | Tests del *exchanger* | OBO de extremo a extremo |
 | 7 | Sabor `foundry` | Sabor `agentcore` + Memory | Sabores **`adk`** (C) y **`agentplatform`** (A: Agent Runtime + Sessions + **Memory Bank**), emulador local | 14 escenarios, paridad, ataques | Agente real y memoria |
@@ -101,14 +101,14 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **3.G · Indexación**
 
-- 3.G1: `adapters/pubsub.py` en el test de contrato de brokers (integración con el emulador): *ack deadline*, reintentos y *dead-letter topic* (mínimo 5 entregas; si el emulador no lo soporta, doble y pendiente en la nube).
-- 3.G2: embeddings Gemini (`output_dimensionality=1024` y `task_type` distinto para documento y consulta) y `adapters/gcp_vector_search.py` (carril B: upsert y borrado en streaming, mismo orden upsert → borrado).
-- 3.G3: carril A con RAG Engine (`managed_ingestion.py gcp` con MD5 antes de subir a Cloud Storage) y Terraform (`lane_a.tf`, `main.tf`: temas, suscripciones con DLQ, bucket, índice y endpoint efímeros). Carril C: LlamaIndex + pgvector, mismo código.
+- 3.G1: `adapters/pubsub.py` en el test de contrato de brokers (integración con el emulador): *ack deadline*, reintentos y *dead-letter topic* (mínimo 5 entregas; **el emulador sí lo soporta**, comprobado el 15-11-2026) y `pubsub.tf`.
+- 3.G2: embeddings Gemini (`output_dimensionality=1024` y `task_type` distinto para documento y consulta) y `adapters/gcp_vector_search.py` (carril B: mismo orden upsert → borrado) con `vector_search.tf` efímero. **Cambio de plan (15-11-2026):** Vector Search 2.0 es GA y se llama **Agent Retrieval** (*collections* de objetos JSON, filtros `$eq`, texto completo e híbrida con RRF); se usa en lugar de Vector Search 1.0 (índice + endpoint con VMs por hora) con `google-cloud-vectorsearch` en el extra `gcp`.
+- 3.G3: carril A con RAG Engine con el cliente `agentplatform` (`vertexai.rag` está obsoleto), `managed_ingestion.py gcp` con MD5 antes de subir a Cloud Storage y `lane_a.tf` (bucket, `rag_engine_config` y corpus efímeros). Carril C: LlamaIndex + pgvector, mismo código. El Terraform se reparte por subfase en vez de ir todo aquí.
 
 **4.G · Retrieval**
 
-- 4.G1: `adapters/gcp_retrieval.py`: Vector Search híbrida con ACL como `restricts` (prefiltro en el servidor) y reranker con la Ranking API (`RerankerPort`).
-- 4.G2: carril A: RAG Engine `retrieveContexts` y Vertex AI Search (respuesta con citas, equivalente de Foundry IQ); el adaptador rechaza filtros que no pueda garantizar. Scripts de aprovisionamiento en dry-run y composición explícita (`RETRIEVAL__ENGINE=gcp`, `RETRIEVAL__MANAGED=rag_engine|vertex_search`).
+- 4.G1: `adapters/gcp_retrieval.py`: Agent Retrieval híbrida (`batch_search_data_objects`: vector + texto completo con RRF) con la ACL como filtro JSON en el servidor y reranker con la Ranking API (`RerankerPort`).
+- 4.G2: carril A: RAG Engine `retrieveContexts` y Vertex AI Search (respuesta con citas, equivalente de Foundry IQ); el adaptador rechaza filtros que no pueda garantizar. **Heredado de la 3.G3:** la ACL de RAG Engine se aplica eligiendo los corpus permitidos (uno por ACL; su filtro por metadatos está en preview) y se vuelve a comprobar en cada resultado. Scripts de aprovisionamiento en dry-run y composición explícita (`RETRIEVAL__ENGINE=gcp`, `RETRIEVAL__MANAGED=rag_engine|vertex_search`).
 
 **5.G · Evals de RAG**
 

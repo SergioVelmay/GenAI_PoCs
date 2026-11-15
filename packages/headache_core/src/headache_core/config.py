@@ -102,6 +102,10 @@ class GeminiSettings(BaseModel):
     thinking_level: ThinkingLevel = "low"
     cheap_thinking_level: ThinkingLevel = "low"
     embedding_model: str = "gemini-embedding-001"
+    # Textos por petición de embeddings (3.G2). La API admite 250 y 20 000 tokens por petición,
+    # pero la referencia REST dice que `gemini-embedding-001` acepta uno solo: se confirma en la
+    # nube y, si es así, se baja a 1 (las peticiones van en paralelo acotado).
+    embedding_batch_size: int = Field(default=100, ge=1, le=250)
     # Juez de evals: distinto y más capaz que el generador (sesgo de autopreferencia); 5.G1.
     judge_model: str = "gemini-4-argon"
     # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
@@ -123,8 +127,13 @@ class PubSubSettings(BaseModel):
     emulator_host: str = ""
     # Vacío = el proyecto de `GCP__PROJECT`; el emulador acepta cualquiera.
     project: str = ""
-    ack_deadline_s: int = 60
-    max_messages: int = 10
+    # En Pub/Sub el tema no guarda mensajes: los guarda cada suscripción. Los workers comparten
+    # `<tema>.<sufijo>` (competing consumers, como una cola).
+    subscription_suffix: str = "worker"
+    # Solo para el emulador, donde el adaptador hace de Terraform y declara tema, suscripción y
+    # dead-letter topic. En la nube los fija `infra/terraform/gcp/pubsub.tf`. Entregas: de 5 a 100.
+    ack_deadline_s: int = Field(default=60, ge=10, le=600)
+    max_delivery_attempts: int = Field(default=5, ge=5, le=100)
 
 
 class LLMGatewaySettings(BaseModel):
@@ -267,6 +276,31 @@ class S3VectorsSettings(BaseModel):
     profile: str | None = None
     bucket_name: str = "headache-knowledge-vectors"
     index_name: str = "knowledge"
+
+
+class GcpVectorSearchSettings(BaseModel):
+    """Agent Retrieval (antes Vector Search 2.0): carril B de GCP (3.G2)."""
+
+    # Colección creada por Terraform (`vector_search.tf`, efímera con `vector_search_enabled`).
+    collection: str = "knowledge"
+    # Vacío = `GCP__REGION`.
+    location: str = ""
+
+
+class GcpRagEngineSettings(BaseModel):
+    """Carril A de GCP: RAG Engine desde Cloud Storage (3.G3). Salidas de `lane_a.tf`."""
+
+    bucket: str = ""
+    # Un corpus por nivel de ACL (`projects/.../ragCorpora/<id>`): el filtro por metadatos de
+    # RAG Engine está en preview, así que la ACL se garantiza separando los documentos.
+    public_corpus: str = ""
+    internal_corpus: str = ""
+    # Troceo del servicio, como en Bedrock KB (300 tokens con un 20 % de solape).
+    chunk_size: int = Field(default=300, ge=100, le=2048)
+    chunk_overlap: int = Field(default=60, ge=0)
+
+    def corpora(self) -> dict[str, str]:
+        return {"public": self.public_corpus, "internal": self.internal_corpus}
 
 
 class AzureManagedIngestionSettings(BaseModel):
@@ -420,6 +454,8 @@ class Settings(BaseSettings):
     pubsub: PubSubSettings = PubSubSettings()
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
+    gcp_vector_search: GcpVectorSearchSettings = GcpVectorSearchSettings()
+    gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()

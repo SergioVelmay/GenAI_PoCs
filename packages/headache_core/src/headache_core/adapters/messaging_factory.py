@@ -1,4 +1,4 @@
-"""Elige el broker: el mismo productor y los mismos workers funcionan sobre los tres.
+"""Elige el broker: el mismo productor y los mismos workers funcionan sobre los cuatro.
 
 Lo comparten el indexer (fase 3) y el flujo asíncrono de casos (fase 9.6).
 """
@@ -13,12 +13,13 @@ from headache_core.application.telemetry.messaging import TracedMessageBus
 from headache_core.config import Settings
 from headache_core.ports import MessageBusPort
 
-type Broker = Literal["rabbitmq", "sqs", "servicebus"]
+type Broker = Literal["rabbitmq", "sqs", "servicebus", "pubsub"]
 # Valores bien conocidos de `messaging.system` en la convención de OTel.
 MESSAGING_SYSTEMS: dict[Broker, str] = {
     "rabbitmq": "rabbitmq",
     "sqs": "aws_sqs",
     "servicebus": "servicebus",
+    "pubsub": "gcp_pubsub",
 }
 
 
@@ -31,8 +32,8 @@ async def open_message_bus(
     max_deliveries: int = 5,
     retry_delay_ms: int = 1_000,
 ) -> AsyncIterator[MessageBusPort]:
-    """`max_deliveries` y el retardo solo aplican a RabbitMQ: en SQS y Service Bus los fija la
-    infraestructura (redrive policy / MaxDeliveryCount), no la aplicación."""
+    """`max_deliveries` y el retardo solo aplican a RabbitMQ: en SQS, Service Bus y Pub/Sub los
+    fija la infraestructura (redrive policy / MaxDeliveryCount / dead-letter y retry policy)."""
     bus: MessageBusPort
     match broker:
         case "rabbitmq":
@@ -54,6 +55,15 @@ async def open_message_bus(
             from headache_core.adapters.servicebus import ServiceBusMessageBus
 
             bus = ServiceBusMessageBus.from_settings(settings.service_bus, prefetch=prefetch)
+        case "pubsub":
+            from headache_core.adapters.pubsub import PubSubMessageBus
+
+            bus = PubSubMessageBus.from_settings(
+                settings.pubsub,
+                settings.gcp,
+                project=settings.pubsub_project(),
+                max_messages=prefetch,
+            )
     # Fase 11.3: la traza viaja con el mensaje. Sin telemetría configurada no hace nada.
     traced = TracedMessageBus(bus, system=MESSAGING_SYSTEMS[broker])
     try:

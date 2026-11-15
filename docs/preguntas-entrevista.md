@@ -37,8 +37,8 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
 | Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
 | Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
-| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus), Vertex AI Search (respuestas citadas) |
-| Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Vector Search, Cloud SQL / AlloyDB + pgvector |
+| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Vertex AI Search (respuestas citadas) |
+| Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
 | Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
@@ -361,6 +361,54 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 3. **Operaciones cambia una política y quiere que el asistente la sepa ya.** La ingesta es por
    eventos: publicar el documento encola su indexación. Acordaría un objetivo de frescura (p. ej.,
    minutos) y lo mediría como latencia de ingesta, con alertas sobre la DLQ.
+
+### GCP (pasada 3.G)
+
+**Técnicas**
+
+1. **¿Qué cambia al llevar tu cola de SQS a Pub/Sub?** Que Pub/Sub separa el tema (donde se
+   publica) de la suscripción (donde viven los mensajes): los workers comparten una suscripción
+   para repartirse el trabajo, y publicar en un tema sin suscripciones pierde el mensaje. Por eso
+   la DLQ es un tema **con su propia suscripción**. El reintento es un *nack* y el backoff lo pone
+   la `retry_policy` de la suscripción; el error permanente se publica a mano en la DLQ, como en
+   SQS. El mismo test de contrato que pasan RabbitMQ, SQS y Service Bus lo pasa Pub/Sub contra el
+   emulador (5 de 5), con una diferencia: Pub/Sub exige un mínimo de 5 entregas antes de la DLQ.
+2. **¿Qué permiso se olvida casi todo el mundo con la DLQ de Pub/Sub?** El del agente de servicio
+   de Pub/Sub: tiene que poder publicar en el tema DLQ y suscribirse a la suscripción original. Sin
+   eso, la dead-letter policy aparece configurada pero no mueve nada y el mensaje se reintenta
+   para siempre. En `pubsub.tf` va explícito, junto con los permisos por recurso de la app.
+3. **¿Por qué Agent Retrieval y no Vector Search en GCP?** Porque Vector Search 2.0 salió GA en
+   marzo de 2026 con otro nombre (Agent Retrieval) y otro modelo: *collections* que guardan el
+   objeto JSON con su vector, filtros tipo `$eq` y pago por uso, mucho más cerca de S3 Vectors.
+   Vector Search 1.0 obliga a desplegar un endpoint con VMs por horas aunque nadie consulte. Lo vi
+   en la verificación previa, no en el plan, que tenía una semana: por eso cada fase empieza
+   comprobando la documentación. Al adaptarlo aparecieron tres bordes que el puerto oculta: IDs
+   RFC1035 (hash determinista), ausencia de *upsert* (crear o reemplazar) y números que vuelven
+   como `float` (metadatos también en JSON).
+4. **Gemini pide `task_type` en los embeddings: ¿qué cambia?** El vector de un documento y el de
+   una consulta se optimizan distinto (`RETRIEVAL_DOCUMENT` frente a `RETRIEVAL_QUERY`), algo que
+   ni Azure OpenAI ni Titan hacen. El puerto ya separaba `embed_texts` de `embed_query`, así que
+   encajó sin tocarlo. Además, recorto a 1024 dimensiones (Matryoshka) para usar el mismo esquema
+   en las tres nubes y normalizo yo, porque Google solo garantiza la norma a 3072.
+5. **¿Cómo garantizas la ACL en RAG Engine si su filtro por metadatos está en preview?** No me
+   apoyo en él: un corpus por nivel de acceso (`public` e `internal`) y la ACL se aplica eligiendo a
+   qué corpus se pregunta. Es separación física de datos en lugar de un filtro que, si falla en
+   silencio, enseña el manual interno a un cliente. El coste es la poda: si un documento pasa de
+   público a interno, primero se importa en el corpus nuevo y después se borra del viejo. Es la
+   misma regla que en todo el repo: una función en preview nunca va en el camino de la seguridad.
+
+**Negocio y stakeholders**
+
+1. **¿Te cuesta algo tener la ingesta preparada para una tercera nube?** En código, un adaptador
+   de unas 300 líneas y una línea en la factoría: el caso de uso, el ledger y los tests no
+   cambian. En la nube, Pub/Sub cuesta 0 a este volumen (10 GiB al mes gratis). El valor para
+   Headache es poder negociar con los proveedores y mover cargas sin reescribir la ingesta.
+2. **Dirección pregunta si el RAG gestionado de GCP sale más barato que el de AWS.** Depende del
+   uso, no del precio por consulta. Bedrock KB sobre S3 Vectors no tiene coste fijo; RAG Engine en
+   su nivel Basic levanta un Spanner que se paga por horas aunque nadie pregunte, y AI Search Basic
+   ronda los 70 €/mes. Para conocimiento interno con poco tráfico, AWS; para un asistente con uso
+   continuado, el coste fijo se diluye y decide la calidad medida con el golden dataset (fase 5).
+   Por eso en desarrollo el carril A de GCP es efímero: se enciende para validar y se apaga.
 
 <a id="fase-4"></a>
 

@@ -142,3 +142,36 @@ async def test_port_embedding_uses_our_port(embed: PortEmbedding) -> None:
     expected = await HashingEmbedding(64).embed_texts(["reembolso candlelit"])
 
     assert await embed.aget_text_embedding_batch(["reembolso candlelit"]) == expected
+
+
+async def test_port_embedding_keeps_documents_and_queries_apart() -> None:
+    """3.G3: el carril C con Gemini necesita la asimetría `RETRIEVAL_DOCUMENT`/`RETRIEVAL_QUERY`.
+    El puente debe llamar a `embed_texts` para los nodos y a `embed_query` para la consulta."""
+    from collections.abc import Sequence
+
+    from headache_core.adapters.llamaindex import PortEmbedding
+
+    class RecordingPort:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        @property
+        def dimensions(self) -> int:
+            return 2
+
+        async def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
+            self.calls += ["texts"] * len(texts)
+            return [[1.0, 0.0] for _ in texts]
+
+        async def embed_query(self, text: str) -> list[float]:
+            self.calls.append("query")
+            return [0.0, 1.0]
+
+    port = RecordingPort()
+    embedding = PortEmbedding(port, model_name="gcp:gemini-embedding-001-1024")
+
+    await embedding.aget_text_embedding_batch(["a", "b"])
+    await embedding.aget_text_embedding("c")
+    await embedding.aget_query_embedding("¿reembolso?")
+
+    assert port.calls == ["texts", "texts", "texts", "query"]

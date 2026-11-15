@@ -17,6 +17,26 @@ output "ci_workload_identity_provider" {
   value       = var.ci_federation_enabled ? google_iam_workload_identity_pool_provider.github[0].name : null
 }
 
+output "knowledge_topic" {
+  description = "INDEXER__TOPIC con INDEXER__BROKER=pubsub (la suscripción es <tema>.worker)."
+  value       = google_pubsub_topic.knowledge.name
+}
+
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
+}
+
+output "vector_search_collection" {
+  description = "GCP_VECTOR_SEARCH__COLLECTION (null mientras vector_search_enabled = false)."
+  value       = var.vector_search_enabled ? google_vector_search_collection.knowledge[0].collection_id : null
+}
+
+output "rag_docs_bucket" {
+  description = "GCP_RAG_ENGINE__BUCKET."
+  value       = google_storage_bucket.rag_docs.name
+}
+
+output "rag_corpora" {
+  description = "GCP_RAG_ENGINE__PUBLIC_CORPUS e INTERNAL_CORPUS ({} mientras rag_engine_enabled = false)."
+  value       = { for acl, corpus in google_vertex_ai_rag_corpus.knowledge : acl => corpus.name }
 }

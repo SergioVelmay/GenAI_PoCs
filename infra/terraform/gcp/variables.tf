@@ -57,7 +57,55 @@ variable "services" {
     "monitoring.googleapis.com",
     "pubsub.googleapis.com",
     "storage.googleapis.com",
+    "vectorsearch.googleapis.com",
   ]
+}
+
+# ---------- Cola de indexación (pubsub.tf) ----------
+
+variable "max_deliveries" {
+  description = "Entregas antes de mandar el mensaje al dead-letter topic (max_delivery_attempts)."
+  type        = number
+  default     = 5
+
+  validation {
+    condition     = var.max_deliveries >= 5 && var.max_deliveries <= 100
+    error_message = "Pub/Sub admite de 5 a 100 entregas."
+  }
+}
+
+# ---------- Carril B: Agent Retrieval (vector_search.tf) ----------
+
+variable "vector_search_enabled" {
+  description = "Crea la colección de Agent Retrieval (con coste por uso). Efímera: true durante la sesión."
+  type        = bool
+  default     = false
+}
+
+variable "vector_search_collection" {
+  description = "GCP_VECTOR_SEARCH__COLLECTION (RFC1035: minúsculas, dígitos y guiones)."
+  type        = string
+  default     = "knowledge"
+}
+
+variable "embedding_dimensions" {
+  description = "Dimensiones del embedding (las mismas en las tres nubes)."
+  type        = number
+  default     = 1024
+}
+
+# ---------- Carril A: RAG Engine (lane_a.tf) ----------
+
+variable "rag_engine_enabled" {
+  description = "RAG Engine en nivel Basic (Spanner por horas) y sus corpus. false = Unprovisioned: borra los datos y para la facturación."
+  type        = bool
+  default     = false
+}
+
+variable "rag_embedding_model" {
+  description = "Modelo de embeddings de los corpus de RAG Engine (el mismo que el carril B; verificar que RAG Engine lo admite en la región)."
+  type        = string
+  default     = "gemini-embedding-001"
 }
 
 # ---------- Presupuesto (budget.tf) ----------

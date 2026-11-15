@@ -503,14 +503,15 @@ def _judge_embeddings() -> EmbeddingPort:
         AzureOpenAIEmbedding,
         BedrockTitanEmbedding,
     )
-    from headache_core.adapters.llm_factory import unsupported_provider
     from headache_core.config import LLMProvider, Settings
 
     settings = Settings()
     if settings.llm_provider is LLMProvider.AZURE:
         return AzureOpenAIEmbedding.from_settings(settings.azure_openai)
     if settings.llm_provider is LLMProvider.GCP:
-        raise unsupported_provider(settings.llm_provider, feature="embeddings", phase="fase 3.G2")
+        from headache_core.adapters.gemini_embeddings import GeminiEmbedding
+
+        return GeminiEmbedding.from_settings(settings.gcp, settings.gemini)
     return BedrockTitanEmbedding.from_settings(settings.bedrock)
 
 

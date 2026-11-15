@@ -2598,6 +2598,22 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-vectorsearch"
+version = "0.11.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/ec/f42498eb24d86ec25dd1afb943d98a11b1361e3873735a18eefff75551a5/google_cloud_vectorsearch-0.11.6.tar.gz", hash = "sha256:8547710ecb3ff17cbb438988c1e35fd6b70eb343817f6e86407ebde056f2d43c", size = 417267, upload-time = "2026-11-12T14:23:25.696Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/66/ec517cd26970b89389e9e1ad927c6db34027545299aab5329fcfa5b289eb/google_cloud_vectorsearch-0.11.6-py3-none-any.whl", hash = "sha256:0f13131d1cf7fa26f62571ef2d497f0f80cdd89f824acfdd690b6992f7ed81c8", size = 357129, upload-time = "2026-11-12T14:22:38.967Z" },
+]
+
+[[package]]
 name = "google-crc32c"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2991,6 +3007,7 @@ gcp = [
     { name = "google-cloud-monitoring" },
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-storage" },
+    { name = "google-cloud-vectorsearch" },
     { name = "google-genai" },
 ]
 llamaindex = [
@@ -3045,6 +3062,7 @@ requires-dist = [
     { name = "google-cloud-monitoring", marker = "extra == 'gcp'", specifier = ">=2.32" },
     { name = "google-cloud-pubsub", marker = "extra == 'gcp'", specifier = ">=2.43" },
     { name = "google-cloud-storage", marker = "extra == 'gcp'", specifier = ">=3.17" },
+    { name = "google-cloud-vectorsearch", marker = "extra == 'gcp'", specifier = ">=0.11,<0.12" },
     { name = "google-genai", marker = "extra == 'gcp'", specifier = ">=2.34,<3" },
     { name = "httpx", marker = "extra == 'tools'", specifier = ">=0.27" },
     { name = "langfuse", marker = "extra == 'observability'", specifier = ">=3.0" },

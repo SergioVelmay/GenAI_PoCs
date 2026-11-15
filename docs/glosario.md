@@ -75,7 +75,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Parent-child / auto-merging** | Indexar trozos pequeños (precisos) y devolver el padre grande (contexto). Auto-merging solo sube si aciertan varios hijos. | Fase 4, con LlamaIndex. |
 | **Ingesta event-driven** | Publicar un documento encola su indexación (no un batch nocturno). | RabbitMQ / SQS / Service Bus → `indexer`. |
 | **Ledger de hashes** | Registro del hash de cada documento para no re-embeber lo que no cambia (idempotencia). | Republicar 116 documentos = 0 llamadas de embeddings. |
-| **Vector store** | Base de datos que busca por similitud de embeddings. | pgvector en local; AI Search en Azure; S3 Vectors en AWS. |
+| **Vector store** | Base de datos que busca por similitud de embeddings. | pgvector en local; AI Search en Azure; S3 Vectors en AWS; Agent Retrieval (antes Vector Search 2.0) en GCP. |
 | **pgvector / HNSW** | Extensión de PostgreSQL para vectores; HNSW es su índice aproximado (rápido, no exacto). | `pgvector/pgvector:pg17`; Aurora PostgreSQL en AWS. |
 | **BM25** | Búsqueda léxica clásica (por palabras), buena con IDs, nombres y términos exactos. | `rank-bm25` en local; S3 Vectors no lo tiene. |
 | **Búsqueda híbrida** | Combinar léxica (BM25) y vectorial. | Medida en Azure: sola rindió **peor** (recall@5 0,79 vs 0,95); con reranker, la mejor (0,97). |

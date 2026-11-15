@@ -193,3 +193,37 @@ def test_pubsub_falls_back_to_the_gcp_project(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("PUBSUB__PROJECT", "headache-messaging")
 
     assert Settings(_env_file=None).pubsub_project() == "headache-messaging"
+
+
+def test_pubsub_rejects_fewer_than_five_delivery_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pub/Sub no admite un dead-letter policy con menos de 5 entregas (contrato: 3 en el resto)."""
+    monkeypatch.setenv("PUBSUB__MAX_DELIVERY_ATTEMPTS", "3")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GCP_VECTOR_SEARCH__COLLECTION", "knowledge-v2")
+    monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "1")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.gcp_vector_search.collection == "knowledge-v2"
+    assert settings.gcp_vector_search.location == ""  # = GCP__REGION
+    assert settings.gemini.embedding_batch_size == 1
+
+    monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "251")  # La API admite 250 como mucho.
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GCP_RAG_ENGINE__PUBLIC_CORPUS", "projects/p/locations/l/ragCorpora/1")
+
+    rag = Settings(_env_file=None).gcp_rag_engine
+
+    assert rag.corpora() == {"public": "projects/p/locations/l/ragCorpora/1", "internal": ""}
+    assert (rag.chunk_size, rag.chunk_overlap) == (300, 60)

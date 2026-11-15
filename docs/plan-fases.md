@@ -113,8 +113,8 @@ gestionada ni Semantic Ranker, y solo hay uno gratuito por suscripción).
 **Objetivo:** cerrar el triángulo con la tercera nube, con las mismas evals.
 
 - **Aprenderás:** Cloud Run / GKE (efímero), Agent Runtime, Pub/Sub, Cloud SQL / AlloyDB con
-  autenticación IAM, Vector Search (efímero), Memorystore, Cloud Armor, Workload Identity Federation
-  en la CI (ya en `infra/terraform/gcp/identity.tf`).
+  autenticación IAM, Agent Retrieval (antes Vector Search; efímero), Memorystore, Cloud Armor,
+  Workload Identity Federation en la CI (ya en `infra/terraform/gcp/identity.tf`).
 - **Entregables:** despliegue espejo y columna GCP de la chuleta validada con lo desplegado.
 - **Heredado:** los pendientes de GCP de cada subfase `N.G` en
   [pendientes-cloud.md](pendientes-cloud.md).
