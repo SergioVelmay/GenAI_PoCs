@@ -21,9 +21,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 from rag_evals import EVALS_DIR
+from rag_evals.golden import DATASET_VERSION
 from rag_evals.retrieval_eval import REPORTS_DIR
 
-BASELINE_PATH = EVALS_DIR / "baselines" / "baseline-v1.json"
+# Un baseline por versión del golden dataset: comparar con otro dataset no tiene sentido.
+BASELINE_PATH = EVALS_DIR / "baselines" / f"baseline-v{DATASET_VERSION}.json"
 RETRIEVAL_METRICS = ("hit_at_1", "hit_at_k", "recall_at_k", "mrr", "ndcg_at_k", "evidence_at_k")
 GENERATION_METRICS = (
     "answer_evidence",

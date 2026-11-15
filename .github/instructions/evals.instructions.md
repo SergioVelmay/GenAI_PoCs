@@ -9,7 +9,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 
 ## Datos versionados
 
-- Corpus congelado `evals/corpus/knowledge.jsonl` (escala small, semilla 42) y golden `evals/datasets/golden-v1.jsonl` + `.meta.json` con el sha256 del corpus. Gold por `document_id` (cambiar el chunking no invalida el dataset).
+- Corpus congelado `evals/corpus/knowledge.jsonl` (escala small, semilla 42) y golden `evals/datasets/golden-v2.jsonl` + `.meta.json` con el sha256 del corpus (la v2 es la v1 sobre el corpus renombrado a Genaipocs: mismas 144 preguntas; la v1 se conserva con su huella). Gold por `document_id` (cambiar el chunking no invalida el dataset).
 - Regenerar/verificar: `uv run python -m rag_evals.golden [--check]`. Un cambio de corpus exige versión nueva del dataset, no editar la existente.
 - Métricas puras en `genaipocs_core/domain/evals.py` (hit rate, MRR, nDCG...), con sus tests.
 - `data/synthetic/` local de Sergio está en escala **large** (millones de pedidos para la fase 1): no regenerarlo sin preguntar. Para pruebas, `--scale small` en otro directorio. Al añadir datos al generador, no consumir más del RNG en las rutas existentes: con la misma semilla, el resto de la salida debe quedar idéntica. Trampas intencionadas del generador (no "arreglarlas"): la apertura de puertas varía por ciudad (15/30/45 min) y las ventanas de reembolso por categoría coinciden entre las políticas (RAG) y los eventos (SQL).
@@ -31,7 +31,7 @@ Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al te
 - Multi-agente (fase 9.7): `uv run python -m rag_evals.multiagent [--engine langgraph|maf|async] [--check]` sobre `evals/datasets/multiagent-v1.jsonl` (guion legible: `triage`, `tool`, `text`, `draft`, `error`, `step` para el supervisor). Invariantes `unapproved_irreversible`, `refund_outside_specialist`, `identity_in_prompt`, `email_in_handoff` siempre 0; la CI lo ejecuta con `--check`. Con coste: `--mode llm --budget-usd N` → `evals/reports/azure/multiagent-llm.*`.
 - Caché semántica (fase 10.3): `uv run python -m rag_evals.semantic_cache [--check]` sobre `evals/datasets/semantic-cache-v1.jsonl` (paráfrasis, trampas y personales; `known_gap` se informa pero no bloquea). Barre el umbral con y sin guarda de facetas → `evals/reports/semantic-cache.*`. Con coste: `--embeddings azure --budget-usd N` → `evals/reports/azure/`.
 - Drift (fase 12.8): `uv run python -m rag_evals.llmops.drift [--check]` → `evals/reports/drift.md`. Comprueba el **detector** (`domain/drift.py`: PSI, niveles, `diagnose`) con ventanas sintéticas deterministas (semana normal, ola de cancelaciones, regresión silenciosa, poca muestra); la CI lo ejecuta con `--check`. En producción el PSI lo calcula Prometheus (`drift:psi`). Un escenario nuevo lleva sus niveles, alertas y diagnóstico esperados.
-- Gate: `uv run python -m rag_evals.gate [--mode report|enforce]` contra `evals/baselines/baseline-v1.json` (tolerancia 0.01).
+- Gate: `uv run python -m rag_evals.gate [--mode report|enforce]` contra `evals/baselines/baseline-v2.json` (uno por versión del golden) (tolerancia 0.01).
 
 ## Reglas
 

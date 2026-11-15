@@ -1,6 +1,6 @@
 {
   "dataset": {
-    "version": 1,
+    "version": 2,
     "corpus": "evals/corpus/knowledge.jsonl",
     "corpus_sha256": "3ac13cba8716c541e1f251740c749519adb1e29022bcd36ce1be136f576d2e7a",
     "documents": 116,
@@ -117,8 +117,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 3,
-      "latency_p50_ms": 1.27,
-      "latency_p95_ms": 1.76,
+      "latency_p50_ms": 1.1,
+      "latency_p95_ms": 1.28,
       "missed": [],
       "plan_errors": 0
     },
@@ -220,8 +220,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 0.27,
-      "latency_p95_ms": 0.52,
+      "latency_p50_ms": 0.23,
+      "latency_p95_ms": 0.28,
       "missed": [],
       "plan_errors": 0
     },
@@ -323,8 +323,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 1.97,
-      "latency_p95_ms": 3.48,
+      "latency_p50_ms": 1.36,
+      "latency_p95_ms": 1.64,
       "missed": [],
       "plan_errors": 0
     },
@@ -426,8 +426,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 3.37,
-      "latency_p95_ms": 4.82,
+      "latency_p50_ms": 1.96,
+      "latency_p95_ms": 2.25,
       "missed": [
         "policy-window-nightlife-en"
       ],
@@ -531,8 +531,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 2.05,
-      "latency_p95_ms": 3.23,
+      "latency_p50_ms": 1.41,
+      "latency_p95_ms": 1.72,
       "missed": [],
       "plan_errors": 0
     },
@@ -634,8 +634,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 6,
-      "latency_p50_ms": 19.49,
-      "latency_p95_ms": 24.51,
+      "latency_p50_ms": 17.18,
+      "latency_p95_ms": 19.58,
       "missed": [],
       "plan_errors": 0
     },
@@ -737,8 +737,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 21.39,
-      "latency_p95_ms": 24.28,
+      "latency_p50_ms": 17.98,
+      "latency_p95_ms": 19.92,
       "missed": [],
       "plan_errors": 0
     },
@@ -840,8 +840,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 36.56,
-      "latency_p95_ms": 53.52,
+      "latency_p50_ms": 31.51,
+      "latency_p95_ms": 33.87,
       "missed": [],
       "plan_errors": 0
     },
@@ -943,8 +943,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 35.7,
-      "latency_p95_ms": 44.05,
+      "latency_p50_ms": 31.91,
+      "latency_p95_ms": 34.87,
       "missed": [
         "policy-window-nightlife-en"
       ],
@@ -1048,8 +1048,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 36.02,
-      "latency_p95_ms": 54.97,
+      "latency_p50_ms": 32.26,
+      "latency_p95_ms": 37.31,
       "missed": [],
       "plan_errors": 0
     },
@@ -1151,8 +1151,8 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 27.05,
-      "latency_p95_ms": 37.24,
+      "latency_p50_ms": 24.07,
+      "latency_p95_ms": 26.76,
       "missed": [],
       "plan_errors": 0
     }

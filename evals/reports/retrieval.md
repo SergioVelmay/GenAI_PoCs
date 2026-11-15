@@ -1,6 +1,6 @@
 # Evals de retrieval (fase 5.2)
 
-- Golden dataset v1: 144 preguntas ({'acl_adversarial': 14, 'cross_lingual': 19, 'factual': 78, 'filtered': 17, 'unanswerable': 16}); corpus `evals/corpus/knowledge.jsonl` (sha256 `3ac13cba8716`).
+- Golden dataset v2: 144 preguntas ({'acl_adversarial': 14, 'cross_lingual': 19, 'factual': 78, 'filtered': 17, 'unanswerable': 16}); corpus `evals/corpus/knowledge.jsonl` (sha256 `3ac13cba8716`).
 - Corpus indexado: 116 documentos / 131 chunks; embeddings `hashing-1024`; top_k=5, candidate_k=20.
 - Coste: 0 (todo local). Latencia medida en este equipo, solo orientativa.
 - Limitacion: con embeddings `hashing` las cifras de `vector` validan el arnes, no la calidad semantica; BM25 si es una baseline legitima.
@@ -9,17 +9,17 @@
 
 | Motor | Estrategia | Hit@1 | Hit@5 | Recall@5 | MRR | nDCG@5 | Evidencia@5 | Fugas ACL | Sin resultados (sin respuesta) | Planes fallidos | p50 ms | p95 ms |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| native | bm25 | 0.895 | 1.000 | 0.741 | 0.924 | 0.852 | 1.000 | 0 | 3/30 | 0 | 1.3 | 1.8 |
-| native | vector | 0.947 | 1.000 | 0.759 | 0.974 | 0.897 | 1.000 | 0 | 2/30 | 0 | 0.3 | 0.5 |
-| native | hybrid | 0.912 | 1.000 | 0.741 | 0.953 | 0.875 | 1.000 | 0 | 2/30 | 0 | 2.0 | 3.5 |
-| native | rerank | 0.895 | 0.991 | 0.737 | 0.936 | 0.862 | 0.991 | 0 | 2/30 | 0 | 3.4 | 4.8 |
-| native | parent-child | 0.912 | 1.000 | 0.741 | 0.953 | 0.875 | 1.000 | 0 | 2/30 | 0 | 2.0 | 3.2 |
-| llamaindex | bm25 | 0.903 | 1.000 | 0.741 | 0.928 | 0.856 | 1.000 | 0 | 6/30 | 0 | 19.5 | 24.5 |
-| llamaindex | vector | 0.947 | 1.000 | 0.759 | 0.974 | 0.897 | 1.000 | 0 | 2/30 | 0 | 21.4 | 24.3 |
-| llamaindex | hybrid | 0.903 | 1.000 | 0.759 | 0.947 | 0.876 | 1.000 | 0 | 2/30 | 0 | 36.6 | 53.5 |
-| llamaindex | rerank | 0.895 | 0.991 | 0.737 | 0.934 | 0.860 | 0.991 | 0 | 2/30 | 0 | 35.7 | 44.0 |
-| llamaindex | parent-child | 0.903 | 1.000 | 0.759 | 0.947 | 0.876 | 1.000 | 0 | 2/30 | 0 | 36.0 | 55.0 |
-| llamaindex | auto-merge | 0.947 | 1.000 | 0.759 | 0.974 | 0.897 | 1.000 | 0 | 2/30 | 0 | 27.1 | 37.2 |
+| native | bm25 | 0.895 | 1.000 | 0.741 | 0.924 | 0.852 | 1.000 | 0 | 3/30 | 0 | 1.1 | 1.3 |
+| native | vector | 0.947 | 1.000 | 0.759 | 0.974 | 0.897 | 1.000 | 0 | 2/30 | 0 | 0.2 | 0.3 |
+| native | hybrid | 0.912 | 1.000 | 0.741 | 0.953 | 0.875 | 1.000 | 0 | 2/30 | 0 | 1.4 | 1.6 |
+| native | rerank | 0.895 | 0.991 | 0.737 | 0.936 | 0.862 | 0.991 | 0 | 2/30 | 0 | 2.0 | 2.2 |
+| native | parent-child | 0.912 | 1.000 | 0.741 | 0.953 | 0.875 | 1.000 | 0 | 2/30 | 0 | 1.4 | 1.7 |
+| llamaindex | bm25 | 0.903 | 1.000 | 0.741 | 0.928 | 0.856 | 1.000 | 0 | 6/30 | 0 | 17.2 | 19.6 |
+| llamaindex | vector | 0.947 | 1.000 | 0.759 | 0.974 | 0.897 | 1.000 | 0 | 2/30 | 0 | 18.0 | 19.9 |
+| llamaindex | hybrid | 0.903 | 1.000 | 0.759 | 0.947 | 0.876 | 1.000 | 0 | 2/30 | 0 | 31.5 | 33.9 |
+| llamaindex | rerank | 0.895 | 0.991 | 0.737 | 0.934 | 0.860 | 0.991 | 0 | 2/30 | 0 | 31.9 | 34.9 |
+| llamaindex | parent-child | 0.903 | 1.000 | 0.759 | 0.947 | 0.876 | 1.000 | 0 | 2/30 | 0 | 32.3 | 37.3 |
+| llamaindex | auto-merge | 0.947 | 1.000 | 0.759 | 0.974 | 0.897 | 1.000 | 0 | 2/30 | 0 | 24.1 | 26.8 |
 
 ## Hit@5 por segmento
 
