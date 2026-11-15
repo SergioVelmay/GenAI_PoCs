@@ -17,6 +17,11 @@ output "ci_workload_identity_provider" {
   value       = var.ci_federation_enabled ? google_iam_workload_identity_pool_provider.github[0].name : null
 }
 
+output "knowledge_topic" {
+  description = "INDEXER__TOPIC con INDEXER__BROKER=pubsub (la suscripción es <tema>.worker)."
+  value       = google_pubsub_topic.knowledge.name
+}
+
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
 }

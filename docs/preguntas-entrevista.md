@@ -362,6 +362,29 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    eventos: publicar el documento encola su indexación. Acordaría un objetivo de frescura (p. ej.,
    minutos) y lo mediría como latencia de ingesta, con alertas sobre la DLQ.
 
+### GCP (pasada 3.G)
+
+**Técnicas**
+
+1. **¿Qué cambia al llevar tu cola de SQS a Pub/Sub?** Que Pub/Sub separa el tema (donde se
+   publica) de la suscripción (donde viven los mensajes): los workers comparten una suscripción
+   para repartirse el trabajo, y publicar en un tema sin suscripciones pierde el mensaje. Por eso
+   la DLQ es un tema **con su propia suscripción**. El reintento es un *nack* y el backoff lo pone
+   la `retry_policy` de la suscripción; el error permanente se publica a mano en la DLQ, como en
+   SQS. El mismo test de contrato que pasan RabbitMQ, SQS y Service Bus lo pasa Pub/Sub contra el
+   emulador (5 de 5), con una diferencia: Pub/Sub exige un mínimo de 5 entregas antes de la DLQ.
+2. **¿Qué permiso se olvida casi todo el mundo con la DLQ de Pub/Sub?** El del agente de servicio
+   de Pub/Sub: tiene que poder publicar en el tema DLQ y suscribirse a la suscripción original. Sin
+   eso, la dead-letter policy aparece configurada pero no mueve nada y el mensaje se reintenta
+   para siempre. En `pubsub.tf` va explícito, junto con los permisos por recurso de la app.
+
+**Negocio y stakeholders**
+
+1. **¿Te cuesta algo tener la ingesta preparada para una tercera nube?** En código, un adaptador
+   de unas 300 líneas y una línea en la factoría: el caso de uso, el ledger y los tests no
+   cambian. En la nube, Pub/Sub cuesta 0 a este volumen (10 GiB al mes gratis). El valor para
+   Headache es poder negociar con los proveedores y mover cargas sin reescribir la ingesta.
+
 <a id="fase-4"></a>
 
 ## Fase 4 · Retrieval avanzado ([doc](fase-4-retrieval.md))

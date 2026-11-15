@@ -93,6 +93,20 @@ terraform -chdir=infra/terraform/gcp plan     # solo debe añadir roles/aiplatfo
 - [ ] AWS: `terraform apply` en `infra/terraform/aws`, carril B con `INDEXER__EMBEDDINGS=bedrock`, `INDEXER__VECTOR_STORE=s3_vectors` e `INDEXER__BROKER=sqs`, y carril A con `scripts/managed_ingestion.py aws --apply`.
 - [x] Coste real con Cost Management (20-10-2026): indexar por cualquiera de los dos carriles cuesta céntimos (embeddings 0,005 €, Service Bus ~0); lo que pesa es AI Search por horas (0,44 € en ≈ 3,7 h). Detalle en el [checkpoint](fase-9-8-checkpoint.md#6-coste-real-cost-management-1720-de-octubre). AWS (Cost Explorer), pendiente.
 
+<a id="fase-3-gcp"></a>
+
+### GCP (pasada 3.G)
+
+Requiere la [fase 0 de GCP](#fase-0) (proyecto, `apply` y suplantación). Pub/Sub se paga por
+volumen (los primeros 10 GiB al mes son gratis): esta prueba cuesta 0.
+
+```powershell
+$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
+terraform -chdir=infra/terraform/gcp plan     # pubsub.tf: 2 temas, 2 suscripciones y 6 permisos
+```
+
+- [ ] **Pub/Sub real** (3.G1): `apply` de `pubsub.tf` y el indexer con `INDEXER__BROKER=pubsub` (sin `PUBSUB__EMULATOR_HOST`), primero con `--limit 20` y después `--poison`. Comprobar que el envenenado llega a `knowledge.documents.dlq`, que un fallo transitorio forzado agota las 5 entregas con el backoff de 10 a 300 s y que `delivery_attempt` cuenta igual que en el emulador (en la nube es aproximado). Si la DLQ no recibe nada, revisar los permisos del agente de servicio (la consola lo avisa en la suscripción).
+
 ## Fase 4 · Retrieval ([doc](fase-4-retrieval.md))
 
 Requiere antes los pendientes de las fases 2 y 3.

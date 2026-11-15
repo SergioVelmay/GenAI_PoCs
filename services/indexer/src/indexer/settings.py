@@ -21,8 +21,8 @@ class IndexerSettings(BaseSettings):
 
     # native = carril B (código propio); llamaindex = carril C (framework).
     engine: Literal["native", "llamaindex"] = "native"
-    # rabbitmq en local; sqs (ElasticMQ/AWS) y servicebus (emulador/Azure) para la nube.
-    broker: Literal["rabbitmq", "sqs", "servicebus"] = "rabbitmq"
+    # rabbitmq en local; sqs (ElasticMQ/AWS), servicebus (emulador/Azure) y pubsub (emulador/GCP).
+    broker: Literal["rabbitmq", "sqs", "servicebus", "pubsub"] = "rabbitmq"
     # hashing = local sin coste; azure (text-embedding-3-small) y bedrock (Titan v2) cuestan.
     embeddings: Literal["hashing", "azure", "bedrock"] = "hashing"
     # Carril B en la nube: azure_search o s3_vectors. El ledger sigue en PostgreSQL.
@@ -37,7 +37,7 @@ class IndexerSettings(BaseSettings):
     chunk_size_tokens: int = 128
     chunk_overlap_tokens: int = 20
     # RabbitMQ: forman parte de la declaración de la cola (productor y workers deben coincidir).
-    # SQS y Service Bus: el máximo de entregas lo fija la infraestructura, no la app.
+    # SQS, Service Bus y Pub/Sub: el máximo de entregas lo fija la infraestructura, no la app.
     max_deliveries: int = 5
     retry_delay_ms: int = 1_000
     prefetch: int = 8

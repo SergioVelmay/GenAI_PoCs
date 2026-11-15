@@ -118,6 +118,12 @@ ignore_missing_imports = true
 module = ["google.cloud.pubsub_v1", "google.cloud.pubsub_v1.*", "google.cloud.pubsub", "google.cloud.pubsub.*"]
 follow_untyped_imports = true
 
+# `grpcio` no publica tipos y sus stubs (`types-grpcio`) no están en el lock: el canal sin TLS del
+# emulador de Pub/Sub (3.G1) es lo único que se usa de él.
+[[tool.mypy.overrides]]
+module = ["grpc", "grpc.*"]
+ignore_missing_imports = true
+
 # Extra opcional `evals`: puede no estar instalado (CI). Se tratan como Any en ambos casos
 # para que mypy de el mismo resultado con y sin el extra.
 [[tool.mypy.overrides]]

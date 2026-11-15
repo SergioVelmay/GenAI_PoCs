@@ -123,8 +123,13 @@ class PubSubSettings(BaseModel):
     emulator_host: str = ""
     # Vacío = el proyecto de `GCP__PROJECT`; el emulador acepta cualquiera.
     project: str = ""
-    ack_deadline_s: int = 60
-    max_messages: int = 10
+    # En Pub/Sub el tema no guarda mensajes: los guarda cada suscripción. Los workers comparten
+    # `<tema>.<sufijo>` (competing consumers, como una cola).
+    subscription_suffix: str = "worker"
+    # Solo para el emulador, donde el adaptador hace de Terraform y declara tema, suscripción y
+    # dead-letter topic. En la nube los fija `infra/terraform/gcp/pubsub.tf`. Entregas: de 5 a 100.
+    ack_deadline_s: int = Field(default=60, ge=10, le=600)
+    max_delivery_attempts: int = Field(default=5, ge=5, le=100)
 
 
 class LLMGatewaySettings(BaseModel):

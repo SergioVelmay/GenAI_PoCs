@@ -193,3 +193,13 @@ def test_pubsub_falls_back_to_the_gcp_project(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("PUBSUB__PROJECT", "headache-messaging")
 
     assert Settings(_env_file=None).pubsub_project() == "headache-messaging"
+
+
+def test_pubsub_rejects_fewer_than_five_delivery_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pub/Sub no admite un dead-letter policy con menos de 5 entregas (contrato: 3 en el resto)."""
+    monkeypatch.setenv("PUBSUB__MAX_DELIVERY_ATTEMPTS", "3")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)

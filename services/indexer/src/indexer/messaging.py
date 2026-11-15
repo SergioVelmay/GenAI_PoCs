@@ -1,4 +1,4 @@
-"""Elige el broker del indexer: el mismo productor y el mismo worker funcionan sobre los tres."""
+"""Elige el broker del indexer: el mismo productor y el mismo worker funcionan sobre los cuatro."""
 
 from __future__ import annotations
 

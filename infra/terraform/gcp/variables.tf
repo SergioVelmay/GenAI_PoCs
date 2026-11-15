@@ -60,6 +60,19 @@ variable "services" {
   ]
 }
 
+# ---------- Cola de indexación (pubsub.tf) ----------
+
+variable "max_deliveries" {
+  description = "Entregas antes de mandar el mensaje al dead-letter topic (max_delivery_attempts)."
+  type        = number
+  default     = 5
+
+  validation {
+    condition     = var.max_deliveries >= 5 && var.max_deliveries <= 100
+    error_message = "Pub/Sub admite de 5 a 100 entregas."
+  }
+}
+
 # ---------- Presupuesto (budget.tf) ----------
 
 variable "budget_email" {

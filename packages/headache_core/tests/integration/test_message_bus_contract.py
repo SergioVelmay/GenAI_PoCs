@@ -1,4 +1,4 @@
-"""Contrato del puerto de mensajería: las mismas garantías en RabbitMQ, SQS y Service Bus.
+"""Contrato del puerto de mensajería: las mismas garantías en RabbitMQ, SQS, Service Bus y Pub/Sub.
 
 1. Entrega y confirmación.  2. Reintento de fallos transitorios.
 3. DLQ al agotar las entregas.  4. DLQ directa para errores permanentes.
@@ -7,6 +7,7 @@ Cada broker se salta si su emulador no está arrancado:
     docker compose up -d                                # RabbitMQ
     docker compose --profile sqs up -d                  # ElasticMQ
     docker compose --profile servicebus up -d           # Service Bus (requiere aceptar la EULA)
+    docker compose --profile pubsub up -d               # Pub/Sub (fase 3.G1)
 """
 
 from __future__ import annotations
@@ -21,20 +22,38 @@ from urllib.parse import urlparse
 
 import aio_pika
 import boto3
+import grpc
 import pytest
 from azure.servicebus import ServiceBusSubQueue
 from azure.servicebus.aio import ServiceBusClient
+from google.api_core import exceptions as google_exceptions
+from google.pubsub_v1 import PublisherAsyncClient, SubscriberAsyncClient
+from google.pubsub_v1.services.publisher.transports.grpc_asyncio import (
+    PublisherGrpcAsyncIOTransport,
+)
+from google.pubsub_v1.services.subscriber.transports.grpc_asyncio import (
+    SubscriberGrpcAsyncIOTransport,
+)
 
+from headache_core.adapters.pubsub import (
+    LOCAL_PROJECT,
+    PubSubMessageBus,
+    subscription_path,
+    topic_path,
+)
 from headache_core.adapters.rabbitmq import RabbitMQMessageBus
 from headache_core.adapters.servicebus import ServiceBusMessageBus
 from headache_core.adapters.sqs import SqsMessageBus, queue_name
-from headache_core.config import get_settings
+from headache_core.config import GcpSettings, PubSubSettings, get_settings
 from headache_core.ports import Message, MessageBusPort, PermanentMessageError
 
 pytestmark = pytest.mark.integration
 
 TIMEOUT_S = 30
 MAX_DELIVERIES = 3
+# Pub/Sub no admite un dead-letter policy con menos de 5 entregas.
+PUBSUB_MAX_DELIVERIES = 5
+PUBSUB_EMULATOR = get_settings().pubsub.emulator_host or "127.0.0.1:8085"
 SQS_ENDPOINT = get_settings().sqs.endpoint_url or "http://127.0.0.1:9324"
 SERVICE_BUS_EMULATOR = (
     "Endpoint=sb://127.0.0.1:5673;SharedAccessKeyName=RootManageSharedAccessKey;"
@@ -50,6 +69,7 @@ class Broker:
     topic: str
     # Espera el primer mensaje de la DLQ y devuelve su id.
     dead_letter_id: Callable[[], Awaitable[str]]
+    max_deliveries: int = MAX_DELIVERIES
 
 
 def _require(host: str, port: int, name: str) -> None:
@@ -59,9 +79,14 @@ def _require(host: str, port: int, name: str) -> None:
         pytest.skip(f"{name} no está arrancado en {host}:{port}")
 
 
-@pytest.fixture(params=["rabbitmq", "sqs", "servicebus"])
+@pytest.fixture(params=["rabbitmq", "sqs", "servicebus", "pubsub"])
 async def broker(request: pytest.FixtureRequest) -> AsyncIterator[Broker]:
-    factories = {"rabbitmq": _rabbitmq, "sqs": _sqs, "servicebus": _servicebus}
+    factories = {
+        "rabbitmq": _rabbitmq,
+        "sqs": _sqs,
+        "servicebus": _servicebus,
+        "pubsub": _pubsub,
+    }
     async for broker in factories[request.param]():
         yield broker
 
@@ -164,6 +189,43 @@ async def _servicebus() -> AsyncIterator[Broker]:
     await admin.close()
 
 
+async def _pubsub() -> AsyncIterator[Broker]:
+    host, _, port = PUBSUB_EMULATOR.rpartition(":")
+    _require(host, int(port), "Emulador de Pub/Sub")
+    # Settings explícitos (herméticos): con el emulador, el adaptador declara tema, suscripción
+    # y dead-letter topic, igual que pubsub.tf en la nube.
+    settings = PubSubSettings(
+        emulator_host=PUBSUB_EMULATOR, max_delivery_attempts=PUBSUB_MAX_DELIVERIES
+    )
+    bus = PubSubMessageBus.from_settings(settings, GcpSettings(), project=LOCAL_PROJECT)
+    topic = f"it.{uuid.uuid4().hex[:12]}"
+    channel = grpc.aio.insecure_channel(PUBSUB_EMULATOR)
+    publisher = PublisherAsyncClient(transport=PublisherGrpcAsyncIOTransport(channel=channel))
+    subscriber = SubscriberAsyncClient(transport=SubscriberGrpcAsyncIOTransport(channel=channel))
+    dead_letter_subscription = subscription_path(LOCAL_PROJECT, topic, "dlq")
+
+    async def dead_letter_id() -> str:
+        while True:
+            try:
+                response = await subscriber.pull(
+                    subscription=dead_letter_subscription, max_messages=1, timeout=2
+                )
+            except google_exceptions.DeadlineExceeded:
+                continue
+            for raw in response.received_messages:
+                return raw.message.attributes["message_id"]
+
+    yield Broker(bus, topic, dead_letter_id, max_deliveries=PUBSUB_MAX_DELIVERIES)
+    await bus.close()
+    for suffix in (settings.subscription_suffix, "dlq"):
+        await subscriber.delete_subscription(
+            subscription=subscription_path(LOCAL_PROJECT, topic, suffix)
+        )
+    for name in (topic, f"{topic}.dlq"):
+        await publisher.delete_topic(topic=topic_path(LOCAL_PROJECT, name))
+    await channel.close()
+
+
 async def test_delivers_and_acks(broker: Broker) -> None:
     received: asyncio.Queue[Message] = asyncio.Queue()
 
@@ -223,7 +285,7 @@ async def test_exhausted_retries_end_in_dlq(broker: Broker) -> None:
     sent = await broker.bus.publish(broker.topic, {"k": 1})
 
     assert await asyncio.wait_for(broker.dead_letter_id(), TIMEOUT_S) == sent.id
-    assert attempts == list(range(1, MAX_DELIVERIES + 1))
+    assert attempts == list(range(1, broker.max_deliveries + 1))
 
 
 async def test_permanent_error_goes_straight_to_dlq(broker: Broker) -> None:

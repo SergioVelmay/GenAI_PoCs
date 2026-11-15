@@ -21,8 +21,9 @@ eventos y guía del centro de ayuda) en tres carriles y dos nubes, con la misma 
 LlamaIndex también tiene integraciones con AI Search y OpenSearch; se eligió pgvector para comparar
 el framework, no el almacén.
 
-Delante de los carriles B y C hay la **misma cola** con tres brokers intercambiables (RabbitMQ, SQS,
-Service Bus) y un test de contrato común. El carril A no la necesita: el servicio sondea el origen
+Delante de los carriles B y C hay la **misma cola** con cuatro brokers intercambiables (RabbitMQ,
+SQS, Service Bus y Pub/Sub desde la [3.G1](#71-pubsub-en-el-contrato-de-brokers-3g1)) y un test de
+contrato común. El carril A no la necesita: el servicio sondea el origen
 (indexer programado) o se sincroniza bajo demanda (ingestion job).
 
 ## 2. Resumen
@@ -156,7 +157,92 @@ hace con el golden dataset (fase 5).
 
 Pendiente: AWS (Bedrock KB + S3 Vectors y SQS) y coste real con Cost Management tras unos días.
 
-## 7. Checkpoint de entrevista
+## 7. GCP (pasada 3.G)
+
+**Objetivo:** la misma ingesta en la tercera nube: Pub/Sub delante de los carriles B y C,
+embeddings de Gemini, Agent Retrieval (antes Vector Search 2.0) como almacén del carril B y RAG
+Engine como carril A. Coste 0: todo se prueba en local (emulador y dobles).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 3.G1 | (este) | `PubSubMessageBus` en el contrato de brokers, `INDEXER__BROKER=pubsub` y `pubsub.tf` |
+| 3.G2 | | Embeddings de Gemini y Agent Retrieval (carril B) |
+| 3.G3 | | RAG Engine (carril A), carril C con Gemini y cierre |
+
+### Verificación previa (15-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Emulador de Pub/Sub con *dead-letter* | Funciona: la suscripción con DLQ y `retry_policy` se crea, `delivery_attempt` llega 1…5 y el mensaje aterriza en la DLQ con los atributos `CloudPubSubDeadLetterSource*` | Contrato completo en local y en la CI, sin dobles (el plan preveía un doble) |
+| Mínimo de entregas | `max_delivery_attempts` va de 5 a 100 | El contrato tiene un máximo por broker (3 en el resto, 5 en Pub/Sub) |
+| Clientes asíncronos | `google.pubsub_v1` 2.43 trae `PublisherAsyncClient`/`SubscriberAsyncClient`, pero **no leen `PUBSUB_EMULATOR_HOST`** (solo la librería de alto nivel) | Canal gRPC sin TLS construido a mano con `PUBSUB__EMULATOR_HOST` |
+| Vector Search 2.0 | **GA** desde el 03-03-2026 y renombrado **Agent Retrieval**: *collections* de objetos JSON, filtros tipo `$eq`, texto completo e híbrida con RRF; `europe-west4`; `google_vector_search_collection` en el provider 8.11; SDK `google-cloud-vectorsearch` 0.11 | **Cambio de plan:** carril B con Agent Retrieval en lugar de Vector Search 1.0 (índice + endpoint con VMs por hora); decidido con Sergio |
+| RAG Engine en Python | `vertexai.rag` avisa de que está **obsoleto**: migrar a `agentplatform.Client(...).rag` (incluido en `google-cloud-aiplatform` 2.7, con versión `aio`) | La 3.G3 usa `agentplatform` |
+| RAG Engine, coste | `RagManagedDb` Basic = Spanner Enterprise de 100 PU con backup; el nivel `Unprovisioned` lo apaga | `rag_engine_enabled` efímero (3.G3) |
+| Embeddings | `gemini-embedding-001` (hasta 3072 dimensiones, `task_type`); `gemini-embedding-2` parece **ignorar** `task_type` | Se mantiene 001 a 1024 (3.G2) |
+
+### 7.1 Pub/Sub en el contrato de brokers (3.G1)
+
+```powershell
+docker compose --profile pubsub up -d
+uv run pytest -m integration packages/headache_core/tests/integration/test_message_bus_contract.py -k pubsub
+# Indexer de extremo a extremo con el emulador (en .env o en el shell):
+#   INDEXER__BROKER=pubsub, PUBSUB__EMULATOR_HOST=127.0.0.1:8085
+uv run python -m indexer.producer --limit 20 ; uv run python -m indexer.producer --poison
+uv run python -m indexer.worker
+```
+
+[`adapters/pubsub.py`](../packages/headache_core/src/headache_core/adapters/pubsub.py) cumple el
+mismo `MessageBusPort` que los otros tres. Lo que cambia frente a una cola:
+
+| Concepto | Service Bus | SQS | Pub/Sub |
+|---|---|---|---|
+| Dónde viven los mensajes | Cola | Cola | **Suscripción** (el tema no guarda nada; sin suscripción, el mensaje se pierde) |
+| Competing consumers | Varios receptores de la cola | Varios receptores de la cola | Varios receptores de la **misma suscripción** `<tema>.worker` |
+| Máximo de entregas | `MaxDeliveryCount` | `maxReceiveCount` (redrive) | `max_delivery_attempts` (5 a 100) en la dead-letter policy |
+| Número de entrega | `delivery_count + 1` | `ApproximateReceiveCount` | `delivery_attempt` (solo con dead-letter policy; aproximado en la nube) |
+| Reintento | `abandon` (inmediato) | Ampliar la visibility timeout | **Nack** (`modifyAckDeadline` a 0) + `retry_policy` de la suscripción |
+| Error permanente | `dead_letter_message` | Copiar a la DLQ y borrar | Publicar en el dead-letter topic y confirmar |
+| DLQ | Subcola integrada | Otra cola | Otro **tema con su suscripción** (si no, lo muerto se descarta) |
+| Contexto de traza | Propiedades de aplicación | Atributos | Atributos |
+
+Decisiones:
+
+- **Nombres iguales al topic lógico**: Pub/Sub admite puntos, así que el tema es
+  `knowledge.documents` (como en RabbitMQ y Service Bus), la suscripción de los workers
+  `knowledge.documents.worker` y la DLQ `knowledge.documents.dlq`. No hace falta prefijo: el
+  proyecto ya aísla el entorno.
+- **El adaptador se niega a consumir sin dead-letter policy**: sin ella, `delivery_attempt` vale 0
+  y un mensaje envenenado gira para siempre. Es la misma regla que en SQS sin redrive policy.
+- **El backoff lo fija la infraestructura** (`retry_policy`), no la app, como el máximo de entregas en
+  SQS y Service Bus. Con el emulador, el adaptador hace de Terraform (`EmulatorTopology`: declara
+  tema, DLQ, su suscripción y la de los workers, con backoff de 0 a 1 s).
+- **Cliente generado asíncrono y *pull* unario**, sin hilos. El *streaming pull* de la librería de
+  alto nivel (renovación automática del plazo de ack, *flow control*) es lo que usaría con mucho
+  volumen; aquí manda la paridad con los otros adaptadores. Límite conocido: un handler que tarde
+  más que el plazo de ack (60 s) provoca una reentrega; el ledger lo hace inocuo (idempotencia).
+- **Primero publicar en la DLQ y después confirmar**: si algo falla entre medias, el mensaje se
+  duplica en la DLQ, nunca se pierde.
+
+[`infra/terraform/gcp/pubsub.tf`](../infra/terraform/gcp/pubsub.tf): tema, DLQ con suscripción de 7
+días, suscripción de los workers (ack de 60 s, 5 entregas, backoff de 10 a 300 s) y ninguna caduca
+(por defecto, una suscripción sin actividad se borra a los 31 días). Permisos **por recurso**:
+
+- El **agente de servicio de Pub/Sub** necesita *publisher* en la DLQ y *subscriber* en la
+  suscripción. Sin ellos, la dead-letter policy existe pero no mueve nada.
+- La app tiene *publisher* en el tema y la DLQ, *subscriber* en la suscripción y *viewer* para leer
+  su dead-letter policy (`roles/pubsub.subscriber` no incluye `subscriptions.get`).
+
+**Resultados (local, emulador; embeddings `hashing`):**
+
+| Prueba | Resultado |
+|---|---|
+| Contrato del puerto con Pub/Sub (entrega, traza fuera del cuerpo, reintento, DLQ al agotar, DLQ directa) | 5 de 5 en ~10 s; la DLQ llega tras las entregas 1, 2, 3, 4 y 5 |
+| Indexer de extremo a extremo: productor → Pub/Sub → worker → pgvector | 20 de 20 indexados en la primera entrega |
+| Republicar los mismos 20 | 20 `unchanged` (0 embeddings): la idempotencia sigue en el ledger, no en el broker |
+| Mensaje envenenado (`--poison`) | Directo a la suscripción `<tema>.dlq` con `dead_letter_reason` y sin reintentos |
+
+## 8. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 3](preguntas-entrevista.md#fase-3).
