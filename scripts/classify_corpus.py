@@ -19,7 +19,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from headache_core.domain.retrieval import classify_acl
+from genaipocs_core.domain.retrieval import classify_acl
 
 DEFAULT_SOURCE = Path("evals/corpus/knowledge.jsonl")
 DEFAULT_OUT = Path("data/synthetic/knowledge-classified.jsonl")

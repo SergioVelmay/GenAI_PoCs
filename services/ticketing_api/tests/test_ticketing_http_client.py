@@ -9,9 +9,9 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from headache_core.adapters.memory import InMemoryUnitOfWork
-from headache_core.adapters.ticketing_http import HttpTicketingClient
-from headache_core.domain import (
+from genaipocs_core.adapters.memory import InMemoryUnitOfWork
+from genaipocs_core.adapters.ticketing_http import HttpTicketingClient
+from genaipocs_core.domain import (
     Customer,
     Event,
     EventCategory,
@@ -21,7 +21,7 @@ from headache_core.domain import (
     RefundStatus,
     Session,
 )
-from headache_core.ports import (
+from genaipocs_core.ports import (
     TicketingNotFoundError,
     TicketingUnavailableError,
 )

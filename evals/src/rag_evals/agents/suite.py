@@ -34,30 +34,30 @@ from booking_agent.flavors import create_agent
 from booking_agent.guardrails import guarded_agent, guarded_executor
 from booking_agent.runtime import AgentDeps, AgentRuntime, JournaledExecutor
 from booking_agent.spec import SKILLS_DIR, build_booking_spec
-from harness.rules.refunds import REFUND_TOOL
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     HashingEmbedding,
     InMemoryApprovalStore,
     InMemoryCheckpointStore,
     InMemoryPreferenceStore,
 )
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.agent_judge import AgentJudge, AgentJudgeSample, Evidence
-from headache_core.application.agents import ContextPolicy, SkillCatalog
-from headache_core.application.prompts import Prompt, prompt_scope
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
-from headache_core.application.tools.loop import ToolErrorKind
-from headache_core.domain.agent_eval import ACCEPTABLE_RESOLUTIONS, AgentJudgement, Resolution
-from headache_core.domain.evals import percentile
-from headache_core.ports import (
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.agent_judge import AgentJudge, AgentJudgeSample, Evidence
+from genaipocs_core.application.agents import ContextPolicy, SkillCatalog
+from genaipocs_core.application.prompts import Prompt, prompt_scope
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
+from genaipocs_core.application.tools.loop import ToolErrorKind
+from genaipocs_core.domain.agent_eval import ACCEPTABLE_RESOLUTIONS, AgentJudgement, Resolution
+from genaipocs_core.domain.evals import percentile
+from genaipocs_core.ports import (
     ChatMessage,
     LLMPort,
     LLMResponse,
     ResponseSchema,
     ToolConfig,
 )
-from headache_core.ports.approvals import ApprovalStatus
+from genaipocs_core.ports.approvals import ApprovalStatus
+from harness.rules.refunds import REFUND_TOOL
 from rag_evals.agents.scenario_llm import UNRESOLVED, ScenarioLLM
 from rag_evals.agents.scenarios import ArgExpectation, Scenario
 from rag_evals.agents.world import NOW, build_world, order_owners

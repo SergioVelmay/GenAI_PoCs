@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from headache_core.application.agent_judge import AgentJudgeSample
-from headache_core.domain.agent_eval import AgentJudgement, Resolution
+from genaipocs_core.application.agent_judge import AgentJudgeSample
+from genaipocs_core.domain.agent_eval import AgentJudgement, Resolution
 from rag_evals import agent_calibration
 from rag_evals.agent_calibration import (
     BUDGET_ERROR,

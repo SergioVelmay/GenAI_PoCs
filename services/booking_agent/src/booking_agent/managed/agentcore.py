@@ -20,8 +20,8 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from booking_agent.runtime import AgentRuntime, StopReason
-from headache_core.application.tools import ToolContext
-from headache_core.ports.memory import ThreadAccessError
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.ports.memory import ThreadAccessError
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_agentcore import BedrockAgentCoreClient
@@ -35,7 +35,7 @@ USER_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-User-Id"
 def runtime_session_id(customer_id: str, thread_id: str) -> str:
     """AgentCore exige >= 33 caracteres; derivarlo del cliente aísla las microVM por cliente."""
     digest = hashlib.sha256(f"{customer_id}\n{thread_id}".encode()).hexdigest()
-    return f"headache-{digest}"
+    return f"genaipocs-{digest}"
 
 
 class InvocationRequest(BaseModel):
@@ -50,7 +50,7 @@ class InvocationResponse(BaseModel):
 
 
 def create_runtime_app(agent: AgentRuntime) -> FastAPI:
-    app = FastAPI(title=f"Headache booking agent ({agent.flavor}) - AgentCore Runtime")
+    app = FastAPI(title=f"Genaipocs booking agent ({agent.flavor}) - AgentCore Runtime")
 
     @app.get("/ping")
     async def ping() -> dict[str, str]:

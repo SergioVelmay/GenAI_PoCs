@@ -36,8 +36,8 @@ resource "azurerm_cognitive_account_project" "main" {
   name                 = var.project
   cognitive_account_id = azurerm_cognitive_account.foundry[0].id
   location             = azurerm_resource_group.main.location
-  display_name         = "Headache"
-  description          = "Agentes y knowledge bases de Headache (GenAI_PoCs)."
+  display_name         = "Genaipocs"
+  description          = "Agentes y knowledge bases de Genaipocs (GenAI_PoCs)."
   tags                 = local.tags
 
   # Identidad del proyecto: la usa Foundry Agent Service para leer AI Search (Foundry IQ).

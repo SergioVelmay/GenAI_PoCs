@@ -8,17 +8,17 @@ from itertools import islice
 import numpy as np
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from headache_core.adapters.local_retrieval import LocalRetrieval, TokenCoverageReranker
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.ingestion.chunking import SentenceChunker
-from headache_core.application.ingestion.indexer import chunk_id
-from headache_core.application.retrieval import RetrievalService
-from headache_core.config import Settings
-from headache_core.domain import DocumentType
-from headache_core.domain.retrieval import classify_acl
-from headache_core.ports.llm import LLMPort
-from headache_core.ports.retrieval import ManagedKnowledgePort, RerankerPort, RetrievalPort
-from headache_core.ports.vector_store import EmbeddingPort, MetadataValue, VectorRecord
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval, TokenCoverageReranker
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.ingestion.chunking import SentenceChunker
+from genaipocs_core.application.ingestion.indexer import chunk_id
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.config import Settings
+from genaipocs_core.domain import DocumentType
+from genaipocs_core.domain.retrieval import classify_acl
+from genaipocs_core.ports.llm import LLMPort
+from genaipocs_core.ports.retrieval import ManagedKnowledgePort, RerankerPort, RetrievalPort
+from genaipocs_core.ports.vector_store import EmbeddingPort, MetadataValue, VectorRecord
 from retrieval.settings import RetrievalSettings
 
 
@@ -102,9 +102,9 @@ async def load_postgres(
 ) -> tuple[list[VectorRecord], list[VectorRecord]]:
     from sqlalchemy import select
 
-    from headache_core.adapters.postgres import create_engine, create_session_factory
-    from headache_core.adapters.postgres.tables import KnowledgeChunkRow
-    from headache_core.config import get_settings
+    from genaipocs_core.adapters.postgres import create_engine, create_session_factory
+    from genaipocs_core.adapters.postgres.tables import KnowledgeChunkRow
+    from genaipocs_core.config import get_settings
 
     engine = create_engine(get_settings().postgres, application_name="retrieval-snapshot")
     metadata_adapter = TypeAdapter(dict[str, MetadataValue])
@@ -190,7 +190,7 @@ def build_local_service(
 ) -> RetrievalService:
     backend: RetrievalPort
     if settings.engine == "llamaindex":
-        from headache_core.adapters.llamaindex_retrieval import LlamaIndexRetrieval
+        from genaipocs_core.adapters.llamaindex_retrieval import LlamaIndexRetrieval
 
         backend = LlamaIndexRetrieval(
             records,

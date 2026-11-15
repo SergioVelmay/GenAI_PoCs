@@ -16,7 +16,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from headache_core.domain import DocumentType
+from genaipocs_core.domain import DocumentType
 from rag_evals import EVALS_DIR
 from retrieval.bootstrap import SyntheticDocument, access_metadata
 

@@ -16,15 +16,15 @@ from starlette.requests import ClientDisconnect
 from edge_api.app import create_app
 from edge_api.settings import EdgeSettings
 from edge_api.testing import ASK, FakeAssistant, bearer, client, token
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     HashingEmbedding,
     InMemoryRateLimiter,
     InMemorySemanticCache,
 )
-from headache_core.application.admission import AdmissionController, plan_rules
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.domain.admission import Caller, ClientPlan
-from headache_core.ports import LLMOverloadedError, LLMTransientError
+from genaipocs_core.application.admission import AdmissionController, plan_rules
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.domain.admission import Caller, ClientPlan
+from genaipocs_core.ports import LLMOverloadedError, LLMTransientError
 
 
 def events(response: httpx.Response) -> list[tuple[str, Any]]:

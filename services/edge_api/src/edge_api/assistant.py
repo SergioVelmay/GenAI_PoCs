@@ -22,11 +22,11 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from headache_core.application.answer_stream import AnswerDelta, StreamingAnswerer
-from headache_core.application.retrieval import RetrievalRequest, RetrievalService
-from headache_core.application.telemetry import genai, get_telemetry
-from headache_core.domain.admission import Caller, access_scope
-from headache_core.ports import LLMTransientError
+from genaipocs_core.application.answer_stream import AnswerDelta, StreamingAnswerer
+from genaipocs_core.application.retrieval import RetrievalRequest, RetrievalService
+from genaipocs_core.application.telemetry import genai, get_telemetry
+from genaipocs_core.domain.admission import Caller, access_scope
+from genaipocs_core.ports import LLMTransientError
 
 type AnswerMode = Literal["extractive", "llm-extractive", "generative"]
 
@@ -144,6 +144,6 @@ class RagAssistant:
         self.outcomes["degraded"] += 1
         span = get_telemetry().current_span()
         span.add_event(genai.EVENT_DEGRADED)
-        span.set_attribute(genai.HEADACHE_DEGRADED, True)
+        span.set_attribute(genai.GENAIPOCS_DEGRADED, True)
         answer = await self._retrieve(request, generate=False)
         return Answer(answer.text, answer.citations, answer.abstained, answer.mode, degraded=True)

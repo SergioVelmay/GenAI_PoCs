@@ -10,16 +10,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from booking_agent.prompts import PROMPTS
-from headache_core.application.agents import (
+from genaipocs_core.application.agents import (
     ContextPolicy,
     SkillCatalog,
     build_memory_tools,
     build_skill_tools,
 )
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import FALLBACK_ANSWER, ToolRegistry
-from headache_core.application.tools.knowledge import build_knowledge_tools
-from headache_core.ports.memory import PreferenceStore
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import FALLBACK_ANSWER, ToolRegistry
+from genaipocs_core.application.tools.knowledge import build_knowledge_tools
+from genaipocs_core.ports.memory import PreferenceStore
 
 SKILLS_DIR = Path(__file__).parent / "skills"
 
@@ -65,7 +65,7 @@ def build_booking_spec(
         ]
     )
     return AgentSpec(
-        name="headache-booking-agent",
+        name="genaipocs-booking-agent",
         instructions=instructions,
         tools=tools,
         skills=catalog,

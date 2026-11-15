@@ -4,8 +4,8 @@ from importlib.util import find_spec
 
 import pytest
 
-from headache_core.adapters.memory import FakeLLM, HashingEmbedding
-from headache_core.ports.llm import (
+from genaipocs_core.adapters.memory import FakeLLM, HashingEmbedding
+from genaipocs_core.ports.llm import (
     ChatMessage,
     LLMResponse,
     ResponseSchema,

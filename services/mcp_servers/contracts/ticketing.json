@@ -1,5 +1,5 @@
 {
-  "server": "headache-ticketing",
+  "server": "genaipocs-ticketing",
   "tools": [
     {
       "name": "get_order",

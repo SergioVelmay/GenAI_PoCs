@@ -5,13 +5,13 @@ description = "Agente mínimo de atención al cliente (carril B): bucle propio +
 requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=4.1,<5",
-    "headache-core[aws,azure,gateway,observability,telemetry,tools]",
+    "genaipocs-core[aws,azure,gateway,observability,telemetry,tools]",
     # Solo por el emisor de tokens de desarrollo y los scopes de cada servidor.
     "mcp-servers",
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 mcp-servers = { workspace = true }
 
 [build-system]

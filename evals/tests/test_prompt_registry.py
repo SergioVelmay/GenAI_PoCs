@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from headache_core.application.prompts import Prompt
-from headache_core.ports.prompts import PublishedPrompt
+from genaipocs_core.application.prompts import Prompt
+from genaipocs_core.ports.prompts import PublishedPrompt
 from orchestrator.prompts import PROMPTS as ORCHESTRATOR
 from rag_evals.llmops.prompts import (
     LOCKABLE,
@@ -25,7 +25,7 @@ from rag_evals.llmops.prompts import (
     prompt_dirs,
 )
 
-PROMPT = Prompt("demo-agent", 2, "Demo.", "Eres el agente de demo de Headache.\n")
+PROMPT = Prompt("demo-agent", 2, "Demo.", "Eres el agente de demo de Genaipocs.\n")
 
 
 class FakeStore:

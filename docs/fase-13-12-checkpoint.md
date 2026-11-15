@@ -153,7 +153,7 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 - Prefijo de adaptadores: `gemini.py`, `pubsub.py`, `gcp_*.py`, `model_armor.py`, `memory_bank.py`; settings anidados `GCP__PROJECT`, `GCP__REGION`, `GEMINI__MODEL_CHEAP`...
 - Región `europe-west4` para los recursos; modelos en el endpoint `global` si la región no los sirve (verificar en la 2.G1).
-- `gcloud` aislado como `az`: `$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"` antes de cualquier comando de GCP, Terraform o scripts; nunca claves JSON de cuentas de servicio.
+- `gcloud` aislado como `az`: `$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-genaipocs"` antes de cualquier comando de GCP, Terraform o scripts; nunca claves JSON de cuentas de servicio.
 - Recursos con coste por hora (Vector Search, RAG Engine, Memorystore, GKE) detrás de una variable `*_enabled = false` y efímeros, como AI Search.
 - Los dobles de test se construyen desde la documentación ahora y se reemplazan por **respuestas reales capturadas** en la primera validación en la nube (lección del checkpoint 8→9).
 - En la tabla de estado de `AGENTS.md`, la columna **GCP** marca el avance por fase.

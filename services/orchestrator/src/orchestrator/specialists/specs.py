@@ -10,21 +10,21 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from booking_agent.spec import SKILLS_DIR, AgentSpec
-from headache_core.application.agents import (
+from genaipocs_core.application.agents import (
     ContextPolicy,
     SkillCatalog,
     build_memory_tools,
     build_skill_tools,
 )
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import (
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import (
     CATALOG_TOOLS,
     ORDER_TOOLS,
     REFUND_TOOLS,
     ToolRegistry,
 )
-from headache_core.application.tools.knowledge import build_knowledge_tools
-from headache_core.ports.memory import PreferenceStore
+from genaipocs_core.application.tools.knowledge import build_knowledge_tools
+from genaipocs_core.ports.memory import PreferenceStore
 from orchestrator.prompts import PROMPTS
 
 REFUNDS_PROMPT = PROMPTS.get("refunds-specialist").text
@@ -61,7 +61,7 @@ def build_refunds_spec(
         ]
     )
     return AgentSpec(
-        name="headache-refunds-specialist",
+        name="genaipocs-refunds-specialist",
         instructions=REFUNDS_PROMPT,
         tools=tools,
         skills=catalog,
@@ -87,7 +87,7 @@ def build_knowledge_spec(
         ]
     )
     return AgentSpec(
-        name="headache-knowledge-specialist",
+        name="genaipocs-knowledge-specialist",
         instructions=KNOWLEDGE_PROMPT,
         tools=tools,
         skills=catalog,

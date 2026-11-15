@@ -21,16 +21,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
-from harness.executor import TurnTrace
-from harness.normalize import sanitize
-from harness.runtime import TurnRecord
-from harness.validation import Validator, Violation
-from headache_core.application.tools import Tool, ToolContext, ToolExecution, ToolExecutor
-from headache_core.ports.guardrails import (
+from genaipocs_core.application.tools import Tool, ToolContext, ToolExecution, ToolExecutor
+from genaipocs_core.ports.guardrails import (
     ContentShieldPort,
     ShieldUnavailableError,
     ShieldVerdict,
 )
+from harness.executor import TurnTrace
+from harness.normalize import sanitize
+from harness.runtime import TurnRecord
+from harness.validation import Validator, Violation
 
 logger = logging.getLogger(__name__)
 

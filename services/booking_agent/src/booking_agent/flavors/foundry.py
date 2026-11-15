@@ -17,9 +17,9 @@ from booking_agent.managed.foundry import (
     message,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn
-from headache_core.application.agents import render_session_context
-from headache_core.application.tools import ToolContext
-from headache_core.ports.memory import ThreadAccessError
+from genaipocs_core.application.agents import render_session_context
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.ports.memory import ThreadAccessError
 
 LOCAL_MODEL = "local-emulator"
 

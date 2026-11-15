@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from headache_core.ports.llm import ChatMessage, GenerationObservation, LLMResponse, LLMTracer
+from genaipocs_core.ports.llm import ChatMessage, GenerationObservation, LLMResponse, LLMTracer
 
 
 class BudgetExceededError(RuntimeError):

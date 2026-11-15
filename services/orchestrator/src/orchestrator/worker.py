@@ -19,12 +19,12 @@ import contextlib
 import logging
 from contextlib import AsyncExitStack
 
-from headache_core.adapters.messaging_factory import open_message_bus
-from headache_core.adapters.otel import setup_observability, shutdown_telemetry
-from headache_core.application.orchestration import SpecialistAgent, TriageAgent
-from headache_core.application.outbox import OutboxRelay
-from headache_core.config import get_settings
-from headache_core.domain import Specialist
+from genaipocs_core.adapters.messaging_factory import open_message_bus
+from genaipocs_core.adapters.otel import setup_observability, shutdown_telemetry
+from genaipocs_core.application.orchestration import SpecialistAgent, TriageAgent
+from genaipocs_core.application.outbox import OutboxRelay
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import Specialist
 from orchestrator.async_flow import subscribe_workers
 from orchestrator.bootstrap import open_outbox, open_remote_specialists, open_specialist_deps
 from orchestrator.settings import OrchestratorSettings

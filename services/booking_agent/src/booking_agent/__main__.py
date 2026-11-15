@@ -28,20 +28,20 @@ from booking_agent.guardrails import (
 )
 from booking_agent.runtime import AgentDeps
 from booking_agent.spec import build_booking_spec
-from harness import ApprovalError, ApprovalService
-from headache_core.adapters.llm_factory import build_gateway, build_tracer
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+from genaipocs_core.adapters.memory import (
     InMemoryApprovalStore,
     InMemoryCheckpointStore,
     InMemoryPreferenceStore,
     RecordingTracer,
 )
-from headache_core.adapters.otel import setup_observability, shutdown_telemetry
-from headache_core.application.agents.runtime import AgentRuntime
-from headache_core.application.agents.tracing import TracedAgent
-from headache_core.application.llm import CompositeTracer
-from headache_core.application.tools import ToolContext
-from headache_core.config import Settings, get_settings
+from genaipocs_core.adapters.otel import setup_observability, shutdown_telemetry
+from genaipocs_core.application.agents.runtime import AgentRuntime
+from genaipocs_core.application.agents.tracing import TracedAgent
+from genaipocs_core.application.llm import CompositeTracer
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.config import Settings, get_settings
+from harness import ApprovalError, ApprovalService
 from retrieval.bootstrap import build_runtime
 from retrieval.settings import RetrievalSettings
 from support_agent.toolset import McpToolset, mcp_clients

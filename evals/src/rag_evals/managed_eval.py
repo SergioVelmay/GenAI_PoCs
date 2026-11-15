@@ -21,11 +21,11 @@ from statistics import fmean, median
 from time import perf_counter
 from typing import Literal
 
-from headache_core.application.llm.structured import StructuredOutputError
-from headache_core.application.retrieval import InvalidCitationError
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import LLMContentFilterError
-from headache_core.ports.retrieval import ManagedKnowledgePort, ManagedRagResponse
+from genaipocs_core.application.llm.structured import StructuredOutputError
+from genaipocs_core.application.retrieval import InvalidCitationError
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import LLMContentFilterError
+from genaipocs_core.ports.retrieval import ManagedKnowledgePort, ManagedRagResponse
 from rag_evals.golden import DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, RagJudge
 from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR
@@ -244,7 +244,7 @@ def render_markdown(
 
 
 async def _run(args: argparse.Namespace) -> Path:
-    from headache_core.config import Settings
+    from genaipocs_core.config import Settings
     from rag_evals.generation_eval import _gateway, build_judge
     from retrieval.cloud import build_cloud_parts
     from retrieval.settings import RetrievalSettings

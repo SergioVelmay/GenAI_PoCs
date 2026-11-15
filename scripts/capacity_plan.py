@@ -13,7 +13,7 @@ import io
 import math
 import sys
 
-from headache_core.domain.autoscaling import CapacityPlan
+from genaipocs_core.domain.autoscaling import CapacityPlan
 
 
 def describe(plan: CapacityPlan, backlog: int) -> str:

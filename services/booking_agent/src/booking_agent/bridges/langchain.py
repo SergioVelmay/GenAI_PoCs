@@ -30,8 +30,8 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import ConfigDict, SkipValidation
 
-from headache_core.ports import ChatMessage, LLMPort, LLMResponse, Role, ToolCall, ToolConfig
-from headache_core.ports.llm import ToolSpec
+from genaipocs_core.ports import ChatMessage, LLMPort, LLMResponse, Role, ToolCall, ToolConfig
+from genaipocs_core.ports.llm import ToolSpec
 
 # LangChain no tiene noción de checkpoint de caché: viaja en `additional_kwargs`.
 CACHE_CHECKPOINT = "cache_checkpoint"
@@ -163,7 +163,7 @@ class GatewayChatModel(BaseChatModel):
 
     @property
     def _llm_type(self) -> str:
-        return "headache-gateway"
+        return "genaipocs-gateway"
 
     def bind_tools(
         self,

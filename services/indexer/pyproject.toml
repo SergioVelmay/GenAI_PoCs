@@ -1,14 +1,14 @@
 [project]
 name = "indexer"
 version = "0.1.0"
-description = "Indexación dirigida por eventos del conocimiento de Headache: productor y workers"
+description = "Indexación dirigida por eventos del conocimiento de Genaipocs: productor y workers"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[llamaindex,postgres,rabbitmq,telemetry]",
+    "genaipocs-core[llamaindex,postgres,rabbitmq,telemetry]",
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

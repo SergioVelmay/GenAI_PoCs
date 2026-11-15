@@ -26,7 +26,7 @@ variable "instance" {
 
 variable "project" {
   type    = string
-  default = "headache"
+  default = "genaipocs"
 }
 
 variable "environment" {
@@ -181,7 +181,7 @@ variable "mcp_oidc_config_url" {
 variable "mcp_audience_template" {
   description = "Igual que MCP__AUDIENCE_TEMPLATE: App ID URI de cada servidor en Entra ID."
   type        = string
-  default     = "api://headache-mcp/{server}"
+  default     = "api://genaipocs-mcp/{server}"
 }
 
 variable "content_safety_enabled" {

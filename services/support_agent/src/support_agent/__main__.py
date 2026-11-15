@@ -15,13 +15,13 @@ import argparse
 import asyncio
 from decimal import Decimal
 
-from headache_core.adapters.llm_factory import build_gateway, build_tracer
-from headache_core.adapters.memory import RecordingTracer
-from headache_core.adapters.otel import setup_observability, shutdown_telemetry
-from headache_core.application.llm import CompositeTracer
-from headache_core.application.telemetry import genai
-from headache_core.application.tools import ToolContext
-from headache_core.config import get_settings
+from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+from genaipocs_core.adapters.memory import RecordingTracer
+from genaipocs_core.adapters.otel import setup_observability, shutdown_telemetry
+from genaipocs_core.application.llm import CompositeTracer
+from genaipocs_core.application.telemetry import genai
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.config import get_settings
 from support_agent.agent import SupportAgent
 from support_agent.toolset import McpToolset, mcp_clients
 

@@ -17,9 +17,9 @@ from ragas.metrics.collections import (
     Faithfulness,
 )
 
-from headache_core.application.llm.structured import complete_structured
-from headache_core.ports.llm import ChatMessage, LLMPort, Role
-from headache_core.ports.vector_store import EmbeddingPort
+from genaipocs_core.application.llm.structured import complete_structured
+from genaipocs_core.ports.llm import ChatMessage, LLMPort, Role
+from genaipocs_core.ports.vector_store import EmbeddingPort
 from rag_evals.judges import JudgeSample, JudgeScores
 
 

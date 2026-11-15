@@ -7,9 +7,9 @@
 
 | Motor | Escenarios OK | Enrutado OK | Invariantes | Llamadas LLM | Traspaso: mínimo / con email | Omitidos |
 |---|---:|---:|---:|---:|---:|---|
-| langgraph | 15/15 | 14/15 | 0 | 36 | 436 / 1175 (-63%) | - |
-| maf | 14/14 | 13/14 | 0 | 33 | 394 / 1121 (-65%) | resilience-transient-error |
-| async | 15/15 | 14/15 | 0 | 36 | 436 / 1175 (-63%) | - |
+| langgraph | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63%) | - |
+| maf | 14/14 | 13/14 | 0 | 33 | 394 / 1125 (-65%) | resilience-transient-error |
+| async | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63%) | - |
 
 ## Invariantes (deben ser 0)
 

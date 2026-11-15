@@ -10,7 +10,7 @@
 #
 # Los nombres son los del adaptador (`adapters/pubsub.py`): Pub/Sub admite puntos, así que el tema
 # se llama como el topic lógico y la suscripción de los workers es `<tema>.worker`. El proyecto ya
-# aísla el entorno: no hace falta el prefijo `headache-dev-`.
+# aísla el entorno: no hace falta el prefijo `genaipocs-dev-`.
 
 locals {
   knowledge_topic = "knowledge.documents"

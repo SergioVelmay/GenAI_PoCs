@@ -21,8 +21,8 @@ from agent_framework import (
 )
 from agent_framework._types import UsageDetails
 
-from headache_core.ports import ChatMessage, LLMPort, LLMResponse, Role, ToolCall, ToolConfig
-from headache_core.ports.llm import ToolSpec
+from genaipocs_core.ports import ChatMessage, LLMPort, LLMResponse, Role, ToolCall, ToolConfig
+from genaipocs_core.ports.llm import ToolSpec
 
 CACHE_CHECKPOINT = "cache_checkpoint"
 # MAF parsea y valida los argumentos antes de llamar a la función: el JSON inválido viaja
@@ -108,7 +108,7 @@ def _usage(response: LLMResponse) -> UsageDetails:
 class GatewayChatClient(
     FunctionInvocationLayer[Any], ChatMiddlewareLayer[Any], BaseChatClient[Any]
 ):
-    OTEL_PROVIDER_NAME = "headache-gateway"
+    OTEL_PROVIDER_NAME = "genaipocs-gateway"
 
     def __init__(self, gateway: LLMPort, tool_specs: Iterable[ToolSpec], **kwargs: Any) -> None:
         super().__init__(**kwargs)

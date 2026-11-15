@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
     command: >-
       gcloud beta emulators pubsub start
-      --project=headache-local --host-port=0.0.0.0:8085
+      --project=genaipocs-local --host-port=0.0.0.0:8085
     ports:
       - "127.0.0.1:8085:8085"
     healthcheck:
@@ -160,7 +160,7 @@ services:
     build:
       context: .
       dockerfile: services/orchestrator/Dockerfile
-    image: headache-agents:local
+    image: genaipocs-agents:local
     profiles: [scale]
     restart: unless-stopped
     entrypoint: ["python", "-m", "orchestrator.load_worker"]
@@ -180,7 +180,7 @@ services:
     build:
       context: .
       dockerfile: services/mcp_servers/Dockerfile
-    image: headache-mcp:local
+    image: genaipocs-mcp:local
     profiles: [mcp]
     restart: unless-stopped
     command: ["catalog"]
@@ -188,12 +188,12 @@ services:
       # Configurable por si el 8000 del host está ocupado: MCP_TICKETING_API_URL=http://host.docker.internal:8010
       TICKETING_API__BASE_URL: ${MCP_TICKETING_API_URL:-http://host.docker.internal:8000}
       ENVIRONMENT: local
-      # jwt: tokens del emisor de desarrollo (python -m headache_mcp.auth). none: identidad fija.
+      # jwt: tokens del emisor de desarrollo (python -m genaipocs_mcp.auth). none: identidad fija.
       MCP__AUTH: ${MCP__AUTH:-none}
-      MCP__PUBLIC_KEY_FILE: /run/secrets/headache/mcp-dev-key.pub
+      MCP__PUBLIC_KEY_FILE: /run/secrets/genaipocs/mcp-dev-key.pub
       MCP__DEV_CUSTOMER_ID: ${MCP__DEV_CUSTOMER_ID:-}
     volumes:
-      - ./.secrets:/run/secrets/headache:ro
+      - ./.secrets:/run/secrets/genaipocs:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -218,9 +218,9 @@ services:
     environment:
       ENVIRONMENT: local
       MCP__AUTH: jwt
-      MCP__PUBLIC_KEY_FILE: /run/secrets/headache/mcp-dev-key.pub
+      MCP__PUBLIC_KEY_FILE: /run/secrets/genaipocs/mcp-dev-key.pub
       # Solo local: el gateway hace de STS con la clave de desarrollo.
-      MCP__DEV_PRIVATE_KEY_FILE: /run/secrets/headache/mcp-dev-key.pem
+      MCP__DEV_PRIVATE_KEY_FILE: /run/secrets/genaipocs/mcp-dev-key.pem
       MCP__PUBLIC_URL_TEMPLATE: http://127.0.0.1:{port}
       MCP__SERVERS: >-
         {"catalog": "http://mcp-catalog:8101/mcp", "ticketing": "http://mcp-ticketing:8102/mcp",
@@ -236,7 +236,7 @@ services:
     build:
       context: .
       dockerfile: services/orchestrator/Dockerfile
-    image: headache-agents:local
+    image: genaipocs-agents:local
     profiles: [agents]
     restart: unless-stopped
     command: ["refunds", "--public-url", "http://127.0.0.1:8201"]
@@ -250,10 +250,10 @@ services:
       ENVIRONMENT: local
       POSTGRES__HOST: postgres
       TICKETING_API__BASE_URL: ${AGENTS_TICKETING_API_URL:-http://host.docker.internal:8000}
-      A2A__PUBLIC_KEY_FILE: /run/secrets/headache/mcp-dev-key.pub
+      A2A__PUBLIC_KEY_FILE: /run/secrets/genaipocs/mcp-dev-key.pub
       RETRIEVAL__DOCUMENTS_PATH: /app/data/synthetic/knowledge/documents.jsonl
     volumes:
-      - ./.secrets:/run/secrets/headache:ro
+      - ./.secrets:/run/secrets/genaipocs:ro
       - ./data:/app/data:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -292,8 +292,8 @@ services:
       <<: *langfuse-env
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
-      LANGFUSE_INIT_ORG_ID: headache
-      LANGFUSE_INIT_ORG_NAME: Headache
+      LANGFUSE_INIT_ORG_ID: genaipocs
+      LANGFUSE_INIT_ORG_NAME: Genaipocs
       LANGFUSE_INIT_PROJECT_ID: genai-pocs
       LANGFUSE_INIT_PROJECT_NAME: GenAI PoCs
       LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE__PUBLIC_KEY}
@@ -416,9 +416,9 @@ services:
       # Solo local: entrada anónima de solo lectura y admin para editar.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-headachelocal}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-genaipocslocal}
       GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/headache-genai.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/genaipocs-genai.json
     volumes:
       - ./infra/local/telemetry/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/local/telemetry/grafana/dashboards:/var/lib/grafana/dashboards:ro

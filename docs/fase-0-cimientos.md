@@ -1,10 +1,10 @@
 # Fase 0 · Cimientos: monorepo, Clean Architecture, entorno local y CI
 
 **Objetivo:** una base sobre la que las fases siguientes solo **añaden adaptadores y servicios**, sin
-reescribir nada. El dominio de Headache (eventos, sesiones, pedidos, reembolsos) existe antes que
+reescribir nada. El dominio de Genaipocs (eventos, sesiones, pedidos, reembolsos) existe antes que
 cualquier nube, base de datos o modelo, y se prueba sin red ni coste.
 
-Commit: `bd044b2 chore: fase 0 - monorepo uv, dominio Headache, puertos y adaptadores, entorno local y CI`.
+Commit: `bd044b2 chore: fase 0 - monorepo uv, dominio Genaipocs, puertos y adaptadores, entorno local y CI`.
 
 Pasada GCP ([sección 7](#7-gcp-pasada-0g), PR #2): `ef71b14` (0.G1, dependencias y configuración),
 `03a1f68` (0.G2, Terraform de GCP), `6c1f8dd` (0.G3, emulador de Pub/Sub) y el cierre (0.G4, docs).
@@ -13,7 +13,7 @@ Pasada GCP ([sección 7](#7-gcp-pasada-0g), PR #2): `ef71b14` (0.G1, dependencia
 
 ```mermaid
 flowchart LR
-  subgraph core["packages/headache_core"]
+  subgraph core["packages/genaipocs_core"]
     D["domain/<br/>Python puro: entidades y reglas"]
     A["application/<br/>casos de uso"]
     P["ports/<br/>typing.Protocol"]
@@ -46,7 +46,7 @@ Es la "fuente de verdad" que en la fase 8 reutiliza el harness para validar lo q
 | Pieza | Decisión |
 |---|---|
 | `pyproject.toml` raíz | `[tool.uv.workspace] members = ["packages/*", "services/*", "evals"]`; un solo `uv.lock` para todo |
-| Paquetes | `packages/headache_core` compartido (extras opcionales: `postgres`, `azure`, `aws`, `gateway`...); cada servicio con su `pyproject.toml` |
+| Paquetes | `packages/genaipocs_core` compartido (extras opcionales: `postgres`, `azure`, `aws`, `gateway`...); cada servicio con su `pyproject.toml` |
 | Python | 3.12 (`.python-version`), `py.typed` en cada paquete |
 | Calidad | `ruff check` (E, F, I, N, UP, B, SIM, ASYNC, RUF), `ruff format`, `mypy --strict` con el plugin de Pydantic, `pytest` con `asyncio_mode = "auto"` |
 | Tests | Adaptadores en memoria: deterministas, sin red ni coste. Integración con el marcador `integration`, excluida por defecto |
@@ -58,7 +58,7 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy ; uv run pytest
 
 ## 3. Configuración tipada
 
-`headache_core/config.py`: `Settings(BaseSettings)` con submodelos por integración
+`genaipocs_core/config.py`: `Settings(BaseSettings)` con submodelos por integración
 (`AzureOpenAISettings`, `BedrockSettings`, `PostgresSettings`, `RabbitMQSettings`, `LangfuseSettings`...).
 
 - Variables anidadas con `__`: `BEDROCK__REGION`, `POSTGRES__PASSWORD`.
@@ -79,7 +79,7 @@ Docker solo ejecuta **infraestructura**; los modelos son siempre de nube.
 | Emulador de Service Bus + SQL Server | `servicebus-emulator` | `servicebus` (fase 3) | `5673` |
 | Emulador de Pub/Sub | `google-cloud-cli:<versión>-emulators` | `pubsub` (0.G3) | `8085` |
 | Langfuse v3 (web, worker, ClickHouse, Redis, MinIO) | `langfuse/langfuse:3` | `observability` (fase 2) | `3000` |
-| Servidores MCP y gateway | `headache-mcp:local` | `mcp` (fase 6) | `8100`–`8103` |
+| Servidores MCP y gateway | `genaipocs-mcp:local` | `mcp` (fase 6) | `8100`–`8103` |
 
 Puertos ligados a `127.0.0.1` para no exponer servicios a la red. Los perfiles evitan arrancar lo
 que no se usa. En Windows el código conecta a `127.0.0.1` y no a `localhost` (el intento IPv6
@@ -137,7 +137,7 @@ Coste 0: nada se ejecuta en la nube.
 
 ### 7.1 Dependencias y configuración (0.G1)
 
-- Extra `gcp` de `headache-core`: `google-genai` (Gemini) y `google-cloud-{aiplatform,
+- Extra `gcp` de `genaipocs-core`: `google-genai` (Gemini) y `google-cloud-{aiplatform,
   discoveryengine,dlp,modelarmor,monitoring,pubsub,storage}`. `google-adk` en `booking-agent`,
   bloqueado ya aunque su sabor llega en la 7.G1: es el que impone las restricciones.
 - **Conflicto resuelto:** `google-genai` iba por la 3.0, pero ADK 2.14 exige `<3`; manda el techo
@@ -165,7 +165,7 @@ terraform fmt -check -recursive ; terraform init -backend=false -input=false ; t
 | `versions.tf` | `google` y `google-beta` `~> 8.10`, `billing_project` + `user_project_override` | Con ADC de usuario, Billing Budgets devuelve 403 sin proyecto de cuota |
 | `main.tf` | 15 APIs con `google_project_service` (`disable_on_destroy = false`) | En GCP cada API se habilita por proyecto; también es control: lo no habilitado no se usa |
 | `budget.tf` | 100 al mes, alertas al 50/75/100 % y previsión al 100 %, por correo | `EXCLUDE_ALL_CREDITS`: con créditos de prueba, el gasto neto es 0 y ninguna alerta saltaría |
-| `identity.tf` | Cuenta de servicio `headache-dev-app` (se suplanta desde local) y Workload Identity Federation para GitHub Actions con `headache-dev-ci` | Sin claves JSON; condición por IDs numéricos del repo y del dueño y solo `refs/heads/main`: una PR no obtiene credenciales |
+| `identity.tf` | Cuenta de servicio `genaipocs-dev-app` (se suplanta desde local) y Workload Identity Federation para GitHub Actions con `genaipocs-dev-ci` | Sin claves JSON; condición por IDs numéricos del repo y del dueño y solo `refs/heads/main`: una PR no obtiene credenciales |
 
 El proyecto se crea a mano con la cuenta de facturación de prueba; Terraform gestiona lo de dentro.
 
@@ -173,7 +173,7 @@ El proyecto se crea a mano con la cuenta de facturación de prueba; Terraform ge
 
 ```powershell
 docker compose --profile pubsub up -d
-uv run pytest packages/headache_core/tests/integration/test_pubsub_emulator.py -m integration
+uv run pytest packages/genaipocs_core/tests/integration/test_pubsub_emulator.py -m integration
 ```
 
 - Imagen oficial `google-cloud-cli:593.0.0-emulators` (emulador 0.8.38, ~1,7 GB), solo en memoria.
@@ -188,7 +188,7 @@ uv run pytest packages/headache_core/tests/integration/test_pubsub_emulator.py -
 
 | Concepto | Este repo | Azure | AWS | GCP |
 |---|---|---|---|---|
-| Unidad de aislamiento | — | Grupo de recursos (`rg-headache-dev`) | Cuenta | Proyecto (facturación, cuotas, APIs e IAM) |
+| Unidad de aislamiento | — | Grupo de recursos (`rg-genaipocs-dev`) | Cuenta | Proyecto (facturación, cuotas, APIs e IAM) |
 | Configuración y secretos | Pydantic Settings + `.env` local | App Configuration + Key Vault, Managed Identity | Parameter Store / Secrets Manager, IAM Roles | Secret Manager, cuenta de servicio adjunta |
 | Credenciales en local | Sin claves en `.env` | `az login` (`AZURE_CONFIG_DIR` aislado) | `aws sso login` + perfil | ADC + *impersonation* (`CLOUDSDK_CONFIG` aislado) |
 | Infra local | Docker Compose | Emuladores (Service Bus, Azurite) | ElasticMQ / LocalStack | Emuladores de `google-cloud-cli` (Pub/Sub) |

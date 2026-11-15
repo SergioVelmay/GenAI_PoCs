@@ -11,22 +11,22 @@ from pathlib import Path
 import httpx
 
 from booking_agent.guardrails import build_pii_detector, build_shield
+from genaipocs_core.adapters.llm_factory import build_gateway
+from genaipocs_core.adapters.memory import InMemoryCheckpointStore, InMemoryPreferenceStore
+from genaipocs_core.adapters.online_eval_factory import build_agent_evaluator
+from genaipocs_core.adapters.postgres import create_engine, create_session_factory
+from genaipocs_core.adapters.postgres.approvals import PostgresApprovalStore
+from genaipocs_core.adapters.postgres.cases import PostgresCaseStore
+from genaipocs_core.adapters.postgres.outbox import PostgresOutboxStore
+from genaipocs_core.adapters.ticketing_http import HttpTicketingClient
+from genaipocs_core.application.agent_online_eval import AgentOnlineEvaluator
+from genaipocs_core.application.orchestration import SpecialistAgent
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.config import Settings
+from genaipocs_core.domain import Specialist
+from genaipocs_core.ports.cases import CaseStore
+from genaipocs_mcp.auth import DevTokenIssuer
 from harness.rules.case_reply import SendCaseReplyArgs
-from headache_core.adapters.llm_factory import build_gateway
-from headache_core.adapters.memory import InMemoryCheckpointStore, InMemoryPreferenceStore
-from headache_core.adapters.online_eval_factory import build_agent_evaluator
-from headache_core.adapters.postgres import create_engine, create_session_factory
-from headache_core.adapters.postgres.approvals import PostgresApprovalStore
-from headache_core.adapters.postgres.cases import PostgresCaseStore
-from headache_core.adapters.postgres.outbox import PostgresOutboxStore
-from headache_core.adapters.ticketing_http import HttpTicketingClient
-from headache_core.application.agent_online_eval import AgentOnlineEvaluator
-from headache_core.application.orchestration import SpecialistAgent
-from headache_core.application.tools import ToolContext
-from headache_core.config import Settings
-from headache_core.domain import Specialist
-from headache_core.ports.cases import CaseStore
-from headache_mcp.auth import DevTokenIssuer
 from orchestrator.remote import BearerAuth, RemoteSpecialist, dev_token_source
 from orchestrator.settings import OrchestratorSettings
 from orchestrator.specialists import SpecialistDeps

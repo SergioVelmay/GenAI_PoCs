@@ -27,9 +27,8 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from harness.approvals import ApprovalService
-from headache_core.application.llm import StructuredOutputError
-from headache_core.application.orchestration import (
+from genaipocs_core.application.llm import StructuredOutputError
+from genaipocs_core.application.orchestration import (
     InvalidHandoffError,
     SpecialistAgent,
     TriageAgent,
@@ -40,10 +39,11 @@ from headache_core.application.orchestration import (
     outcome_from_payload,
     outcome_to_payload,
 )
-from headache_core.domain import CaseOutcome, CaseStatus, Specialist, can_transition
-from headache_core.ports import Message, MessageBusPort, PermanentMessageError
-from headache_core.ports.cases import CaseRecord, CaseStore
-from headache_core.ports.outbox import OutboxEvent
+from genaipocs_core.domain import CaseOutcome, CaseStatus, Specialist, can_transition
+from genaipocs_core.ports import Message, MessageBusPort, PermanentMessageError
+from genaipocs_core.ports.cases import CaseRecord, CaseStore
+from genaipocs_core.ports.outbox import OutboxEvent
+from harness.approvals import ApprovalService
 from orchestrator.review import ReviewError, apply_review, parse_decision
 
 logger = logging.getLogger(__name__)

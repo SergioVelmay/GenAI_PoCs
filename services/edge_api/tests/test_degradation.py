@@ -9,13 +9,13 @@ import pytest
 
 from edge_api.assistant import Answer, AnswerChunk, RagAssistant, final_answer
 from edge_api.cache import CachedAssistant
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import HashingEmbedding, InMemorySemanticCache
-from headache_core.application.answer_stream import StreamingAnswerer
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.domain.admission import Caller, ClientPlan
-from headache_core.ports import (
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import HashingEmbedding, InMemorySemanticCache
+from genaipocs_core.application.answer_stream import StreamingAnswerer
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.domain.admission import Caller, ClientPlan
+from genaipocs_core.ports import (
     ChatMessage,
     LLMOverloadedError,
     LLMResponse,

@@ -12,11 +12,11 @@ description: "Convenciones de Python del monorepo: Clean Architecture, tipado es
 - `ports/`: interfaces con `typing.Protocol` (tipado estructural, sin herencia).
 - `adapters/`: única capa que importa SDKs (`memory` para tests; `postgres`, `azure_*`, `bedrock*`...).
 - La composición (qué adaptador se usa) vive en factorías (`adapters/llm_factory.py`, `retrieval/cloud.py`, `booking_agent/guardrails.py`) o en el arranque del servicio, nunca dentro de un caso de uso.
-- `harness` depende de `headache_core`, nunca al revés.
+- `harness` depende de `genaipocs_core`, nunca al revés.
 
 ## Paquetes
 
-- Compartido: `packages/headache_core` (extras opcionales por integración). Servicios en `services/<nombre>` con su `pyproject.toml`, añadidos a `[tool.uv.workspace]`, a `[tool.uv.sources]`, a `known-first-party` de ruff y a `files` de mypy en el `pyproject.toml` raíz.
+- Compartido: `packages/genaipocs_core` (extras opcionales por integración). Servicios en `services/<nombre>` con su `pyproject.toml`, añadidos a `[tool.uv.workspace]`, a `[tool.uv.sources]`, a `known-first-party` de ruff y a `files` de mypy en el `pyproject.toml` raíz.
 - Dependencias: `uv add` (nunca editar `uv.lock` a mano). Extras pesados y opcionales (`evals`, `pii`) fuera de la CI, con sus tests saltados por `skipif` explícito (no `importorskip`).
 - Fijar versiones con conflicto y explicar el motivo en un comentario (p. ej. `mcp<2.2` por `strands-agents`, `langchain-community<0.4.2` por `ragas`).
 
@@ -30,7 +30,7 @@ description: "Convenciones de Python del monorepo: Clean Architecture, tipado es
 
 ## Configuración
 
-- `headache_core/config.py`: Pydantic Settings, variables anidadas con `__` (`BEDROCK__REGION`), secretos como `SecretStr`. Al añadir una variable: valor por defecto seguro, entrada en `.env.example` y test en `test_config.py`.
+- `genaipocs_core/config.py`: Pydantic Settings, variables anidadas con `__` (`BEDROCK__REGION`), secretos como `SecretStr`. Al añadir una variable: valor por defecto seguro, entrada en `.env.example` y test en `test_config.py`.
 - Por defecto todo es local y sin coste; la nube se activa solo de forma explícita por configuración.
 - Hosts locales `127.0.0.1`, nunca `localhost`. Excepción: URLs que abre el navegador (`NEXTAUTH_URL`, `LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT` de Langfuse), que deben quedarse en `localhost` o el login falla.
 - Si cambian variables, dar a Sergio las instrucciones exactas para su `.env` (clave, valor, bloque, añadir o modificar, para qué); su `.env` sigue el orden, los grupos y los comentarios de `.env.example`. Los valores de la nube salen de `terraform -chdir=infra/terraform/<nube> output` (con la CLI aislada). `AZURE_OPENAI__API_KEY` vacía = Entra ID.

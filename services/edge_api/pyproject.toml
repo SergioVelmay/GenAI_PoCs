@@ -1,18 +1,18 @@
 [project]
 name = "edge-api"
 version = "0.1.0"
-description = "Puerta de entrada pública de Headache: admisión, rate limiting, caché y streaming"
+description = "Puerta de entrada pública de Genaipocs: admisión, rate limiting, caché y streaming"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "headache-core[postgres,redis,telemetry]",
+    "genaipocs-core[postgres,redis,telemetry]",
     "mcp-servers",
     "retrieval",
     "uvicorn[standard]>=0.32",
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 mcp-servers = { workspace = true }
 retrieval = { workspace = true }
 

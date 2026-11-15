@@ -1,6 +1,6 @@
 """Contrato común de los cinco sabores y piezas que comparten.
 
-- `AgentRuntime` (en `headache_core`): la única interfaz que ve la API, la suite de evals y el
+- `AgentRuntime` (en `genaipocs_core`): la única interfaz que ve la API, la suite de evals y el
   harness (fase 8): un turno de un hilo.
 - `JournaledExecutor`: TODAS las tools pasan por el mismo ejecutor, use el framework que use.
   Mismas garantías (validación, timeouts, errores tipados, saneamiento, escrituras en serie) y
@@ -14,10 +14,10 @@ import asyncio
 from dataclasses import dataclass
 
 from booking_agent.spec import AgentSpec
-from headache_core.application.agents.runtime import AgentRuntime, AgentTurn, StopReason
-from headache_core.application.tools import ToolContext, ToolExecution, ToolExecutor, ToolRegistry
-from headache_core.ports import LLMPort, ToolCall
-from headache_core.ports.memory import CheckpointStore, PreferenceStore
+from genaipocs_core.application.agents.runtime import AgentRuntime, AgentTurn, StopReason
+from genaipocs_core.application.tools import ToolContext, ToolExecution, ToolExecutor, ToolRegistry
+from genaipocs_core.ports import LLMPort, ToolCall
+from genaipocs_core.ports.memory import CheckpointStore, PreferenceStore
 
 __all__ = ["AgentDeps", "AgentRuntime", "AgentTurn", "JournaledExecutor", "StopReason"]
 

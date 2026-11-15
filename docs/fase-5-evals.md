@@ -1,6 +1,6 @@
 # Fase 5 · Evals de RAG: golden dataset, métricas, jueces y gate en CI
 
-Cómo sabemos si el RAG de Headache funciona y cómo evitamos que empeore sin que nadie se dé cuenta.
+Cómo sabemos si el RAG de Genaipocs funciona y cómo evitamos que empeore sin que nadie se dé cuenta.
 Todo se mide con el mismo corpus congelado, el mismo golden dataset y las mismas métricas en los
 carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) queda pendiente de nube.
 
@@ -13,7 +13,7 @@ carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) q
 |---|---|---|
 | Corpus congelado | Escala `small`, semilla 42: 116 documentos / 131 chunks, sha256 verificado | [evals/corpus/knowledge.jsonl](../evals/corpus/knowledge.jsonl) |
 | Golden dataset v1 | 144 preguntas generadas por plantillas a partir de los documentos (gold por `document_id`, relevancia graduada, literales de evidencia) | [golden.py](../evals/src/rag_evals/golden.py), [golden-v1.jsonl](../evals/datasets/golden-v1.jsonl) |
-| Métricas puras | Hit@k, Recall@k, MRR, nDCG graduado, precisión media, percentiles | [domain/evals.py](../packages/headache_core/src/headache_core/domain/evals.py) |
+| Métricas puras | Hit@k, Recall@k, MRR, nDCG graduado, precisión media, percentiles | [domain/evals.py](../packages/genaipocs_core/src/genaipocs_core/domain/evals.py) |
 | Evals de retrieval | Todas las estrategias de B y C | [retrieval_eval.py](../evals/src/rag_evals/retrieval_eval.py) |
 | Evals de generación | Citas auditadas, abstención, fugas ACL; modo LLM y jueces con presupuesto | [generation_eval.py](../evals/src/rag_evals/generation_eval.py) |
 | Jueces LLM | Nativo (B) y RAGAS / DeepEval (C) sobre el mismo `LLMPort` | [judges.py](../evals/src/rag_evals/judges.py), [frameworks/](../evals/src/rag_evals/frameworks/) |

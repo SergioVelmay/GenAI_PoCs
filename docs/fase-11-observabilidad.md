@@ -63,11 +63,11 @@ flowchart LR
 ### 11.1 · Telemetría base
 
 - Los casos de uso piden spans a `TelemetryPort` (`get_telemetry()`), como piden un LLM a `LLMPort`. Solo `adapters/otel.py` importa el SDK: por defecto `NullTelemetry` y los tests no cambian.
-- Atributos de la convención **GenAI** de OpenTelemetry (`gen_ai.operation.name`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`...) más `headache.*` (coste, plan, caché) y `langfuse.*`.
+- Atributos de la convención **GenAI** de OpenTelemetry (`gen_ai.operation.name`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`...) más `genaipocs.*` (coste, plan, caché) y `langfuse.*`.
 - Prompts y respuestas solo con `TELEMETRY__CAPTURE_CONTENT=true` y siempre redactados. Logs JSON con `trace_id`/`span_id`.
 
 ```powershell
-uv run pytest packages/headache_core/tests/test_telemetry.py packages/headache_core/tests/test_instrumentation.py -q
+uv run pytest packages/genaipocs_core/tests/test_telemetry.py packages/genaipocs_core/tests/test_instrumentation.py -q
 # En cualquier servicio: TELEMETRY__EXPORTER=console (spans por consola) u otlp (al collector)
 ```
 
@@ -84,12 +84,12 @@ uv run pytest packages/headache_core/tests/test_telemetry.py packages/headache_c
 
 ```powershell
 uv run pytest services/orchestrator/tests/test_trace_propagation.py -q
-docker compose --profile sqs --profile servicebus up -d ; uv run pytest -m integration packages/headache_core/tests/integration/test_message_bus_contract.py
+docker compose --profile sqs --profile servicebus up -d ; uv run pytest -m integration packages/genaipocs_core/tests/integration/test_message_bus_contract.py
 ```
 
 ### 11.4 · Métricas RED, GenAI y SLO
 
-- Catálogo único (`metrics.py`): duración y errores de las llamadas al modelo (`gen_ai.client.operation.duration`), tokens, `headache.llm.cost` por agente, TTFT del edge, admisión por plan (429/503), caché, respuestas degradadas, rechazos del gateway, colas y backlog del outbox.
+- Catálogo único (`metrics.py`): duración y errores de las llamadas al modelo (`gen_ai.client.operation.duration`), tokens, `genaipocs.llm.cost` por agente, TTFT del edge, admisión por plan (429/503), caché, respuestas degradadas, rechazos del gateway, colas y backlog del outbox.
 - Cardinalidad baja: nunca IDs de caso o usuario en una etiqueta.
 - 6 SLO en `domain/slo.py` (Python puro) con presupuesto de error, *burn rate* multiventana (14,4 / 6 / 3 / 1) y presupuesto de coste (20 $/día, aviso al 80 %).
 
@@ -101,25 +101,25 @@ uv run python scripts/telemetry_demo.py --rounds 3 --minutes 3
 # Con Langfuse: OTEL_COLLECTOR_EXTRA=otel-collector.langfuse y --profile observability
 ```
 
-- El dashboard `Headache · GenAI` (Grafana :3001) se genera desde el catálogo: coste, tokens, latencia, TTFT, errores, 429/503 por plan, caché, colas y faithfulness.
+- El dashboard `Genaipocs · GenAI` (Grafana :3001) se genera desde el catálogo: coste, tokens, latencia, TTFT, errores, 429/503 por plan, caché, colas y faithfulness.
 - El collector borra prompts y respuestas antes de Jaeger; el contenido solo llega a Langfuse.
 
 ### 11.6 · Alertas como código, evaluación online y runbook
 
-- `build_rules()` genera `rules/headache.rules.yml` desde `domain/slo.py`: 42 recording rules (SLI por ventana), 24 alertas de *burn rate* y 5 operativas (`LlmCostBudget`, `LlmCostRunaway`, `OutboxBacklogGrowing`, `FaithfulnessDrop`, `PromptInjectionSpike`). Un SLO sin SLI rompe la generación.
+- `build_rules()` genera `rules/genaipocs.rules.yml` desde `domain/slo.py`: 42 recording rules (SLI por ventana), 24 alertas de *burn rate* y 5 operativas (`LlmCostBudget`, `LlmCostRunaway`, `OutboxBacklogGrowing`, `FaithfulnessDrop`, `PromptInjectionSpike`). Un SLO sin SLI rompe la generación.
 - 11 escenarios de `promtool test rules` en la CI. Cada alerta enlaza un ancla del [runbook](runbook-incidentes.md).
-- Evaluación online: el edge ofrece respuestas generadas (`miss`) a un juez que no bloquea (cola acotada, `EDGE__ONLINE_EVAL_RATE`, `EDGE__ONLINE_EVAL_PER_MINUTE`). El score va al mismo `trace_id` en Langfuse y a la métrica `headache.eval.faithfulness`.
+- Evaluación online: el edge ofrece respuestas generadas (`miss`) a un juez que no bloquea (cola acotada, `EDGE__ONLINE_EVAL_RATE`, `EDGE__ONLINE_EVAL_PER_MINUTE`). El score va al mismo `trace_id` en Langfuse y a la métrica `genaipocs.eval.faithfulness`.
 
 ```powershell
 uv run python scripts/build_observability.py --check
-docker compose --profile telemetry run --rm --entrypoint promtool prometheus test rules /etc/prometheus/rules/tests/headache.test.yml
+docker compose --profile telemetry run --rm --entrypoint promtool prometheus test rules /etc/prometheus/rules/tests/genaipocs.test.yml
 ```
 
 ### 11.7 · Nube: Terraform desactivado y collectors
 
 | | Azure (`azure/observability.tf`) | AWS (`aws/observability.tf`) |
 |---|---|---|
-| Almacén | Log Analytics (30 días, tope diario `observability_daily_cap_gb = 0.5`) | Log groups `/headache/{env}/app` (14 días) y `/metrics` (EMF, 3 días) |
+| Almacén | Log Analytics (30 días, tope diario `observability_daily_cap_gb = 0.5`) | Log groups `/genaipocs/{env}/app` (14 días) y `/metrics` (EMF, 3 días) |
 | Trazas | Application Insights basado en workspace, sin claves locales (`local_authentication_enabled = false`) | X-Ray por su endpoint OTLP (Transaction Search) + grupo `errors` |
 | Permiso del collector | Rol *Monitoring Metrics Publisher* (identidad) | Política IAM `otel_collector` (X-Ray y logs) para el rol de la tarea |
 | Aviso | Action group con email | Tema SNS con email |
@@ -150,7 +150,7 @@ POST /cases [server]
         outbox.relay [internal]
           send case.triaged.refunds [producer]
             process case.triaged.refunds [consumer]
-              invoke_agent headache-refunds-specialist [internal]
+              invoke_agent genaipocs-refunds-specialist [internal]
                 chat fake-llm [client]
                 execute_tool request_refund [internal] ← approval_required (no es error)
                 chat fake-llm [client]

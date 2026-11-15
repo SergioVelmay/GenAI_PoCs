@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from headache_core.domain.experiments import Decision
-from headache_core.ports.experiments import ExperimentRun
+from genaipocs_core.domain.experiments import Decision
+from genaipocs_core.ports.experiments import ExperimentRun
 from rag_evals.llmops.experiment import (
     EXPERIMENTS_DIR,
     candidate_prompt,
@@ -87,7 +87,7 @@ def test_spec_validation_and_online_assignment() -> None:
 
 @needs_mlflow
 def test_mlflow_tracker_logs_params_metrics_and_artifacts(tmp_path: Path) -> None:
-    from headache_core.adapters.experiment_trackers import MlflowExperimentTracker
+    from genaipocs_core.adapters.experiment_trackers import MlflowExperimentTracker
 
     report = tmp_path / "informe.md"
     report.write_text("# informe\n", encoding="utf-8")

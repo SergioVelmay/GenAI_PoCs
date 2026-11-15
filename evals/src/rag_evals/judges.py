@@ -17,9 +17,9 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from headache_core.application.llm.structured import complete_structured
-from headache_core.domain.evals import average_precision, ratio
-from headache_core.ports.llm import ChatMessage, LLMPort, Role
+from genaipocs_core.application.llm.structured import complete_structured
+from genaipocs_core.domain.evals import average_precision, ratio
+from genaipocs_core.ports.llm import ChatMessage, LLMPort, Role
 from rag_evals.prompts import PROMPTS
 
 MAX_CONTEXT_CHARS = 4000

@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 import psycopg
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from headache_core.config import PostgresSettings
+from genaipocs_core.config import PostgresSettings
 
 SCHEMA = "langgraph"
 

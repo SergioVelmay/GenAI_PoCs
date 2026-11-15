@@ -1,7 +1,7 @@
 ---
 paths:
   - "evals/**"
-  - "packages/headache_core/src/headache_core/domain/evals.py"
+  - "packages/genaipocs_core/src/genaipocs_core/domain/evals.py"
 ---
 
 <!-- Generado por scripts/sync_agent_rules.py: no editar a mano. -->

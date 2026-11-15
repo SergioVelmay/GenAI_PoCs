@@ -30,8 +30,8 @@ from llama_index.core.llms.llm import ToolSelection
 from llama_index.core.tools.types import BaseTool
 from pydantic import PrivateAttr
 
-from headache_core.ports import ChatMessage, LLMPort, Role, ToolCall, ToolConfig
-from headache_core.ports.llm import ToolSpec
+from genaipocs_core.ports import ChatMessage, LLMPort, Role, ToolCall, ToolConfig
+from genaipocs_core.ports.llm import ToolSpec
 
 CACHE_CHECKPOINT = "cache_checkpoint"
 # Argumentos que no eran un objeto JSON: viajan crudos hasta el ejecutor, que devuelve el error.
@@ -100,12 +100,12 @@ class GatewayFunctionLLM(FunctionCallingLLM):
 
     @classmethod
     def class_name(cls) -> str:
-        return "HeadacheGatewayLLM"
+        return "GenaipocsGatewayLLM"
 
     @property
     def metadata(self) -> LLMMetadata:
         return LLMMetadata(
-            model_name="headache-gateway", is_chat_model=True, is_function_calling_model=True
+            model_name="genaipocs-gateway", is_chat_model=True, is_function_calling_model=True
         )
 
     def _spec_for(self, tool: BaseTool) -> ToolSpec:

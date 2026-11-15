@@ -1,10 +1,10 @@
 """Carga masiva de los datos sintéticos en PostgreSQL con COPY (asyncpg).
 
 Flujo recomendado para el ejercicio de índices:
-    uv run alembic -c packages/headache_core/alembic.ini upgrade 0001   # tablas sin índices
+    uv run alembic -c packages/genaipocs_core/alembic.ini upgrade 0001   # tablas sin índices
     uv run python scripts/load_seed.py --truncate                       # carga rápida
     uv run python scripts/sql_benchmark.py --label before
-    uv run alembic -c packages/headache_core/alembic.ini upgrade head   # crea los índices
+    uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head   # crea los índices
     uv run python scripts/sql_benchmark.py --label after
 """
 
@@ -23,7 +23,7 @@ from typing import Any
 
 import asyncpg
 
-from headache_core.config import get_settings
+from genaipocs_core.config import get_settings
 
 Record = tuple[Any, ...]
 BATCH_SIZE = 50_000

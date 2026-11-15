@@ -9,17 +9,17 @@ from typing import Any
 import pytest
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS
+from genaipocs_core.application.agent_judge import AgentJudgeSample
+from genaipocs_core.application.agent_online_eval import AgentOnlineEvaluator
+from genaipocs_core.application.agents.runtime import AgentTurn
+from genaipocs_core.application.orchestration import InvalidHandoffError, render_handoff
+from genaipocs_core.application.tools import FALLBACK_ANSWER, build_ticketing_tools
+from genaipocs_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
+from genaipocs_core.domain.agent_eval import AgentJudgement, Resolution
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
 from harness import APPROVAL_REQUIRED
 from harness.rules.case_reply import SEND_CASE_REPLY
-from headache_core.application.agent_judge import AgentJudgeSample
-from headache_core.application.agent_online_eval import AgentOnlineEvaluator
-from headache_core.application.agents.runtime import AgentTurn
-from headache_core.application.orchestration import InvalidHandoffError, render_handoff
-from headache_core.application.tools import FALLBACK_ANSWER, build_ticketing_tools
-from headache_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
-from headache_core.domain.agent_eval import AgentJudgement, Resolution
-from headache_core.ports import ToolCall
-from headache_core.ports.approvals import ApprovalStatus
 from orchestrator.specialists import (
     build_approval_service,
     build_knowledge_spec,
@@ -32,7 +32,7 @@ from orchestrator.testing import ORDER
 from orchestrator.testing import local_world as _world
 
 ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(set(FLAVORS) - MANAGED_FLAVORS))
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 
 
 def _envelope(intent: SupportIntent, specialist: Specialist, **changes: Any) -> CaseEnvelope:
@@ -235,7 +235,7 @@ async def test_creative_drafts_a_templated_reply_that_waits_for_approval() -> No
 
     assert outcome.status is CaseStatus.PENDING_APPROVAL
     assert outcome.reply.startswith("Hola:")
-    assert "Equipo de Atención al Cliente de Headache" in outcome.reply
+    assert "Equipo de Atención al Cliente de Genaipocs" in outcome.reply
     assert "Ref.: case_1" in outcome.reply
     assert world.outbox.sent == []  # Nada sale sin una persona.
     assert outcome.approval_id is not None
@@ -244,7 +244,7 @@ async def test_creative_drafts_a_templated_reply_that_waits_for_approval() -> No
     )
     assert decided.status is ApprovalStatus.EXECUTED
     [(sent, customer)] = world.outbox.sent
-    assert sent.subject == "[Headache] Tu queja sobre el evento · case_1"
+    assert sent.subject == "[Genaipocs] Tu queja sobre el evento · case_1"
     assert customer == "cus_1"
     # Hechos verificados del pedido del propio cliente, no del resumen del triaje.
     assert "60.00 EUR" in world.llm.calls[0][-1].content
@@ -307,7 +307,7 @@ async def test_creative_never_mentions_other_orders() -> None:
 
 async def test_creative_answers_partners_with_the_partner_template() -> None:
     body = (
-        "Gracias por vuestro interés en publicar vuestros espectáculos en Headache. El equipo "
+        "Gracias por vuestro interés en publicar vuestros espectáculos en Genaipocs. El equipo "
         "de Partners estudiará la propuesta; contadnos qué tipo de eventos organizáis."
     )
     world = _world([_draft(body, subject="Vuestra propuesta de colaboración")])
@@ -321,7 +321,7 @@ async def test_creative_answers_partners_with_the_partner_template() -> None:
     outcome = await build_specialists(world.deps)[Specialist.CREATIVE].handle(case)
 
     assert outcome.status is CaseStatus.PENDING_APPROVAL
-    assert "Equipo de Partners de Headache" in outcome.reply
+    assert "Equipo de Partners de Genaipocs" in outcome.reply
     [pending] = await world.approvals.list_requests(status=ApprovalStatus.PENDING)
     assert pending.tool == SEND_CASE_REPLY
-    assert "[Headache Partners]" in pending.arguments
+    assert "[Genaipocs Partners]" in pending.arguments

@@ -7,8 +7,8 @@ import asyncio
 import pytest
 
 from edge_api.testing import ASK, FakeAssistant, bearer, client, token
-from headache_core.domain.admission import ClientPlan
-from headache_core.ports import LLMDeadlineExceededError, LLMOverloadedError
+from genaipocs_core.domain.admission import ClientPlan
+from genaipocs_core.ports import LLMDeadlineExceededError, LLMOverloadedError
 
 
 async def test_anonymous_question_is_answered_with_rate_limit_headers() -> None:
@@ -40,7 +40,7 @@ async def test_user_over_the_limit_gets_429_and_others_are_unaffected() -> None:
 async def test_plan_comes_from_the_signed_token_not_from_headers() -> None:
     assistant = FakeAssistant()
     async with client(assistant) as http:
-        forged = await http.post("/ask", json=ASK, headers={"X-Headache-Plan": "internal"})
+        forged = await http.post("/ask", json=ASK, headers={"X-Genaipocs-Plan": "internal"})
         staff = await http.post("/ask", json=ASK, headers=bearer(token("ops", plan="internal")))
         unknown = await http.post("/ask", json=ASK, headers=bearer(token("eva", plan="vip")))
 

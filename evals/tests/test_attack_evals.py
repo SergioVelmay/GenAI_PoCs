@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from booking_agent.flavors import FLAVORS
-from headache_core.ports import ChatMessage, Role
+from genaipocs_core.ports import ChatMessage, Role
 from rag_evals.agents.scenario_llm import ScenarioLLM
 from rag_evals.agents.scenarios import ATTACKS_PATH, Scenario, load_scenarios
 from rag_evals.attacks import check, render_markdown, run_attacks, write_report

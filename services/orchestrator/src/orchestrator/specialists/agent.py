@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from headache_core.application.agents.runtime import AgentRuntime, AgentTurn
-from headache_core.application.orchestration import (
+from genaipocs_core.application.agents.runtime import AgentRuntime, AgentTurn
+from genaipocs_core.application.orchestration import (
     InvalidHandoffError,
     render_handoff,
     tool_context,
 )
-from headache_core.domain import CaseEnvelope, CaseOutcome, CaseStatus, Specialist
+from genaipocs_core.domain import CaseEnvelope, CaseOutcome, CaseStatus, Specialist
 
 
 class AgentSpecialist:

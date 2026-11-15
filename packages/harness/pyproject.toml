@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Agentic harness (fase 8): validación, autocorrección y guardrails para cualquier agente"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core",
+    "genaipocs-core",
     "pydantic>=2.9",
     "sqlglot>=26",
 ]
@@ -18,7 +18,7 @@ pii = [
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 es-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl" }
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
 

@@ -11,10 +11,10 @@ import uuid
 
 import pytest
 
-from headache_core.application.orchestration import TriageAgent
-from headache_core.config import get_settings
-from headache_core.domain import CaseStatus
-from headache_core.ports import ToolCall
+from genaipocs_core.application.orchestration import TriageAgent
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import CaseStatus
+from genaipocs_core.ports import ToolCall
 from orchestrator.checkpoints import postgres_checkpointer
 from orchestrator.graph import RouterGraph
 from orchestrator.specialists import build_approval_service, build_specialists
@@ -22,7 +22,7 @@ from orchestrator.testing import ORDER, LocalWorld, local_world, support_email
 
 pytestmark = pytest.mark.integration
 
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 
 
 def _router(world: LocalWorld, checkpointer: object) -> RouterGraph:

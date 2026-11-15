@@ -19,8 +19,8 @@ from strands.types.streaming import StreamEvent
 from strands.types.tools import ToolChoice, ToolChoiceTool, ToolResult
 from strands.types.tools import ToolSpec as StrandsToolSpec
 
-from headache_core.ports import ChatMessage, LLMPort, Role, ToolCall, ToolConfig
-from headache_core.ports.llm import ToolSpec
+from genaipocs_core.ports import ChatMessage, LLMPort, Role, ToolCall, ToolConfig
+from genaipocs_core.ports.llm import ToolSpec
 
 type ToolChoiceToolDict = dict[Literal["tool"], ToolChoiceTool]
 
@@ -161,7 +161,7 @@ class GatewayModel(Model):
         self._specs = {spec.name: spec for spec in tool_specs}
 
     def get_config(self) -> dict[str, Any]:
-        return {"model_id": "headache-gateway"}
+        return {"model_id": "genaipocs-gateway"}
 
     def update_config(self, **model_config: Any) -> None:
         raise NotImplementedError("La configuración del modelo vive en el gateway.")

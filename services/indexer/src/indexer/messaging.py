@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from headache_core.adapters.messaging_factory import open_message_bus
-from headache_core.config import Settings
-from headache_core.ports import MessageBusPort
+from genaipocs_core.adapters.messaging_factory import open_message_bus
+from genaipocs_core.config import Settings
+from genaipocs_core.ports import MessageBusPort
 from indexer.settings import IndexerSettings
 
 

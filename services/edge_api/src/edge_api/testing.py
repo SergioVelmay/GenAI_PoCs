@@ -23,19 +23,19 @@ from edge_api.assistant import (
 from edge_api.cases import CaseBackend
 from edge_api.identity import jwt_resolver
 from edge_api.settings import EdgeSettings
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     InMemoryCaseIntakeStore,
     InMemoryCaseStore,
     InMemoryOutbox,
     InMemoryRateLimiter,
 )
-from headache_core.adapters.otel import QUIET_SPANS
-from headache_core.application.admission import AdmissionController, plan_rules
-from headache_core.application.online_eval import OnlineEvaluator
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.domain.admission import Caller, ClientPlan
+from genaipocs_core.adapters.otel import QUIET_SPANS
+from genaipocs_core.application.admission import AdmissionController, plan_rules
+from genaipocs_core.application.online_eval import OnlineEvaluator
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.domain.admission import Caller, ClientPlan
 
-ISSUER, AUDIENCE = "https://auth.headache.local", "api://headache-edge"
+ISSUER, AUDIENCE = "https://auth.genaipocs.local", "api://genaipocs-edge"
 KEYS = RSAKeyPair.generate()
 
 

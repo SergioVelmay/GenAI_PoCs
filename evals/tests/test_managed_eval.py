@@ -1,15 +1,15 @@
 from collections.abc import Mapping
 
-from headache_core.application.retrieval import InvalidCitationError
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import LLMContentFilterError
-from headache_core.ports.retrieval import (
+from genaipocs_core.application.retrieval import InvalidCitationError
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import LLMContentFilterError
+from genaipocs_core.ports.retrieval import (
     ManagedCitation,
     ManagedRagResponse,
     ManagedReference,
     ManagedSearchMode,
 )
-from headache_core.ports.vector_store import MetadataValue
+from genaipocs_core.ports.vector_store import MetadataValue
 from rag_evals.golden import DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores
 from rag_evals.managed_eval import (

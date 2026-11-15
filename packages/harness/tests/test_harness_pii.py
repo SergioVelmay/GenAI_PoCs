@@ -4,8 +4,8 @@ from importlib.util import find_spec
 
 import pytest
 
+from genaipocs_core.application.tools import ToolContext
 from harness.pii import PII_REDACTED, PiiSpan, RegexPiiDetector, pii_filter, redact
-from headache_core.application.tools import ToolContext
 
 ANA = ToolContext(customer_id="cus_1")
 

@@ -18,19 +18,19 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
+from genaipocs_core.application.agents.runtime import AgentRuntime, AgentTurn
+from genaipocs_core.application.tools import FALLBACK_ANSWER, ToolContext, ToolExecution
+from genaipocs_core.ports.llm import LLMContentFilterError
 from harness.executor import turn_trace
 from harness.pii import TextFilter
 from harness.validation import Validator, run_validators
-from headache_core.application.agents.runtime import AgentRuntime, AgentTurn
-from headache_core.application.tools import FALLBACK_ANSWER, ToolContext, ToolExecution
-from headache_core.ports.llm import LLMContentFilterError
 
 logger = logging.getLogger(__name__)
 PROVIDER_FILTER = "provider_content_filter"
 
 BLOCKED_INPUT_ANSWER = (
     "No puedo ayudarte con esa petición. Si necesitas algo sobre tus eventos o pedidos de "
-    "Headache, cuéntamelo de otra forma."
+    "Genaipocs, cuéntamelo de otra forma."
 )
 
 

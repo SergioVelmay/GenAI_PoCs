@@ -14,7 +14,7 @@ import asyncio
 from collections.abc import Iterator
 from pathlib import Path
 
-from headache_core.config import get_settings
+from genaipocs_core.config import get_settings
 from indexer.messages import DocumentPayload, IndexingCommand
 from indexer.messaging import open_bus
 from indexer.settings import IndexerSettings

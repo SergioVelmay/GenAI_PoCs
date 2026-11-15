@@ -1,16 +1,16 @@
 [project]
 name = "ticketing-api"
 version = "0.1.0"
-description = "API de ticketing de Headache: catálogo, disponibilidad, compra y reembolsos"
+description = "API de ticketing de Genaipocs: catálogo, disponibilidad, compra y reembolsos"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "headache-core[postgres,telemetry]",
+    "genaipocs-core[postgres,telemetry]",
     "uvicorn[standard]>=0.32",
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

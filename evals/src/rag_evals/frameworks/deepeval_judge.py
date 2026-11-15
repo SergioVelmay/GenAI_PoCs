@@ -18,8 +18,8 @@ from deepeval.models import DeepEvalBaseLLM
 from deepeval.test_case import LLMTestCase
 from pydantic import BaseModel
 
-from headache_core.application.llm.structured import complete_structured
-from headache_core.ports.llm import ChatMessage, LLMPort, Role
+from genaipocs_core.application.llm.structured import complete_structured
+from genaipocs_core.ports.llm import ChatMessage, LLMPort, Role
 from rag_evals.judges import JudgeSample, JudgeScores
 
 # Los prompts de DeepEval piden "reason" solo para los "no", pero structured outputs en modo
@@ -35,7 +35,7 @@ STRICT_SCHEMA_NOTE = (
 class PortDeepEvalLLM(DeepEvalBaseLLM):
     """DeepEval pasa `schema=`; devolver una instancia evita su parseo JSON tolerante."""
 
-    def __init__(self, llm: LLMPort, *, name: str = "headache-gateway", max_tokens: int = 1500):
+    def __init__(self, llm: LLMPort, *, name: str = "genaipocs-gateway", max_tokens: int = 1500):
         self._llm = llm
         self._max_tokens = max_tokens
         super().__init__(name)

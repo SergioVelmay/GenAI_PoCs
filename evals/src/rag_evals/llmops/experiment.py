@@ -31,8 +31,8 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-from headache_core.application.prompts import Prompt, PromptCatalog
-from headache_core.domain.experiments import (
+from genaipocs_core.application.prompts import Prompt, PromptCatalog
+from genaipocs_core.domain.experiments import (
     Assignment,
     Interval,
     McNemar,
@@ -42,7 +42,7 @@ from headache_core.domain.experiments import (
     mcnemar_exact,
     paired_bootstrap,
 )
-from headache_core.ports.experiments import ExperimentRun, ExperimentTrackerPort
+from genaipocs_core.ports.experiments import ExperimentRun, ExperimentTrackerPort
 from rag_evals import EVALS_DIR
 from rag_evals.agents.cloud import build_cloud_models
 from rag_evals.agents.scenarios import ATTACKS_PATH, SCENARIOS_PATH, load_scenarios
@@ -328,11 +328,11 @@ def log_runs(
 
 def build_tracker(kind: str) -> ExperimentTrackerPort:
     if kind == "mlflow":
-        from headache_core.adapters.experiment_trackers import MlflowExperimentTracker
+        from genaipocs_core.adapters.experiment_trackers import MlflowExperimentTracker
 
         (EVALS_DIR.parent / ".mlflow").mkdir(exist_ok=True)
         return MlflowExperimentTracker(MLFLOW_URI, artifact_location=MLFLOW_ARTIFACTS)
-    from headache_core.adapters.experiment_trackers import JsonlExperimentTracker
+    from genaipocs_core.adapters.experiment_trackers import JsonlExperimentTracker
 
     return JsonlExperimentTracker(RUNS_DIR)
 

@@ -9,21 +9,21 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
-from headache_core.adapters.azure_retrieval import AzureSearchRetrieval
-from headache_core.adapters.bedrock_retrieval import BedrockKnowledgeBase, BedrockReranker
-from headache_core.adapters.foundry_iq import FoundryIQKnowledge
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.retrieval import RetrievalService
-from headache_core.config import Settings
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.retrieval import (
+from genaipocs_core.adapters.azure_retrieval import AzureSearchRetrieval
+from genaipocs_core.adapters.bedrock_retrieval import BedrockKnowledgeBase, BedrockReranker
+from genaipocs_core.adapters.foundry_iq import FoundryIQKnowledge
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.config import Settings
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.retrieval import (
     ManagedCitation,
     ManagedRagResponse,
     ManagedReference,
     ManagedSearchMode,
 )
-from headache_core.ports.vector_store import MetadataValue
+from genaipocs_core.ports.vector_store import MetadataValue
 from retrieval import cloud
 from retrieval.app import create_app
 from retrieval.bootstrap import build_runtime
@@ -34,15 +34,15 @@ from retrieval.settings import RetrievalSettings
 def cloud_settings(**overrides: Any) -> Settings:
     values: dict[str, Any] = {
         "llm_provider": "azure",
-        "azure_openai": {"endpoint": "https://headache.openai.azure.com"},
-        "azure_search": {"endpoint": "https://headache.search.windows.net"},
+        "azure_openai": {"endpoint": "https://genaipocs.openai.azure.com"},
+        "azure_search": {"endpoint": "https://genaipocs.search.windows.net"},
         "bedrock": {
             "region": "eu-west-1",
             "rerank_model_arn": "arn:aws:bedrock:eu-west-1::foundation-model/cohere.rerank-v3-5:0",
         },
         "bedrock_kb": {"region": "eu-west-1", "knowledge_base_id": "KB12345678"},
         "foundry_iq": {
-            "project_endpoint": "https://headache.services.ai.azure.com/api/projects/poc"
+            "project_endpoint": "https://genaipocs.services.ai.azure.com/api/projects/poc"
         },
         "langfuse": {"public_key": ""},
     }

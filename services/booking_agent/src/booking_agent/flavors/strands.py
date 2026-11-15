@@ -31,15 +31,15 @@ from booking_agent.bridges.strands import (
     tool_spec,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn, JournaledExecutor, StopReason
-from headache_core.application.agents import (
+from genaipocs_core.application.agents import (
     ConversationSummarizer,
     ShortTermMemory,
     build_prompt_prefix,
 )
-from headache_core.application.agents.context import load_thread
-from headache_core.application.tools import Tool, ToolContext
-from headache_core.ports import ChatMessage, Role, ToolCall
-from headache_core.ports.memory import ThreadState
+from genaipocs_core.application.agents.context import load_thread
+from genaipocs_core.application.tools import Tool, ToolContext
+from genaipocs_core.ports import ChatMessage, Role, ToolCall
+from genaipocs_core.ports.memory import ThreadState
 
 TOOL_CONTEXT = "tool_context"
 
@@ -62,7 +62,7 @@ class JournaledTool(AgentTool):
 
     @property
     def tool_type(self) -> str:
-        return "headache"
+        return "genaipocs"
 
     async def stream(
         self, tool_use: ToolUse, invocation_state: dict[str, Any], **kwargs: Any

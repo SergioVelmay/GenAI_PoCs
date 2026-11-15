@@ -10,9 +10,9 @@ locals {
 resource "aws_bedrock_guardrail" "harness" {
   count                     = local.bedrock_guardrail
   name                      = "${local.name}-harness"
-  description               = "Prompt attacks, contenido dañino, temas vetados y PII del agente de Headache."
+  description               = "Prompt attacks, contenido dañino, temas vetados y PII del agente de Genaipocs."
   blocked_input_messaging   = "No puedo ayudarte con esa petición."
-  blocked_outputs_messaging = "No puedo darte esa respuesta. Un agente de Headache revisará tu caso."
+  blocked_outputs_messaging = "No puedo darte esa respuesta. Un agente de Genaipocs revisará tu caso."
 
   content_policy_config {
     # PROMPT_ATTACK solo se evalúa en la entrada (la salida debe ir a NONE).

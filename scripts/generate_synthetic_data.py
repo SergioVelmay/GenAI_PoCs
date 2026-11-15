@@ -1,4 +1,4 @@
-"""Genera datos sintéticos del dominio Headache, deterministas por semilla.
+"""Genera datos sintéticos del dominio Genaipocs, deterministas por semilla.
 
 Uso:
     uv run python scripts/generate_synthetic_data.py --scale small
@@ -19,7 +19,7 @@ from typing import Any, TextIO, TypedDict
 
 from faker import Faker
 
-from headache_core.domain import (
+from genaipocs_core.domain import (
     Customer,
     DocumentType,
     Event,
@@ -196,7 +196,7 @@ EMAIL_TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
         "partnership": (
             "Propuesta de colaboración",
             "Hola, somos {company}, promotores de eventos en {city}. Nos gustaría publicar"
-            " nuestros espectáculos en Headache. ¿Con quién podemos hablar?",
+            " nuestros espectáculos en Genaipocs. ¿Con quién podemos hablar?",
         ),
     },
     "en": {
@@ -228,13 +228,13 @@ EMAIL_TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
         "partnership": (
             "Partnership proposal",
             "Hello, we are {company}, an event promoter based in {city}. We'd love to list"
-            " our shows on Headache. Who should we talk to?",
+            " our shows on Genaipocs. Who should we talk to?",
         ),
     },
 }
 
 
-class HeadacheDataGenerator:
+class GenaipocsDataGenerator:
     def __init__(self, scale: Scale, seed: int, now: datetime) -> None:
         self.scale = scale
         self.now = now
@@ -457,7 +457,7 @@ def _city_faq_doc(city: City, door_minutes: int, language: str) -> KnowledgeDocu
         content = (
             f"# {title}\n\n"
             f"**¿Cuándo abren las puertas?** {door_minutes} minutos antes del inicio.\n\n"
-            "**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n\n"
+            "**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n\n"
             "**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n\n"
             "**¿Hay edad mínima?** Ocio nocturno: 18+. Resto: menores acompañados.\n\n"
             f"**Atención al cliente en {city.name}:** chat en la app, de 9:00 a 21:00 hora local."
@@ -467,7 +467,7 @@ def _city_faq_doc(city: City, door_minutes: int, language: str) -> KnowledgeDocu
         content = (
             f"# {title}\n\n"
             f"**When do doors open?** {door_minutes} minutes before the start.\n\n"
-            "**Where are my tickets?** In the Headache app, under 'My tickets'.\n\n"
+            "**Where are my tickets?** In the Genaipocs app, under 'My tickets'.\n\n"
             "**Do I need to print my ticket?** No, the QR code on your phone is enough.\n\n"
             "**Is there a minimum age?** Nightlife: 18+. Others: minors must be accompanied.\n\n"
             f"**Customer support in {city.name}:** in-app chat, 9:00-21:00 local time."
@@ -545,10 +545,10 @@ class HelpCenterTexts(TypedDict):
 
 HELP_CENTER: dict[str, HelpCenterTexts] = {
     "es": {
-        "title": "Guía del centro de ayuda de Headache",
+        "title": "Guía del centro de ayuda de Genaipocs",
         "intro": (
             "Esta guía reúne las respuestas a las dudas más habituales de quienes compran "
-            "entradas en Headache. Si tu caso no aparece aquí, escríbenos desde el chat de la app."
+            "entradas en Genaipocs. Si tu caso no aparece aquí, escríbenos desde el chat de la app."
         ),
         "sections": [
             (
@@ -596,7 +596,7 @@ HELP_CENTER: dict[str, HelpCenterTexts] = {
             ),
             (
                 "Organizadores y colaboradores",
-                "Si organizas eventos y quieres publicarlos en Headache, escribe al equipo de "
+                "Si organizas eventos y quieres publicarlos en Genaipocs, escribe al equipo de "
                 "colaboradores desde el formulario de la web. Revisamos cada propuesta en un plazo "
                 "de diez días hábiles.",
             ),
@@ -610,10 +610,10 @@ HELP_CENTER: dict[str, HelpCenterTexts] = {
         ),
     },
     "en": {
-        "title": "Headache help center guide",
+        "title": "Genaipocs help center guide",
         "intro": (
             "This guide collects answers to the most common questions from people who buy "
-            "tickets on Headache. If your case is not covered here, message us from the app chat."
+            "tickets on Genaipocs. If your case is not covered here, message us from the app chat."
         ),
         "sections": [
             (
@@ -661,7 +661,7 @@ HELP_CENTER: dict[str, HelpCenterTexts] = {
             ),
             (
                 "Organisers and partners",
-                "If you organise events and want to list them on Headache, contact the partners "
+                "If you organise events and want to list them on Genaipocs, contact the partners "
                 "team through the form on the website. We review every proposal within ten "
                 "business days.",
             ),
@@ -734,7 +734,7 @@ def main() -> None:
     knowledge_dir = out / "knowledge"
     knowledge_dir.mkdir(parents=True, exist_ok=True)
 
-    gen = HeadacheDataGenerator(SCALES[args.scale], seed=args.seed, now=now)
+    gen = GenaipocsDataGenerator(SCALES[args.scale], seed=args.seed, now=now)
     gen.build_catalog()
     gen.build_customers()
 

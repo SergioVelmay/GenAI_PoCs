@@ -32,11 +32,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.llm.structured import StructuredOutputError
-from headache_core.application.retrieval import RetrievalRequest
-from headache_core.domain.evals import cohen_kappa
-from headache_core.domain.retrieval import AccessScope
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.llm.structured import StructuredOutputError
+from genaipocs_core.application.retrieval import RetrievalRequest
+from genaipocs_core.domain.evals import cohen_kappa
+from genaipocs_core.domain.retrieval import AccessScope
 from rag_evals import EVALS_DIR
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
 from rag_evals.golden import verify_corpus as verify_corpus_hash
@@ -65,8 +65,8 @@ UNSUPPORTED_CLAIM = {
     "en": "Parking at the venue is also free for every attendee.",
 }
 NON_ANSWER = {
-    "es": "Depende de cada caso; consulta las condiciones en la web de Headache.",
-    "en": "It depends on the case; please check the conditions on the Headache website.",
+    "es": "Depende de cada caso; consulta las condiciones en la web de Genaipocs.",
+    "en": "It depends on the case; please check the conditions on the Genaipocs website.",
 }
 # Relevancia >= 2 (responde, aunque sea con ruido) cuenta como relevante al binarizar.
 RELEVANT_FROM = 2

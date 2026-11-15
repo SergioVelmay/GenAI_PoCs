@@ -21,8 +21,8 @@ class EdgeSettings(BaseSettings):
     overloaded_retry_after_seconds: float = Field(default=1.0, gt=0)
     # jwt: bearer opcional (sin token = anónimo por IP). none: todos anónimos (solo pruebas).
     auth: Literal["jwt", "none"] = "jwt"
-    issuer: str = "https://auth.headache.local"
-    audience: str = "api://headache-edge"
+    issuer: str = "https://auth.genaipocs.local"
+    audience: str = "api://genaipocs-edge"
     plan_claim: str = "plan"
     # Nube: JWKS de Entra ID / Cognito. Local: clave pública o la del emisor de desarrollo.
     jwks_uri: str = ""

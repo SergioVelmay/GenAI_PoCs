@@ -1,9 +1,9 @@
 ---
 paths:
   - "services/booking_agent/**"
-  - "packages/headache_core/src/headache_core/application/agents/**"
-  - "packages/headache_core/src/headache_core/domain/preferences.py"
-  - "packages/headache_core/src/headache_core/adapters/agentcore_memory.py"
+  - "packages/genaipocs_core/src/genaipocs_core/application/agents/**"
+  - "packages/genaipocs_core/src/genaipocs_core/domain/preferences.py"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/agentcore_memory.py"
   - "scripts/provision_foundry_agent.py"
 ---
 

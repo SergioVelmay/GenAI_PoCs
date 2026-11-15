@@ -16,7 +16,7 @@ from typing import Any
 
 import asyncpg
 
-from headache_core.config import get_settings
+from genaipocs_core.config import get_settings
 
 QUERIES_DIR = Path("infra/sql/queries")
 RESULTS_DIR = Path("data/benchmarks")

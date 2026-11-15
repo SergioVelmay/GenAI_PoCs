@@ -1,8 +1,8 @@
 # Copiar a terraform.tfvars (ignorado por Git) y rellenar. Antes de plan/apply:
-#   $env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache" ; gcloud config list
+#   $env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-genaipocs" ; gcloud config list
 #   gcloud auth application-default login   (ADC de usuario; nunca claves JSON)
 
-project_id      = "headache-dev-xxxxxx"    # gcloud config get-value project
+project_id      = "genaipocs-dev-xxxxxx"    # gcloud config get-value project
 billing_account = "000000-000000-000000"   # gcloud billing accounts list
 region          = "europe-west4"           # RAG Engine GA; misma región para todo
 

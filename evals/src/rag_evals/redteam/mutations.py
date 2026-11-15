@@ -35,9 +35,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from booking_agent.flavors import FLAVORS
 from booking_agent.spec import SKILLS_DIR
+from genaipocs_core.application.agents import SkillCatalog
 from harness.normalize import sanitize
 from harness.pii import RegexPiiDetector, redact
-from headache_core.application.agents import SkillCatalog
 from rag_evals import EVALS_DIR
 from rag_evals.agents.scenario_llm import UNRESOLVED
 from rag_evals.agents.scenarios import Scenario, load_scenarios

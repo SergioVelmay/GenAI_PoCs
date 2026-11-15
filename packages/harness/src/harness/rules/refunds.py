@@ -1,4 +1,4 @@
-"""Reglas del harness para reembolsos de Headache (reutilizan la política del dominio).
+"""Reglas del harness para reembolsos de Genaipocs (reutilizan la política del dominio).
 
 1. `refund_claims_grounded`: guarda de salida del agente. Si la respuesta afirma o promete un
    reembolso, en el turno tiene que haber un `request_refund` aprobado y los importes citados
@@ -20,16 +20,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from harness.approvals import DEFAULT_TTL, ApprovalGate, always
-from harness.correction import CorrectionResult, generate_validated
-from harness.executor import ArgumentRules, MaxCallsPerTurn, ToolGuard
-from harness.prompts import PROMPTS
-from harness.rules.patterns import CONTACT_DATA, claims_refund, money_amounts
-from harness.runtime import TurnRecord
-from harness.validation import Validator, Violation, forbidden_patterns, from_rules
-from headache_core.application.tools import ToolContext
-from headache_core.application.tools.ticketing import ID_PATTERN
-from headache_core.domain import (
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.application.tools.ticketing import ID_PATTERN
+from genaipocs_core.domain import (
     Event,
     Money,
     Order,
@@ -37,8 +30,15 @@ from headache_core.domain import (
     Session,
     check_refund_resolution,
 )
-from headache_core.ports import ChatMessage, LLMPort, Role
-from headache_core.ports.approvals import ApprovalStore
+from genaipocs_core.ports import ChatMessage, LLMPort, Role
+from genaipocs_core.ports.approvals import ApprovalStore
+from harness.approvals import DEFAULT_TTL, ApprovalGate, always
+from harness.correction import CorrectionResult, generate_validated
+from harness.executor import ArgumentRules, MaxCallsPerTurn, ToolGuard
+from harness.prompts import PROMPTS
+from harness.rules.patterns import CONTACT_DATA, claims_refund, money_amounts
+from harness.runtime import TurnRecord
+from harness.validation import Validator, Violation, forbidden_patterns, from_rules
 
 REFUND_TOOL = "request_refund"
 
@@ -111,7 +111,7 @@ def refund_claims_grounded(record: TurnRecord, _: ToolContext) -> list[Violation
 
 
 class RefundResolution(BaseModel):
-    """Propuesta de resolución de un caso de reembolso para operaciones de Headache."""
+    """Propuesta de resolución de un caso de reembolso para operaciones de Genaipocs."""
 
     model_config = ConfigDict(extra="forbid")
 

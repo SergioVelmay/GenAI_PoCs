@@ -22,16 +22,16 @@ from collections.abc import AsyncIterator
 from dataclasses import asdict, replace
 
 from edge_api.assistant import Answer, Assistant, AssistantEvent, replay
-from headache_core.application.semantic_cache import CacheLookup, SemanticCache
-from headache_core.application.telemetry import genai, get_telemetry
-from headache_core.domain.admission import Caller, access_scope
-from headache_core.domain.semantic_cache import (
+from genaipocs_core.application.semantic_cache import CacheLookup, SemanticCache
+from genaipocs_core.application.telemetry import genai, get_telemetry
+from genaipocs_core.domain.admission import Caller, access_scope
+from genaipocs_core.domain.semantic_cache import (
     CacheScope,
     detect_language,
     is_cacheable_answer,
     normalize,
 )
-from headache_core.ports import LLMTransientError
+from genaipocs_core.ports import LLMTransientError
 
 
 def to_payload(answer: Answer) -> str:
@@ -129,7 +129,7 @@ class CachedAssistant:
     def _count(self, outcome: str) -> None:
         self.outcomes[outcome] += 1
         # En el span de la petición: la tasa de aciertos se puede cortar por plan o por ruta.
-        get_telemetry().current_span().set_attribute(genai.HEADACHE_CACHE, outcome)
+        get_telemetry().current_span().set_attribute(genai.GENAIPOCS_CACHE, outcome)
 
     @staticmethod
     def _key(lookup: CacheLookup, question: str) -> str:

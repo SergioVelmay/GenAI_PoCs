@@ -9,10 +9,10 @@ import pytest
 from edge_api.app import build_semantic_cache
 from edge_api.assistant import Answer
 from edge_api.testing import ASK, FakeAssistant, bearer, client, token
-from headache_core.adapters.memory import HashingEmbedding, InMemorySemanticCache
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.config import Settings
-from headache_core.domain.admission import Caller
+from genaipocs_core.adapters.memory import HashingEmbedding, InMemorySemanticCache
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.config import Settings
+from genaipocs_core.domain.admission import Caller
 
 
 def semantic_cache() -> SemanticCache:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from headache_core.domain.drift import DriftLevel
+from genaipocs_core.domain.drift import DriftLevel
 from rag_evals.llmops.drift import SCENARIOS, Scenario, main, render, run_scenario
 
 

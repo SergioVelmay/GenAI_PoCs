@@ -129,7 +129,7 @@ def render(
     baselines: Mapping[str, MutationBaseline],
 ) -> str:
     lines = [
-        "# Informe de red teaming del agente de Headache (fase 12)",
+        "# Informe de red teaming del agente de Genaipocs (fase 12)",
         "",
         "Generado con `uv run python -m rag_evals.redteam.report` a partir de los informes JSON "
         "de cada herramienta. Todo con coste 0: modelo guionizado **comprometido** (obedece al "

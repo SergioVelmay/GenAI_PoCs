@@ -389,9 +389,9 @@ por tokens, autenticación y escala se deben resolver antes de producción.
 ## Verificación y siguientes incrementos
 
 ```powershell
-uv run pytest packages/headache_core/tests/test_retrieval.py services/retrieval/tests/test_retrieval_api.py
-uv run pytest packages/headache_core/tests/test_cloud_retrieval.py packages/headache_core/tests/test_cloud_vector_stores.py packages/headache_core/tests/test_managed_ingestion.py
-uv run pytest packages/headache_core/tests/test_foundry_iq.py services/retrieval/tests/test_retrieval_cloud.py
+uv run pytest packages/genaipocs_core/tests/test_retrieval.py services/retrieval/tests/test_retrieval_api.py
+uv run pytest packages/genaipocs_core/tests/test_cloud_retrieval.py packages/genaipocs_core/tests/test_cloud_vector_stores.py packages/genaipocs_core/tests/test_managed_ingestion.py
+uv run pytest packages/genaipocs_core/tests/test_foundry_iq.py services/retrieval/tests/test_retrieval_cloud.py
 uv run python scripts/provision_foundry_iq.py
 uv run ruff check .
 uv run ruff format --check .
@@ -438,7 +438,7 @@ los tests actuales validan contratos, no la calidad del retrieval.
 Corpus de evals clasificado con ACL explícita (114 chunks `public` y 17 `internal` en el índice
 `knowledge` del carril B), embeddings `text-embedding-3-small` (1024), AI Search Basic en
 `francecentral` con Semantic Ranker (plan gratuito) y Foundry IQ + Agent Service en el proyecto
-`headache`. Golden dataset completo: 144 preguntas (114 con respuesta, 30 sin ella o internas).
+`genaipocs`. Golden dataset completo: 144 preguntas (114 con respuesta, 30 sin ella o internas).
 
 **Carriles B y C frente a la nube** (`python -m rag_evals.retrieval_eval --engine azure
 --engine azure-semantic`, informe en `evals/reports/azure/`):
@@ -456,7 +456,7 @@ Corpus de evals clasificado con ACL explícita (114 chunks `public` y 17 `intern
   `hashing` validaban el arnés, no la calidad semántica (como avisaba la fase 5).
 - **La híbrida RRF rinde peor que el vector solo** con embeddings buenos: la parte BM25 diluye
   el orden (nDCG 0,922 frente a 0,979). El Semantic Ranker lo recupera y da el mejor recall
-  (0,974) a cambio de ~40 ms de p50. Conclusión para Headache: vector, o híbrida **con** ranker;
+  (0,974) a cambio de ~40 ms de p50. Conclusión para Genaipocs: vector, o híbrida **con** ranker;
   no híbrida a secas.
 - 0 fugas de ACL en todas las estrategias: la ACL viaja como filtro del servidor y se vuelve a
   comprobar en la aplicación.
@@ -506,7 +506,7 @@ motores. Sobre la híbrida + Semantic Ranker (la mejor sin LLM):
 - **Ninguna estrategia con LLM mejora a la búsqueda sin LLM**, y todas multiplican la latencia
   por 3–5. Con preguntas bien formadas (las del golden dataset lo son) no hay nada que reescribir.
   Pueden compensar con preguntas reales ambiguas o largas; habría que medirlo con tráfico real
-  antes de pagarlas. Decisión para Headache: sin planificación con LLM por defecto.
+  antes de pagarlas. Decisión para Genaipocs: sin planificación con LLM por defecto.
 - **auto es peligrosa**: inferir filtros convierte un error del modelo en 0 resultados (un filtro
   equivocado excluye la respuesta correcta). Pierde sobre todo en fichas de evento (ciudad o
   evento escritos de otra forma).

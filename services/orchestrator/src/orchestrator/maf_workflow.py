@@ -39,9 +39,8 @@ from agent_framework import (
     response_handler,
 )
 
-from harness.approvals import ApprovalService
-from headache_core.application.orchestration import SpecialistAgent, TriageAgent, case_id_for
-from headache_core.domain import (
+from genaipocs_core.application.orchestration import SpecialistAgent, TriageAgent, case_id_for
+from genaipocs_core.domain import (
     CaseEnvelope,
     CaseOutcome,
     CaseStatus,
@@ -49,6 +48,7 @@ from headache_core.domain import (
     SupportEmail,
     SupportIntent,
 )
+from harness.approvals import ApprovalService
 from orchestrator.review import ReviewDecision, ReviewError, apply_review, parse_decision
 
 UNROUTABLE = "unroutable"
@@ -207,7 +207,7 @@ class MafCaseWorkflow:
         ]
         cases.append(Default(UnroutableExecutor()))
         builder = WorkflowBuilder(
-            name="headache_case_router_maf",
+            name="genaipocs_case_router_maf",
             start_executor=triage,
             checkpoint_storage=self._storage,
         ).add_switch_case_edge_group(triage, cases)

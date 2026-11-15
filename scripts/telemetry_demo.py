@@ -26,7 +26,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
 from edge_api.testing import client, token
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     FakeLLM,
     HashingEmbedding,
     InMemoryCaseIntakeStore,
@@ -35,22 +35,22 @@ from headache_core.adapters.memory import (
     InMemoryOutbox,
     InMemorySemanticCache,
 )
-from headache_core.adapters.otel import setup_observability, shutdown_telemetry
-from headache_core.application.case_intake import CaseIntakeService, CaseRequest
-from headache_core.application.llm import ObservedLLM, PriceTable
-from headache_core.application.orchestration import TriageAgent
-from headache_core.application.outbox import OutboxRelay
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.application.telemetry import TelemetryLLMTracer, agent_scope
-from headache_core.application.telemetry.messaging import TracedMessageBus
-from headache_core.config import Settings, TelemetrySettings
-from headache_core.ports import ChatMessage, LLMRateLimitError, Role, ToolCall
+from genaipocs_core.adapters.otel import setup_observability, shutdown_telemetry
+from genaipocs_core.application.case_intake import CaseIntakeService, CaseRequest
+from genaipocs_core.application.llm import ObservedLLM, PriceTable
+from genaipocs_core.application.orchestration import TriageAgent
+from genaipocs_core.application.outbox import OutboxRelay
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.application.telemetry import TelemetryLLMTracer, agent_scope
+from genaipocs_core.application.telemetry.messaging import TracedMessageBus
+from genaipocs_core.config import Settings, TelemetrySettings
+from genaipocs_core.ports import ChatMessage, LLMRateLimitError, Role, ToolCall
 from orchestrator.async_flow import subscribe_workers
 from orchestrator.specialists import build_specialists
 from orchestrator.testing import CUSTOMER, ORDER, local_world
 
 MODEL = "gpt-4.1-mini"
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 QUESTIONS = [
     "¿Hasta cuándo puedo pedir un reembolso?",
     "¿A qué hora abren las puertas del recinto?",
@@ -168,7 +168,7 @@ async def main() -> None:
     shutdown_telemetry()
     print(f"Casos asíncronos: {len(trace_ids)}. Traza del primero:")
     print(f"  http://127.0.0.1:16686/trace/{trace_ids[0]}")
-    print("Grafana: http://127.0.0.1:3001 (dashboard Headache · GenAI)")
+    print("Grafana: http://127.0.0.1:3001 (dashboard Genaipocs · GenAI)")
 
 
 if __name__ == "__main__":

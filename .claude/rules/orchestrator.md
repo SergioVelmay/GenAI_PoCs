@@ -1,15 +1,15 @@
 ---
 paths:
   - "services/orchestrator/**"
-  - "packages/headache_core/src/headache_core/domain/orchestration.py"
-  - "packages/headache_core/src/headache_core/application/orchestration/**"
-  - "packages/headache_core/src/headache_core/ports/cases.py"
-  - "packages/headache_core/src/headache_core/adapters/postgres/cases.py"
-  - "packages/headache_core/src/headache_core/adapters/postgres/outbox.py"
-  - "packages/headache_core/src/headache_core/ports/outbox.py"
-  - "packages/headache_core/src/headache_core/ports/intake.py"
-  - "packages/headache_core/src/headache_core/application/outbox.py"
-  - "packages/headache_core/src/headache_core/application/case_intake.py"
+  - "packages/genaipocs_core/src/genaipocs_core/domain/orchestration.py"
+  - "packages/genaipocs_core/src/genaipocs_core/application/orchestration/**"
+  - "packages/genaipocs_core/src/genaipocs_core/ports/cases.py"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/postgres/cases.py"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/postgres/outbox.py"
+  - "packages/genaipocs_core/src/genaipocs_core/ports/outbox.py"
+  - "packages/genaipocs_core/src/genaipocs_core/ports/intake.py"
+  - "packages/genaipocs_core/src/genaipocs_core/application/outbox.py"
+  - "packages/genaipocs_core/src/genaipocs_core/application/case_intake.py"
   - "packages/harness/src/harness/rules/case_reply.py"
 ---
 

@@ -22,7 +22,7 @@ members = [
     "edge-api",
     "genai-pocs",
     "harness",
-    "headache-core",
+    "genaipocs-core",
     "indexer",
     "mcp-servers",
     "orchestrator",
@@ -811,7 +811,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "google-adk" },
     { name = "harness" },
-    { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "retrieval", "telemetry", "tools"] },
+    { name = "genaipocs-core", extra = ["aws", "azure", "gateway", "observability", "retrieval", "telemetry", "tools"] },
     { name = "httpx" },
     { name = "langchain-core" },
     { name = "langgraph" },
@@ -827,7 +827,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "google-adk", specifier = ">=2.14,<3" },
     { name = "harness", editable = "packages/harness" },
-    { name = "headache-core", extras = ["aws", "azure", "gateway", "observability", "retrieval", "telemetry", "tools"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["aws", "azure", "gateway", "observability", "retrieval", "telemetry", "tools"], editable = "packages/genaipocs_core" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "langchain-core", specifier = ">=1.6,<2" },
     { name = "langgraph", specifier = ">=1.2,<2" },
@@ -1717,7 +1717,7 @@ version = "0.1.0"
 source = { editable = "services/edge_api" }
 dependencies = [
     { name = "fastapi" },
-    { name = "headache-core", extra = ["postgres", "redis", "telemetry"] },
+    { name = "genaipocs-core", extra = ["postgres", "redis", "telemetry"] },
     { name = "mcp-servers" },
     { name = "retrieval" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1726,7 +1726,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "headache-core", extras = ["postgres", "redis", "telemetry"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["postgres", "redis", "telemetry"], editable = "packages/genaipocs_core" },
     { name = "mcp-servers", editable = "services/mcp_servers" },
     { name = "retrieval", editable = "services/retrieval" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
@@ -2156,7 +2156,7 @@ dependencies = [
     { name = "booking-agent" },
     { name = "edge-api" },
     { name = "harness" },
-    { name = "headache-core", extra = ["aws", "azure", "gateway", "gcp", "llamaindex", "observability", "postgres", "rabbitmq", "redis", "retrieval", "telemetry", "tools"] },
+    { name = "genaipocs-core", extra = ["aws", "azure", "gateway", "gcp", "llamaindex", "observability", "postgres", "rabbitmq", "redis", "retrieval", "telemetry", "tools"] },
     { name = "indexer" },
     { name = "mcp-servers" },
     { name = "orchestrator" },
@@ -2188,7 +2188,7 @@ requires-dist = [
     { name = "booking-agent", editable = "services/booking_agent" },
     { name = "edge-api", editable = "services/edge_api" },
     { name = "harness", editable = "packages/harness" },
-    { name = "headache-core", extras = ["aws", "azure", "gateway", "gcp", "llamaindex", "observability", "postgres", "rabbitmq", "redis", "retrieval", "telemetry", "tools"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["aws", "azure", "gateway", "gcp", "llamaindex", "observability", "postgres", "rabbitmq", "redis", "retrieval", "telemetry", "tools"], editable = "packages/genaipocs_core" },
     { name = "indexer", editable = "services/indexer" },
     { name = "mcp-servers", editable = "services/mcp_servers" },
     { name = "orchestrator", editable = "services/orchestrator" },
@@ -2953,7 +2953,7 @@ name = "harness"
 version = "0.1.0"
 source = { editable = "packages/harness" }
 dependencies = [
-    { name = "headache-core" },
+    { name = "genaipocs-core" },
     { name = "pydantic" },
     { name = "sqlglot" },
 ]
@@ -2969,7 +2969,7 @@ pii = [
 requires-dist = [
     { name = "en-core-web-sm", marker = "extra == 'pii'", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },
     { name = "es-core-news-sm", marker = "extra == 'pii'", url = "https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl" },
-    { name = "headache-core", editable = "packages/headache_core" },
+    { name = "genaipocs-core", editable = "packages/genaipocs_core" },
     { name = "presidio-analyzer", marker = "extra == 'pii'", specifier = ">=2.2" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "sqlglot", specifier = ">=26" },
@@ -2977,9 +2977,9 @@ requires-dist = [
 provides-extras = ["pii"]
 
 [[package]]
-name = "headache-core"
+name = "genaipocs-core"
 version = "0.1.0"
-source = { editable = "packages/headache_core" }
+source = { editable = "packages/genaipocs_core" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -3300,11 +3300,11 @@ name = "indexer"
 version = "0.1.0"
 source = { editable = "services/indexer" }
 dependencies = [
-    { name = "headache-core", extra = ["llamaindex", "postgres", "rabbitmq", "telemetry"] },
+    { name = "genaipocs-core", extra = ["llamaindex", "postgres", "rabbitmq", "telemetry"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "headache-core", extras = ["llamaindex", "postgres", "rabbitmq", "telemetry"], editable = "packages/headache_core" }]
+requires-dist = [{ name = "genaipocs-core", extras = ["llamaindex", "postgres", "rabbitmq", "telemetry"], editable = "packages/genaipocs_core" }]
 
 [[package]]
 name = "iniconfig"
@@ -4596,14 +4596,14 @@ version = "0.1.0"
 source = { editable = "services/mcp_servers" }
 dependencies = [
     { name = "fastmcp" },
-    { name = "headache-core", extra = ["telemetry", "tools"] },
+    { name = "genaipocs-core", extra = ["telemetry", "tools"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastmcp", specifier = ">=4.1,<5" },
-    { name = "headache-core", extras = ["telemetry", "tools"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["telemetry", "tools"], editable = "packages/genaipocs_core" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
@@ -5598,7 +5598,7 @@ dependencies = [
     { name = "a2a-sdk", extra = ["fastapi"] },
     { name = "booking-agent" },
     { name = "harness" },
-    { name = "headache-core", extra = ["postgres", "rabbitmq", "retrieval", "telemetry", "tools"] },
+    { name = "genaipocs-core", extra = ["postgres", "rabbitmq", "retrieval", "telemetry", "tools"] },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "mcp-servers" },
@@ -5611,7 +5611,7 @@ requires-dist = [
     { name = "a2a-sdk", extras = ["fastapi"], specifier = ">=1.2,<2" },
     { name = "booking-agent", editable = "services/booking_agent" },
     { name = "harness", editable = "packages/harness" },
-    { name = "headache-core", extras = ["postgres", "rabbitmq", "retrieval", "telemetry", "tools"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["postgres", "rabbitmq", "retrieval", "telemetry", "tools"], editable = "packages/genaipocs_core" },
     { name = "langgraph", specifier = ">=1.2,<2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.2,<4" },
     { name = "mcp-servers", editable = "services/mcp_servers" },
@@ -6977,7 +6977,7 @@ version = "0.1.0"
 source = { editable = "evals" }
 dependencies = [
     { name = "booking-agent" },
-    { name = "headache-core", extra = ["llamaindex", "retrieval"] },
+    { name = "genaipocs-core", extra = ["llamaindex", "retrieval"] },
     { name = "orchestrator" },
     { name = "pyyaml" },
     { name = "retrieval" },
@@ -7002,7 +7002,7 @@ requires-dist = [
     { name = "azure-ai-evaluation", marker = "extra == 'evals'", specifier = ">=1.18.9" },
     { name = "booking-agent", editable = "services/booking_agent" },
     { name = "deepeval", marker = "extra == 'evals'", specifier = ">=4.2.8" },
-    { name = "headache-core", extras = ["retrieval", "llamaindex"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["retrieval", "llamaindex"], editable = "packages/genaipocs_core" },
     { name = "langchain-community", marker = "extra == 'evals'", specifier = ">=0.4.1,<0.4.2" },
     { name = "mlflow", marker = "extra == 'llmops'", specifier = ">=3.17" },
     { name = "orchestrator", editable = "services/orchestrator" },
@@ -7253,14 +7253,14 @@ version = "0.1.0"
 source = { editable = "services/retrieval" }
 dependencies = [
     { name = "fastapi" },
-    { name = "headache-core", extra = ["llamaindex", "postgres", "retrieval", "telemetry"] },
+    { name = "genaipocs-core", extra = ["llamaindex", "postgres", "retrieval", "telemetry"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "headache-core", extras = ["llamaindex", "postgres", "retrieval", "telemetry"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["llamaindex", "postgres", "retrieval", "telemetry"], editable = "packages/genaipocs_core" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
@@ -7954,14 +7954,14 @@ version = "0.1.0"
 source = { editable = "services/support_agent" }
 dependencies = [
     { name = "fastmcp" },
-    { name = "headache-core", extra = ["aws", "azure", "gateway", "observability", "telemetry", "tools"] },
+    { name = "genaipocs-core", extra = ["aws", "azure", "gateway", "observability", "telemetry", "tools"] },
     { name = "mcp-servers" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastmcp", specifier = ">=4.1,<5" },
-    { name = "headache-core", extras = ["aws", "azure", "gateway", "observability", "telemetry", "tools"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["aws", "azure", "gateway", "observability", "telemetry", "tools"], editable = "packages/genaipocs_core" },
     { name = "mcp-servers", editable = "services/mcp_servers" },
 ]
 
@@ -8053,14 +8053,14 @@ version = "0.1.0"
 source = { editable = "services/ticketing_api" }
 dependencies = [
     { name = "fastapi" },
-    { name = "headache-core", extra = ["postgres", "telemetry"] },
+    { name = "genaipocs-core", extra = ["postgres", "telemetry"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "headache-core", extras = ["postgres", "telemetry"], editable = "packages/headache_core" },
+    { name = "genaipocs-core", extras = ["postgres", "telemetry"], editable = "packages/genaipocs_core" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 

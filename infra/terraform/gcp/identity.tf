@@ -15,7 +15,7 @@
 
 resource "google_service_account" "app" {
   account_id   = "${local.name}-app"
-  display_name = "Headache ${var.environment}: aplicación"
+  display_name = "Genaipocs ${var.environment}: aplicación"
   description  = "Identidad de los adaptadores de GCP. Sin claves: se suplanta (local) o se adjunta (nube)."
 
   depends_on = [google_project_service.enabled]
@@ -52,7 +52,7 @@ resource "google_service_account" "ci" {
   count = var.ci_federation_enabled ? 1 : 0
 
   account_id   = "${local.name}-ci"
-  display_name = "Headache ${var.environment}: CI de GitHub Actions"
+  display_name = "Genaipocs ${var.environment}: CI de GitHub Actions"
   description  = "Despliegues de la fase 15. Sin roles hasta entonces."
 
   depends_on = [google_project_service.enabled]

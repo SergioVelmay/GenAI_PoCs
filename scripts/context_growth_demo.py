@@ -28,18 +28,18 @@ from booking_agent.flavors.foundry import create_cloud
 from booking_agent.managed.foundry import AgentServiceClient, FoundryAgentService, ServiceReply
 from booking_agent.runtime import AgentDeps, JournaledExecutor
 from booking_agent.spec import build_booking_spec
-from headache_core.adapters.llm_factory import build_gateway
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.llm_factory import build_gateway
+from genaipocs_core.adapters.memory import (
     InMemoryCheckpointStore,
     InMemoryPreferenceStore,
     RecordingTracer,
 )
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.agents.runtime import AgentRuntime
-from headache_core.application.llm.pricing import PriceTable
-from headache_core.application.tools import ToolContext, build_ticketing_tools
-from headache_core.config import get_settings
-from headache_core.ports import LLMPort, TokenUsage
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.agents.runtime import AgentRuntime
+from genaipocs_core.application.llm.pricing import PriceTable
+from genaipocs_core.application.tools import ToolContext, build_ticketing_tools
+from genaipocs_core.config import get_settings
+from genaipocs_core.ports import LLMPort, TokenUsage
 from rag_evals.agents.suite import build_knowledge
 from rag_evals.agents.world import NOW, build_world
 

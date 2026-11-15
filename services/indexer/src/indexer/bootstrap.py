@@ -7,17 +7,17 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.adapters.postgres import (
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.adapters.postgres import (
     EMBEDDING_DIMENSIONS,
     PgVectorStore,
     PostgresIngestionLedger,
     create_engine,
     create_session_factory,
 )
-from headache_core.application.ingestion import DocumentIndexer, KnowledgeIndexer
-from headache_core.config import Settings
-from headache_core.ports import EmbeddingPort, MetadataValue, SearchResult, VectorStorePort
+from genaipocs_core.application.ingestion import DocumentIndexer, KnowledgeIndexer
+from genaipocs_core.config import Settings
+from genaipocs_core.ports import EmbeddingPort, MetadataValue, SearchResult, VectorStorePort
 from indexer.settings import IndexerSettings
 
 
@@ -27,7 +27,7 @@ def build_embeddings(settings: Settings, config: IndexerSettings) -> tuple[Embed
         case "hashing":
             return HashingEmbedding(EMBEDDING_DIMENSIONS), f"hashing-{EMBEDDING_DIMENSIONS}"
         case "azure":
-            from headache_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
+            from genaipocs_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
 
             azure = settings.azure_openai
             return (
@@ -35,7 +35,7 @@ def build_embeddings(settings: Settings, config: IndexerSettings) -> tuple[Embed
                 f"azure:{azure.embedding_deployment}-{EMBEDDING_DIMENSIONS}",
             )
         case "bedrock":
-            from headache_core.adapters.cloud_embeddings import BedrockTitanEmbedding
+            from genaipocs_core.adapters.cloud_embeddings import BedrockTitanEmbedding
 
             bedrock = settings.bedrock
             return (
@@ -43,7 +43,7 @@ def build_embeddings(settings: Settings, config: IndexerSettings) -> tuple[Embed
                 f"bedrock:{bedrock.embedding_model_id}-{EMBEDDING_DIMENSIONS}",
             )
         case "gcp":
-            from headache_core.adapters.gemini_embeddings import GeminiEmbedding
+            from genaipocs_core.adapters.gemini_embeddings import GeminiEmbedding
 
             return (
                 GeminiEmbedding.from_settings(settings.gcp, settings.gemini, EMBEDDING_DIMENSIONS),
@@ -53,14 +53,14 @@ def build_embeddings(settings: Settings, config: IndexerSettings) -> tuple[Embed
 
 def build_cloud_store(settings: Settings, config: IndexerSettings) -> VectorStorePort:
     if config.vector_store == "azure_search":
-        from headache_core.adapters.azure_search import AzureAISearchVectorStore
+        from genaipocs_core.adapters.azure_search import AzureAISearchVectorStore
 
         return AzureAISearchVectorStore.from_settings(settings.azure_search)
     if config.vector_store == "gcp_vector_search":
-        from headache_core.adapters.gcp_vector_search import AgentRetrievalVectorStore
+        from genaipocs_core.adapters.gcp_vector_search import AgentRetrievalVectorStore
 
         return AgentRetrievalVectorStore.from_settings(settings.gcp_vector_search, settings.gcp)
-    from headache_core.adapters.s3_vectors import S3VectorStore
+    from genaipocs_core.adapters.s3_vectors import S3VectorStore
 
     return S3VectorStore.from_settings(settings.s3_vectors)
 
@@ -106,7 +106,7 @@ def cloud_ledger_index(index_name: str, vector_store: str) -> str:
 async def open_pipeline(settings: Settings, config: IndexerSettings) -> AsyncIterator[Pipeline]:
     embeddings, model_name = build_embeddings(settings, config)
     if config.engine == "llamaindex":
-        from headache_core.adapters.llamaindex import PortEmbedding, build_postgres_indexer
+        from genaipocs_core.adapters.llamaindex import PortEmbedding, build_postgres_indexer
 
         llama = build_postgres_indexer(
             settings.postgres,

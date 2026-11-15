@@ -21,18 +21,18 @@ from statistics import fmean
 from time import perf_counter
 from typing import Literal
 
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.llm.structured import StructuredOutputError
-from headache_core.application.retrieval import (
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.llm.structured import StructuredOutputError
+from genaipocs_core.application.retrieval import (
     InvalidCitationError,
     RetrievalRequest,
     RetrievalService,
 )
-from headache_core.domain.evals import percentile, ratio
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import LLMPort
-from headache_core.ports.retrieval import RetrievalStrategy
-from headache_core.ports.vector_store import EmbeddingPort, MetadataValue
+from genaipocs_core.domain.evals import percentile, ratio
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import LLMPort
+from genaipocs_core.ports.retrieval import RetrievalStrategy
+from genaipocs_core.ports.vector_store import EmbeddingPort, MetadataValue
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, DatasetMeta, GoldenItem, load_golden
 from rag_evals.golden import verify_corpus as verify_corpus_hash
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, NativeJudge, RagJudge
@@ -489,8 +489,8 @@ def stratified_sample(items: Sequence[GoldenItem], limit: int) -> list[GoldenIte
 
 def _gateway(budget: Decimal) -> tuple[LLMPort, LLMPort, CostMeter]:
     """Generador enrutado y juez fijo (otro modelo), medidos por el mismo presupuesto."""
-    from headache_core.adapters.llm_factory import build_gateway, build_judge_llm, build_tracer
-    from headache_core.config import Settings
+    from genaipocs_core.adapters.llm_factory import build_gateway, build_judge_llm, build_tracer
+    from genaipocs_core.config import Settings
 
     settings = Settings()
     meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))
@@ -499,17 +499,17 @@ def _gateway(budget: Decimal) -> tuple[LLMPort, LLMPort, CostMeter]:
 
 def _judge_embeddings() -> EmbeddingPort:
     """Embeddings reales del proveedor para AnswerRelevancy de RAGAS (fuera del CostMeter)."""
-    from headache_core.adapters.cloud_embeddings import (
+    from genaipocs_core.adapters.cloud_embeddings import (
         AzureOpenAIEmbedding,
         BedrockTitanEmbedding,
     )
-    from headache_core.config import LLMProvider, Settings
+    from genaipocs_core.config import LLMProvider, Settings
 
     settings = Settings()
     if settings.llm_provider is LLMProvider.AZURE:
         return AzureOpenAIEmbedding.from_settings(settings.azure_openai)
     if settings.llm_provider is LLMProvider.GCP:
-        from headache_core.adapters.gemini_embeddings import GeminiEmbedding
+        from genaipocs_core.adapters.gemini_embeddings import GeminiEmbedding
 
         return GeminiEmbedding.from_settings(settings.gcp, settings.gemini)
     return BedrockTitanEmbedding.from_settings(settings.bedrock)

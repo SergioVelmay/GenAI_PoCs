@@ -4,13 +4,13 @@ import json
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from genaipocs_core.adapters.memory import InMemoryUnitOfWork
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.tools import ToolContext, build_ticketing_tools
+from genaipocs_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
+from genaipocs_core.ports import ToolCall
 from harness import POLICY_DENIED, GuardedExecutor, turn_trace
 from harness.rules.refunds import refund_tool_guards
-from headache_core.adapters.memory import InMemoryUnitOfWork
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.tools import ToolContext, build_ticketing_tools
-from headache_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
-from headache_core.ports import ToolCall
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")

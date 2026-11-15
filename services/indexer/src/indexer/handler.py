@@ -6,8 +6,8 @@ import logging
 
 from pydantic import ValidationError
 
-from headache_core.application.ingestion import IndexingResult, KnowledgeIndexer
-from headache_core.ports import Message, PermanentMessageError
+from genaipocs_core.application.ingestion import IndexingResult, KnowledgeIndexer
+from genaipocs_core.ports import Message, PermanentMessageError
 from indexer.messages import IndexingCommand
 
 logger = logging.getLogger(__name__)

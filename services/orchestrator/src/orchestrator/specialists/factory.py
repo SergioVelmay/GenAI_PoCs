@@ -9,26 +9,26 @@ from booking_agent.flavors import create_agent
 from booking_agent.guardrails import guarded_agent, guarded_executor
 from booking_agent.runtime import AgentDeps
 from booking_agent.spec import AgentSpec
-from harness.approvals import ApprovalService
-from harness.pii import PiiDetector, RegexPiiDetector, pii_filter
-from harness.rules.case_reply import ReplySender, build_case_reply_tools
-from harness.security import HeuristicShield
-from headache_core.application.agent_online_eval import (
+from genaipocs_core.application.agent_online_eval import (
     AgentOnlineEvaluator,
     EvaluatedAgent,
     Redactor,
 )
-from headache_core.application.agents import SkillCatalog
-from headache_core.application.agents.runtime import AgentRuntime
-from headache_core.application.agents.tracing import TracedAgent
-from headache_core.application.orchestration import SpecialistAgent
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import ToolContext, ToolRegistry, build_ticketing_tools
-from headache_core.domain import Specialist
-from headache_core.ports import LLMPort, TicketingPort
-from headache_core.ports.approvals import ApprovalStore
-from headache_core.ports.guardrails import ContentShieldPort
-from headache_core.ports.memory import CheckpointStore, PreferenceStore
+from genaipocs_core.application.agents import SkillCatalog
+from genaipocs_core.application.agents.runtime import AgentRuntime
+from genaipocs_core.application.agents.tracing import TracedAgent
+from genaipocs_core.application.orchestration import SpecialistAgent
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import ToolContext, ToolRegistry, build_ticketing_tools
+from genaipocs_core.domain import Specialist
+from genaipocs_core.ports import LLMPort, TicketingPort
+from genaipocs_core.ports.approvals import ApprovalStore
+from genaipocs_core.ports.guardrails import ContentShieldPort
+from genaipocs_core.ports.memory import CheckpointStore, PreferenceStore
+from harness.approvals import ApprovalService
+from harness.pii import PiiDetector, RegexPiiDetector, pii_filter
+from harness.rules.case_reply import ReplySender, build_case_reply_tools
+from harness.security import HeuristicShield
 from orchestrator.specialists.agent import AgentSpecialist
 from orchestrator.specialists.creative import CreativeSpecialist
 from orchestrator.specialists.specs import build_knowledge_spec, build_refunds_spec

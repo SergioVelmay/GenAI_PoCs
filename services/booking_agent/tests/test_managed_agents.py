@@ -28,19 +28,19 @@ from booking_agent.managed.foundry import (
 )
 from booking_agent.runtime import AgentDeps, JournaledExecutor
 from booking_agent.spec import build_booking_spec
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import (
     FakeLLM,
     HashingEmbedding,
     InMemoryCheckpointStore,
     InMemoryPreferenceStore,
     InMemoryUnitOfWork,
 )
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import ToolContext, build_ticketing_tools
-from headache_core.ports import Role, TokenUsage, ToolCall
-from headache_core.ports.memory import ThreadAccessError
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import ToolContext, build_ticketing_tools
+from genaipocs_core.ports import Role, TokenUsage, ToolCall
+from genaipocs_core.ports.memory import ThreadAccessError
 
 ANA = ToolContext(customer_id="cus_1")
 BOB = ToolContext(customer_id="cus_2")
@@ -155,7 +155,7 @@ async def test_foundry_service_speaks_the_responses_api() -> None:
         base_url="https://proyecto.local/openai/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
-    service = FoundryAgentService(client, "headache-booking-agent")
+    service = FoundryAgentService(client, "genaipocs-booking-agent")
 
     conversation = await service.create_conversation()
     reply = await service.respond(
@@ -168,7 +168,7 @@ async def test_foundry_service_speaks_the_responses_api() -> None:
     assert reply.usage == TokenUsage(1200, 15, cached_input_tokens=1024)
     body = json.loads(requests[1].content)
     assert body["conversation"] == "conv_1"
-    assert body["agent_reference"] == {"name": "headache-booking-agent", "type": "agent_reference"}
+    assert body["agent_reference"] == {"name": "genaipocs-booking-agent", "type": "agent_reference"}
 
 
 async def test_agentcore_runtime_app_follows_the_http_contract() -> None:
@@ -218,7 +218,7 @@ async def test_boto_invoker_calls_invoke_agent_runtime() -> None:
         aws_access_key_id="test",
         aws_secret_access_key="test",
     )
-    arn = "arn:aws:bedrock-agentcore:eu-west-1:123456789012:runtime/headache_agent-a1b2c3d4e5"
+    arn = "arn:aws:bedrock-agentcore:eu-west-1:123456789012:runtime/genaipocs_agent-a1b2c3d4e5"
     session = runtime_session_id("cus_1", "t1")
     payload = json.dumps({"response": "hola", "stop_reason": "answer", "compacted": False}).encode()
     response: dict[str, Any] = {

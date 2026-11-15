@@ -1,4 +1,4 @@
-"""Reglas de redacción compartidas por los textos que Headache envía (partners y clientes).
+"""Reglas de redacción compartidas por los textos que Genaipocs envía (partners y clientes).
 
 Deterministas y baratas: tono, datos internos y huecos que pone la plantilla. Se aplican antes
 de pagar un juez LLM (`staged`).
@@ -11,7 +11,7 @@ import unicodedata
 
 from harness.validation import Violation
 
-# Nunca salen de Headache: identifican (o enlazan con) clientes, pedidos o reembolsos concretos.
+# Nunca salen de Genaipocs: identifican (o enlazan con) clientes, pedidos o reembolsos concretos.
 INTERNAL_IDS = re.compile(r"\b(?:cus|ord|ref)_[A-Za-z0-9]+\b")
 INTERNAL_VOCABULARY = re.compile(
     r"\b(?:comisi[oó]n(?:es)?|m[aá]rgen(?:es)?|take[\s-]?rate|commissions?|margins?|"

@@ -1,7 +1,7 @@
 ---
 paths:
-  - "packages/headache_core/migrations/**"
-  - "packages/headache_core/src/headache_core/adapters/postgres/**"
+  - "packages/genaipocs_core/migrations/**"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/postgres/**"
   - "services/ticketing_api/**"
   - "infra/sql/**"
   - "scripts/load_seed.py"

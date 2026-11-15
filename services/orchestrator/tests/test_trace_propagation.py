@@ -20,26 +20,26 @@ from typing import Any
 
 from opentelemetry import trace
 
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     InMemoryCaseIntakeStore,
     InMemoryCaseStore,
     InMemoryMessageBus,
     InMemoryOutbox,
 )
-from headache_core.adapters.otel import recording_telemetry
-from headache_core.application.case_intake import CaseIntakeService, CaseRequest
-from headache_core.application.llm import ObservedLLM, PriceTable
-from headache_core.application.orchestration import TriageAgent
-from headache_core.application.outbox import OutboxRelay
-from headache_core.application.telemetry import TelemetryLLMTracer, genai
-from headache_core.application.telemetry.messaging import TracedMessageBus
-from headache_core.domain import CaseStatus, Specialist
-from headache_core.ports import Message, MessageHandler, SpanKind, ToolCall
+from genaipocs_core.adapters.otel import recording_telemetry
+from genaipocs_core.application.case_intake import CaseIntakeService, CaseRequest
+from genaipocs_core.application.llm import ObservedLLM, PriceTable
+from genaipocs_core.application.orchestration import TriageAgent
+from genaipocs_core.application.outbox import OutboxRelay
+from genaipocs_core.application.telemetry import TelemetryLLMTracer, genai
+from genaipocs_core.application.telemetry.messaging import TracedMessageBus
+from genaipocs_core.domain import CaseStatus, Specialist
+from genaipocs_core.ports import Message, MessageHandler, SpanKind, ToolCall
 from orchestrator.async_flow import subscribe_workers
 from orchestrator.specialists import build_specialists
 from orchestrator.testing import CUSTOMER, ORDER, local_world
 
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 
 
 def _triage() -> str:
@@ -134,7 +134,7 @@ async def test_an_async_case_is_one_trace_from_intake_to_outcome() -> None:
         "process support.emails",
         f"send case.triaged.{Specialist.REFUNDS.value}",
         f"process case.triaged.{Specialist.REFUNDS.value}",
-        "invoke_agent headache-refunds-specialist",
+        "invoke_agent genaipocs-refunds-specialist",
         "execute_tool request_refund",
         "send case.outcomes",
     ):
@@ -143,10 +143,10 @@ async def test_an_async_case_is_one_trace_from_intake_to_outcome() -> None:
     # Pendiente de aprobación humana no es un fallo de la tool.
     tool = next(s for s in spans if s.name == "execute_tool request_refund")
     assert tool.status.status_code is not trace.StatusCode.ERROR
-    assert dict(tool.attributes or {})[genai.HEADACHE_TOOL_OUTCOME] == "approval_required"
+    assert dict(tool.attributes or {})[genai.GENAIPOCS_TOOL_OUTCOME] == "approval_required"
     process = next(s for s in spans if s.name == "process support.emails")
     assert process.kind is trace.SpanKind.CONSUMER
-    assert dict(process.attributes or {})["headache.correlation_id"] == submitted.case_id
+    assert dict(process.attributes or {})["genaipocs.correlation_id"] == submitted.case_id
     root = next(s for s in spans if s.name == "POST /cases")
     assert root.parent is None
 
@@ -169,7 +169,7 @@ async def test_a_redelivery_is_another_process_span_under_the_same_send() -> Non
     spans = recorded.exporter.get_finished_spans()
     send = next(s for s in spans if s.name == "send q")
     processes = [s for s in spans if s.name == "process q"]
-    assert [dict(s.attributes or {})["headache.messaging.delivery_count"] for s in processes] == [
+    assert [dict(s.attributes or {})["genaipocs.messaging.delivery_count"] for s in processes] == [
         1,
         2,
     ]

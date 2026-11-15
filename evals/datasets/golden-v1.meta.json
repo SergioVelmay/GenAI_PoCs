@@ -1,7 +1,7 @@
 {
   "version": 1,
   "corpus": "evals/corpus/knowledge.jsonl",
-  "corpus_sha256": "4bbd46f0ee6ab06970b55bbf39ccbbef5aaaadc63103b4bf91defa2fa5e6f4d3",
+  "corpus_sha256": "3ac13cba8716c541e1f251740c749519adb1e29022bcd36ce1be136f576d2e7a",
   "documents": 116,
   "items": 144,
   "by_type": {

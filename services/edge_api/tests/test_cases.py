@@ -13,13 +13,13 @@ import pytest
 
 from edge_api.cases import CaseBackend
 from edge_api.testing import ASK, FakeAssistant, bearer, client, memory_cases, token
-from headache_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus, InMemoryOutbox
-from headache_core.application.orchestration import TriageAgent
-from headache_core.application.outbox import OutboxRelay
-from headache_core.domain import CaseStatus, Specialist
-from headache_core.ports.cases import CaseRecord
-from headache_core.ports.intake import CaseSubmission
-from headache_core.ports.outbox import OutboxEvent
+from genaipocs_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus, InMemoryOutbox
+from genaipocs_core.application.orchestration import TriageAgent
+from genaipocs_core.application.outbox import OutboxRelay
+from genaipocs_core.domain import CaseStatus, Specialist
+from genaipocs_core.ports.cases import CaseRecord
+from genaipocs_core.ports.intake import CaseSubmission
+from genaipocs_core.ports.outbox import OutboxEvent
 from orchestrator.async_flow import subscribe_workers
 from orchestrator.specialists import build_specialists
 from orchestrator.testing import local_world

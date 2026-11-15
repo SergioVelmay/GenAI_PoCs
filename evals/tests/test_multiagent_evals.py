@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from headache_core.domain import ROUTES, Specialist, SupportIntent
+from genaipocs_core.domain import ROUTES, Specialist, SupportIntent
 from rag_evals.multiagent import (
     ENGINES,
     INVARIANTS,

@@ -14,10 +14,10 @@ import argparse
 import asyncio
 from contextlib import AsyncExitStack
 
+from genaipocs_core.adapters.ticketing_http import HttpTicketingClient
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import CaseStatus
 from harness.approvals import ApprovalService
-from headache_core.adapters.ticketing_http import HttpTicketingClient
-from headache_core.config import get_settings
-from headache_core.domain import CaseStatus
 from orchestrator.async_flow import CaseReviewService
 from orchestrator.bootstrap import log_outbox, open_postgres_stores
 from orchestrator.review import ReviewError

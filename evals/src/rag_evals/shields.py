@@ -24,7 +24,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from headache_core.ports.guardrails import ContentShieldPort, ShieldUnavailableError
+from genaipocs_core.ports.guardrails import ContentShieldPort, ShieldUnavailableError
 from rag_evals import EVALS_DIR
 from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR, REPORTS_DIR
 
@@ -135,7 +135,7 @@ def render(summaries: Sequence[ShieldSummary], cases: int) -> str:
 
 async def run(shields: Sequence[ShieldName]) -> tuple[list[ShieldSummary], list[CaseResult]]:
     from booking_agent.guardrails import build_shield
-    from headache_core.config import Settings
+    from genaipocs_core.config import Settings
 
     cases = load_cases()
     summaries: list[ShieldSummary] = []

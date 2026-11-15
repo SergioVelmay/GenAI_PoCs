@@ -12,11 +12,11 @@ import pytest
 from fastmcp import Client
 from fastmcp.utilities.tests import asgi_server
 
-from headache_core.adapters.memory import FakeLLM, InMemoryUnitOfWork
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.tools import Tool, ToolContext, ToolLoop, ToolRegistry
-from headache_core.config import McpSettings
-from headache_core.domain import (
+from genaipocs_core.adapters.memory import FakeLLM, InMemoryUnitOfWork
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.tools import Tool, ToolContext, ToolLoop, ToolRegistry
+from genaipocs_core.config import McpSettings
+from genaipocs_core.domain import (
     Customer,
     Event,
     EventCategory,
@@ -25,10 +25,10 @@ from headache_core.domain import (
     OrderStatus,
     Session,
 )
-from headache_core.ports import ToolCall
-from headache_mcp.adapter import anonymous
-from headache_mcp.auth import SERVER_SCOPES, DevTokenIssuer, jwt_auth, token_identity
-from headache_mcp.servers import SERVERS, create_server
+from genaipocs_core.ports import ToolCall
+from genaipocs_mcp.adapter import anonymous
+from genaipocs_mcp.auth import SERVER_SCOPES, DevTokenIssuer, jwt_auth, token_identity
+from genaipocs_mcp.servers import SERVERS, create_server
 from support_agent.agent import SupportAgent
 from support_agent.toolset import McpToolset, RemoteArgs
 

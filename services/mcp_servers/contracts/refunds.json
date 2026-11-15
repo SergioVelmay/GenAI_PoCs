@@ -1,10 +1,10 @@
 {
-  "server": "headache-refunds",
+  "server": "genaipocs-refunds",
   "tools": [
     {
       "name": "request_refund",
       "title": "Request Refund",
-      "description": "Solicita el reembolso de un pedido del cliente autenticado. Solo si el cliente lo pide explícitamente. La política de Headache decide y devuelve el motivo.",
+      "description": "Solicita el reembolso de un pedido del cliente autenticado. Solo si el cliente lo pide explícitamente. La política de Genaipocs decide y devuelve el motivo.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,

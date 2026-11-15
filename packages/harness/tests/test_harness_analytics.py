@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from datetime import date
 
+from genaipocs_core.adapters.memory import FakeLLM
+from genaipocs_core.ports.sql import QueryResult, SqlExecutionError
 from harness.rules.analytics import answer_analytics_question
-from headache_core.adapters.memory import FakeLLM
-from headache_core.ports.sql import QueryResult, SqlExecutionError
 
 TODAY = date(2026, 10, 11)
 QUESTION = "¿Cuántos pedidos hay por estado?"

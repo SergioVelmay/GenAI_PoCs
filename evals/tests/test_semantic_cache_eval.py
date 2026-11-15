@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from headache_core.adapters.memory import HashingEmbedding
+from genaipocs_core.adapters.memory import HashingEmbedding
 from rag_evals.semantic_cache import (
     DATASET_PATH,
     SweepPoint,

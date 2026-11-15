@@ -19,9 +19,9 @@ from dataclasses import dataclass
 from itertools import count
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from headache_core.application.tools import ToolRegistry
-from headache_core.ports import ChatMessage, LLMPort, Role, TokenUsage, ToolCall, ToolConfig
-from headache_core.ports.llm import ToolSpec
+from genaipocs_core.application.tools import ToolRegistry
+from genaipocs_core.ports import ChatMessage, LLMPort, Role, TokenUsage, ToolCall, ToolConfig
+from genaipocs_core.ports.llm import ToolSpec
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI
@@ -151,7 +151,7 @@ class LocalAgentService:
 
 
 AI_FOUNDRY_SCOPE = "https://ai.azure.com/.default"
-BOOKING_AGENT_NAME = "headache-booking-agent"
+BOOKING_AGENT_NAME = "genaipocs-booking-agent"
 
 
 class FoundryAgentService:

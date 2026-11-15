@@ -19,15 +19,15 @@ from llama_index.core.node_parser import get_leaf_nodes
 from llama_index.core.schema import MetadataMode
 from llama_index.core.utils import get_tokenizer
 
-from headache_core.adapters.llamaindex import (
+from genaipocs_core.adapters.llamaindex import (
     ChunkStrategy,
     PortEmbedding,
     build_chunking,
     to_llama_document,
 )
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.ingestion import Chunker, FixedSizeChunker, SentenceChunker
-from headache_core.domain import DocumentType, KnowledgeDocument
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.ingestion import Chunker, FixedSizeChunker, SentenceChunker
+from genaipocs_core.domain import DocumentType, KnowledgeDocument
 
 SENTENCE_END = (".", "!", "?", ":", "»", '"', ")")
 

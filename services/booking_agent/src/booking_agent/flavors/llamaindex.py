@@ -36,15 +36,15 @@ from booking_agent.bridges.llamaindex import (
     to_llama_messages,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn, StopReason
-from headache_core.application.agents import (
+from genaipocs_core.application.agents import (
     ConversationSummarizer,
     ShortTermMemory,
     build_prompt_prefix,
 )
-from headache_core.application.agents.context import load_thread
-from headache_core.application.tools import ToolContext
-from headache_core.ports import ChatMessage, Role, ToolCall
-from headache_core.ports.memory import ThreadState
+from genaipocs_core.application.agents.context import load_thread
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.ports import ChatMessage, Role, ToolCall
+from genaipocs_core.ports.memory import ThreadState
 
 
 class TurnMemory(BaseMemory):
@@ -127,7 +127,7 @@ class LlamaIndexAgent:
         spec = self._deps.spec
         return FunctionAgent(
             name=spec.name,
-            description="Knowledge & Booking Agent de Headache",
+            description="Knowledge & Booking Agent de Genaipocs",
             # Sin system_prompt: el prefijo (con sus checkpoints de caché) va en chat_history.
             tools=[self._tool(t.name, t.description, context) for t in spec.tools],
             llm=self._llm,

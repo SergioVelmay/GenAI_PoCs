@@ -19,8 +19,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from headache_core.application.llm.pricing import PriceTable
-from headache_core.ports.llm import TokenUsage
+from genaipocs_core.application.llm.pricing import PriceTable
+from genaipocs_core.ports.llm import TokenUsage
 from rag_evals.calibration import CalibrationItem, JudgedItem, load_set, write_judged
 from rag_evals.judges import JudgeScores
 
@@ -126,7 +126,7 @@ def main() -> None:
     )
     from azure.identity import DefaultAzureCredential
 
-    from headache_core.config import Settings
+    from genaipocs_core.config import Settings
 
     # Constructores sin tipar en el SDK (y sin el extra `evals` en la CI): se tratan como Any.
     groundedness: Any = GroundednessEvaluator
@@ -152,7 +152,7 @@ def main() -> None:
         )
         result = evaluate(
             data=data,
-            evaluation_name="headache-calibration-v1",
+            evaluation_name="genaipocs-calibration-v1",
             evaluators=evaluators,
             azure_ai_project=settings.foundry_iq.project_endpoint if args.log_to_foundry else None,
         )

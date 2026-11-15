@@ -27,7 +27,7 @@ Además, según lo que se haya tocado:
 - Terraform: `terraform fmt -check -recursive`, `init -backend=false`, `validate` en cada módulo de `infra/terraform/` (`aws`, `azure` y `gcp`).
 - Evals o agentes: `uv run python -m rag_evals.gate --mode report` y `uv run python -m rag_evals.attacks --check`.
 - SQL o migraciones: `uv run pytest -m integration` (requiere `docker compose up -d`).
-- Contratos MCP: `uv run python -m headache_mcp.contracts`.
+- Contratos MCP: `uv run python -m genaipocs_mcp.contracts`.
 - Workflows: `uvx --from actionlint-py actionlint -ignore 'ubuntu-26.04'`.
 - `.github/instructions/`: `uv run python scripts/sync_agent_rules.py` (regenera los punteros de `.claude/rules/`).
 - Ficheros con texto en español: escanear las líneas añadidas en busca de tildes rotas (`?` en lugar de tilde, mojibake `Ã`, `Â`), ver `docs/lecciones-aprendidas.md`.

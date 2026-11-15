@@ -97,7 +97,7 @@ uv run python -m rag_evals.agent_calibration agreement
 
 `SampledEvaluator` reúne lo común de la evaluación online de la fase 11.6 (muestreo, cola acotada,
 presupuesto por minuto, span `evaluator`, scores) y `AgentOnlineEvaluator` juzga turnos de agente
-con el juez de la 12.2. Métrica `headache.eval.agent_verdicts` (agente, aceptable, resolución),
+con el juez de la 12.2. Métrica `genaipocs.eval.agent_verdicts` (agente, aceptable, resolución),
 scores `agent_*` en Langfuse y dos paneles en Grafana. Apagado por defecto:
 `ORCHESTRATOR__ONLINE_EVAL_RATE=0`.
 
@@ -153,7 +153,7 @@ uv run python -m rag_evals.llmops.experiment run <yaml> --tracker mlflow    # ex
 ### 12.8 · Detección de drift
 
 PSI entre el último día y los 7 anteriores para tres señales: intenciones del triaje (métrica
-nueva `headache.cases.triaged`), tools ejecutadas y resolución según el juez online. Las mismas
+nueva `genaipocs.cases.triaged`), tools ejecutadas y resolución según el juez online. Las mismas
 señales generan la regla `drift:psi`, la alerta `DistributionDrift` (PSI ≥ 0,25 con muestra
 mínima), el panel de Grafana y el gate del detector. `diagnose` separa lo que viene de fuera (cambia
 lo que piden los clientes) de lo de dentro (cambia cómo se resuelve sin cambiar lo que se pide).

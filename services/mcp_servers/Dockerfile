@@ -1,6 +1,6 @@
 # Una imagen para los tres servidores MCP; cada contenedor elige el suyo con el CMD:
-#   docker build -f services/mcp_servers/Dockerfile -t headache-mcp:local .
-#   docker run --rm -p 127.0.0.1:8101:8101 headache-mcp:local catalog
+#   docker build -f services/mcp_servers/Dockerfile -t genaipocs-mcp:local .
+#   docker run --rm -p 127.0.0.1:8101:8101 genaipocs-mcp:local catalog
 FROM python:3.12-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.12.17 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
@@ -17,5 +17,5 @@ ENV PATH=/app/.venv/bin:$PATH \
     MCP__HOST=0.0.0.0
 USER mcp
 EXPOSE 8101 8102 8103
-ENTRYPOINT ["python", "-m", "headache_mcp"]
+ENTRYPOINT ["python", "-m", "genaipocs_mcp"]
 CMD ["catalog"]

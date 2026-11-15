@@ -15,10 +15,8 @@ from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS, create_agent
 from booking_agent.guardrails import guarded_agent, guarded_executor
 from booking_agent.runtime import AgentDeps, JournaledExecutor
 from booking_agent.spec import AgentSpec, build_booking_spec
-from harness import APPROVAL_REQUIRED, POLICY_DENIED, ApprovalService, GuardedRuntime, Violation
-from harness.security import QUARANTINE_MARK
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import (
     FakeLLM,
     HashingEmbedding,
     InMemoryApprovalStore,
@@ -26,13 +24,15 @@ from headache_core.adapters.memory import (
     InMemoryPreferenceStore,
     InMemoryUnitOfWork,
 )
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import FALLBACK_ANSWER, ToolContext, build_ticketing_tools
-from headache_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
-from headache_core.ports import Role, ToolCall
-from headache_core.ports.approvals import ApprovalStatus
-from headache_core.ports.vector_store import VectorRecord
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import FALLBACK_ANSWER, ToolContext, build_ticketing_tools
+from genaipocs_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
+from genaipocs_core.ports import Role, ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
+from genaipocs_core.ports.vector_store import VectorRecord
+from harness import APPROVAL_REQUIRED, POLICY_DENIED, ApprovalService, GuardedRuntime, Violation
+from harness.security import QUARANTINE_MARK
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")
@@ -119,7 +119,7 @@ async def test_hallucinated_refund_is_blocked_and_escalated(flavor: str) -> None
 @ALL_FLAVORS
 async def test_refund_waits_for_a_human_after_the_model_fixes_its_arguments(flavor: str) -> None:
     approvals = InMemoryApprovalStore()
-    pending_answer = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+    pending_answer = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
     agent, executor, llm = _agent(
         flavor,
         [
@@ -220,9 +220,9 @@ async def test_blocked_input_never_reaches_the_model(flavor: str) -> None:
 
 async def test_provider_content_filter_becomes_a_guardrail_not_a_crash() -> None:
     # Regresión (Azure): sin esto, un bloqueo de Prompt Shields tumbaba el turno con un 500.
+    from genaipocs_core.application.agents.runtime import AgentTurn
+    from genaipocs_core.ports.llm import LLMContentFilterError
     from harness.runtime import PROVIDER_FILTER
-    from headache_core.application.agents.runtime import AgentTurn
-    from headache_core.ports.llm import LLMContentFilterError
 
     class Filtered:
         flavor = "filtered"

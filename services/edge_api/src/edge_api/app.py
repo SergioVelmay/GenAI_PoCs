@@ -1,4 +1,4 @@
-"""Edge de Headache (fase 10): la única puerta pública, que decide pronto y barato.
+"""Edge de Genaipocs (fase 10): la única puerta pública, que decide pronto y barato.
 
     uv run uvicorn edge_api.app:create_app --factory --port 8200
 
@@ -36,7 +36,7 @@ from edge_api.identity import CallerResolver, UnauthenticatedError, build_resolv
 from edge_api.settings import EdgeSettings
 from edge_api.sse import body as sse_body
 from edge_api.sse import prime, pump
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     HashingEmbedding,
     InMemoryCaseIntakeStore,
     InMemoryCaseStore,
@@ -44,28 +44,28 @@ from headache_core.adapters.memory import (
     InMemoryRateLimiter,
     InMemorySemanticCache,
 )
-from headache_core.adapters.otel import instrument_fastapi, setup_observability
-from headache_core.application.admission import (
+from genaipocs_core.adapters.otel import instrument_fastapi, setup_observability
+from genaipocs_core.application.admission import (
     AdmissionController,
     AdmissionRejectedError,
     CallerRateLimitedError,
     plan_rules,
 )
-from headache_core.application.answer_stream import StreamingAnswerer
-from headache_core.application.case_intake import InvalidIdempotencyKeyError
-from headache_core.application.llm import time_budget
-from headache_core.application.online_eval import (
+from genaipocs_core.application.answer_stream import StreamingAnswerer
+from genaipocs_core.application.case_intake import InvalidIdempotencyKeyError
+from genaipocs_core.application.llm import time_budget
+from genaipocs_core.application.online_eval import (
     EvalSample,
     LLMFaithfulnessJudge,
     OnlineEvaluator,
 )
-from headache_core.application.retrieval import RetrievalService, RetrievalUnavailableError
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.application.telemetry import genai, get_telemetry, metrics
-from headache_core.config import LLMProvider, Settings
-from headache_core.domain.admission import Caller, ClientPlan
-from headache_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
-from headache_core.ports import (
+from genaipocs_core.application.retrieval import RetrievalService, RetrievalUnavailableError
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.application.telemetry import genai, get_telemetry, metrics
+from genaipocs_core.config import LLMProvider, Settings
+from genaipocs_core.domain.admission import Caller, ClientPlan
+from genaipocs_core.domain.semantic_cache import CALIBRATED_THRESHOLDS
+from genaipocs_core.ports import (
     ConflictError,
     EmbeddingPort,
     LLMDeadlineExceededError,
@@ -73,7 +73,7 @@ from headache_core.ports import (
     LLMTransientError,
     RateLimiterPort,
 )
-from headache_core.ports.semantic_cache import SemanticCachePort
+from genaipocs_core.ports.semantic_cache import SemanticCachePort
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ def build_controller(settings: Settings, edge: EdgeSettings) -> AdmissionControl
     limits = settings.rate_limit
     limiter: RateLimiterPort = InMemoryRateLimiter()
     if limits.backend == "redis":
-        from headache_core.adapters.redis_rate_limit import RedisRateLimiter
+        from genaipocs_core.adapters.redis_rate_limit import RedisRateLimiter
 
         limiter = RedisRateLimiter.from_settings(settings.scale_redis, key_prefix=limits.key_prefix)
     return AdmissionController(
@@ -220,9 +220,9 @@ def build_case_backend(
     if edge.cases_backend == "memory":
         outbox = InMemoryOutbox()
         return CaseBackend(InMemoryCaseIntakeStore(outbox), InMemoryCaseStore(outbox)), None
-    from headache_core.adapters.postgres import create_engine, create_session_factory
-    from headache_core.adapters.postgres.cases import PostgresCaseStore
-    from headache_core.adapters.postgres.outbox import PostgresCaseIntakeStore
+    from genaipocs_core.adapters.postgres import create_engine, create_session_factory
+    from genaipocs_core.adapters.postgres.cases import PostgresCaseStore
+    from genaipocs_core.adapters.postgres.outbox import PostgresCaseIntakeStore
 
     engine = create_engine(settings.postgres, application_name="edge-api")
     factory = create_session_factory(engine)
@@ -244,7 +244,7 @@ def build_semantic_cache(
         return None
     store: SemanticCachePort = InMemorySemanticCache()
     if config.backend == "redis":
-        from headache_core.adapters.redis_semantic_cache import RedisSemanticCache
+        from genaipocs_core.adapters.redis_semantic_cache import RedisSemanticCache
 
         store = RedisSemanticCache.from_settings(
             settings.scale_redis, dimensions=embeddings.dimensions, key_prefix=config.key_prefix
@@ -276,7 +276,7 @@ def build_assistant(service: RetrievalService, settings: Settings, edge: EdgeSet
     degrade = edge.degrade_on_saturation
     if edge.answer_mode != "generative":
         return RagAssistant(service, mode=edge.answer_mode, degrade_on_saturation=degrade)
-    from headache_core.adapters.llm_factory import build_gateway
+    from genaipocs_core.adapters.llm_factory import build_gateway
 
     answerer = StreamingAnswerer(service, build_gateway(settings))
     return RagAssistant(
@@ -341,7 +341,7 @@ def create_app(
             app.state.evaluator = build_online_evaluator(runtime.service, settings, edge)
         return runtime.aclose
 
-    app = FastAPI(title="Headache edge API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Genaipocs edge API", version="0.1.0", lifespan=lifespan)
     instrument_fastapi(app, settings)
     app.include_router(build_cases_router(edge, cases_controller, cases))
     app.state.assistant = (
@@ -447,20 +447,20 @@ def _annotate(answer: Answer, who: Caller, *, route: str, started: float) -> dic
     atributos de métrica (todos de cardinalidad baja)."""
     get_telemetry().current_span().set_attributes(
         {
-            genai.HEADACHE_ANSWER_MODE: answer.mode,
-            genai.HEADACHE_ABSTAINED: answer.abstained,
-            genai.HEADACHE_DEGRADED: answer.degraded,
-            genai.HEADACHE_CACHE: answer.cache,
+            genai.GENAIPOCS_ANSWER_MODE: answer.mode,
+            genai.GENAIPOCS_ABSTAINED: answer.abstained,
+            genai.GENAIPOCS_DEGRADED: answer.degraded,
+            genai.GENAIPOCS_CACHE: answer.cache,
         }
     )
     attributes = {
-        "headache.route": route,
-        genai.HEADACHE_PLAN: who.plan.value,
-        genai.HEADACHE_CACHE: answer.cache,
-        genai.HEADACHE_ANSWER_MODE: answer.mode,
+        "genaipocs.route": route,
+        genai.GENAIPOCS_PLAN: who.plan.value,
+        genai.GENAIPOCS_CACHE: answer.cache,
+        genai.GENAIPOCS_ANSWER_MODE: answer.mode,
         # Como texto: Prometheus convierte las etiquetas a texto y así coincide en las reglas.
-        genai.HEADACHE_DEGRADED: str(answer.degraded).lower(),
-        genai.HEADACHE_ABSTAINED: str(answer.abstained).lower(),
+        genai.GENAIPOCS_DEGRADED: str(answer.degraded).lower(),
+        genai.GENAIPOCS_ABSTAINED: str(answer.abstained).lower(),
     }
     metrics.answer(seconds=time.perf_counter() - started, attributes=attributes)
     return attributes
@@ -480,7 +480,7 @@ def _offer(
             attributes={
                 k: v
                 for k, v in attributes.items()
-                if k in (genai.HEADACHE_PLAN, genai.HEADACHE_ANSWER_MODE)
+                if k in (genai.GENAIPOCS_PLAN, genai.GENAIPOCS_ANSWER_MODE)
             },
         ),
         cache=answer.cache,
@@ -496,14 +496,14 @@ def build_online_evaluator(
     """Juez con el despliegue fijo de evals (fase 5), fuera del router. Coste por muestra."""
     if edge.online_eval_rate == 0:
         return None
-    from headache_core.adapters.llm_factory import build_judge_llm
+    from genaipocs_core.adapters.llm_factory import build_judge_llm
 
     async def sources(ids: Sequence[str]) -> list[str]:
         # Solo fuentes públicas: el juez no necesita ver documentos internos.
         records = [await service.source(source_id) for source_id in ids]
         return [record.text for record in records if record is not None]
 
-    from headache_core.adapters.online_eval_factory import build_score_sinks
+    from genaipocs_core.adapters.online_eval_factory import build_score_sinks
 
     return OnlineEvaluator(
         LLMFaithfulnessJudge(build_judge_llm(settings)),
@@ -518,7 +518,7 @@ def _llm_outcomes(settings: Settings) -> dict[str, int]:
     """Llamadas, 429 y fallos del proveedor simulado (pruebas de carga, fase 10.7)."""
     if settings.llm_provider is not LLMProvider.SIMULATED:
         return {}
-    from headache_core.adapters.simulated_llm import STATS
+    from genaipocs_core.adapters.simulated_llm import STATS
 
     return dict(STATS)
 

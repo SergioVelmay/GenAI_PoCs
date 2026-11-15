@@ -19,13 +19,13 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-from headache_core.adapters.llm_factory import build_gateway, build_tracer
-from headache_core.adapters.memory import RecordingTracer
-from headache_core.application import SupportTriageService
-from headache_core.application.llm import CompositeTracer
-from headache_core.config import get_settings
-from headache_core.domain import SupportEmail, SupportIntent
-from headache_core.ports import LLMError
+from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+from genaipocs_core.adapters.memory import RecordingTracer
+from genaipocs_core.application import SupportTriageService
+from genaipocs_core.application.llm import CompositeTracer
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import SupportEmail, SupportIntent
+from genaipocs_core.ports import LLMError
 
 ROOT = Path(__file__).resolve().parents[1]
 

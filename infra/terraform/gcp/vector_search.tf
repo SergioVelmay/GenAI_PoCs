@@ -13,7 +13,7 @@ resource "google_vector_search_collection" "knowledge" {
 
   collection_id = var.vector_search_collection
   location      = var.region
-  display_name  = "Conocimiento de Headache (carril B)"
+  display_name  = "Conocimiento de Genaipocs (carril B)"
   labels        = local.labels
 
   # El vector lo calcula el indexer (gemini-embedding-001 a 1024, `RETRIEVAL_DOCUMENT`): sin

@@ -6,6 +6,9 @@ from collections.abc import Sequence
 import pytest
 from pydantic import BaseModel, ConfigDict
 
+from genaipocs_core.application.tools import Tool, ToolContext, ToolRegistry
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.guardrails import ShieldUnavailableError, ShieldVerdict
 from harness import GuardedExecutor, run_validators, turn_trace
 from harness.runtime import TurnRecord
 from harness.security import (
@@ -16,9 +19,6 @@ from harness.security import (
     output_guard,
     prompt_guard,
 )
-from headache_core.application.tools import Tool, ToolContext, ToolRegistry
-from headache_core.ports import ToolCall
-from headache_core.ports.guardrails import ShieldUnavailableError, ShieldVerdict
 
 ANA = ToolContext(customer_id="cus_1")
 POISON = (

@@ -14,18 +14,18 @@ import argparse
 import asyncio
 from decimal import Decimal
 
-from headache_core.adapters.llm_factory import build_gateway, build_tracer
-from headache_core.adapters.memory import RecordingTracer
-from headache_core.adapters.ticketing_http import HttpTicketingClient
-from headache_core.application.llm import CompositeTracer
-from headache_core.application.tools import (
+from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+from genaipocs_core.adapters.memory import RecordingTracer
+from genaipocs_core.adapters.ticketing_http import HttpTicketingClient
+from genaipocs_core.application.llm import CompositeTracer
+from genaipocs_core.application.tools import (
     TICKETING_AGENT_PROMPT,
     ToolContext,
     ToolLoop,
     build_ticketing_tools,
 )
-from headache_core.config import get_settings
-from headache_core.ports import ChatMessage, Role
+from genaipocs_core.config import get_settings
+from genaipocs_core.ports import ChatMessage, Role
 
 
 async def main() -> None:

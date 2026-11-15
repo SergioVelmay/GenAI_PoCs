@@ -24,6 +24,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from genaipocs_core.application.llm import complete_structured
+from genaipocs_core.application.tools import Tool, ToolContext, ToolRegistry
+from genaipocs_core.ports import ChatMessage, LLMPort, Role
+from genaipocs_core.ports.approvals import ApprovalRequest
 from harness.approvals import ApprovalService
 from harness.correction import CorrectionResult, generate_validated
 from harness.prompts import PROMPTS
@@ -36,31 +40,27 @@ from harness.rules.writing import (
     tone_violations,
 )
 from harness.validation import Validator, Violation, staged
-from headache_core.application.llm import complete_structured
-from headache_core.application.tools import Tool, ToolContext, ToolRegistry
-from headache_core.ports import ChatMessage, LLMPort, Role
-from headache_core.ports.approvals import ApprovalRequest
 
 type Language = Literal["es", "en"]
 
-SUBJECT_PREFIX = "[Headache Partners]"
+SUBJECT_PREFIX = "[Genaipocs Partners]"
 
 GREETINGS: dict[Language, str] = {"es": "Hola, {name}:", "en": "Dear {name},"}
 ACTIONS_TITLE: dict[Language, str] = {"es": "Acciones solicitadas:", "en": "Requested actions:"}
 SIGNATURES: dict[Language, str] = {
-    "es": "Un saludo,\nEquipo de Partners de Headache",
-    "en": "Kind regards,\nHeadache Partner Team",
+    "es": "Un saludo,\nEquipo de Partners de Genaipocs",
+    "en": "Kind regards,\nGenaipocs Partner Team",
 }
 FOOTERS: dict[Language, str] = {
-    "es": "Mensaje confidencial dirigido únicamente a su destinatario. Headache trata los datos "
+    "es": "Mensaje confidencial dirigido únicamente a su destinatario. Genaipocs trata los datos "
     "conforme al RGPD y no comparte datos personales de sus clientes con partners.",
-    "en": "Confidential message intended only for its recipient. Headache processes data under "
+    "en": "Confidential message intended only for its recipient. Genaipocs processes data under "
     "the GDPR and does not share its customers' personal data with partners.",
 }
 
 
 class PartnerEmailDraft(BaseModel):
-    """Huecos variables de un email de Headache a un partner (sin saludo, firma ni pie)."""
+    """Huecos variables de un email de Genaipocs a un partner (sin saludo, firma ni pie)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -181,7 +181,7 @@ DETERMINISTIC_EMAIL_VALIDATORS: tuple[Validator[PartnerEmailDraft, PartnerEmailC
 
 
 class ToneVerdict(BaseModel):
-    """Evaluación del tono de un email profesional de Headache a un partner."""
+    """Evaluación del tono de un email profesional de Genaipocs a un partner."""
 
     model_config = ConfigDict(extra="forbid")
 

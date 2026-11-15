@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from headache_mcp.entra import EntraOboExchanger, entra_scopes
+from genaipocs_mcp.entra import EntraOboExchanger, entra_scopes
 
 
 @dataclass
@@ -25,11 +25,11 @@ class FakeOboCredential:
 
 
 def test_scopes_are_qualified_with_the_server_app_id_uri() -> None:
-    assert entra_scopes("api://headache-mcp/ticketing/", ["orders:read"]) == [
-        "api://headache-mcp/ticketing/orders:read"
+    assert entra_scopes("api://genaipocs-mcp/ticketing/", ["orders:read"]) == [
+        "api://genaipocs-mcp/ticketing/orders:read"
     ]
     with pytest.raises(ValueError):
-        entra_scopes("api://headache-mcp/ticketing", [])
+        entra_scopes("api://genaipocs-mcp/ticketing", [])
 
 
 async def test_obo_uses_the_incoming_token_and_closes_the_credential() -> None:
@@ -43,13 +43,13 @@ async def test_obo_uses_the_incoming_token_and_closes_the_credential() -> None:
     token = await exchanger.exchange(
         subject="cus_1",
         assertion="user-token",
-        audience="api://headache-mcp/refunds",
+        audience="api://genaipocs-mcp/refunds",
         scopes=["refunds:write"],
     )
 
-    assert token == "obo:user-token:api://headache-mcp/refunds/refunds:write"
+    assert token == "obo:user-token:api://genaipocs-mcp/refunds/refunds:write"
     [credential] = created
-    assert credential.requested == [("api://headache-mcp/refunds/refunds:write",)]
+    assert credential.requested == [("api://genaipocs-mcp/refunds/refunds:write",)]
     assert credential.closed
     with pytest.raises(ValueError, match="token de entrada"):
         await exchanger.exchange(subject="cus_1", assertion="", audience="a", scopes=["s"])

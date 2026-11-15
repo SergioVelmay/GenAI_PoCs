@@ -7,6 +7,9 @@ from contextlib import asynccontextmanager
 
 from booking_agent.runtime import AgentRuntime, JournaledExecutor
 from booking_agent.spec import AgentSpec
+from genaipocs_core.config import Settings
+from genaipocs_core.ports.approvals import ApprovalStore
+from genaipocs_core.ports.guardrails import ContentShieldPort
 from harness import GuardedExecutor, GuardedRuntime
 from harness.pii import PiiDetector, RegexPiiDetector, pii_filter
 from harness.rules.refunds import (
@@ -21,9 +24,6 @@ from harness.security import (
     prompt_guard,
     system_prompt_leak_guard,
 )
-from headache_core.config import Settings
-from headache_core.ports.approvals import ApprovalStore
-from headache_core.ports.guardrails import ContentShieldPort
 
 # Tools que devuelven texto de terceros (documentos del RAG, descripciones de partners).
 UNTRUSTED_TOOLS = frozenset({"search_knowledge", "get_event", "search_events"})
@@ -86,7 +86,7 @@ async def build_shield(settings: Settings) -> AsyncIterator[ContentShieldPort]:
         import httpx
         from azure.identity.aio import DefaultAzureCredential
 
-        from headache_core.adapters.azure_content_safety import (
+        from genaipocs_core.adapters.azure_content_safety import (
             AzureContentSafetyShield,
             api_key_auth,
             entra_id_auth,
@@ -102,7 +102,7 @@ async def build_shield(settings: Settings) -> AsyncIterator[ContentShieldPort]:
     else:
         import boto3
 
-        from headache_core.adapters.bedrock_guardrails import BedrockGuardrailShield
+        from genaipocs_core.adapters.bedrock_guardrails import BedrockGuardrailShield
 
         guardrail = settings.bedrock_guardrail
         if not guardrail.guardrail_id:

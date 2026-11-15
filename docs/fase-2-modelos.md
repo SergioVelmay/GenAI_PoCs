@@ -46,7 +46,7 @@ adaptador traduce los suyos; el gateway solo conoce estos.
 | Aspecto | Azure OpenAI (Foundry) | Bedrock Converse | Gemini en Agent Platform (2.G) |
 |---|---|---|---|
 | SDK | `openai` (`AsyncAzureOpenAI`) | `boto3` `bedrock-runtime` (síncrono → `asyncio.to_thread`) | `google-genai` 2.x, `client.aio.models` (asíncrono nativo) |
-| Autenticación | Entra ID: `DefaultAzureCredential` + token provider (sin claves) | Perfil de AWS SSO (`BEDROCK__PROFILE`) / IAM Role | ADC + *impersonation* de `headache-dev-app` (`roles/aiplatform.user`), sin claves |
+| Autenticación | Entra ID: `DefaultAzureCredential` + token provider (sin claves) | Perfil de AWS SSO (`BEDROCK__PROFILE`) / IAM Role | ADC + *impersonation* de `genaipocs-dev-app` (`roles/aiplatform.user`), sin claves |
 | Modelos (strong / cheap) | `gpt-4.1-mini` / `gpt-4.1-nano` | Claude Haiku 4.5 / Nova Lite (perfiles de inferencia `eu.`) | `gemini-4-hydrogen` / `gemini-3.5-flash-lite` (endpoint `global`) |
 | Prompt caching | **Automático** para prefijos idénticos ≥ 1024 tokens; no se marca ni se desactiva; se lee en `prompt_tokens_details.cached_tokens` | **Explícito**: bloque `cachePoint` al final del prefijo estable; informa `cacheWriteInputTokens` y `cacheReadInputTokens` | **Implícito** (≥ 4096 tokens, *best-effort*, sin coste de escritura) y **explícito** con `CachedContent` (2.G3; Hydrogen no lo admite) |
 | Tokens de entrada | Incluyen los cacheados | Excluyen lo leído/escrito en caché: el adaptador los suma (semántica OpenAI) | Incluyen los cacheados; los de razonamiento se suman a la **salida** |
@@ -219,7 +219,7 @@ anotarán aquí, como los [resultados en Azure](#resultados-en-azure-18-10-2026)
 |---|---|---|
 | Modelos | Los del plan (`gemini-3.1-pro`, `gemini-3-flash`) no eran IDs válidos: la gama es Gemini 4 (`carbon`, `argon`, `hydrogen`), 3.8 Flash, 3.5 y 3.1 Flash-Lite; 3 Flash es *legacy* | `gemini-4-hydrogen` (GA desde el 12-11-2026) / `gemini-3.5-flash-lite`, los que Google recomienda para proyectos nuevos; juez provisional `gemini-4-argon` (5.G1). Plan B: `gemini-3.8-flash` |
 | Precios | Argon dobla el 1-12-2026 y 3.8 Flash el 1-1-2027 | La tabla ya lleva los precios nuevos |
-| Regiones | Gemini 4 solo en `global` y en las multirregiones `us`/`eu` | `GEMINI__LOCATION=global`; `eu` (~+10 %) es la respuesta de residencia de datos para Headache |
+| Regiones | Gemini 4 solo en `global` y en las multirregiones `us`/`eu` | `GEMINI__LOCATION=global`; `eu` (~+10 %) es la respuesta de residencia de datos para Genaipocs |
 | SDK | `google-genai` 2.34 (3.3 publicada; ADK 2.14 exige `<3`). `Client(enterprise=True)` sustituye a `vertexai=True`. Sin `retry_options` hace un solo intento. Si `aiohttp` está instalado, lo usa en asíncrono | `GEMINI__USE_VERTEX` → `GEMINI__ENTERPRISE`; errores de transporte de `httpx` **y** `aiohttp` |
 | *Thought signatures* | Gemini 3/4 dan 400 si no se devuelve la firma de la primera `functionCall` de cada paso; duplicarla también da 400. Para historial de otro modelo, `skip_thought_signature_validator` ("último recurso") | `ToolCall.signature` en el puerto |
 | Muestreo | Hydrogen y 3.5+ **ignoran** `temperature`/`top_p`/`top_k` y Google anuncia 400 en generaciones futuras | El adaptador no los envía |
@@ -250,8 +250,8 @@ siguientes de la pasada):
   final, que no se emite.
 
 ```powershell
-uv run pytest packages/headache_core/tests/test_gemini_adapter.py packages/headache_core/tests/test_llm_factory.py
-terraform -chdir=infra/terraform/gcp validate   # roles/aiplatform.user para headache-dev-app
+uv run pytest packages/genaipocs_core/tests/test_gemini_adapter.py packages/genaipocs_core/tests/test_llm_factory.py
+terraform -chdir=infra/terraform/gcp validate   # roles/aiplatform.user para genaipocs-dev-app
 ```
 
 **Límites conocidos** (se abordan cuando toca):
@@ -348,7 +348,7 @@ uv run python scripts/llm_cache_benchmark.py --provider gcp --tier strong   # Hy
 tokens): la explícita paga ~0,0027 $ de escritura y ~0,009 $ por hora de almacenamiento, y ahorra
 ~0,0024 $ por petición frente a no cachear. Compensa a partir de unas 5 peticiones por hora con el
 mismo prefijo, o cuando el acierto de la implícita sea bajo (Google no lo garantiza). Con tráfico
-continuo, como el del asistente de Headache, la implícita suele bastar y no cuesta nada. Las
+continuo, como el del asistente de Genaipocs, la implícita suele bastar y no cuesta nada. Las
 cifras reales saldrán del benchmark en la nube.
 
 ## 11. Pendiente con coste (validación en cloud)

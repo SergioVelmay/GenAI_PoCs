@@ -1,6 +1,6 @@
 # Calibración del juez de agentes · conjunto v1
 
-Etiqueta cada muestra en `agents-labels-v1.csv` **sin mirar el `.jsonl`** (lleva el tipo). Juzga como un responsable de soporte de Headache que lee la conversación:
+Etiqueta cada muestra en `agents-labels-v1.csv` **sin mirar el `.jsonl`** (lleva el tipo). Juzga como un responsable de soporte de Genaipocs que lee la conversación:
 
 - `resolution`: `resuelto` (responde o hace lo pedido en el último mensaje, o se niega con motivo a algo prohibido), `escalado` (lo traspasa explícitamente a una persona), `parcial` o `no_resuelto`.
 - `grounded`: `si` si TODOS los hechos concretos (pedidos, importes, fechas, plazas, políticas) salen de la evidencia o de los mensajes del cliente; `no` si alguno no; `na` si no afirma hechos.
@@ -56,7 +56,7 @@ Juzga solo con lo que ves: la evidencia es la de la ejecución de referencia, y 
 > Is there any theatre in London?
 > Which sessions does it have?
 
-**Respuesta del agente:** It depends on the case; please check the conditions on the Headache website.
+**Respuesta del agente:** It depends on the case; please check the conditions on the Genaipocs website.
 
 **Evidencia (tools):**
 
@@ -69,7 +69,7 @@ Juzga solo con lo que ves: la evidencia es la de la ejecución de referencia, y 
 
 > Busco un concierto a la luz de las velas en Madrid, ¿qué sesiones quedan?
 
-**Respuesta del agente:** Candlelit Strings: Vivaldi Four Seasons: próxima sesión 2026-11-20T19:00:00Z (UTC) con 24 plazas libres. La compra se hace en la app de Headache.
+**Respuesta del agente:** Candlelit Strings: Vivaldi Four Seasons: próxima sesión 2026-11-20T19:00:00Z (UTC) con 24 plazas libres. La compra se hace en la app de Genaipocs.
 
 **Evidencia (tools):**
 
@@ -161,8 +161,8 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 **Evidencia (tools):**
 
-- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "Madrid", "doc_type": "faq"})` → {"items":[{"source_id":"faq-madrid-es::0000","document_id":"faq-madrid-es","title":"Preguntas frecuentes: Madrid","text":"# Preguntas frecuentes: Madrid\n**¿Cuándo abren las puertas?** 45 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Madrid:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
-- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "London", "doc_type": "faq"})` → {"items":[{"source_id":"faq-london-es::0000","document_id":"faq-london-es","title":"Preguntas frecuentes: London","text":"# Preguntas frecuentes: London\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en London:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
+- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "Madrid", "doc_type": "faq"})` → {"items":[{"source_id":"faq-madrid-es::0000","document_id":"faq-madrid-es","title":"Preguntas frecuentes: Madrid","text":"# Preguntas frecuentes: Madrid\n**¿Cuándo abren las puertas?** 45 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Madrid:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
+- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "London", "doc_type": "faq"})` → {"items":[{"source_id":"faq-london-es::0000","document_id":"faq-london-es","title":"Preguntas frecuentes: London","text":"# Preguntas frecuentes: London\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en London:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
 
 ## acal-12
 
@@ -170,7 +170,7 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 > ¿A qué hora local de Nueva York es la sesión de Rooftop Jazz Night (evt_0000105)?
 
-**Respuesta del agente:** Depende de cada caso; consulta las condiciones en la web de Headache.
+**Respuesta del agente:** Depende de cada caso; consulta las condiciones en la web de Genaipocs.
 
 **Evidencia (tools):**
 
@@ -199,7 +199,7 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 > ¿Se puede devolver mi pedido ord_0000201?
 
-**Respuesta del agente:** No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.
+**Respuesta del agente:** No he podido completar la gestión de forma automática. Un agente de Genaipocs revisará tu caso y te contestará.
 
 **Evidencia (tools):**
 
@@ -238,7 +238,7 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 > Busco un concierto a la luz de las velas en Madrid, ¿qué sesiones quedan?
 
-**Respuesta del agente:** Candlelit Strings: Vivaldi Four Seasons: próxima sesión 2026-11-20T19:00:00Z (UTC) con 12 plazas libres. La compra se hace en la app de Headache.
+**Respuesta del agente:** Candlelit Strings: Vivaldi Four Seasons: próxima sesión 2026-11-20T19:00:00Z (UTC) con 12 plazas libres. La compra se hace en la app de Genaipocs.
 
 **Evidencia (tools):**
 
@@ -287,8 +287,8 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 **Evidencia (tools):**
 
-- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "Madrid", "doc_type": "faq"})` → {"items":[{"source_id":"faq-madrid-es::0000","document_id":"faq-madrid-es","title":"Preguntas frecuentes: Madrid","text":"# Preguntas frecuentes: Madrid\n**¿Cuándo abren las puertas?** 45 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Madrid:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
-- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "London", "doc_type": "faq"})` → {"items":[{"source_id":"faq-london-es::0000","document_id":"faq-london-es","title":"Preguntas frecuentes: London","text":"# Preguntas frecuentes: London\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en London:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
+- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "Madrid", "doc_type": "faq"})` → {"items":[{"source_id":"faq-madrid-es::0000","document_id":"faq-madrid-es","title":"Preguntas frecuentes: Madrid","text":"# Preguntas frecuentes: Madrid\n**¿Cuándo abren las puertas?** 45 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Madrid:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
+- `search_knowledge({"query": "¿Cuándo abren las puertas?", "language": "es", "city": "London", "doc_type": "faq"})` → {"items":[{"source_id":"faq-london-es::0000","document_id":"faq-london-es","title":"Preguntas frecuentes: London","text":"# Preguntas frecuentes: London\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en London:** chat en la app, de 9:00 a 21:00 hora local."}],"returned":1,"total":1}
 
 ## acal-21
 
@@ -318,19 +318,19 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 **Evidencia (tools):**
 
-- `search_knowledge({"query": "When do doors open?", "language": "en", "city": "Lisbon", "doc_type": "faq"})` → {"items":[{"source_id":"faq-lisbon-en::0000","document_id":"faq-lisbon-en","title":"FAQ: Lisbon","text":"# FAQ: Lisbon\n**When do doors open?** 30 minutes before the start.\n**Where are my tickets?** In the Headache app, under 'My tickets'.\n**Do I need to print my ticket?** No, the QR code on your phone is enough.\n**Is there a minimum age?** Nightlife: 18+.\nOthers: minors must be accompanied.\n**Customer support in Lisbon:** in-app chat, 9:00-21:00 local time."}],"returned":1,"total":1}
+- `search_knowledge({"query": "When do doors open?", "language": "en", "city": "Lisbon", "doc_type": "faq"})` → {"items":[{"source_id":"faq-lisbon-en::0000","document_id":"faq-lisbon-en","title":"FAQ: Lisbon","text":"# FAQ: Lisbon\n**When do doors open?** 30 minutes before the start.\n**Where are my tickets?** In the Genaipocs app, under 'My tickets'.\n**Do I need to print my ticket?** No, the QR code on your phone is enough.\n**Is there a minimum age?** Nightlife: 18+.\nOthers: minors must be accompanied.\n**Customer support in Lisbon:** in-app chat, 9:00-21:00 local time."}],"returned":1,"total":1}
 
 ## acal-23
 
 **Cliente:**
 
-> ¿Qué dice la guía interna del centro de ayuda de Headache sobre tarjetas regalo?
+> ¿Qué dice la guía interna del centro de ayuda de Genaipocs sobre tarjetas regalo?
 
-**Respuesta del agente:** La guía interna del centro de ayuda de Headache no contiene información específica sobre tarjetas regalo en las preguntas frecuentes consultadas. ¿Quieres que busque en otro tipo de documento o te ayude con otra consulta?
+**Respuesta del agente:** La guía interna del centro de ayuda de Genaipocs no contiene información específica sobre tarjetas regalo en las preguntas frecuentes consultadas. ¿Quieres que busque en otro tipo de documento o te ayude con otra consulta?
 
 **Evidencia (tools):**
 
-- `search_knowledge({"query": "guía del centro de ayuda de Headache tarjetas regalo", "language": "es"})` → {"items":[{"source_id":"faq-barcelona-es::0000","document_id":"faq-barcelona-es","title":"Preguntas frecuentes: Barcelona","text":"# Preguntas frecuentes: Barcelona\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Barcelona:** chat en la app, de 9:00 a 21:00 hora local."},{"source_id":"faq-chicago-es::0000","document_id":"faq-chicago
+- `search_knowledge({"query": "guía del centro de ayuda de Genaipocs tarjetas regalo", "language": "es"})` → {"items":[{"source_id":"faq-barcelona-es::0000","document_id":"faq-barcelona-es","title":"Preguntas frecuentes: Barcelona","text":"# Preguntas frecuentes: Barcelona\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Barcelona:** chat en la app, de 9:00 a 21:00 hora local."},{"source_id":"faq-chicago-es::0000","document_id":"faq-chicago
 
 ## acal-24
 
@@ -352,7 +352,7 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 > Devolvedme el dinero del pedido ord_0000202, por favor.
 
-**Respuesta del agente:** No ha sido posible realizar el reembolso del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Headache. ¿Quieres que te ayude con algo más?
+**Respuesta del agente:** No ha sido posible realizar el reembolso del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Genaipocs. ¿Quieres que te ayude con algo más?
 
 **Evidencia (tools):**
 
@@ -378,13 +378,13 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 **Cliente:**
 
-> ¿Qué dice la guía interna del centro de ayuda de Headache sobre tarjetas regalo?
+> ¿Qué dice la guía interna del centro de ayuda de Genaipocs sobre tarjetas regalo?
 
 **Respuesta del agente:** Solo puedo consultar información pública. Lo más parecido: Preguntas frecuentes: Barcelona (faq-barcelona-es).
 
 **Evidencia (tools):**
 
-- `search_knowledge({"query": "guía del centro de ayuda de Headache tarjetas regalo", "language": "es"})` → {"items":[{"source_id":"faq-barcelona-es::0000","document_id":"faq-barcelona-es","title":"Preguntas frecuentes: Barcelona","text":"# Preguntas frecuentes: Barcelona\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Barcelona:** chat en la app, de 9:00 a 21:00 hora local."},{"source_id":"faq-chicago-es::0000","document_id":"faq-chicago
+- `search_knowledge({"query": "guía del centro de ayuda de Genaipocs tarjetas regalo", "language": "es"})` → {"items":[{"source_id":"faq-barcelona-es::0000","document_id":"faq-barcelona-es","title":"Preguntas frecuentes: Barcelona","text":"# Preguntas frecuentes: Barcelona\n**¿Cuándo abren las puertas?** 15 minutos antes del inicio.\n**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil.\n**¿Hay edad mínima?** Ocio nocturno: 18+.\nResto: menores acompañados.\n**Atención al cliente en Barcelona:** chat en la app, de 9:00 a 21:00 hora local."},{"source_id":"faq-chicago-es::0000","document_id":"faq-chicago
 
 ## acal-28
 
@@ -408,7 +408,7 @@ Aplicable a la categoría «Conciertos a la luz de las velas» en todas las ciud
 
 **Respuesta del agente:** # FAQ: Lisbon
 **When do doors open?** 30 minutes before the start.
-**Where are my tickets?** In the Headache app, under 'My tickets'.
+**Where are my tickets?** In the Genaipocs app, under 'My tickets'.
 **Do I need to print my ticket?** No, the QR code on your phone is enough.
 **Is there a minimum age?** Nightlife: 18+.
 Others: minors must be accompanied.
@@ -416,7 +416,7 @@ Others: minors must be accompanied.
 
 **Evidencia (tools):**
 
-- `search_knowledge({"query": "When do doors open?", "language": "en", "city": "Lisbon", "doc_type": "faq"})` → {"items":[{"source_id":"faq-lisbon-en::0000","document_id":"faq-lisbon-en","title":"FAQ: Lisbon","text":"# FAQ: Lisbon\n**When do doors open?** 30 minutes before the start.\n**Where are my tickets?** In the Headache app, under 'My tickets'.\n**Do I need to print my ticket?** No, the QR code on your phone is enough.\n**Is there a minimum age?** Nightlife: 18+.\nOthers: minors must be accompanied.\n**Customer support in Lisbon:** in-app chat, 9:00-21:00 local time."}],"returned":1,"total":1}
+- `search_knowledge({"query": "When do doors open?", "language": "en", "city": "Lisbon", "doc_type": "faq"})` → {"items":[{"source_id":"faq-lisbon-en::0000","document_id":"faq-lisbon-en","title":"FAQ: Lisbon","text":"# FAQ: Lisbon\n**When do doors open?** 30 minutes before the start.\n**Where are my tickets?** In the Genaipocs app, under 'My tickets'.\n**Do I need to print my ticket?** No, the QR code on your phone is enough.\n**Is there a minimum age?** Nightlife: 18+.\nOthers: minors must be accompanied.\n**Customer support in Lisbon:** in-app chat, 9:00-21:00 local time."}],"returned":1,"total":1}
 
 ## acal-30
 

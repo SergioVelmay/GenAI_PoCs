@@ -12,7 +12,7 @@ Sergio prepara entrevistas de AI Technical Lead (50 % técnico, 50 % negocio y s
 3. **Dónde aparece en este repo**: rutas y símbolos concretos (enlaces a ficheros), no ejemplos inventados. Si hay varias variantes (p. ej. "gateway": LLM, MCP, API), una tabla con todas.
 4. **Azure ↔ AWS ↔ GCP ↔ framework** si aplica.
 5. **Trampas habituales** o límites.
-6. **Por qué le importa a Headache**: impacto en negocio, coste o riesgo, en 2–3 frases que entendería un stakeholder no técnico.
+6. **Por qué le importa a Genaipocs**: impacto en negocio, coste o riesgo, en 2–3 frases que entendería un stakeholder no técnico.
 7. **Preguntas de entrevista**: una técnica y una de negocio, con respuesta modelo de 2–3 frases cada una.
 
 Si la pregunta es "por qué pasa X" (un test saltado, un aviso de la CI), comprobarlo primero con evidencia (salida del comando, código) y decir si es correcto o si estamos ignorando algo. No implementar cambios salvo que Sergio lo pida.

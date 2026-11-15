@@ -1,6 +1,6 @@
 # Fase 7 · Un agente, siete implementaciones: frameworks, servicios gestionados y context engineering
 
-El **Knowledge & Booking Agent** de Headache (RAG + tools de ticketing + memoria) implementado
+El **Knowledge & Booking Agent** de Genaipocs (RAG + tools de ticketing + memoria) implementado
 sobre el mismo núcleo en:
 
 - **Carril B**: `native` (bucle propio, la referencia).
@@ -15,12 +15,12 @@ mismo modelo guionizado, así que las diferencias que aparecen son del framework
 | Pieza | Dónde | Qué hace |
 |---|---|---|
 | `AgentSpec` | `services/booking_agent/src/booking_agent/spec.py` | Prompt, tools, skills, política de contexto, `max_iterations` y fallback: lo único que ven todos los sabores. |
-| `AgentRuntime` | `headache_core/application/agents/runtime.py` (reexportado en `booking_agent/runtime.py`) | Contrato común: `respond(thread_id, message, ToolContext) -> AgentTurn`. Desde la fase 8 vive en el núcleo para que el harness lo envuelva. |
+| `AgentRuntime` | `genaipocs_core/application/agents/runtime.py` (reexportado en `booking_agent/runtime.py`) | Contrato común: `respond(thread_id, message, ToolContext) -> AgentTurn`. Desde la fase 8 vive en el núcleo para que el harness lo envuelva. |
 | `JournaledExecutor` | `booking_agent/runtime.py` | Todas las tools pasan por aquí: validación, timeouts, saneamiento, lock de escrituras y diario que lee la eval. |
 | Puentes al gateway | `booking_agent/bridges/` | Cada framework llama al modelo a través de nuestro `LLMPort` (routing, fallback, caché, coste, trazas). |
-| Context engineering | `headache_core/application/agents/` | Orden del prompt, compactación con resumen, hilos con dueño, preferencias, skills bajo demanda. |
+| Context engineering | `genaipocs_core/application/agents/` | Orden del prompt, compactación con resumen, hilos con dueño, preferencias, skills bajo demanda. |
 | Carril A | `booking_agent/managed/` | Cliente/emulador de Foundry Agent Service y contrato HTTP de AgentCore Runtime. |
-| AgentCore Memory | `headache_core/adapters/agentcore_memory.py` | `CheckpointStore` (eventos) y `PreferenceStore` (registros a largo plazo). |
+| AgentCore Memory | `genaipocs_core/adapters/agentcore_memory.py` | `CheckpointStore` (eventos) y `PreferenceStore` (registros a largo plazo). |
 | Suite | `evals/src/rag_evals/agents/` | Mundo determinista, `ScenarioLLM`, invariantes de seguridad, informe `evals/reports/agents.{md,json}`. |
 
 ## 2. Context engineering (común a todos los sabores)
@@ -191,7 +191,7 @@ Conclusiones:
 
 Hasta aquí el sabor `foundry` usaba siempre el emulador local. Ahora `create_cloud` y
 `booking_agent --flavor foundry --foundry-service` usan **Foundry Agent Service real**
-(`FoundryAgentService`, agente `headache-booking-agent` v2 publicado desde el mismo `AgentSpec`).
+(`FoundryAgentService`, agente `genaipocs-booking-agent` v2 publicado desde el mismo `AgentSpec`).
 `scripts/context_growth_demo.py` ejecuta el mismo hilo de 14 turnos (un dato personal, 12
 preguntas con `search_knowledge` y la pregunta final sobre el dato) con `native` y con el
 servicio real ([informe](../evals/reports/azure/context-growth.md)):

@@ -2,7 +2,7 @@
 Desde la fase 10.5 los eventos salen por el outbox: el test arranca su propio relay.
 
 docker compose up -d
-uv run alembic -c packages/headache_core/alembic.ini upgrade head
+uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run pytest -m integration services/orchestrator
 """
 
@@ -20,17 +20,17 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from headache_core.adapters.postgres import create_engine, create_session_factory
-from headache_core.adapters.postgres.cases import PostgresCaseStore
-from headache_core.adapters.postgres.outbox import PostgresOutboxStore
-from headache_core.adapters.postgres.tables import OutboxEventRow, SupportCaseRow
-from headache_core.adapters.rabbitmq import RabbitMQMessageBus
-from headache_core.application.orchestration import TriageAgent, email_to_payload
-from headache_core.application.outbox import OutboxRelay
-from headache_core.config import get_settings
-from headache_core.domain import CaseStatus, Specialist
-from headache_core.ports import ToolCall
-from headache_core.ports.cases import CaseRecord
+from genaipocs_core.adapters.postgres import create_engine, create_session_factory
+from genaipocs_core.adapters.postgres.cases import PostgresCaseStore
+from genaipocs_core.adapters.postgres.outbox import PostgresOutboxStore
+from genaipocs_core.adapters.postgres.tables import OutboxEventRow, SupportCaseRow
+from genaipocs_core.adapters.rabbitmq import RabbitMQMessageBus
+from genaipocs_core.application.orchestration import TriageAgent, email_to_payload
+from genaipocs_core.application.outbox import OutboxRelay
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import CaseStatus, Specialist
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.cases import CaseRecord
 from orchestrator.async_flow import CaseReviewService, CaseTopics, subscribe_workers
 from orchestrator.specialists import build_approval_service, build_specialists
 from orchestrator.testing import ORDER, local_world, support_email
@@ -38,7 +38,7 @@ from orchestrator.testing import ORDER, local_world, support_email
 pytestmark = pytest.mark.integration
 
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 
 
 @pytest.fixture

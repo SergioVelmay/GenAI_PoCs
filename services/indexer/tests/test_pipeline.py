@@ -8,16 +8,16 @@ import pytest
 from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.core.vector_stores import SimpleVectorStore
 
-from headache_core.adapters.llamaindex import LlamaIndexIndexer, PortEmbedding
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.llamaindex import LlamaIndexIndexer, PortEmbedding
+from genaipocs_core.adapters.memory import (
     HashingEmbedding,
     InMemoryIngestionLedger,
     InMemoryMessageBus,
     InMemoryVectorStore,
 )
-from headache_core.application.ingestion import DocumentIndexer, SentenceChunker
-from headache_core.domain import DocumentType
-from headache_core.ports import LedgerEntry
+from genaipocs_core.application.ingestion import DocumentIndexer, SentenceChunker
+from genaipocs_core.domain import DocumentType
+from genaipocs_core.ports import LedgerEntry
 from indexer.handler import IndexingHandler
 from indexer.messages import DocumentPayload, IndexingCommand
 
@@ -71,7 +71,7 @@ def document() -> DocumentPayload:
         language="es",
         content=(
             "**¿Cuándo abren las puertas?** 45 minutos antes del inicio.\n\n"
-            "**¿Dónde están mis entradas?** En la app de Headache, sección «Mis entradas».\n\n"
+            "**¿Dónde están mis entradas?** En la app de Genaipocs, sección «Mis entradas».\n\n"
             "**¿Necesito imprimir la entrada?** No, basta con el código QR en el móvil."
         ),
         metadata={"city": "Madrid"},
@@ -151,8 +151,8 @@ def test_gcp_lane_b_is_wired_with_its_model_in_the_pipeline_version() -> None:
     nombre del modelo entra en `pipeline_version`: cambiar de nube obliga a reindexar."""
     from pydantic import SecretStr
 
-    from headache_core.adapters.gemini_embeddings import GeminiEmbedding
-    from headache_core.config import GeminiSettings, Settings
+    from genaipocs_core.adapters.gemini_embeddings import GeminiEmbedding
+    from genaipocs_core.config import GeminiSettings, Settings
     from indexer.bootstrap import build_embeddings
     from indexer.settings import IndexerSettings
 

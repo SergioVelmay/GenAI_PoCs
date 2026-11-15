@@ -56,8 +56,8 @@ resource "google_vertex_ai_rag_corpus" "knowledge" {
   for_each = var.rag_engine_enabled ? toset(local.rag_acl_levels) : toset([])
 
   region       = var.region
-  display_name = "headache-knowledge-${each.key}"
-  description  = "Conocimiento de Headache con ACL ${each.key} (carril A)"
+  display_name = "genaipocs-knowledge-${each.key}"
+  description  = "Conocimiento de Genaipocs con ACL ${each.key} (carril A)"
 
   vector_db_config {
     # Búsqueda exacta (KNN): para ~150 chunks, un índice ANN no aporta nada.

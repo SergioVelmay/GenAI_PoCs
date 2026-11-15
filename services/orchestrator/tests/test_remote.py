@@ -16,17 +16,17 @@ from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
 from opentelemetry import trace as otel_trace
 from starlette.applications import Starlette
 
-from headache_core.adapters.otel import recording_telemetry
-from headache_core.application.orchestration import (
+from genaipocs_core.adapters.otel import recording_telemetry
+from genaipocs_core.application.orchestration import (
     InvalidHandoffError,
     SpecialistAgent,
     TriageAgent,
     envelope_to_payload,
 )
-from headache_core.config import A2ASettings
-from headache_core.domain import CaseEnvelope, CaseOutcome, CaseStatus, Specialist, SupportIntent
-from headache_core.ports import ToolCall
-from headache_mcp.auth import DevTokenIssuer
+from genaipocs_core.config import A2ASettings
+from genaipocs_core.domain import CaseEnvelope, CaseOutcome, CaseStatus, Specialist, SupportIntent
+from genaipocs_core.ports import ToolCall
+from genaipocs_mcp.auth import DevTokenIssuer
 from orchestrator.graph import RouterGraph
 from orchestrator.remote import (
     BearerAuth,
@@ -39,7 +39,7 @@ from orchestrator.remote import (
 from orchestrator.specialists import build_approval_service, build_specialists
 from orchestrator.testing import ORDER, local_world, support_email
 
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 SETTINGS = A2ASettings()
 REFUND_CASE = CaseEnvelope(
     case_id="case_1",
@@ -100,7 +100,7 @@ def _verifier(keys: RSAKeyPair, specialist: Specialist) -> JWTVerifier:
 def test_agent_card_describes_the_specialist_without_exposing_its_tools() -> None:
     card = build_agent_card(Specialist.KNOWLEDGE, "http://knowledge.agents")
 
-    assert card.name == "headache-knowledge-specialist"
+    assert card.name == "genaipocs-knowledge-specialist"
     assert card.supported_interfaces[0].url == "http://knowledge.agents/a2a"
     assert card.supported_interfaces[0].protocol_version == "1.0"
     assert sorted(card.skills[0].tags) == ["date_change", "event_info", "lost_tickets"]
@@ -132,7 +132,7 @@ async def test_the_trace_crosses_a2a_from_client_to_the_remote_agent() -> None:
     assert len({s.context.trace_id for s in spans}) == 1, tree
     client = next(s for s in spans if s.name == "invoke_agent refunds")
     server = next(s for s in spans if s.name == "POST /a2a")
-    agent = next(s for s in spans if s.name == "invoke_agent headache-refunds-specialist")
+    agent = next(s for s in spans if s.name == "invoke_agent genaipocs-refunds-specialist")
     assert client.kind is otel_trace.SpanKind.CLIENT
     assert server.kind is otel_trace.SpanKind.SERVER
     assert server.parent is not None and server.parent.span_id == client.context.span_id
@@ -206,9 +206,9 @@ async def test_valid_service_token_is_accepted(keys: RSAKeyPair) -> None:
     ("audience", "subject", "scopes", "status"),
     [
         (None, None, None, 401),  # Sin token.
-        ("api://headache-agents/creative", "svc-orchestrator", ["cases:handle"], 401),
-        ("api://headache-agents/refunds", "svc-otro", ["cases:handle"], 403),
-        ("api://headache-agents/refunds", "svc-orchestrator", ["orders:read"], 403),
+        ("api://genaipocs-agents/creative", "svc-orchestrator", ["cases:handle"], 401),
+        ("api://genaipocs-agents/refunds", "svc-otro", ["cases:handle"], 403),
+        ("api://genaipocs-agents/refunds", "svc-orchestrator", ["orders:read"], 403),
     ],
 )
 async def test_invalid_tokens_never_reach_the_agent(

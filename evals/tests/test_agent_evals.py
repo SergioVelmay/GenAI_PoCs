@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from booking_agent.spec import SKILLS_DIR
-from headache_core.application.agents import SkillCatalog
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import ToolExecution
-from headache_core.ports import ChatMessage, Role, ToolCall
+from genaipocs_core.application.agents import SkillCatalog
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import ToolExecution
+from genaipocs_core.ports import ChatMessage, Role, ToolCall
 from rag_evals.agents.__main__ import (
     BASELINE_PATH,
     AgentBaseline,

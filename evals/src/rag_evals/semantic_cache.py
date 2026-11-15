@@ -27,11 +27,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
-from headache_core.adapters.memory import HashingEmbedding, InMemorySemanticCache
-from headache_core.application.semantic_cache import SemanticCache
-from headache_core.domain.admission import ClientPlan, access_scope
-from headache_core.domain.semantic_cache import CacheScope, detect_language
-from headache_core.ports.vector_store import EmbeddingPort
+from genaipocs_core.adapters.memory import HashingEmbedding, InMemorySemanticCache
+from genaipocs_core.application.semantic_cache import SemanticCache
+from genaipocs_core.domain.admission import ClientPlan, access_scope
+from genaipocs_core.domain.semantic_cache import CacheScope, detect_language
+from genaipocs_core.ports.vector_store import EmbeddingPort
 from rag_evals.retrieval_eval import REPORTS_DIR
 
 DATASET_PATH = Path(__file__).resolve().parents[2] / "datasets" / "semantic-cache-v1.jsonl"
@@ -329,8 +329,8 @@ def estimated_cost(cases: Sequence[Case]) -> Decimal:
 def build_embeddings(backend: Backend) -> EmbeddingPort:
     if backend == "hashing":
         return HashingEmbedding(1024)
-    from headache_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
-    from headache_core.config import Settings
+    from genaipocs_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
+    from genaipocs_core.config import Settings
 
     return AzureOpenAIEmbedding.from_settings(Settings().azure_openai)
 
