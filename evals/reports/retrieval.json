@@ -2,7 +2,7 @@
   "dataset": {
     "version": 1,
     "corpus": "evals/corpus/knowledge.jsonl",
-    "corpus_sha256": "4bbd46f0ee6ab06970b55bbf39ccbbef5aaaadc63103b4bf91defa2fa5e6f4d3",
+    "corpus_sha256": "3ac13cba8716c541e1f251740c749519adb1e29022bcd36ce1be136f576d2e7a",
     "documents": 116,
     "items": 144,
     "by_type": {
@@ -117,9 +117,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 3,
-      "latency_p50_ms": 1.24,
-      "latency_p95_ms": 1.69,
-      "missed": []
+      "latency_p50_ms": 1.27,
+      "latency_p95_ms": 1.76,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "native",
@@ -219,9 +220,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 0.25,
-      "latency_p95_ms": 0.33,
-      "missed": []
+      "latency_p50_ms": 0.27,
+      "latency_p95_ms": 0.52,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "native",
@@ -321,9 +323,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 1.82,
-      "latency_p95_ms": 2.45,
-      "missed": []
+      "latency_p50_ms": 1.97,
+      "latency_p95_ms": 3.48,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "native",
@@ -423,11 +426,12 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 2.22,
-      "latency_p95_ms": 2.66,
+      "latency_p50_ms": 3.37,
+      "latency_p95_ms": 4.82,
       "missed": [
         "policy-window-nightlife-en"
-      ]
+      ],
+      "plan_errors": 0
     },
     {
       "engine": "native",
@@ -527,9 +531,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 1.56,
-      "latency_p95_ms": 2.12,
-      "missed": []
+      "latency_p50_ms": 2.05,
+      "latency_p95_ms": 3.23,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "llamaindex",
@@ -629,9 +634,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 6,
-      "latency_p50_ms": 28.12,
-      "latency_p95_ms": 38.18,
-      "missed": []
+      "latency_p50_ms": 19.49,
+      "latency_p95_ms": 24.51,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "llamaindex",
@@ -731,9 +737,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 34.28,
-      "latency_p95_ms": 49.39,
-      "missed": []
+      "latency_p50_ms": 21.39,
+      "latency_p95_ms": 24.28,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "llamaindex",
@@ -833,9 +840,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 60.38,
-      "latency_p95_ms": 86.7,
-      "missed": []
+      "latency_p50_ms": 36.56,
+      "latency_p95_ms": 53.52,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "llamaindex",
@@ -935,11 +943,12 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 55.81,
-      "latency_p95_ms": 84.83,
+      "latency_p50_ms": 35.7,
+      "latency_p95_ms": 44.05,
       "missed": [
         "policy-window-nightlife-en"
-      ]
+      ],
+      "plan_errors": 0
     },
     {
       "engine": "llamaindex",
@@ -1039,9 +1048,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 56.59,
-      "latency_p95_ms": 81.96,
-      "missed": []
+      "latency_p50_ms": 36.02,
+      "latency_p95_ms": 54.97,
+      "missed": [],
+      "plan_errors": 0
     },
     {
       "engine": "llamaindex",
@@ -1141,9 +1151,10 @@
       "acl_leaks": 0,
       "unanswerable": 30,
       "unanswerable_empty": 2,
-      "latency_p50_ms": 40.67,
-      "latency_p95_ms": 62.0,
-      "missed": []
+      "latency_p50_ms": 27.05,
+      "latency_p95_ms": 37.24,
+      "missed": [],
+      "plan_errors": 0
     }
   ]
 }
