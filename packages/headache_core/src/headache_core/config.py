@@ -102,6 +102,10 @@ class GeminiSettings(BaseModel):
     thinking_level: ThinkingLevel = "low"
     cheap_thinking_level: ThinkingLevel = "low"
     embedding_model: str = "gemini-embedding-001"
+    # Textos por petición de embeddings (3.G2). La API admite 250 y 20 000 tokens por petición,
+    # pero la referencia REST dice que `gemini-embedding-001` acepta uno solo: se confirma en la
+    # nube y, si es así, se baja a 1 (las peticiones van en paralelo acotado).
+    embedding_batch_size: int = Field(default=100, ge=1, le=250)
     # Juez de evals: distinto y más capaz que el generador (sesgo de autopreferencia); 5.G1.
     judge_model: str = "gemini-4-argon"
     # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
@@ -274,6 +278,15 @@ class S3VectorsSettings(BaseModel):
     index_name: str = "knowledge"
 
 
+class GcpVectorSearchSettings(BaseModel):
+    """Agent Retrieval (antes Vector Search 2.0): carril B de GCP (3.G2)."""
+
+    # Colección creada por Terraform (`vector_search.tf`, efímera con `vector_search_enabled`).
+    collection: str = "knowledge"
+    # Vacío = `GCP__REGION`.
+    location: str = ""
+
+
 class AzureManagedIngestionSettings(BaseModel):
     """Carril A en Azure: indexer + skillset de AI Search que leen de Blob Storage."""
 
@@ -425,6 +438,7 @@ class Settings(BaseSettings):
     pubsub: PubSubSettings = PubSubSettings()
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
+    gcp_vector_search: GcpVectorSearchSettings = GcpVectorSearchSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()

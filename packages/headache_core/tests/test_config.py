@@ -203,3 +203,18 @@ def test_pubsub_rejects_fewer_than_five_delivery_attempts(
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GCP_VECTOR_SEARCH__COLLECTION", "knowledge-v2")
+    monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "1")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.gcp_vector_search.collection == "knowledge-v2"
+    assert settings.gcp_vector_search.location == ""  # = GCP__REGION
+    assert settings.gemini.embedding_batch_size == 1
+
+    monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "251")  # La API admite 250 como mucho.
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)

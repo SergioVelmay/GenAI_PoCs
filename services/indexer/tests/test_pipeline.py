@@ -144,3 +144,24 @@ async def test_same_messages_drive_the_llamaindex_engine(document: DocumentPaylo
 
     assert vectors.data.embedding_dict == {}
     assert bus.dead_letters == []
+
+
+def test_gcp_lane_b_is_wired_with_its_model_in_the_pipeline_version() -> None:
+    """3.G2: `INDEXER__EMBEDDINGS=gcp` construye Gemini (sin red con la Developer API) y el
+    nombre del modelo entra en `pipeline_version`: cambiar de nube obliga a reindexar."""
+    from pydantic import SecretStr
+
+    from headache_core.adapters.gemini_embeddings import GeminiEmbedding
+    from headache_core.config import GeminiSettings, Settings
+    from indexer.bootstrap import build_embeddings
+    from indexer.settings import IndexerSettings
+
+    settings = Settings(
+        _env_file=None, gemini=GeminiSettings(enterprise=False, api_key=SecretStr("test"))
+    )
+    config = IndexerSettings(_env_file=None, embeddings="gcp", vector_store="gcp_vector_search")
+
+    embeddings, model_name = build_embeddings(settings, config)
+
+    assert isinstance(embeddings, GeminiEmbedding)
+    assert model_name == "gcp:gemini-embedding-001-1024"

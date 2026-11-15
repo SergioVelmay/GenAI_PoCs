@@ -68,7 +68,7 @@ _TRANSPORT_ERRORS: tuple[type[BaseException], ...] = (
     aiohttp.ClientConnectionError,
     TimeoutError,
 )
-_SDK_ERRORS: tuple[type[BaseException], ...] = (
+SDK_ERRORS: tuple[type[BaseException], ...] = (
     errors.APIError,
     GoogleAuthError,
     *_TRANSPORT_ERRORS,
@@ -299,6 +299,26 @@ def _finish_name(reason: types.FinishReason | None) -> str | None:
     return reason.name.lower() if reason is not None else None
 
 
+def gemini_client(gcp: GcpSettings, gemini: GeminiSettings) -> Client:
+    """Cliente de `google-genai` compartido por el chat y los embeddings (3.G2)."""
+    # Sin `retry_options` el SDK hace un solo intento: los reintentos son del gateway.
+    http_options = types.HttpOptions(timeout=int(gemini.timeout_seconds * 1000))
+    if gemini.enterprise:
+        if not gcp.project:
+            raise LLMError("Falta GCP__PROJECT (Gemini en Agent Platform).")
+        return Client(
+            enterprise=True,
+            project=gcp.project,
+            location=gemini.location,
+            credentials=gcp_credentials(gcp),
+            http_options=http_options,
+        )
+    key = gemini.api_key.get_secret_value() if gemini.api_key else ""
+    if not key:
+        raise LLMError("Falta GEMINI__API_KEY (o usa GEMINI__ENTERPRISE=true).")
+    return Client(api_key=key, http_options=http_options)
+
+
 class GeminiLLM:
     def __init__(
         self,
@@ -332,23 +352,7 @@ class GeminiLLM:
         model: str,
         thinking_level: ThinkingLevel = "",
     ) -> Self:
-        # Sin `retry_options` el SDK hace un solo intento: los reintentos son del gateway.
-        http_options = types.HttpOptions(timeout=int(gemini.timeout_seconds * 1000))
-        if gemini.enterprise:
-            if not gcp.project:
-                raise LLMError("Falta GCP__PROJECT (Gemini en Agent Platform).")
-            client = Client(
-                enterprise=True,
-                project=gcp.project,
-                location=gemini.location,
-                credentials=gcp_credentials(gcp),
-                http_options=http_options,
-            )
-        else:
-            key = gemini.api_key.get_secret_value() if gemini.api_key else ""
-            if not key:
-                raise LLMError("Falta GEMINI__API_KEY (o usa GEMINI__ENTERPRISE=true).")
-            client = Client(api_key=key, http_options=http_options)
+        client = gemini_client(gcp, gemini)
         explicit = (
             ExplicitCache(client.aio.caches, ttl_seconds=gemini.cache_ttl_seconds)
             if gemini.cache == "explicit"
@@ -415,7 +419,7 @@ class GeminiLLM:
         cache_prefix = CachePrefix(self._model, system, tuple(prefix), tuple(declared), tool_config)
         try:
             hit = await self._explicit_cache.lookup_or_create(cache_prefix)
-        except _SDK_ERRORS as exc:
+        except SDK_ERRORS as exc:
             logger.warning("Caché explícita no disponible (%s): se sigue con la implícita.", exc)
             return None
         if hit is None:
@@ -439,7 +443,7 @@ class GeminiLLM:
             response = await self._models.generate_content(
                 model=self._model, contents=contents, config=config
             )
-        except _SDK_ERRORS as exc:
+        except SDK_ERRORS as exc:
             raise to_llm_error(exc) from exc
         latency_ms = (time.perf_counter() - started) * 1000
 
@@ -491,7 +495,7 @@ class GeminiLLM:
                 if text:
                     chunks_text.append(text)
                     yield TextDelta(text)
-        except _SDK_ERRORS as exc:
+        except SDK_ERRORS as exc:
             raise to_llm_error(exc) from exc
         _check_finish(reason)
         yield LLMResponse(

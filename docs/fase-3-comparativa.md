@@ -165,8 +165,8 @@ Engine como carril A. Coste 0: todo se prueba en local (emulador y dobles).
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 3.G1 | (este) | `PubSubMessageBus` en el contrato de brokers, `INDEXER__BROKER=pubsub` y `pubsub.tf` |
-| 3.G2 | | Embeddings de Gemini y Agent Retrieval (carril B) |
+| 3.G1 | `6125727` | `PubSubMessageBus` en el contrato de brokers, `INDEXER__BROKER=pubsub` y `pubsub.tf` |
+| 3.G2 | (este) | `GeminiEmbedding`, `AgentRetrievalVectorStore` (carril B), `vector_search.tf` y `indexer.forget_ledger` |
 | 3.G3 | | RAG Engine (carril A), carril C con Gemini y cierre |
 
 ### Verificación previa (15-11-2026)
@@ -241,6 +241,60 @@ días, suscripción de los workers (ack de 60 s, 5 entregas, backoff de 10 a 300
 | Indexer de extremo a extremo: productor → Pub/Sub → worker → pgvector | 20 de 20 indexados en la primera entrega |
 | Republicar los mismos 20 | 20 `unchanged` (0 embeddings): la idempotencia sigue en el ledger, no en el broker |
 | Mensaje envenenado (`--poison`) | Directo a la suscripción `<tema>.dlq` con `dead_letter_reason` y sin reintentos |
+
+### 7.2 Embeddings de Gemini y carril B con Agent Retrieval (3.G2)
+
+```powershell
+# Con coste (pendientes-cloud.md): vector_search_enabled = true, apply y después
+uv run python -m indexer.forget_ledger gcp_vector_search   # colección nueva = ledger olvidado
+# Worker con INDEXER__EMBEDDINGS=gcp e INDEXER__VECTOR_STORE=gcp_vector_search
+uv run python -m indexer.producer --source data/synthetic/knowledge-classified.jsonl
+```
+
+**Embeddings** ([`gemini_embeddings.py`](../packages/headache_core/src/headache_core/adapters/gemini_embeddings.py),
+`INDEXER__EMBEDDINGS=gcp`): `gemini-embedding-001` a 1024 dimensiones, como `text-embedding-3-small`
+y Titan v2, para que el esquema sea el mismo en las tres nubes.
+
+| | Azure OpenAI | Titan v2 | Gemini |
+|---|---|---|---|
+| Dimensiones | `dimensions=1024` (Matryoshka) | `dimensions=1024` | `output_dimensionality=1024` (Matryoshka, de 3072) |
+| Documento ≠ consulta | No | No | **Sí**: `RETRIEVAL_DOCUMENT` en `embed_texts`, `RETRIEVAL_QUERY` en `embed_query` |
+| Normalizados | Sí | `normalize=True` | Solo garantizado a 3072: **se normalizan aquí** (L2) |
+| Lote | 2048 textos | 1 (en paralelo acotado) | 250 textos y 20 000 tokens; la REST dice que 001 admite 1 (`GEMINI__EMBEDDING_BATCH_SIZE`, se confirma en la nube) |
+
+El cliente de `google-genai` se comparte con el chat (`gemini.gemini_client`), y los errores se
+traducen igual (429 → `LLMRateLimitError`). Un vector con dimensiones distintas de las pedidas es un
+error, no un dato: corrompería el índice en silencio. El nombre del modelo entra en
+`pipeline_version` (`gcp:gemini-embedding-001-1024`): cambiar de nube obliga a reindexar.
+
+**Almacén** ([`gcp_vector_search.py`](../packages/headache_core/src/headache_core/adapters/gcp_vector_search.py),
+`INDEXER__VECTOR_STORE=gcp_vector_search`): una *collection* de Agent Retrieval guarda objetos JSON
+con sus vectores. Se parece más a S3 Vectors (filtros `$eq`/`$and`, pago por uso) que a Vector
+Search 1.0, donde el índice solo guardaba vectores y había que desplegar un endpoint con VMs.
+
+| Problema | Resolución |
+|---|---|
+| IDs RFC1035 (1-63 caracteres, minúsculas, empieza por letra): `policy-x-es::0003` no vale | `object_id`: `c` + 32 hex del SHA-256, determinista; el id original viaja en `chunk_id` (en AI Search, base64 por la misma razón) |
+| No hay *upsert* | Crear en lote; si alguno existe (`AlreadyExists`), crear o reemplazar uno a uno. Vale tanto si el lote es atómico como si no (a confirmar en la nube) |
+| Borrar lo que ya no existe da `NotFound` | Borrado idempotente: se cae a uno a uno ignorando `NotFound` (reintentos del worker) |
+| `Struct` de protobuf devuelve los números como `float` | Metadatos completos también en `metadata_json`, como en AI Search |
+| La búsqueda devuelve **distancia** coseno | `score = 1 - distancia`, como en S3 Vectors |
+| Filtros solo sobre campos declarados | Los mismos 8 filtrables que AI Search, como texto, en el `data_schema` de la colección; uno no declarado es un `ValueError` |
+
+[`vector_search.tf`](../infra/terraform/gcp/vector_search.tf): colección con `vector_schema`
+(`embedding`, 1024, **sin** `vertex_embedding_config`: si la colección embebiera por su cuenta
+sería el carril A) y `data_schema` en JSON Schema, detrás de `vector_search_enabled` (efímera, como
+AI Search). Sin índice ANN: para ~150 chunks basta la búsqueda exacta y el índice añade coste de
+capacidad. El rol `roles/vectorsearch.dataObjectWriter` va a nivel de proyecto (el provider no
+tiene IAM por colección) y solo mientras la colección existe.
+
+**`indexer.forget_ledger`:** el ledger describe lo indexado en cada destino. Si la colección se
+recrea vacía, el worker vería "sin cambios" y la dejaría vacía (en AI Search lo resuelve
+`provision_search_index.py --apply`; aquí la colección la crea Terraform).
+
+**Resultados:** solo locales (dobles construidos desde la documentación y tipos reales del SDK
+`google-cloud-vectorsearch` 0.11.6); la ingesta real, el coste y la latencia, en
+[pendientes](pendientes-cloud.md#fase-3-gcp).
 
 ## 8. Checkpoint de entrevista
 

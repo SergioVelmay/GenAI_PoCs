@@ -98,14 +98,19 @@ terraform -chdir=infra/terraform/gcp plan     # solo debe añadir roles/aiplatfo
 ### GCP (pasada 3.G)
 
 Requiere la [fase 0 de GCP](#fase-0) (proyecto, `apply` y suplantación). Pub/Sub se paga por
-volumen (los primeros 10 GiB al mes son gratis): esta prueba cuesta 0.
+volumen (los primeros 10 GiB al mes son gratis): su prueba cuesta 0. Los embeddings del corpus
+cuestan céntimos. Agent Retrieval se paga por uso (almacenamiento por GiB-hora, lecturas y
+escrituras) y es **efímero** (`vector_search_enabled`): hacer todo el carril B en una sola sesión.
 
 ```powershell
 $env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
 terraform -chdir=infra/terraform/gcp plan     # pubsub.tf: 2 temas, 2 suscripciones y 6 permisos
+# Carril B: vector_search_enabled = true en terraform.tfvars; al terminar, false y otro apply
 ```
 
 - [ ] **Pub/Sub real** (3.G1): `apply` de `pubsub.tf` y el indexer con `INDEXER__BROKER=pubsub` (sin `PUBSUB__EMULATOR_HOST`), primero con `--limit 20` y después `--poison`. Comprobar que el envenenado llega a `knowledge.documents.dlq`, que un fallo transitorio forzado agota las 5 entregas con el backoff de 10 a 300 s y que `delivery_attempt` cuenta igual que en el emulador (en la nube es aproximado). Si la DLQ no recibe nada, revisar los permisos del agente de servicio (la consola lo avisa en la suscripción).
+- [ ] **Embeddings de Gemini** (3.G2): con `INDEXER__EMBEDDINGS=gcp`, confirmar cuántos textos admite `gemini-embedding-001` por petición en Agent Platform (la REST dice 1; si es así, `GEMINI__EMBEDDING_BATCH_SIZE=1`), que los vectores llegan a 1024 y si vienen ya normalizados, y el precio por token. Capturar una respuesta real para los dobles de `test_gemini_embeddings.py`.
+- [ ] **Agent Retrieval** (3.G2): `vector_search_enabled = true`, `apply` (añade la API `vectorsearch.googleapis.com`, la colección y `roles/vectorsearch.dataObjectWriter`), `uv run python -m indexer.forget_ledger gcp_vector_search` y el carril B completo (`INDEXER__BROKER=pubsub`, `INDEXER__EMBEDDINGS=gcp`, `INDEXER__VECTOR_STORE=gcp_vector_search`) con el corpus clasificado. Medir como en Azure (ingesta, republicar = 0 embeddings, 1 cambio = 1, latencia p50/p95 con `indexer.search`). Comprobar: si `batch_create` es atómico ante un `AlreadyExists`, que la distancia `COSINE_DISTANCE` es `1 - coseno`, que los filtros funcionan sin índice y si hay algún coste fijo sin índice ANN (facturación por SKU al día siguiente). Capturar respuestas reales para `test_gcp_vector_search.py`. Al terminar, `vector_search_enabled = false`.
 
 ## Fase 4 · Retrieval ([doc](fase-4-retrieval.md))
 

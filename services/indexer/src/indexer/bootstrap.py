@@ -42,6 +42,13 @@ def build_embeddings(settings: Settings, config: IndexerSettings) -> tuple[Embed
                 BedrockTitanEmbedding.from_settings(bedrock, EMBEDDING_DIMENSIONS),
                 f"bedrock:{bedrock.embedding_model_id}-{EMBEDDING_DIMENSIONS}",
             )
+        case "gcp":
+            from headache_core.adapters.gemini_embeddings import GeminiEmbedding
+
+            return (
+                GeminiEmbedding.from_settings(settings.gcp, settings.gemini, EMBEDDING_DIMENSIONS),
+                f"gcp:{settings.gemini.embedding_model}-{EMBEDDING_DIMENSIONS}",
+            )
 
 
 def build_cloud_store(settings: Settings, config: IndexerSettings) -> VectorStorePort:
@@ -49,6 +56,10 @@ def build_cloud_store(settings: Settings, config: IndexerSettings) -> VectorStor
         from headache_core.adapters.azure_search import AzureAISearchVectorStore
 
         return AzureAISearchVectorStore.from_settings(settings.azure_search)
+    if config.vector_store == "gcp_vector_search":
+        from headache_core.adapters.gcp_vector_search import AgentRetrievalVectorStore
+
+        return AgentRetrievalVectorStore.from_settings(settings.gcp_vector_search, settings.gcp)
     from headache_core.adapters.s3_vectors import S3VectorStore
 
     return S3VectorStore.from_settings(settings.s3_vectors)

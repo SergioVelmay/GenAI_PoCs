@@ -41,6 +41,9 @@ gcp = [
     "google-cloud-storage>=3.17",
     # Hay 3.0, pero ADK 2.14 (sabor de la 7.G) exige `google-genai<3`: manda el techo del
     # framework para que las tres nubes y los seis sabores quepan en un solo lock.
+    # Agent Retrieval (antes Vector Search 2.0; 3.G2). Producto GA, pero SDK 0.x: cada versión
+    # menor puede romper la API, así que se sube a mano y con los tests delante.
+    "google-cloud-vectorsearch>=0.11,<0.12",
     "google-genai>=2.34,<3",
 ]
 gateway = [

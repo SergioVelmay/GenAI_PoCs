@@ -38,7 +38,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
 | Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus), Vertex AI Search (respuestas citadas) |
-| Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Vector Search, Cloud SQL / AlloyDB + pgvector |
+| Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
 | Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
@@ -377,6 +377,19 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    de Pub/Sub: tiene que poder publicar en el tema DLQ y suscribirse a la suscripción original. Sin
    eso, la dead-letter policy aparece configurada pero no mueve nada y el mensaje se reintenta
    para siempre. En `pubsub.tf` va explícito, junto con los permisos por recurso de la app.
+3. **¿Por qué Agent Retrieval y no Vector Search en GCP?** Porque Vector Search 2.0 salió GA en
+   marzo de 2026 con otro nombre (Agent Retrieval) y otro modelo: *collections* que guardan el
+   objeto JSON con su vector, filtros tipo `$eq` y pago por uso, mucho más cerca de S3 Vectors.
+   Vector Search 1.0 obliga a desplegar un endpoint con VMs por horas aunque nadie consulte. Lo vi
+   en la verificación previa, no en el plan, que tenía una semana: por eso cada fase empieza
+   comprobando la documentación. Al adaptarlo aparecieron tres bordes que el puerto oculta: IDs
+   RFC1035 (hash determinista), ausencia de *upsert* (crear o reemplazar) y números que vuelven
+   como `float` (metadatos también en JSON).
+4. **Gemini pide `task_type` en los embeddings: ¿qué cambia?** El vector de un documento y el de
+   una consulta se optimizan distinto (`RETRIEVAL_DOCUMENT` frente a `RETRIEVAL_QUERY`), algo que
+   ni Azure OpenAI ni Titan hacen. El puerto ya separaba `embed_texts` de `embed_query`, así que
+   encajó sin tocarlo. Además, recorto a 1024 dimensiones (Matryoshka) para usar el mismo esquema
+   en las tres nubes y normalizo yo, porque Google solo garantiza la norma a 3072.
 
 **Negocio y stakeholders**
 

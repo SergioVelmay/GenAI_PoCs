@@ -23,10 +23,14 @@ class IndexerSettings(BaseSettings):
     engine: Literal["native", "llamaindex"] = "native"
     # rabbitmq en local; sqs (ElasticMQ/AWS), servicebus (emulador/Azure) y pubsub (emulador/GCP).
     broker: Literal["rabbitmq", "sqs", "servicebus", "pubsub"] = "rabbitmq"
-    # hashing = local sin coste; azure (text-embedding-3-small) y bedrock (Titan v2) cuestan.
-    embeddings: Literal["hashing", "azure", "bedrock"] = "hashing"
-    # Carril B en la nube: azure_search o s3_vectors. El ledger sigue en PostgreSQL.
-    vector_store: Literal["pgvector", "azure_search", "s3_vectors"] = "pgvector"
+    # hashing = local sin coste; azure (text-embedding-3-small), bedrock (Titan v2) y gcp
+    # (gemini-embedding-001) cuestan.
+    embeddings: Literal["hashing", "azure", "bedrock", "gcp"] = "hashing"
+    # Carril B en la nube: azure_search, s3_vectors o gcp_vector_search (Agent Retrieval). El
+    # ledger sigue en PostgreSQL.
+    vector_store: Literal["pgvector", "azure_search", "s3_vectors", "gcp_vector_search"] = (
+        "pgvector"
+    )
     index_name: str = "knowledge"
     topic: str = "knowledge.documents"
     chunk_strategy: Literal["sentence", "fixed", "semantic", "hierarchical"] = "sentence"

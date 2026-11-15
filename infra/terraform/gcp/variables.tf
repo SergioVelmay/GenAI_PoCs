@@ -57,6 +57,7 @@ variable "services" {
     "monitoring.googleapis.com",
     "pubsub.googleapis.com",
     "storage.googleapis.com",
+    "vectorsearch.googleapis.com",
   ]
 }
 
@@ -71,6 +72,26 @@ variable "max_deliveries" {
     condition     = var.max_deliveries >= 5 && var.max_deliveries <= 100
     error_message = "Pub/Sub admite de 5 a 100 entregas."
   }
+}
+
+# ---------- Carril B: Agent Retrieval (vector_search.tf) ----------
+
+variable "vector_search_enabled" {
+  description = "Crea la colección de Agent Retrieval (con coste por uso). Efímera: true durante la sesión."
+  type        = bool
+  default     = false
+}
+
+variable "vector_search_collection" {
+  description = "GCP_VECTOR_SEARCH__COLLECTION (RFC1035: minúsculas, dígitos y guiones)."
+  type        = string
+  default     = "knowledge"
+}
+
+variable "embedding_dimensions" {
+  description = "Dimensiones del embedding (las mismas en las tres nubes)."
+  type        = number
+  default     = 1024
 }
 
 # ---------- Presupuesto (budget.tf) ----------

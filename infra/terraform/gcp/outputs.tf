@@ -25,3 +25,8 @@ output "knowledge_topic" {
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
 }
+
+output "vector_search_collection" {
+  description = "GCP_VECTOR_SEARCH__COLLECTION (null mientras vector_search_enabled = false)."
+  value       = var.vector_search_enabled ? google_vector_search_collection.knowledge[0].collection_id : null
+}
