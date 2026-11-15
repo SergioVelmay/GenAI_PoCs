@@ -17,17 +17,16 @@ de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 pendientes de GCP se añaden a la sección de cada fase durante la pasada GCP
 ([plan](fase-13-12-checkpoint.md#plan-gcp)); Vector Search y RAG Engine serán efímeros, como AI Search.
 
-**Renombrado a Genaipocs (15-11-2026):** el código y Terraform usan ahora `genaipocs`, pero los
-recursos de Azure ya desplegados conservan el nombre antiguo, y así figuran en el estado
-(`terraform.tfstate`, que no se edita a mano). El próximo `plan` de Azure propondrá **destruir y
-recrear** el grupo de recursos y todo lo que contiene con los nombres nuevos (`rg-genaipocs-dev`,
+**Renombrado a Genaipocs (15-11-2026):** el código y Terraform usan ahora `genaipocs`. Los
+recursos de Azure que se crearon con el nombre antiguo **ya no existen** (Sergio los borró), pero
+el estado local (`terraform.tfstate`, que no se edita a mano) todavía los lista: el próximo `plan`
+los verá como desaparecidos y propondrá **crearlos** con los nombres nuevos (`rg-genaipocs-dev`,
 `aif-genaipocs-dev-swc-001`, `stgenaipocsdevswc001`...). Antes de aplicarlo, con confirmación:
 comprobar que los nombres nuevos están libres (`az storage account check-name`,
-`az servicebus namespace exists`, `checkNameAvailability` de AI Services), revisar el `plan`
-entero, aplicar, purgar de la papelera los recursos borrados que retienen nombre (AI Services,
-Content Safety) y volcar las salidas nuevas al `.env`. El perfil aislado de la CLI es ahora
-`%USERPROFILE%\.azure-genaipocs` (movido, con la sesión intacta). AWS y GCP no se han aplicado
-aún: no recrean nada.
+`az servicebus namespace exists`, `checkNameAvailability` de AI Services), purgar de la papelera
+lo borrado que retenga nombre (AI Services, Content Safety), revisar el `plan` entero y volcar
+las salidas nuevas al `.env`. El perfil aislado de la CLI es ahora
+`%USERPROFILE%\.azure-genaipocs` (movido, con la sesión intacta). AWS y GCP no se han aplicado.
 
 **AI Search es efímero** (`search_enabled`): se cobra por hora aunque no se use, así que solo existe
 durante las sesiones de trabajo (p. ej., de viernes a domingo). El nombre y el endpoint no cambian.
