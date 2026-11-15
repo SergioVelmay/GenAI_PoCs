@@ -28,8 +28,8 @@ from fastapi.sse import KEEPALIVE_COMMENT, format_sse_event
 from pydantic import BaseModel
 
 from edge_api.assistant import Answer, AnswerChunk, AssistantEvent
-from headache_core.application.telemetry import get_telemetry, metrics
-from headache_core.ports import LLMDeadlineExceededError, LLMTransientError
+from genaipocs_core.application.telemetry import get_telemetry, metrics
+from genaipocs_core.ports import LLMDeadlineExceededError, LLMTransientError
 
 logger = logging.getLogger(__name__)
 

@@ -2,9 +2,9 @@
 paths:
   - "services/indexer/**"
   - "services/retrieval/**"
-  - "packages/headache_core/src/headache_core/application/ingestion/**"
-  - "packages/headache_core/src/headache_core/ports/vector_store.py"
-  - "packages/headache_core/src/headache_core/ports/messaging.py"
+  - "packages/genaipocs_core/src/genaipocs_core/application/ingestion/**"
+  - "packages/genaipocs_core/src/genaipocs_core/ports/vector_store.py"
+  - "packages/genaipocs_core/src/genaipocs_core/ports/messaging.py"
   - "scripts/chunking_report.py"
   - "scripts/provision_search_index.py"
   - "scripts/provision_foundry_iq.py"

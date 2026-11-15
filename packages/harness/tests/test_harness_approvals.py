@@ -8,6 +8,12 @@ from decimal import Decimal
 
 import pytest
 
+from genaipocs_core.adapters.memory import InMemoryApprovalStore, InMemoryUnitOfWork
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
+from genaipocs_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
 from harness import (
     APPROVAL_REQUIRED,
     ApprovalError,
@@ -27,12 +33,6 @@ from harness.rules.partner_email import (
     submit_partner_email,
 )
 from harness.rules.refunds import refund_approval_gate, refund_claims_grounded
-from headache_core.adapters.memory import InMemoryApprovalStore, InMemoryUnitOfWork
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.tools import ToolContext, ToolExecution, build_ticketing_tools
-from headache_core.domain import Customer, Event, EventCategory, Money, Order, OrderStatus, Session
-from headache_core.ports import ToolCall
-from headache_core.ports.approvals import ApprovalStatus
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")
@@ -167,7 +167,7 @@ async def test_partner_email_is_sent_only_after_four_eyes_approval() -> None:
     store = InMemoryApprovalStore()
     service = ApprovalService(store, build_partner_email_tools(send))
     case = PartnerEmailCase("INC-1", "Sala Aurora", "Laura", "es", facts={})
-    email = RenderedEmail("[Headache Partners] Retraso · INC-1", "Hola, Laura:\n\n...")
+    email = RenderedEmail("[Genaipocs Partners] Retraso · INC-1", "Hola, Laura:\n\n...")
     no_draft = CorrectionResult[PartnerEmailDraft](None)
     result = PartnerEmailResult(no_draft, email)
 

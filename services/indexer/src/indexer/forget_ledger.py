@@ -15,12 +15,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from headache_core.adapters.postgres import (
+from genaipocs_core.adapters.postgres import (
     PostgresIngestionLedger,
     create_engine,
     create_session_factory,
 )
-from headache_core.config import get_settings
+from genaipocs_core.config import get_settings
 from indexer.bootstrap import cloud_ledger_index
 from indexer.settings import IndexerSettings
 

@@ -8,8 +8,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from headache_core.adapters.memory import InMemoryUnitOfWork
-from headache_core.domain import (
+from genaipocs_core.adapters.memory import InMemoryUnitOfWork
+from genaipocs_core.domain import (
     Customer,
     Event,
     EventCategory,

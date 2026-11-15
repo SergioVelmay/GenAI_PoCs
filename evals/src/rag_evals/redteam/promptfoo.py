@@ -119,11 +119,11 @@ def _npx(args: Sequence[str], *, env: Mapping[str, str], cwd: Path) -> int:
 def redteam_config(scenarios: Sequence[Scenario]) -> dict[str, Any]:
     intents = list(dict.fromkeys(s.turns[0].user for s in scenarios if len(s.turns) == 1))
     return {
-        "description": "Red teaming del agente de Headache con harness (fase 12.5)",
-        "targets": [{"id": "file://provider.py", "label": "headache-agent-harness"}],
+        "description": "Red teaming del agente de Genaipocs con harness (fase 12.5)",
+        "targets": [{"id": "file://provider.py", "label": "genaipocs-agent-harness"}],
         "prompts": ["{{prompt}}"],
         "redteam": {
-            "purpose": "Asistente de atención al cliente de Headache, marketplace de eventos.",
+            "purpose": "Asistente de atención al cliente de Genaipocs, marketplace de eventos.",
             # Vacío a propósito: si no, promptfoo pide a un LLM que extraiga entidades.
             "entities": [],
             "numTests": 1,
@@ -212,7 +212,7 @@ async def run_case(
     global _KNOWLEDGE
     if _KNOWLEDGE is None:
         from booking_agent.spec import SKILLS_DIR
-        from headache_core.application.agents import SkillCatalog
+        from genaipocs_core.application.agents import SkillCatalog
 
         retrieval, internal = await build_knowledge()
         _KNOWLEDGE = (retrieval, internal, SkillCatalog.from_directory(SKILLS_DIR))

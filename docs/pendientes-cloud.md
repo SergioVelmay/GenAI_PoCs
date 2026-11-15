@@ -17,11 +17,22 @@ de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 pendientes de GCP se añaden a la sección de cada fase durante la pasada GCP
 ([plan](fase-13-12-checkpoint.md#plan-gcp)); Vector Search y RAG Engine serán efímeros, como AI Search.
 
+**Renombrado a Genaipocs (15-11-2026):** el código y Terraform usan ahora `genaipocs`. Los
+recursos de Azure que se crearon con el nombre antiguo **ya no existen** (Sergio los borró), pero
+el estado local (`terraform.tfstate`, que no se edita a mano) todavía los lista: el próximo `plan`
+los verá como desaparecidos y propondrá **crearlos** con los nombres nuevos (`rg-genaipocs-dev`,
+`aif-genaipocs-dev-swc-001`, `stgenaipocsdevswc001`...). Antes de aplicarlo, con confirmación:
+comprobar que los nombres nuevos están libres (`az storage account check-name`,
+`az servicebus namespace exists`, `checkNameAvailability` de AI Services), purgar de la papelera
+lo borrado que retenga nombre (AI Services, Content Safety), revisar el `plan` entero y volcar
+las salidas nuevas al `.env`. El perfil aislado de la CLI es ahora
+`%USERPROFILE%\.azure-genaipocs` (movido, con la sesión intacta). AWS y GCP no se han aplicado.
+
 **AI Search es efímero** (`search_enabled`): se cobra por hora aunque no se use, así que solo existe
 durante las sesiones de trabajo (p. ej., de viernes a domingo). El nombre y el endpoint no cambian.
 
 ```powershell
-$env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-headache"; az account show -o table
+$env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-genaipocs"; az account show -o table
 # Al empezar: search_enabled = true en terraform.tfvars y después
 terraform -chdir=infra/terraform/azure apply
 uv run python scripts/provision_search_index.py --apply   # índice del carril B
@@ -44,23 +55,23 @@ Desbloquea todos los pendientes de GCP de las fases siguientes. Coste 0: APIs, p
 cuentas de servicio y federación no se facturan.
 
 ```powershell
-$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
+$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-genaipocs"; gcloud config list
 gcloud auth login ; gcloud auth application-default login     # ADC de usuario, sin claves JSON
 terraform -chdir=infra/terraform/gcp init
 terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 ```
 
-- [ ] **Cuenta y proyecto**: cuenta nueva con créditos de prueba, proyecto `headache-dev-<sufijo>` vinculado a la cuenta de facturación y `gcloud` aislado con `CLOUDSDK_CONFIG`. Anotar la moneda de la cuenta (el presupuesto la hereda).
-- [ ] **`terraform apply`** de `infra/terraform/gcp` con `terraform.tfvars` (copia de la plantilla): 15 APIs, presupuesto de 100 con alertas al 50/75/100 % sobre el gasto **bruto**, cuenta de servicio `headache-dev-app` con *impersonation* para el usuario y federación de GitHub Actions. Comprobar que llega el correo de prueba del canal de notificación.
+- [ ] **Cuenta y proyecto**: cuenta nueva con créditos de prueba, proyecto `genaipocs-dev-<sufijo>` vinculado a la cuenta de facturación y `gcloud` aislado con `CLOUDSDK_CONFIG`. Anotar la moneda de la cuenta (el presupuesto la hereda).
+- [ ] **`terraform apply`** de `infra/terraform/gcp` con `terraform.tfvars` (copia de la plantilla): 15 APIs, presupuesto de 100 con alertas al 50/75/100 % sobre el gasto **bruto**, cuenta de servicio `genaipocs-dev-app` con *impersonation* para el usuario y federación de GitHub Actions. Comprobar que llega el correo de prueba del canal de notificación.
 - [ ] **Suplantación desde local**: `GCP__IMPERSONATE_SERVICE_ACCOUNT` en el `.env` y `gcloud auth print-access-token --impersonate-service-account=<cuenta>` responde.
 - [ ] **Federación de la CI** (fase 15): workflow en `main` con `google-github-actions/auth` (`workload_identity_provider` y `service_account` de los outputs) y comprobar que un workflow de una PR **no** obtiene credenciales.
 - [ ] **Pub/Sub real frente al emulador** (con la 3.G1): el smoke test contra un tema real y anotar diferencias (p. ej., *dead-letter topic*, que el emulador puede no soportar).
 
 ## Fase 2 · Capa de modelos ([doc](fase-2-modelos.md))
 
-- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-headache`), suscripción *MSDN - Sergio Velasco* (17-10-2026).
+- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`), suscripción *MSDN - Sergio Velasco* (17-10-2026).
 - [ ] **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
-- [x] **Azure AI Foundry** como código (`foundry.tf`): cuenta AI Services, proyecto `headache` y despliegues `gpt-4.1-mini`, `gpt-4.1-nano` y `text-embedding-3-small` en `swedencentral`, **DataZoneStandard** (chat 200 K TPM desde el 18-10-2026; embeddings 50 K), con *Cognitive Services OpenAI User* y *Foundry User* para el usuario. `terraform apply` del grupo `rg-headache-dev` (17 recursos; AI Search apagado) el 17-10-2026. Prueba de humo: `gpt-4.1-nano` responde con Entra ID (16 + 2 tokens, 0,0000024 $) y el embedding devuelve 1024 dimensiones. Hallazgos: el proyecto debe crearse en serie con los despliegues (409) y el rol "Azure AI User" se llama ahora "Foundry User". El 18-10-2026 los recursos se recrearon con nombres CAF (`aif-headache-dev-swc-001`...), sin sufijo aleatorio.
+- [x] **Azure AI Foundry** como código (`foundry.tf`): cuenta AI Services, proyecto `genaipocs` y despliegues `gpt-4.1-mini`, `gpt-4.1-nano` y `text-embedding-3-small` en `swedencentral`, **DataZoneStandard** (chat 200 K TPM desde el 18-10-2026; embeddings 50 K), con *Cognitive Services OpenAI User* y *Foundry User* para el usuario. `terraform apply` del grupo `rg-genaipocs-dev` (17 recursos; AI Search apagado) el 17-10-2026. Prueba de humo: `gpt-4.1-nano` responde con Entra ID (16 + 2 tokens, 0,0000024 $) y el embedding devuelve 1024 dimensiones. Hallazgos: el proyecto debe crearse en serie con los despliegues (409) y el rol "Azure AI User" se llama ahora "Foundry User". El 18-10-2026 los recursos se recrearon con nombres CAF (`aif-genaipocs-dev-swc-001`...), sin sufijo aleatorio.
 - [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
 - [x] Azure (18-10-2026): `llm_cache_benchmark.py` en los dos tiers (caché −58 % de coste, 98 % de tokens cacheados desde la 2.ª llamada) y `llm_gateway_demo.py` con `native`, `litellm` y router LLM (20/20; el router LLM duplica llamadas sin mejorar el enrutado). Trazas en Langfuse. Capacidad subida a 200 K TPM tras un 429 con 50 K. Detalle en [fase 2](fase-2-modelos.md).
 - [ ] AWS: repetir ambos scripts con `--provider aws` y probar el fallback entre proveedores.
@@ -74,11 +85,11 @@ Requiere la [fase 0 de GCP](#fase-0) (proyecto, `apply` y suplantación). Gemini
 la prueba de humo cuesta céntimos.
 
 ```powershell
-$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
+$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-genaipocs"; gcloud config list
 terraform -chdir=infra/terraform/gcp plan     # solo debe añadir roles/aiplatform.user
 ```
 
-- [ ] **`apply` del rol** `roles/aiplatform.user` para `headache-dev-app` (2.G1) y comprobar la suplantación con una llamada real (un 403 justo después suele ser propagación).
+- [ ] **`apply` del rol** `roles/aiplatform.user` para `genaipocs-dev-app` (2.G1) y comprobar la suplantación con una llamada real (un 403 justo después suele ser propagación).
 - [ ] **Prueba de humo** con `LLM_PROVIDER=gcp`: `gemini-4-hydrogen` y `gemini-3.5-flash-lite` responden en `global`; anotar el `model_version` real, los tokens de razonamiento con `thinking_level=low` y si `eu` sirve los dos modelos.
 - [ ] **Tools con firma**: un bucle de dos pasos con llamadas en paralelo (`scripts/tool_loop_demo.py`) y otro con historial de Azure (fallback a mitad de conversación) para ver el valor ficticio aceptado. Capturar las respuestas reales y sustituir los dobles de `test_gemini_adapter.py`.
 - [ ] **Precios en Agent Platform**: confirmar los de `pricing.py` (se tomaron de la Developer API) y el recargo de `eu`.
@@ -105,7 +116,7 @@ RAG Engine (carril A) en nivel Basic se paga **por horas** (Spanner): también e
 (`rag_engine_enabled`), en la misma sesión.
 
 ```powershell
-$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-headache"; gcloud config list
+$env:CLOUDSDK_CONFIG = "$env:USERPROFILE\.gcloud-genaipocs"; gcloud config list
 terraform -chdir=infra/terraform/gcp plan     # pubsub.tf: 2 temas, 2 suscripciones y 6 permisos
 # Carril B: vector_search_enabled = true en terraform.tfvars; al terminar, false y otro apply
 ```
@@ -138,14 +149,14 @@ Requiere antes los pendientes de las fases 2 y 3.
 
 - [x] Azure (18-10-2026): `tool_loop_demo.py` y `support_agent` (con y sin `--gateway`, `MCP__AUTH=jwt`) con Azure OpenAI; trazas y coste en Langfuse. Tres fallos de diseño de tools corregidos y regla de routing para escrituras.
 - [ ] AWS: los mismos agentes con Bedrock.
-- [ ] Registrar los servidores MCP en Entra ID (App ID URI y scopes; revisar el formato de `scp`) y en Cognito (resource server + scopes); probar OBO de extremo a extremo. **Aplazado a la fase 14** (decisión del 18-10-2026: las App Registrations van como código con `azuread`, no a mano en el tenant corporativo). Ya está `EntraOboExchanger` (`headache_mcp.entra`) con tests y el gateway pasa el token de entrada al exchanger; falta el mapeo `oid` → `customer_id`.
+- [ ] Registrar los servidores MCP en Entra ID (App ID URI y scopes; revisar el formato de `scp`) y en Cognito (resource server + scopes); probar OBO de extremo a extremo. **Aplazado a la fase 14** (decisión del 18-10-2026: las App Registrations van como código con `azuread`, no a mano en el tenant corporativo). Ya está `EntraOboExchanger` (`genaipocs_mcp.entra`) con tests y el gateway pasa el token de entrada al exchanger; falta el mapeo `oid` → `customer_id`.
 - [ ] Con los servidores MCP en HTTPS (fases 13/14): `mcp_gateway_enabled=true` (AgentCore Gateway) y `apim_enabled=true` (APIM); comparar latencia y coste con el gateway propio.
 - [ ] Tool de compra con `Idempotency-Key` estable y aprobación humana.
 
 ## Fase 7 · Agentes ([doc](fase-7-agentes.md))
 
 - [x] Suite de agentes con LLM real en Azure (18-10-2026, ~0,08 $): 4-6 de 12 por sabor, pero la mayoría de fallos son del comprobador por literales; fallos reales: idioma, bucle en una pregunta informativa y una escritura de memoria no pedida. Criterios de modo `llm` basados en el resultado; juez de respuestas para la fase 12.
-- [x] Foundry: agente `headache-booking-agent` publicado (v2) y sabor `foundry` contra **Foundry Agent Service real** (`--foundry-service`, `create_cloud`); el primer recorrido de extremo a extremo usó el emulador local sin saberlo.
+- [x] Foundry: agente `genaipocs-booking-agent` publicado (v2) y sabor `foundry` contra **Foundry Agent Service real** (`--foundry-service`, `create_cloud`); el primer recorrido de extremo a extremo usó el emulador local sin saberlo.
 - [x] Conversación larga: compactación propia frente a Foundry (`scripts/context_growth_demo.py`, 18-10-2026): Foundry guarda las salidas de las tools y gasta un 33 % más a los 14 turnos; ninguno trunca.
 - [ ] AgentCore: imagen ARM64 del Runtime en ECR (entrypoint con `create_runtime_app`, fase 13), `agentcore_enabled=true` + `agentcore_container_uri`, cablear `AgentCoreCheckpointStore`/`AgentCorePreferenceStore` con `AGENTCORE__MEMORY_ID` e invocar con `BotoRuntimeInvoker` (rol con `InvokeAgentRuntimeForUser`).
 - [ ] Valorar las estrategias de extracción de AgentCore Memory (`USER_PREFERENCE`) y la memoria de Foundry frente a la tool explícita `remember_preference`. **Pasa a la fase 9** (memoria compartida entre agentes); la suite con LLM real ya mostró que el modelo guarda planes puntuales como preferencias.

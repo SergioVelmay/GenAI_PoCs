@@ -1,6 +1,6 @@
 # Fase 5 · Evals de RAG: golden dataset, métricas, jueces y gate en CI
 
-Cómo sabemos si el RAG de Headache funciona y cómo evitamos que empeore sin que nadie se dé cuenta.
+Cómo sabemos si el RAG de Genaipocs funciona y cómo evitamos que empeore sin que nadie se dé cuenta.
 Todo se mide con el mismo corpus congelado, el mismo golden dataset y las mismas métricas en los
 carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) queda pendiente de nube.
 
@@ -12,13 +12,13 @@ carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) q
 | Pieza | Qué hace | Código |
 |---|---|---|
 | Corpus congelado | Escala `small`, semilla 42: 116 documentos / 131 chunks, sha256 verificado | [evals/corpus/knowledge.jsonl](../evals/corpus/knowledge.jsonl) |
-| Golden dataset v1 | 144 preguntas generadas por plantillas a partir de los documentos (gold por `document_id`, relevancia graduada, literales de evidencia) | [golden.py](../evals/src/rag_evals/golden.py), [golden-v1.jsonl](../evals/datasets/golden-v1.jsonl) |
-| Métricas puras | Hit@k, Recall@k, MRR, nDCG graduado, precisión media, percentiles | [domain/evals.py](../packages/headache_core/src/headache_core/domain/evals.py) |
+| Golden dataset v1 (v2 desde el 15-11-2026) | 144 preguntas generadas por plantillas a partir de los documentos (gold por `document_id`, relevancia graduada, literales de evidencia). La v2 tiene las mismas preguntas sobre el corpus con el cliente renombrado a Genaipocs: un corpus nuevo es un dataset nuevo, y la v1 se conserva con la huella de su corpus | [golden.py](../evals/src/rag_evals/golden.py), [golden-v1.jsonl](../evals/datasets/golden-v1.jsonl) |
+| Métricas puras | Hit@k, Recall@k, MRR, nDCG graduado, precisión media, percentiles | [domain/evals.py](../packages/genaipocs_core/src/genaipocs_core/domain/evals.py) |
 | Evals de retrieval | Todas las estrategias de B y C | [retrieval_eval.py](../evals/src/rag_evals/retrieval_eval.py) |
 | Evals de generación | Citas auditadas, abstención, fugas ACL; modo LLM y jueces con presupuesto | [generation_eval.py](../evals/src/rag_evals/generation_eval.py) |
 | Jueces LLM | Nativo (B) y RAGAS / DeepEval (C) sobre el mismo `LLMPort` | [judges.py](../evals/src/rag_evals/judges.py), [frameworks/](../evals/src/rag_evals/frameworks/) |
 | Medidor de coste | Corta antes de cada llamada al agotar el presupuesto | [metering.py](../evals/src/rag_evals/metering.py) |
-| Gate | Compara informes con un baseline versionado | [gate.py](../evals/src/rag_evals/gate.py), [baseline-v1.json](../evals/baselines/baseline-v1.json) |
+| Gate | Compara informes con un baseline versionado | [gate.py](../evals/src/rag_evals/gate.py), [baseline-v2.json](../evals/baselines/baseline-v2.json) (mismas métricas que el v1) |
 
 Composición del golden dataset: 78 factuales, 19 multilingües (pregunta en un idioma, documento en el
 otro), 17 con filtros, 16 sin respuesta en el corpus y 14 adversariales de ACL (preguntan por datos
@@ -246,8 +246,8 @@ dando por indexados los documentos de un AI Search recreado vacío (ahora
 
 ## 5. Gate en CI
 
-El job `evals` de la CI regenera los informes en Linux y los compara con
-[baseline-v1.json](../evals/baselines/baseline-v1.json):
+El job `evals` de la CI regenera los informes en Linux y los compara con el baseline de la versión
+actual del golden ([baseline-v2.json](../evals/baselines/baseline-v2.json); el v1 se conserva):
 
 | Regla | Ejemplos | Efecto |
 |---|---|---|
@@ -264,7 +264,7 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 
 | Necesidad | Azure | AWS | Framework / propio |
 |---|---|---|---|
-| Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `golden-v1.jsonl` versionado en Git |
+| Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `golden-v2.jsonl` versionado en Git |
 | Métricas de retrieval | Evaluadores de Foundry (document retrieval) | Bedrock Evaluations (retrieve only) | `domain/evals.py` |
 | LLM-as-a-judge para RAG | Groundedness, Relevance, Retrieval... en Foundry Evaluation | Bedrock Evaluations (retrieve and generate) | Juez nativo, RAGAS, DeepEval |
 | Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | `rag_evals.gate` |

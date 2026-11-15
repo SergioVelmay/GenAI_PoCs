@@ -1,6 +1,6 @@
 # Fase 1 · SQL avanzado y `ticketing_api`
 
-**Objetivo:** el sistema transaccional de Headache (catálogo, disponibilidad, pedidos y reembolsos)
+**Objetivo:** el sistema transaccional de Genaipocs (catálogo, disponibilidad, pedidos y reembolsos)
 sobre PostgreSQL, correcto bajo concurrencia y rápido a escala. Es la API que en la fase 6 envuelven
 las tools y los servidores MCP: si aquí hay sobreventa o reembolsos dobles, ningún agente lo arregla.
 
@@ -78,10 +78,10 @@ La 05 no mejora a propósito: recorre todos los pedidos pagados y ningún B-tree
 producción iría a una réplica de lectura, una vista materializada o un data warehouse.
 
 ```powershell
-uv run alembic -c packages/headache_core/alembic.ini upgrade 0001   # tablas sin índices
+uv run alembic -c packages/genaipocs_core/alembic.ini upgrade 0001   # tablas sin índices
 uv run python scripts/load_seed.py --truncate                       # COPY por lotes + ANALYZE
 uv run python scripts/sql_benchmark.py --label before
-uv run alembic -c packages/headache_core/alembic.ini upgrade head
+uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run python scripts/sql_benchmark.py --label after --compare before
 ```
 
@@ -97,7 +97,7 @@ estadísticas frescas el planificador estima a ciegas tras una carga masiva.
 | Reintentos del cliente | Cabecera `Idempotency-Key`: devuelve el pedido original; la misma clave con otra petición ⇒ `409` | `PurchaseService` + índice único parcial |
 | Carrera en la clave | `IntegrityError` se traduce a `ConflictError` (`409`) | `_flush_or_conflict` |
 
-Tests de integración (`packages/headache_core/tests/integration/test_postgres_concurrency.py`,
+Tests de integración (`packages/genaipocs_core/tests/integration/test_postgres_concurrency.py`,
 `uv run pytest -m integration`), con un catálogo aislado (`it_*`) que se borra al terminar:
 
 - 20 compras simultáneas sobre pocas plazas: se venden exactamente las plazas y se rechaza el resto.

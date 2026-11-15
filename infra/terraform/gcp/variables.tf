@@ -21,7 +21,7 @@ variable "region" {
 
 variable "project" {
   type    = string
-  default = "headache"
+  default = "genaipocs"
 }
 
 variable "environment" {

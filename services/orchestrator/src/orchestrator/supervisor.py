@@ -25,8 +25,8 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, Field
 
-from headache_core.application.llm import complete_structured
-from headache_core.application.orchestration import (
+from genaipocs_core.application.llm import complete_structured
+from genaipocs_core.application.orchestration import (
     SpecialistAgent,
     case_id_for,
     email_from_payload,
@@ -36,7 +36,7 @@ from headache_core.application.orchestration import (
     outcome_from_payload,
     outcome_to_payload,
 )
-from headache_core.domain import (
+from genaipocs_core.domain import (
     CaseEnvelope,
     CaseOutcome,
     Specialist,
@@ -46,7 +46,7 @@ from headache_core.domain import (
     resolve_order_id,
     route,
 )
-from headache_core.ports import ChatMessage, LLMPort, Role
+from genaipocs_core.ports import ChatMessage, LLMPort, Role
 from orchestrator.graph import SPECIALIST_RETRY
 from orchestrator.prompts import PROMPTS
 
@@ -57,7 +57,7 @@ MAX_STEPS = 3
 
 
 class SupervisorDecision(BaseModel):
-    """Siguiente paso del supervisor de soporte de Headache."""
+    """Siguiente paso del supervisor de soporte de Genaipocs."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -104,7 +104,7 @@ class SupervisorGraph:
             graph.add_node(specialist.value, _specialist_node(agent), retry_policy=SPECIALIST_RETRY)
             graph.add_edge(specialist.value, "supervisor")
         graph.add_edge(START, "supervisor")
-        return graph.compile(checkpointer=checkpointer, name="headache_case_supervisor")
+        return graph.compile(checkpointer=checkpointer, name="genaipocs_case_supervisor")
 
     async def _supervisor(self, state: SupervisorState) -> Command[str]:
         handled = state.get("handled", [])

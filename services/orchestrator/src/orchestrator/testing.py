@@ -7,9 +7,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from harness.rules.case_reply import SendCaseReplyArgs
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import (
     FakeLLM,
     HashingEmbedding,
     InMemoryApprovalStore,
@@ -17,10 +16,10 @@ from headache_core.adapters.memory import (
     InMemoryPreferenceStore,
     InMemoryUnitOfWork,
 )
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import ToolContext
-from headache_core.domain import (
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.domain import (
     Customer,
     Event,
     EventCategory,
@@ -30,7 +29,8 @@ from headache_core.domain import (
     Session,
     SupportEmail,
 )
-from headache_core.ports import ToolCall
+from genaipocs_core.ports import ToolCall
+from harness.rules.case_reply import SendCaseReplyArgs
 from orchestrator.specialists import SpecialistDeps
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)

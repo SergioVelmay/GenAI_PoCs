@@ -1,4 +1,4 @@
-"""Text-to-SQL para operaciones de Headache: el LLM escribe la consulta, el harness decide.
+"""Text-to-SQL para operaciones de Genaipocs: el LLM escribe la consulta, el harness decide.
 
     pregunta -> LLM (SQL) -> check_sql (parser + allow-lists) -> EXPLAIN (BD, sin leer datos)
              ^__________ feedback si falla (hasta N intentos) _________|
@@ -14,12 +14,12 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from genaipocs_core.ports import ChatMessage, LLMPort, Role
+from genaipocs_core.ports.sql import QueryResult, ReadOnlySqlPort, SqlExecutionError
 from harness.correction import CorrectionResult, generate_validated
 from harness.prompts import PROMPTS
 from harness.sql import SqlPolicy, check_sql
 from harness.validation import Validator, Violation
-from headache_core.ports import ChatMessage, LLMPort, Role
-from headache_core.ports.sql import QueryResult, ReadOnlySqlPort, SqlExecutionError
 
 # Espejo de las vistas de la migración 0004 (un test lo verifica contra PostgreSQL).
 ANALYTICS_TABLES: dict[str, dict[str, str]] = {
@@ -72,7 +72,7 @@ ANALYTICS_POLICY = SqlPolicy(tables=ANALYTICS_TABLES)
 
 
 class AnalyticsQuery(BaseModel):
-    """Consulta SQL de solo lectura que responde a una pregunta de operaciones de Headache."""
+    """Consulta SQL de solo lectura que responde a una pregunta de operaciones de Genaipocs."""
 
     model_config = ConfigDict(extra="forbid")
 

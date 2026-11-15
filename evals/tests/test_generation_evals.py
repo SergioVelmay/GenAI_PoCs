@@ -2,14 +2,14 @@ from decimal import Decimal
 
 import pytest
 
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import FakeLLM, HashingEmbedding, RecordingTracer
-from headache_core.application.llm.gateway import ObservedLLM
-from headache_core.application.llm.pricing import PriceTable
-from headache_core.application.retrieval import RetrievalService
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import ChatMessage, Role
-from headache_core.ports.vector_store import VectorRecord
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import FakeLLM, HashingEmbedding, RecordingTracer
+from genaipocs_core.application.llm.gateway import ObservedLLM
+from genaipocs_core.application.llm.pricing import PriceTable
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import ChatMessage, Role
+from genaipocs_core.ports.vector_store import VectorRecord
 from rag_evals.generation_eval import (
     GenerationOutcome,
     evaluate_generation,

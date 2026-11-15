@@ -1,5 +1,5 @@
 {
-  "server": "headache-catalog",
+  "server": "genaipocs-catalog",
   "tools": [
     {
       "name": "get_event",

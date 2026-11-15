@@ -19,11 +19,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from headache_core.adapters import azure_search_managed as azure_lane
-from headache_core.adapters import bedrock_kb as aws_lane
-from headache_core.adapters import gcp_rag_engine as gcp_lane
-from headache_core.config import Settings, get_settings
-from headache_core.domain import DocumentType, KnowledgeDocument
+from genaipocs_core.adapters import azure_search_managed as azure_lane
+from genaipocs_core.adapters import bedrock_kb as aws_lane
+from genaipocs_core.adapters import gcp_rag_engine as gcp_lane
+from genaipocs_core.config import Settings, get_settings
+from genaipocs_core.domain import DocumentType, KnowledgeDocument
 
 DEFAULT_SOURCE = Path("data/synthetic/knowledge/documents.jsonl")
 SECRET_KEYS = {"apiKey", "connectionString"}

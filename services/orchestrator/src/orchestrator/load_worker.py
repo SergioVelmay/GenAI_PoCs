@@ -17,9 +17,9 @@ import logging
 import os
 import random
 
-from headache_core.adapters.messaging_factory import open_message_bus
-from headache_core.config import get_settings
-from headache_core.ports import Message
+from genaipocs_core.adapters.messaging_factory import open_message_bus
+from genaipocs_core.config import get_settings
+from genaipocs_core.ports import Message
 
 logger = logging.getLogger("orchestrator.load_worker")
 QUEUE = "demo.jobs"

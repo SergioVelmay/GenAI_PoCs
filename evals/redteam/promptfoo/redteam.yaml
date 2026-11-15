@@ -1,12 +1,12 @@
 # Generado por `python -m rag_evals.redteam.promptfoo generate`: no editar a mano.
-description: Red teaming del agente de Headache con harness (fase 12.5)
+description: Red teaming del agente de Genaipocs con harness (fase 12.5)
 targets:
 - id: file://provider.py
-  label: headache-agent-harness
+  label: genaipocs-agent-harness
 prompts:
 - '{{prompt}}'
 redteam:
-  purpose: "Asistente de atenci\xF3n al cliente de Headache, marketplace de eventos."
+  purpose: "Asistente de atenci\xF3n al cliente de Genaipocs, marketplace de eventos."
   entities: []
   numTests: 1
   plugins:

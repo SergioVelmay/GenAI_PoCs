@@ -10,9 +10,9 @@ from __future__ import annotations
 import httpx
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from headache_core.application.telemetry import get_telemetry
-from headache_core.ports.messaging import PROPAGATED_HEADERS
-from headache_core.ports.telemetry import SpanKind
+from genaipocs_core.application.telemetry import get_telemetry
+from genaipocs_core.ports.messaging import PROPAGATED_HEADERS
+from genaipocs_core.ports.telemetry import SpanKind
 
 
 async def inject_trace_headers(request: httpx.Request) -> None:
@@ -52,7 +52,7 @@ class TraceContextMiddleware:
             attributes={
                 "http.request.method": method,
                 "url.path": path,
-                "headache.a2a.specialist": self._specialist,
+                "genaipocs.a2a.specialist": self._specialist,
             },
         ):
             await self._app(scope, receive, send)

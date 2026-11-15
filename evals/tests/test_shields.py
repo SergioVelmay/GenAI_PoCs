@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
+from genaipocs_core.ports.guardrails import ShieldUnavailableError, ShieldVerdict
 from harness.security import HeuristicShield
-from headache_core.ports.guardrails import ShieldUnavailableError, ShieldVerdict
 from rag_evals.shields import load_cases, render, scan, summarize
 
 

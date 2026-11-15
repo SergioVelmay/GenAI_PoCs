@@ -9,8 +9,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from headache_core.config import get_settings
-from headache_core.ports import MetadataValue
+from genaipocs_core.config import get_settings
+from genaipocs_core.ports import MetadataValue
 from indexer.bootstrap import open_pipeline
 from indexer.settings import IndexerSettings
 

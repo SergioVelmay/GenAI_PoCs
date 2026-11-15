@@ -12,7 +12,7 @@ variable "profile" {
 
 variable "project" {
   type    = string
-  default = "headache"
+  default = "genaipocs"
 }
 
 variable "environment" {
@@ -105,7 +105,7 @@ variable "mcp_oidc_discovery_url" {
 variable "mcp_gateway_audience" {
   description = "Audience que deben traer los tokens de los agentes (MCP__AUDIENCE_TEMPLATE)."
   type        = string
-  default     = "api://headache-mcp/gateway"
+  default     = "api://genaipocs-mcp/gateway"
 }
 
 variable "mcp_oauth_client_id" {

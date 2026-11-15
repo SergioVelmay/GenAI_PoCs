@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import FakeLLM, HashingEmbedding
-from headache_core.application.retrieval import RetrievalService
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import LLMContentFilterError, LLMResponse
-from headache_core.ports.vector_store import VectorRecord
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import FakeLLM, HashingEmbedding
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import LLMContentFilterError, LLMResponse
+from genaipocs_core.ports.vector_store import VectorRecord
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
 from rag_evals.retrieval_eval import (
     Engine,

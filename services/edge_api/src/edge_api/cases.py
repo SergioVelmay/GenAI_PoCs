@@ -29,13 +29,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from edge_api.identity import CallerResolver
 from edge_api.settings import EdgeSettings
 from edge_api.sse import sse
-from headache_core.application.admission import AdmissionController
-from headache_core.application.case_intake import CaseIntakeService, CaseRequest
-from headache_core.domain import CaseStatus
-from headache_core.domain.admission import Caller, ClientPlan
-from headache_core.domain.orchestration import is_terminal
-from headache_core.ports.cases import CaseStore
-from headache_core.ports.intake import CaseIntakeStore
+from genaipocs_core.application.admission import AdmissionController
+from genaipocs_core.application.case_intake import CaseIntakeService, CaseRequest
+from genaipocs_core.domain import CaseStatus
+from genaipocs_core.domain.admission import Caller, ClientPlan
+from genaipocs_core.domain.orchestration import is_terminal
+from genaipocs_core.ports.cases import CaseStore
+from genaipocs_core.ports.intake import CaseIntakeStore
 
 ACCEPTED = "accepted"  # Alta guardada; el triaje aún no ha creado el caso.
 

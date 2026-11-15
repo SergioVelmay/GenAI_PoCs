@@ -16,6 +16,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from genaipocs_core.application.tools import Tool, ToolContext, ToolRegistry
+from genaipocs_core.ports import ChatMessage, LLMPort, Role
+from genaipocs_core.ports.approvals import ApprovalRequest
 from harness.approvals import ApprovalService
 from harness.correction import CorrectionResult, generate_validated
 from harness.prompts import PROMPTS
@@ -31,27 +34,24 @@ from harness.rules.writing import (
     tone_violations,
 )
 from harness.validation import Validator, Violation, staged
-from headache_core.application.tools import Tool, ToolContext, ToolRegistry
-from headache_core.ports import ChatMessage, LLMPort, Role
-from headache_core.ports.approvals import ApprovalRequest
 
 type Audience = Literal["customer", "partner"]
 
-CUSTOMER_PREFIX = "[Headache]"
+CUSTOMER_PREFIX = "[Genaipocs]"
 GREETINGS: dict[Language, str] = {"es": "Hola:", "en": "Hello,"}
 SIGNATURES: dict[Audience, dict[Language, str]] = {
     "customer": {
-        "es": "Un saludo,\nEquipo de Atención al Cliente de Headache",
-        "en": "Kind regards,\nHeadache Customer Care",
+        "es": "Un saludo,\nEquipo de Atención al Cliente de Genaipocs",
+        "en": "Kind regards,\nGenaipocs Customer Care",
     },
     "partner": PARTNER_SIGNATURES,
 }
 FOOTERS: dict[Audience, dict[Language, str]] = {
     "customer": {
-        "es": "Responde a este email sin cambiar el asunto para continuar con tu caso. Headache "
+        "es": "Responde a este email sin cambiar el asunto para continuar con tu caso. Genaipocs "
         "trata tus datos conforme al RGPD.",
         "en": "Reply to this email without changing the subject to continue with your case. "
-        "Headache processes your data under the GDPR.",
+        "Genaipocs processes your data under the GDPR.",
     },
     "partner": PARTNER_FOOTERS,
 }
@@ -59,7 +59,7 @@ PREFIXES: dict[Audience, str] = {"customer": CUSTOMER_PREFIX, "partner": PARTNER
 
 
 class ReplyDraft(BaseModel):
-    """Huecos variables de la respuesta de Headache a un caso (sin saludo, firma ni pie)."""
+    """Huecos variables de la respuesta de Genaipocs a un caso (sin saludo, firma ni pie)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -86,7 +86,7 @@ def _texts(draft: ReplyDraft) -> dict[str, str]:
 
 def template_owned(draft: ReplyDraft, case: ReplyCase) -> list[Violation]:
     violations: list[Violation] = []
-    if draft.subject.startswith("[Headache"):
+    if draft.subject.startswith("[Genaipocs"):
         violations.append(
             Violation("template_owned", "El prefijo del asunto lo pone la plantilla.", "subject")
         )
@@ -127,7 +127,7 @@ def no_refund_commitment(draft: ReplyDraft, _: ReplyCase) -> list[Violation]:
         return [
             Violation(
                 "refund_promise",
-                "No prometas ni confirmes reembolsos: los decide la política de Headache.",
+                "No prometas ni confirmes reembolsos: los decide la política de Genaipocs.",
                 "body",
             )
         ]
@@ -153,7 +153,7 @@ REPLY_VALIDATORS: tuple[Validator[ReplyDraft, ReplyCase], ...] = (
 
 AUDIENCE_INSTRUCTIONS: dict[Audience, str] = {
     "customer": "Respondes a la queja de un cliente: reconoce el problema con empatía y explica "
-    "que el equipo de Headache lo revisará con el organizador y le contestará. No prometas "
+    "que el equipo de Genaipocs lo revisará con el organizador y le contestará. No prometas "
     "reembolsos, compensaciones ni plazos, y no culpes a nadie.",
     "partner": "Respondes a una propuesta comercial de un organizador o recinto: agradécela, "
     "explica que el equipo de Partners la estudiará y pide la información básica (tipo de "

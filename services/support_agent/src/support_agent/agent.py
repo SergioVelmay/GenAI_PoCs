@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from headache_core.application.tools import (
+from genaipocs_core.application.tools import (
     TICKETING_AGENT_PROMPT,
     ToolContext,
     ToolLoop,
     ToolLoopResult,
     ToolRegistry,
 )
-from headache_core.ports import ChatMessage, LLMPort, Role
+from genaipocs_core.ports import ChatMessage, LLMPort, Role
 
 
 class SupportAgent:

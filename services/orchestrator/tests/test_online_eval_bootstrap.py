@@ -6,10 +6,10 @@ import asyncio
 
 import pytest
 
-from headache_core.application.agent_judge import AgentJudgeSample
-from headache_core.application.agent_online_eval import AgentEvalSample, AgentOnlineEvaluator
-from headache_core.config import Settings
-from headache_core.domain.agent_eval import AgentJudgement, Resolution
+from genaipocs_core.application.agent_judge import AgentJudgeSample
+from genaipocs_core.application.agent_online_eval import AgentEvalSample, AgentOnlineEvaluator
+from genaipocs_core.config import Settings
+from genaipocs_core.domain.agent_eval import AgentJudgement, Resolution
 from orchestrator import bootstrap
 from orchestrator.settings import OrchestratorSettings
 

@@ -63,7 +63,7 @@ flowchart TB
   subgraph HAR["packages/harness"]
     H1["validación · guardas · PII · SQL seguro · aprobaciones"]
   end
-  subgraph CORE["packages/headache_core"]
+  subgraph CORE["packages/genaipocs_core"]
     APP["application/<br/>casos de uso"]
     DOM["domain/<br/>reglas de negocio (Python puro)"]
     PORTS["ports/<br/>typing.Protocol"]
@@ -312,7 +312,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  subgraph AWS["AWS (producción de Headache)"]
+  subgraph AWS["AWS (producción de Genaipocs)"]
     direction TB
     A1["API Gateway + WAF"] --> A2["ECS Fargate<br/>servicios y workers"]
     A2 --> A3["Bedrock · AgentCore"]

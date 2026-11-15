@@ -19,7 +19,7 @@ import asyncio
 import json
 from typing import Any
 
-from headache_core.adapters.foundry_iq import (
+from genaipocs_core.adapters.foundry_iq import (
     PREVIEW_API_VERSION,
     agent_definition,
     knowledge_base_definition,
@@ -28,8 +28,8 @@ from headache_core.adapters.foundry_iq import (
     mcp_endpoint,
     publish_agent,
 )
-from headache_core.config import Settings, get_settings
-from headache_core.domain.retrieval import AccessScope
+from genaipocs_core.config import Settings, get_settings
+from genaipocs_core.domain.retrieval import AccessScope
 
 ARM_CONNECTIONS_API = "2025-10-01-preview"
 

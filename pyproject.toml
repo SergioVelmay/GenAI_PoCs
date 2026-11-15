@@ -1,10 +1,10 @@
 [project]
 name = "genai-pocs"
 version = "0.1.0"
-description = "PoCs de sistemas agénticos GenAI (caso Headache) en Azure, AWS y GCP"
+description = "PoCs de sistemas agénticos GenAI (caso Genaipocs) en Azure, AWS y GCP"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[aws,azure,gateway,gcp,llamaindex,observability,postgres,rabbitmq,redis,retrieval,telemetry,tools]",
+    "genaipocs-core[aws,azure,gateway,gcp,llamaindex,observability,postgres,rabbitmq,redis,retrieval,telemetry,tools]",
     "harness",
     "indexer",
     "ticketing-api",
@@ -21,7 +21,7 @@ dependencies = [
 members = ["packages/*", "services/*", "evals"]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 harness = { workspace = true }
 indexer = { workspace = true }
 ticketing-api = { workspace = true }
@@ -62,8 +62,8 @@ known-first-party = [
     "booking_agent",
     "edge_api",
     "harness",
-    "headache_core",
-    "headache_mcp",
+    "genaipocs_core",
+    "genaipocs_mcp",
     "indexer",
     "orchestrator",
     "rag_evals",
@@ -77,8 +77,8 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 files = [
-    "packages/headache_core/src",
-    "packages/headache_core/tests",
+    "packages/genaipocs_core/src",
+    "packages/genaipocs_core/tests",
     "packages/harness/src",
     "packages/harness/tests",
     "services/indexer/src",

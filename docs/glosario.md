@@ -133,10 +133,10 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Cedar** | Lenguaje de políticas de autorización de AWS. | Políticas de AgentCore Gateway (comparativa). |
 | **Entra ID / Managed Identity ↔ IAM Role** | Identidad de personas y de servicios sin secretos en el código. | Regla del repo: nunca secretos; identidades gestionadas en la nube. |
 | **OIDC en CI** | La CI obtiene credenciales temporales de la nube sin guardar claves. | GitHub Actions → AWS/Azure/GCP (fases 13–15). |
-| **Cuenta de servicio (GCP)** | Identidad de una aplicación en GCP; se adjunta al recurso o la suplanta una persona. Equivale a Managed Identity / IAM Role. | `headache-dev-app` en `infra/terraform/gcp/identity.tf`, sin claves. |
+| **Cuenta de servicio (GCP)** | Identidad de una aplicación en GCP; se adjunta al recurso o la suplanta una persona. Equivale a Managed Identity / IAM Role. | `genaipocs-dev-app` en `infra/terraform/gcp/identity.tf`, sin claves. |
 | **ADC** (*Application Default Credentials*) | Cadena de búsqueda de credenciales de las librerías de Google: usuario en local, cuenta de servicio en la nube. Como `DefaultAzureCredential`. | `gcloud auth application-default login` con `CLOUDSDK_CONFIG` aislado. |
 | **Impersonation (suplantación)** | Una persona obtiene un token temporal (1 h) de una cuenta de servicio; queda auditado a su nombre. Sustituye a las claves JSON. | `GCP__IMPERSONATE_SERVICE_ACCOUNT`; rol `serviceAccountTokenCreator`. |
-| **Workload Identity Federation** | GCP acepta tokens de otro proveedor (el OIDC de GitHub) y los cambia por uno de una cuenta de servicio. Con condición, solo para un repo y una rama. | Pool `headache-dev-github`; solo `main` de este repo (por IDs numéricos). |
+| **Workload Identity Federation** | GCP acepta tokens de otro proveedor (el OIDC de GitHub) y los cambia por uno de una cuenta de servicio. Con condición, solo para un repo y una rama. | Pool `genaipocs-dev-github`; solo `main` de este repo (por IDs numéricos). |
 
 <a id="g6"></a>
 
@@ -266,7 +266,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 
 | Término | Qué es | En este repo |
 |---|---|---|
-| **Clean Architecture / Ports & Adapters (hexagonal)** | El dominio no depende de nada externo; los proveedores se enchufan por interfaces. | `packages/headache_core`: `domain`, `application`, `ports`, `adapters`. |
+| **Clean Architecture / Ports & Adapters (hexagonal)** | El dominio no depende de nada externo; los proveedores se enchufan por interfaces. | `packages/genaipocs_core`: `domain`, `application`, `ports`, `adapters`. |
 | **Dominio** | Reglas de negocio en código determinista. El LLM nunca decide negocio. | `domain/policies.py` (`evaluate_refund`). |
 | **Puerto / adaptador** | Interfaz (`typing.Protocol`) / implementación concreta (memoria, Postgres, Azure, Bedrock). | `LLMPort`, `TelemetryPort`, `VectorStorePort`... |
 | **Caso de uso** | Orquesta dominio y puertos para una operación concreta. | `application/`. |
@@ -276,7 +276,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **OLTP vs OLAP** | Transaccional (muchas escrituras pequeñas) vs analítico (lee mucho). No mezclar. | Consulta de ingresos de 640 ms sobre 3 M de pedidos → réplica o warehouse. |
 | **Bloqueo optimista / pesimista** | Detectar conflicto al escribir (versión) / bloquear la fila antes. | `UPDATE ... WHERE available >= :q RETURNING` evita la sobreventa. |
 | **`CREATE INDEX CONCURRENTLY`** | Crear índice sin bloquear escrituras (puede quedar `INVALID`). | Migraciones de la fase 1. |
-| **Migración (Alembic)** | Cambio de esquema versionado y reproducible. | `packages/headache_core/migrations`. |
+| **Migración (Alembic)** | Cambio de esquema versionado y reproducible. | `packages/genaipocs_core/migrations`. |
 | **IaC** (*Infrastructure as Code*) | Infraestructura definida en ficheros versionados. | Terraform en `infra/terraform/{aws,azure,gcp}`, recursos con coste apagados. |
 | **Proyecto (GCP)** | Unidad de aislamiento de GCP: facturación, cuotas, APIs e IAM cuelgan de él. Más fuerte que un grupo de recursos de Azure. | `GCP__PROJECT`; se crea a mano y Terraform gestiona lo de dentro. |
 | **Habilitar una API (GCP)** | En GCP cada servicio se enciende por proyecto antes de usarlo; si no, `SERVICE_DISABLED`. | `google_project_service` en `infra/terraform/gcp/main.tf`. |
@@ -349,7 +349,7 @@ equivalente o alternativa.
 | `sqlalchemy[asyncio]` | ORM y toolkit SQL de Python, en modo asíncrono. | Repositorios y Unit of Work de `ticketing_api` (fase 1). | SQLModel, asyncpg directo. |
 | `asyncpg` | Driver asíncrono y muy rápido de PostgreSQL. | Conexión de SQLAlchemy a Postgres. | `psycopg` 3. |
 | `psycopg[binary]` | Driver de PostgreSQL (sync y async). | Lo exige el checkpointer de LangGraph. | — |
-| `alembic` | Migraciones de esquema para SQLAlchemy. | `packages/headache_core/migrations` (roles, vistas, outbox, aprobaciones). | Flyway, Liquibase. |
+| `alembic` | Migraciones de esquema para SQLAlchemy. | `packages/genaipocs_core/migrations` (roles, vistas, outbox, aprobaciones). | Flyway, Liquibase. |
 | `pgvector` | Cliente Python de la extensión de vectores de PostgreSQL. | Vector store local y en Aurora/PostgreSQL Flexible. | AI Search, S3 Vectors, OpenSearch. |
 | `rank-bm25` | Implementación de BM25 en Python puro. | Parte léxica de la búsqueda híbrida en local. | BM25 de AI Search u OpenSearch. |
 | `llama-index-retrievers-bm25`, `-vector-stores-postgres`, `-storage-docstore-postgres` | Integraciones de LlamaIndex. | Carril C: BM25, pgvector y docstore para parent-child. | — |
@@ -449,4 +449,4 @@ equivalente o alternativa.
 | `redis` | Almacén en memoria clave-valor. | Perfil `scale` (y dependencia de Langfuse). |
 | `langfuse/langfuse` + worker, ClickHouse, MinIO | Langfuse v3 autoalojado (analítica en ClickHouse, ficheros en MinIO, compatible con S3). | Perfil `observability`. |
 | `otel/opentelemetry-collector-contrib`, `jaegertracing/jaeger`, `prom/prometheus`, `grafana/grafana` | Stack de telemetría. | Perfil `telemetry`. |
-| `headache-mcp:local`, `headache-agents:local` | Imágenes propias de los servidores MCP y de los especialistas A2A. | Perfiles `mcp` y `agents`. |
+| `genaipocs-mcp:local`, `genaipocs-agents:local` | Imágenes propias de los servidores MCP y de los especialistas A2A. | Perfiles `mcp` y `agents`. |

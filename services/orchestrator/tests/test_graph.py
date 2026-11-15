@@ -9,12 +9,12 @@ import pytest
 from langgraph.types import Command, RetryPolicy
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS
-from headache_core.adapters.otel import recording_telemetry
-from headache_core.application.orchestration import TriageAgent
-from headache_core.application.telemetry import metrics
-from headache_core.domain import CaseStatus, Specialist
-from headache_core.ports import LLMError, LLMTransientError, ToolCall
-from headache_core.ports.approvals import ApprovalStatus
+from genaipocs_core.adapters.otel import recording_telemetry
+from genaipocs_core.application.orchestration import TriageAgent
+from genaipocs_core.application.telemetry import metrics
+from genaipocs_core.domain import CaseStatus, Specialist
+from genaipocs_core.ports import LLMError, LLMTransientError, ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
 from orchestrator.graph import ReviewError, RouterGraph
 from orchestrator.specialists import build_approval_service, build_specialists
 from orchestrator.supervisor import SupervisorGraph
@@ -22,7 +22,7 @@ from orchestrator.testing import CUSTOMER, ORDER, LocalWorld, local_world, suppo
 
 ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(set(FLAVORS) - MANAGED_FLAVORS))
 NO_WAIT = RetryPolicy(initial_interval=0, jitter=False, max_attempts=2, retry_on=LLMTransientError)
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 REFUND_EMAIL = support_email("No puedo ir, devolvedme el dinero del pedido.")
 INFO_EMAIL = support_email("¿El evento es accesible en silla de ruedas?", order_id=None)
 COMPLAINT_EMAIL = support_email("El sonido era malísimo y empezó 40 minutos tarde.")
@@ -103,7 +103,7 @@ async def test_triage_counts_intents_for_drift_detection() -> None:
     world = local_world([_triage("event_info", None)])
     with recording_telemetry() as recorded:
         await TriageAgent(world.llm).triage(INFO_EMAIL)
-    intent = {"headache.case.intent": "event_info", "headache.case.language": "es"}
+    intent = {"genaipocs.case.intent": "event_info", "genaipocs.case.language": "es"}
     assert recorded.total(metrics.CASES_TRIAGED, **intent) == 1
 
 

@@ -7,9 +7,9 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import SpanKind, StatusCode
 
 from edge_api.testing import ASK, FakeAssistant, bearer, client, token
-from headache_core.adapters.otel import RecordedTelemetry, recording_telemetry
-from headache_core.application.online_eval import OnlineEvaluator
-from headache_core.application.telemetry import genai, metrics
+from genaipocs_core.adapters.otel import RecordedTelemetry, recording_telemetry
+from genaipocs_core.application.online_eval import OnlineEvaluator
+from genaipocs_core.application.telemetry import genai, metrics
 
 
 def _server(recorded: RecordedTelemetry, name: str) -> list[ReadableSpan]:
@@ -28,10 +28,10 @@ async def test_ask_span_carries_plan_admission_and_answer() -> None:
     assert ok.status_code == 200
     (span,) = _server(recorded, "POST /ask")
     attributes = dict(span.attributes or {})
-    assert attributes[genai.HEADACHE_PLAN] == "public"
-    assert attributes[genai.HEADACHE_ADMISSION] == "admitted"
-    assert attributes[genai.HEADACHE_ANSWER_MODE] == "extractive"
-    assert attributes[genai.HEADACHE_DEGRADED] is False
+    assert attributes[genai.GENAIPOCS_PLAN] == "public"
+    assert attributes[genai.GENAIPOCS_ADMISSION] == "admitted"
+    assert attributes[genai.GENAIPOCS_ANSWER_MODE] == "extractive"
+    assert attributes[genai.GENAIPOCS_DEGRADED] is False
     assert attributes["http.route"] == "/ask"
     # El rate limit cuelga de la petición.
     (limit,) = [s for s in recorded.exporter.get_finished_spans() if s.name == "rate_limit"]
@@ -46,13 +46,13 @@ async def test_answers_and_ttft_are_measured_by_plan_and_cache() -> None:
             await http.post("/ask", json=ASK, headers=headers)
             await http.post("/ask/stream", json=ASK, headers=headers)
 
-    public = {genai.HEADACHE_PLAN: "public", genai.HEADACHE_DEGRADED: "false"}
+    public = {genai.GENAIPOCS_PLAN: "public", genai.GENAIPOCS_DEGRADED: "false"}
     assert recorded.total(metrics.ANSWERS, **public) == 2
-    assert recorded.total(metrics.ANSWER_DURATION, **{"headache.route": "/ask"}) == 1
+    assert recorded.total(metrics.ANSWER_DURATION, **{"genaipocs.route": "/ask"}) == 1
     # El TTFT solo en streaming, y con la caché como atributo (acierto y cálculo no se mezclan).
     [(attributes, _)] = recorded.points(metrics.ANSWER_TTFT)
-    assert attributes["headache.route"] == "/ask/stream"
-    assert attributes[genai.HEADACHE_CACHE] == "miss"
+    assert attributes["genaipocs.route"] == "/ask/stream"
+    assert attributes[genai.GENAIPOCS_CACHE] == "miss"
 
 
 async def test_generated_answers_are_offered_to_the_online_judge() -> None:
@@ -86,7 +86,7 @@ async def test_rejections_are_visible_by_reason() -> None:
                 await http.post("/ask", json=ASK)
 
     outcomes = [
-        str(dict(s.attributes or {})[genai.HEADACHE_ADMISSION])
+        str(dict(s.attributes or {})[genai.GENAIPOCS_ADMISSION])
         for s in _server(recorded, "POST /ask")
     ]
     assert sorted(outcomes) == ["admitted", "admitted", "rate_limited"]

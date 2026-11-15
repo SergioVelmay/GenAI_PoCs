@@ -25,8 +25,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, RetryPolicy, interrupt
 
-from harness.approvals import ApprovalService
-from headache_core.application.orchestration import (
+from genaipocs_core.application.orchestration import (
     SpecialistAgent,
     TriageAgent,
     case_id_for,
@@ -37,8 +36,9 @@ from headache_core.application.orchestration import (
     outcome_from_payload,
     outcome_to_payload,
 )
-from headache_core.domain import CaseOutcome, CaseStatus, Specialist, SupportEmail
-from headache_core.ports import LLMTransientError
+from genaipocs_core.domain import CaseOutcome, CaseStatus, Specialist, SupportEmail
+from genaipocs_core.ports import LLMTransientError
+from harness.approvals import ApprovalService
 from orchestrator.review import ReviewError, apply_review, parse_decision
 
 type Payload = dict[str, Any]
@@ -111,7 +111,7 @@ class RouterGraph:
         graph.add_edge(START, "triage")
         graph.add_conditional_edges("triage", _route, [s.value for s in Specialist])
         graph.add_edge(HUMAN_REVIEW, END)
-        return graph.compile(checkpointer=checkpointer, name="headache_case_router")
+        return graph.compile(checkpointer=checkpointer, name="genaipocs_case_router")
 
     async def _triage_node(self, state: CaseState) -> CaseState:
         result = await self._triage.triage(email_from_payload(state["email"]))

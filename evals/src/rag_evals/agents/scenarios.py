@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from headache_core.domain import OrderStatus
+from genaipocs_core.domain import OrderStatus
 from rag_evals import EVALS_DIR
 
 SCENARIOS_PATH = EVALS_DIR / "datasets" / "agent-scenarios-v1.jsonl"

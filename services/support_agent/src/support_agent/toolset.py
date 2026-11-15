@@ -19,9 +19,9 @@ from mcp_types import TextContent
 from mcp_types import Tool as McpToolInfo
 from pydantic import BaseModel, ConfigDict
 
-from headache_core.application.tools import Tool, ToolContext, ToolError, ToolRegistry
-from headache_core.config import Settings
-from headache_mcp.auth import GATEWAY_SCOPES, SERVER_SCOPES, DevTokenIssuer
+from genaipocs_core.application.tools import Tool, ToolContext, ToolError, ToolRegistry
+from genaipocs_core.config import Settings
+from genaipocs_mcp.auth import GATEWAY_SCOPES, SERVER_SCOPES, DevTokenIssuer
 
 logger = logging.getLogger(__name__)
 

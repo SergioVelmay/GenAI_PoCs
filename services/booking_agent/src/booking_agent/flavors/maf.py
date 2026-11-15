@@ -43,15 +43,15 @@ from booking_agent.bridges.maf import (
     to_maf_messages,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn, StopReason
-from headache_core.application.agents import (
+from genaipocs_core.application.agents import (
     ConversationSummarizer,
     ShortTermMemory,
     render_session_context,
 )
-from headache_core.application.agents.context import load_thread
-from headache_core.application.tools import Tool, ToolContext
-from headache_core.ports import ToolCall
-from headache_core.ports.memory import CheckpointStore, ThreadState
+from genaipocs_core.application.agents.context import load_thread
+from genaipocs_core.application.tools import Tool, ToolContext
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.memory import CheckpointStore, ThreadState
 
 TOOL_CONTEXT = "tool_context"
 STOP_REASON = "stop_reason"

@@ -7,8 +7,8 @@ from decimal import Decimal
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from headache_core.adapters.memory import InMemoryUnitOfWork
-from headache_core.domain import Customer, Event, EventCategory, Money, Session
+from genaipocs_core.adapters.memory import InMemoryUnitOfWork
+from genaipocs_core.domain import Customer, Event, EventCategory, Money, Session
 from ticketing_api.app import create_app
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)

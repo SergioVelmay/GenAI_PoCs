@@ -70,8 +70,8 @@ flowchart TB
 
 | Pieza | Dónde vive |
 |---|---|
-| Rutas, estados del caso, `CaseEnvelope`, `CaseOutcome` | `headache_core/domain/orchestration.py` |
-| `TriageAgent`, `SpecialistAgent`, serialización del traspaso | `headache_core/application/orchestration/` |
+| Rutas, estados del caso, `CaseEnvelope`, `CaseOutcome` | `genaipocs_core/domain/orchestration.py` |
+| `TriageAgent`, `SpecialistAgent`, serialización del traspaso | `genaipocs_core/application/orchestration/` |
 | Especialistas (agentes y workflow Creativo) | `services/orchestrator/src/orchestrator/specialists/` |
 | Reglas de la respuesta del Creativo | `harness/rules/case_reply.py` (+ `writing.py` compartido) |
 | LangGraph (router + supervisor) y checkpoints | `orchestrator/graph.py`, `supervisor.py`, `checkpoints.py` |
@@ -152,7 +152,7 @@ uv run python scripts/a2a_smoke.py     # sin coste: Agent Card, 401 sin token, t
 
 ```powershell
 docker compose up -d
-uv run alembic -c packages/headache_core/alembic.ini upgrade head
+uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run python -m orchestrator.worker                 # todos los roles (coste al procesar)
 uv run python -m orchestrator.intake --limit 5       # publica emails sintéticos
 uv run python -m orchestrator.cases list --status pending_approval

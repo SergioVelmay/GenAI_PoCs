@@ -18,9 +18,9 @@ from fastapi import Request
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 from edge_api.settings import EdgeSettings
-from headache_core.config import get_settings
-from headache_core.domain.admission import Caller, ClientPlan
-from headache_mcp.auth import DevTokenIssuer
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain.admission import Caller, ClientPlan
+from genaipocs_mcp.auth import DevTokenIssuer
 
 type CallerResolver = Callable[[Request], Awaitable[Caller]]
 

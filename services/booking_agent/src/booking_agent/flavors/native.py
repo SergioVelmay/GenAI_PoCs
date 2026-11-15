@@ -9,11 +9,11 @@ from __future__ import annotations
 from dataclasses import replace
 
 from booking_agent.runtime import AgentDeps, AgentTurn
-from headache_core.application.agents import ConversationSummarizer, ShortTermMemory, build_prompt
-from headache_core.application.agents.context import load_thread
-from headache_core.application.tools import ToolContext, ToolLoop
-from headache_core.ports import ChatMessage, Role
-from headache_core.ports.memory import ThreadState
+from genaipocs_core.application.agents import ConversationSummarizer, ShortTermMemory, build_prompt
+from genaipocs_core.application.agents.context import load_thread
+from genaipocs_core.application.tools import ToolContext, ToolLoop
+from genaipocs_core.ports import ChatMessage, Role
+from genaipocs_core.ports.memory import ThreadState
 
 
 class NativeAgent:

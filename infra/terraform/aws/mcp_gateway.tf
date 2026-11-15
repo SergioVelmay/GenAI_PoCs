@@ -85,7 +85,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "mcp" {
 resource "aws_bedrockagentcore_gateway" "mcp" {
   count           = local.mcp_gateway
   name            = "${local.name}-mcp"
-  description     = "MCP Gateway de Headache: catalog, ticketing y refunds"
+  description     = "MCP Gateway de Genaipocs: catalog, ticketing y refunds"
   role_arn        = aws_iam_role.mcp_gateway[0].arn
   protocol_type   = "MCP"
   authorizer_type = "CUSTOM_JWT"
@@ -100,7 +100,7 @@ resource "aws_bedrockagentcore_gateway" "mcp" {
 
   protocol_configuration {
     mcp {
-      instructions       = "Catálogo, pedidos y reembolsos del cliente autenticado de Headache."
+      instructions       = "Catálogo, pedidos y reembolsos del cliente autenticado de Genaipocs."
       supported_versions = ["2025-06-18", "2025-11-25"]
     }
   }

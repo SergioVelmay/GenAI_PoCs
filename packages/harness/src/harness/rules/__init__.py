@@ -1,1 +1,1 @@
-"""Reglas concretas de Headache sobre las piezas genéricas del harness."""
+"""Reglas concretas de Genaipocs sobre las piezas genéricas del harness."""

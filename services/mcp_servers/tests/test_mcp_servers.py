@@ -12,10 +12,10 @@ import pytest
 from fastmcp import Client, FastMCP
 from fastmcp.utilities.tests import ASGIServer, asgi_server
 
-from headache_core.adapters.memory import InMemoryUnitOfWork
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.config import McpSettings
-from headache_core.domain import (
+from genaipocs_core.adapters.memory import InMemoryUnitOfWork
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.config import McpSettings
+from genaipocs_core.domain import (
     Customer,
     Event,
     EventCategory,
@@ -24,17 +24,17 @@ from headache_core.domain import (
     OrderStatus,
     Session,
 )
-from headache_mcp.adapter import anonymous, fixed_identity
-from headache_mcp.auth import (
+from genaipocs_mcp.adapter import anonymous, fixed_identity
+from genaipocs_mcp.auth import (
     GATEWAY_SCOPES,
     SERVER_SCOPES,
     DevTokenIssuer,
     jwt_auth,
     token_identity,
 )
-from headache_mcp.contracts import CONTRACTS_DIR, contract_servers, describe
-from headache_mcp.gateway import DevTokenExchanger, TokenExchanger, create_gateway
-from headache_mcp.servers import create_server
+from genaipocs_mcp.contracts import CONTRACTS_DIR, contract_servers, describe
+from genaipocs_mcp.gateway import DevTokenExchanger, TokenExchanger, create_gateway
+from genaipocs_mcp.servers import create_server
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 PRICE = Money(Decimal("30.00"), "EUR")
@@ -151,7 +151,7 @@ async def test_refund_over_streamable_http(ticketing: UnitOfWorkTicketing) -> No
                 "request_refund", {"order_id": "ord_1", "reason": "No puedo ir"}
             )
 
-    assert health.json() == {"status": "ok", "server": "headache-refunds"}
+    assert health.json() == {"status": "ok", "server": "genaipocs-refunds"}
     assert result.structured_content is not None
     assert result.structured_content["approved"] is True
     assert result.structured_content["amount"] == "60.00 EUR"
@@ -191,7 +191,7 @@ def _secured(name: str, ticketing: UnitOfWorkTicketing, tmp_path: Path) -> FastM
 
 def _token(issuer: DevTokenIssuer, server: str, *, subject: str = "cus_1", **kwargs: Any) -> str:
     options: dict[str, Any] = {"scopes": SERVER_SCOPES[server], **kwargs}
-    return issuer.mint(subject=subject, audience=f"api://headache-mcp/{server}", **options)
+    return issuer.mint(subject=subject, audience=f"api://genaipocs-mcp/{server}", **options)
 
 
 async def test_identity_comes_from_the_token(
@@ -232,7 +232,7 @@ async def test_invalid_tokens_are_rejected_before_any_tool_runs(
         "expired": _token(issuer, "refunds", expires_in_seconds=-60),
         "wrong_issuer": DevTokenIssuer.load_or_create(
             tmp_path / "other" / "key.pem", issuer="https://evil.test"
-        ).mint(subject="cus_1", audience="api://headache-mcp/refunds", scopes=["refunds:write"]),
+        ).mint(subject="cus_1", audience="api://genaipocs-mcp/refunds", scopes=["refunds:write"]),
         "insufficient_scope": _token(issuer, "refunds", scopes=["orders:read"]),
     }
     token = tokens[case]
@@ -319,7 +319,7 @@ async def _gateway(
 
 
 def _gateway_token(issuer: DevTokenIssuer, scopes: list[str] = GATEWAY_SCOPES) -> str:
-    return issuer.mint(subject="cus_1", audience="api://headache-mcp/gateway", scopes=scopes)
+    return issuer.mint(subject="cus_1", audience="api://genaipocs-mcp/gateway", scopes=scopes)
 
 
 async def test_gateway_aggregates_servers_and_exchanges_tokens(
@@ -348,9 +348,9 @@ async def test_gateway_aggregates_servers_and_exchanges_tokens(
     assert [o["id"] for o in mine.structured_content["items"]] == ["ord_1"]
     assert foreign.is_error
     # Cada servidor recibe un token propio: su audience y solo su scope, con el mismo usuario.
-    assert ("cus_1", "api://headache-mcp/ticketing", ("orders:read",)) in exchanger.calls
+    assert ("cus_1", "api://genaipocs-mcp/ticketing", ("orders:read",)) in exchanger.calls
     assert {audience for _, audience, _ in exchanger.calls} <= {
-        f"api://headache-mcp/{name}" for name in SERVER_SCOPES
+        f"api://genaipocs-mcp/{name}" for name in SERVER_SCOPES
     }
     # El exchanger recibe el token de entrada (lo que necesita un OBO real), no solo el sujeto.
     assert exchanger.assertions and set(exchanger.assertions) == {user_token}

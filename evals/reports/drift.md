@@ -6,9 +6,9 @@ PSI del último día frente a los 7 anteriores. Niveles: < 0.1 estable, 0.1-0.25
 
 | Señal | Métrica | Muestra mínima |
 |---|---|---|
-| `case-intents` | `headache.cases.triaged` | 200 |
+| `case-intents` | `genaipocs.cases.triaged` | 200 |
 | `agent-tools` | `gen_ai.execute_tool.duration` | 200 |
-| `agent-resolution` | `headache.eval.agent_verdicts` | 50 |
+| `agent-resolution` | `genaipocs.eval.agent_verdicts` | 50 |
 
 ## ✅ semana-normal
 

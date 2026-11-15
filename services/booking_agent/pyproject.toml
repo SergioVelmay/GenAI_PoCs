@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Knowledge & Booking Agent (fase 7): el mismo agente en cinco sabores de framework"
 requires-python = ">=3.12"
 dependencies = [
-    "headache-core[aws,azure,gateway,observability,retrieval,telemetry,tools]",
+    "genaipocs-core[aws,azure,gateway,observability,retrieval,telemetry,tools]",
     "harness",
     "retrieval",
     "support-agent",
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 harness = { workspace = true }
 retrieval = { workspace = true }
 support-agent = { workspace = true }

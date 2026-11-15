@@ -13,11 +13,11 @@ from pathlib import Path
 
 import yaml
 
-from headache_core.adapters.prometheus import build_dashboard, build_rules
+from genaipocs_core.adapters.prometheus import build_dashboard, build_rules
 
 ROOT = Path(__file__).resolve().parents[1]
-DASHBOARD = ROOT / "infra/local/telemetry/grafana/dashboards/headache-genai.json"
-RULES = ROOT / "infra/local/telemetry/rules/headache.rules.yml"
+DASHBOARD = ROOT / "infra/local/telemetry/grafana/dashboards/genaipocs-genai.json"
+RULES = ROOT / "infra/local/telemetry/rules/genaipocs.rules.yml"
 HEADER = (
     "# GENERADO por scripts/build_observability.py desde domain/slo.py y metrics.CATALOG.\n"
     "# No editar a mano. Tests: rules/tests (promtool test rules).\n"

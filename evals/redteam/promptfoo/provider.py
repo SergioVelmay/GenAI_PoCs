@@ -1,4 +1,4 @@
-"""Provider de promptfoo (fase 12.5): cada variante contra el agente de Headache con harness.
+"""Provider de promptfoo (fase 12.5): cada variante contra el agente de Genaipocs con harness.
 
 promptfoo lo ejecuta con `PROMPTFOO_PYTHON` (el Python del entorno de uv), en un proceso que
 reutiliza entre llamadas: la base de conocimiento se carga una vez. Coste 0: modelo guionizado

@@ -23,7 +23,7 @@ actualiza `docs/plan-fases.md`).
 
 Responder con:
 
-1. **Concepto** de la fase, explicado de forma didáctica, y **el problema de negocio de Headache** que resuelve (a quién ayuda, qué KPI movería, qué cuesta y qué riesgo reduce).
+1. **Concepto** de la fase, explicado de forma didáctica, y **el problema de negocio de Genaipocs** que resuelve (a quién ayuda, qué KPI movería, qué cuesta y qué riesgo reduce).
 2. **Equivalencias** con lo que Sergio ya conoce y tabla **Azure ↔ AWS ↔ GCP ↔ framework** (carriles A/B/C).
 3. **Verificación previa**: tabla "comprobado → resultado → consecuencia en el plan".
 4. **Subfases** `N.1`, `N.2`... (o `N.G1`...) pequeñas y verificables, cada una con entregables, comandos de verificación, coste y riesgo real.

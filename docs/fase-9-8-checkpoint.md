@@ -78,27 +78,27 @@ reescribir `main` rompería los hashes que citan los docs.
 
 | Decisión | Motivo |
 |---|---|
-| Suscripción *MSDN - Sergio Velasco*, perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-headache`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
+| Suscripción *MSDN - Sergio Velasco*, perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
 | Región `swedencentral` | La región de la UE con más modelos y cuota |
 | Modelos en **DataZoneStandard** (chat 200 K TPM, embeddings 50 K) | Procesamiento dentro de la UE (RGPD) con cuota suficiente (16 M TPM disponibles). La capacidad no se paga: se dimensiona según la carga (ver §5) |
 | Foundry **en Terraform** (`foundry.tf`) | Cuenta AI Services + proyecto + despliegues como código, en lugar del portal |
 | AI Search **Basic y efímero** (`search_enabled`) | Basic da identidad gestionada, Semantic Ranker y Foundry IQ, pero cuesta ~70 €/mes aunque no se use: solo existe en las sesiones de trabajo |
 | Tiers gratuitos donde no recortan (Content Safety F0) | El crédito se reserva para los modelos |
 | Presupuesto del grupo de recursos: 100 €/mes, alertas al 50/75/100 % + previsión | Independiente de los presupuestos de la suscripción; solo avisa, no corta |
-| Nombres CAF `<tipo>-headache-dev-swc-001` | Se leen de un vistazo (tipo, proyecto, entorno, región, instancia); el sufijo aleatorio inicial (`erauor`) parecía un error |
+| Nombres CAF `<tipo>-genaipocs-dev-swc-001` | Se leen de un vistazo (tipo, proyecto, entorno, región, instancia); el sufijo aleatorio inicial (`erauor`) parecía un error |
 | `*.tfvars` ignorados; plantilla `terraform.tfvars.example` | La suscripción y el email no entran en el repo |
 
-### Recursos (`rg-headache-dev`)
+### Recursos (`rg-genaipocs-dev`)
 
 | Recurso | Nombre | Coste |
 |---|---|---|
-| Foundry (AI Services) + proyecto `headache` | `aif-headache-dev-swc-001` | Por token |
+| Foundry (AI Services) + proyecto `genaipocs` | `aif-genaipocs-dev-swc-001` | Por token |
 | Despliegues | `gpt-4.1-mini`, `gpt-4.1-nano`, `text-embedding-3-small` y `gpt-4.1` (juez de evals) | Por token |
-| Content Safety F0 | `cs-headache-dev-swc-001` | 0 € (cuota mensual) |
-| Service Bus Basic + cola `knowledge.documents` | `sb-headache-dev-swc-001` | Por operación |
-| Storage + contenedor `knowledge-docs` | `stheadachedevswc001` | Por uso |
-| AI Search Basic (apagado por defecto) | `srch-headache-dev-swc-001` | ~70 €/mes mientras existe |
-| Presupuesto | `budget-headache-dev` | — |
+| Content Safety F0 | `cs-genaipocs-dev-swc-001` | 0 € (cuota mensual) |
+| Service Bus Basic + cola `knowledge.documents` | `sb-genaipocs-dev-swc-001` | Por operación |
+| Storage + contenedor `knowledge-docs` | `stgenaipocsdevswc001` | Por uso |
+| AI Search Basic (apagado por defecto) | `srch-genaipocs-dev-swc-001` | ~70 €/mes mientras existe |
+| Presupuesto | `budget-genaipocs-dev` | — |
 
 Sin claves en ningún recurso: autenticación local desactivada y roles de Entra ID para el usuario
 (*Cognitive Services OpenAI User*, *Foundry User*, *Cognitive Services User*, *Storage Blob Data
@@ -113,7 +113,7 @@ Contributor*, *Azure Service Bus Data Owner*).
 ### Rutina de AI Search (efímero)
 
 ```powershell
-$env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-headache"; az account show -o table
+$env:AZURE_CONFIG_DIR = "$env:USERPROFILE\.azure-genaipocs"; az account show -o table
 # Al empezar: search_enabled = true en terraform.tfvars
 terraform -chdir=infra/terraform/azure apply
 uv run python scripts/provision_search_index.py --apply   # y reindexar
@@ -247,7 +247,7 @@ Detalle en [fase 8](fase-8-harness.md#7-resultados-en-azure-18-10-2026).
 
 ## 6. Coste real (Cost Management, 17–20 de octubre)
 
-Consulta de solo lectura a la API de Cost Management sobre `rg-headache-dev` (agrupado por
+Consulta de solo lectura a la API de Cost Management sobre `rg-genaipocs-dev` (agrupado por
 medidor y por día). Todo el gasto es del 18-10, el día de las validaciones; el 19 fue 0.
 
 | Concepto | Coste | % |

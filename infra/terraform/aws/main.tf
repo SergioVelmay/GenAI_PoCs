@@ -8,15 +8,18 @@ locals {
 data "aws_caller_identity" "current" {}
 
 # ---------- Cola de indexación (equivale a knowledge.documents de RabbitMQ) ----------
+# Sin el prefijo `<project>-<environment>`: el adaptador busca la cola por el topic lógico
+# (`sqs.queue_name("knowledge.documents")` = `knowledge-documents`), igual que ElasticMQ en local y
+# que Service Bus y Pub/Sub. Con el prefijo, el worker no la encontraba (QueueDoesNotExist).
 
 resource "aws_sqs_queue" "knowledge_dlq" {
-  name                      = "${local.name}-knowledge-documents-dlq"
+  name                      = "knowledge-documents-dlq"
   message_retention_seconds = 1209600 # 14 días: tiempo para investigar y reprocesar.
   sqs_managed_sse_enabled   = true
 }
 
 resource "aws_sqs_queue" "knowledge" {
-  name                       = "${local.name}-knowledge-documents"
+  name                       = "knowledge-documents"
   visibility_timeout_seconds = 60
   receive_wait_time_seconds  = 10 # Long polling por defecto: menos ReceiveMessage vacíos.
   sqs_managed_sse_enabled    = true

@@ -6,7 +6,7 @@ calling y MCP, agentes en varios frameworks y harness de guardrails. Todo en **A
 **GCP**, en curso), y cada pieza en hasta **tres carriles comparables** con el mismo dataset y las
 mismas evals.
 
-Caso de uso: **Headache**, un marketplace global de experiencias y eventos (~300 M de usuarios) con
+Caso de uso: **Genaipocs**, un marketplace global de experiencias y eventos (~300 M de usuarios) con
 agentes para usuarios internos (operaciones, soporte, partners) y para el público.
 
 ## Arquitectura
@@ -40,7 +40,7 @@ evals, despliegue) y el recorrido de un caso de punta a punta: [arquitectura.md]
 
 ```text
 packages/
-  headache_core/   dominio, casos de uso, puertos y adaptadores (Clean Architecture) + migraciones
+  genaipocs_core/   dominio, casos de uso, puertos y adaptadores (Clean Architecture) + migraciones
   harness/         validación, autocorrección, guardrails, SQL seguro, PII, aprobación humana
 services/
   ticketing_api/   API transaccional (FastAPI)
@@ -64,7 +64,7 @@ Requisitos: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker Desktop y Git.
 uv sync --all-packages
 Copy-Item .env.example .env                      # y rellenar las contraseñas locales
 docker compose up -d                             # PostgreSQL + pgvector y RabbitMQ
-uv run alembic -c packages/headache_core/alembic.ini upgrade head
+uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run python scripts/generate_synthetic_data.py --scale small
 uv run python scripts/load_seed.py --truncate
 
@@ -162,6 +162,6 @@ Para Claude Code, crea `.claude/settings.local.json` (ignorado) con las rutas ab
 perfiles aislados de las CLI:
 
 ```json
-{ "env": { "AZURE_CONFIG_DIR": "C:\\Users\\<usuario>\\.azure-headache",
-           "CLOUDSDK_CONFIG": "C:\\Users\\<usuario>\\.gcloud-headache", "PYTHONUTF8": "1" } }
+{ "env": { "AZURE_CONFIG_DIR": "C:\\Users\\<usuario>\\.azure-genaipocs",
+           "CLOUDSDK_CONFIG": "C:\\Users\\<usuario>\\.gcloud-genaipocs", "PYTHONUTF8": "1" } }
 ```

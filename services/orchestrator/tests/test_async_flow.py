@@ -8,18 +8,18 @@ from datetime import UTC, datetime
 
 import pytest
 
-from headache_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus, InMemoryOutbox
-from headache_core.application.orchestration import (
+from genaipocs_core.adapters.memory import InMemoryCaseStore, InMemoryMessageBus, InMemoryOutbox
+from genaipocs_core.application.orchestration import (
     TriageAgent,
     email_to_payload,
     envelope_to_payload,
 )
-from headache_core.application.outbox import OutboxRelay
-from headache_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
-from headache_core.ports import LLMError, LLMTransientError, Message, ToolCall
-from headache_core.ports.approvals import ApprovalStatus
-from headache_core.ports.cases import CaseRecord
-from headache_core.ports.outbox import OutboxEvent
+from genaipocs_core.application.outbox import OutboxRelay
+from genaipocs_core.domain import CaseEnvelope, CaseStatus, Specialist, SupportIntent
+from genaipocs_core.ports import LLMError, LLMTransientError, Message, ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
+from genaipocs_core.ports.cases import CaseRecord
+from genaipocs_core.ports.outbox import OutboxEvent
 from orchestrator.async_flow import (
     CASE_OUTCOMES,
     SUPPORT_EMAILS,
@@ -33,7 +33,7 @@ from orchestrator.specialists import build_approval_service, build_specialists
 from orchestrator.testing import CUSTOMER, ORDER, LocalWorld, local_world, support_email
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 REFUND_EMAIL = support_email("No puedo ir, devolvedme el dinero del pedido.")
 INFO_EMAIL = support_email("¿El evento es accesible?", email_id="eml_2", order_id=None)
 

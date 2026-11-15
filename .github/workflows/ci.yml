@@ -66,9 +66,9 @@ jobs:
       - name: Reglas de alerta (promtool check + test)
         run: |
           docker run --rm -v "$PWD/infra/local/telemetry/rules:/rules:ro" \
-            --entrypoint promtool prom/prometheus:v3.15.1 check rules /rules/headache.rules.yml
+            --entrypoint promtool prom/prometheus:v3.15.1 check rules /rules/genaipocs.rules.yml
           docker run --rm -v "$PWD/infra/local/telemetry/rules:/rules:ro" \
-            --entrypoint promtool prom/prometheus:v3.15.1 test rules /rules/tests/headache.test.yml
+            --entrypoint promtool prom/prometheus:v3.15.1 test rules /rules/tests/genaipocs.test.yml
 
       # Fase 11.7: el collector local y los de Azure y AWS arrancan con su configuración (sin enviar
       # nada). Credenciales ficticias: sigv4auth solo las resuelve, no firma.
@@ -158,10 +158,10 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: docker build -f services/mcp_servers/Dockerfile -t headache-mcp:ci .
+      - run: docker build -f services/mcp_servers/Dockerfile -t genaipocs-mcp:ci .
       - name: Smoke test (health de catalog)
         run: |
-          docker run -d --name mcp -p 127.0.0.1:8101:8101 headache-mcp:ci catalog
+          docker run -d --name mcp -p 127.0.0.1:8101:8101 genaipocs-mcp:ci catalog
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8101/health && exit 0; sleep 1; done
           docker logs mcp; exit 1
 
@@ -170,17 +170,17 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: docker build -f services/orchestrator/Dockerfile -t headache-agents:ci .
+      - run: docker build -f services/orchestrator/Dockerfile -t genaipocs-agents:ci .
       - name: Smoke test (Agent Card, 401 sin token y 200 con token del orquestador)
         run: |
           mkdir -p /tmp/keys && chmod 777 /tmp/keys
-          token=$(docker run --rm -v /tmp/keys:/keys --entrypoint python headache-agents:ci -c \
-            "from pathlib import Path; from headache_mcp.auth import DevTokenIssuer; from headache_core.config import A2ASettings as S; s=S(); print(DevTokenIssuer.load_or_create(Path('/keys/dev.pem'), issuer=s.issuer).mint(subject=s.caller_id, audience=s.audience('creative'), scopes=[s.scope]))")
+          token=$(docker run --rm -v /tmp/keys:/keys --entrypoint python genaipocs-agents:ci -c \
+            "from pathlib import Path; from genaipocs_mcp.auth import DevTokenIssuer; from genaipocs_core.config import A2ASettings as S; s=S(); print(DevTokenIssuer.load_or_create(Path('/keys/dev.pem'), issuer=s.issuer).mint(subject=s.caller_id, audience=s.audience('creative'), scopes=[s.scope]))")
           docker run -d --name agent -p 127.0.0.1:8202:8000 -v /tmp/keys:/keys:ro \
             -e A2A__PUBLIC_KEY_FILE=/keys/dev.pub -e AZURE_OPENAI__ENDPOINT=https://llm.invalid \
-            headache-agents:ci creative --public-url http://127.0.0.1:8202
+            genaipocs-agents:ci creative --public-url http://127.0.0.1:8202
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8202/health && break; sleep 1; done
-          curl -fsS http://127.0.0.1:8202/.well-known/agent-card.json | grep -q headache-creative-specialist
+          curl -fsS http://127.0.0.1:8202/.well-known/agent-card.json | grep -q genaipocs-creative-specialist
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8202/a2a -d '{}')" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8202/a2a \
             -H "Authorization: Bearer $token" -H 'content-type: application/json' \
@@ -209,13 +209,13 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg17
         env:
-          POSTGRES_USER: headache
-          POSTGRES_PASSWORD: headache-ci
-          POSTGRES_DB: headache
+          POSTGRES_USER: genaipocs
+          POSTGRES_PASSWORD: genaipocs-ci
+          POSTGRES_DB: genaipocs
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U headache -d headache"
+          --health-cmd "pg_isready -U genaipocs -d genaipocs"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -223,8 +223,8 @@ jobs:
         # Con la API de gestión: el autoescalador lee la profundidad de las colas (fase 10.6).
         image: rabbitmq:4-management
         env:
-          RABBITMQ_DEFAULT_USER: headache
-          RABBITMQ_DEFAULT_PASS: headache-ci
+          RABBITMQ_DEFAULT_USER: genaipocs
+          RABBITMQ_DEFAULT_PASS: genaipocs-ci
         ports:
           - 5672:5672
           - 15672:15672
@@ -250,8 +250,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      POSTGRES__PASSWORD: headache-ci
-      RABBITMQ__PASSWORD: headache-ci
+      POSTGRES__PASSWORD: genaipocs-ci
+      RABBITMQ__PASSWORD: genaipocs-ci
       SQS__ENDPOINT_URL: http://127.0.0.1:9324
       PUBSUB__EMULATOR_HOST: 127.0.0.1:8085
       # Misma imagen que el perfil `pubsub` de docker-compose.yml.
@@ -266,7 +266,7 @@ jobs:
       - name: Arrancar el emulador de Pub/Sub (en segundo plano)
         run: |
           nohup docker run -d --name pubsub -p 127.0.0.1:8085:8085 "$PUBSUB_IMAGE" \
-            gcloud beta emulators pubsub start --project=headache-local --host-port=0.0.0.0:8085 \
+            gcloud beta emulators pubsub start --project=genaipocs-local --host-port=0.0.0.0:8085 \
             > /tmp/pubsub-start.log 2>&1 &
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -278,12 +278,12 @@ jobs:
 
       - name: Migraciones (subida, bajada y subida)
         run: |
-          uv run alembic -c packages/headache_core/alembic.ini upgrade head
-          uv run alembic -c packages/headache_core/alembic.ini downgrade base
-          uv run alembic -c packages/headache_core/alembic.ini upgrade head
+          uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
+          uv run alembic -c packages/genaipocs_core/alembic.ini downgrade base
+          uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 
       - name: El modelo ORM coincide con las migraciones
-        run: uv run alembic -c packages/headache_core/alembic.ini check
+        run: uv run alembic -c packages/genaipocs_core/alembic.ini check
 
       - name: Esperar al emulador de Pub/Sub
         run: |

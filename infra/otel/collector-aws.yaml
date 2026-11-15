@@ -6,7 +6,7 @@
 #   servicios ──OTLP──▶ collector ──OTLP + SigV4──▶ X-Ray (Transaction Search: spans en el
 #                                 │                 grupo de logs aws/spans, con todos los
 #                                 │                 atributos gen_ai.* sin traducir)
-#                                 └──EMF──────────▶ CloudWatch Logs → métricas Headache/GenAI
+#                                 └──EMF──────────▶ CloudWatch Logs → métricas Genaipocs/GenAI
 #
 # Por qué OTLP a X-Ray y no el exporter `awsxray`: el formato de segmentos de X-Ray solo indexa
 # unas pocas anotaciones y convierte el resto en metadatos; el endpoint OTLP guarda el span tal
@@ -64,8 +64,8 @@ exporters:
   # métrica facturada (0,30 $/mes): solo se declaran las que usan el dashboard y las alarmas.
   awsemf:
     region: ${env:AWS_REGION}
-    namespace: Headache/GenAI
-    log_group_name: /headache/${env:ENVIRONMENT}/metrics
+    namespace: Genaipocs/GenAI
+    log_group_name: /genaipocs/${env:ENVIRONMENT}/metrics
     log_stream_name: "{TaskId}"
     dimension_rollup_option: NoDimensionRollup
     resource_to_telemetry_conversion:
@@ -73,24 +73,24 @@ exporters:
     metric_declarations:
       - dimensions: [[service.name], [service.name, gen_ai.agent.name]]
         metric_name_selectors:
-          - ^headache\.llm\.cost$
+          - ^genaipocs\.llm\.cost$
           - ^gen_ai\.client\.inference\.usage\..*
       - dimensions: [[service.name], [service.name, error.type]]
         metric_name_selectors:
           - ^gen_ai\.client\.operation\.duration$
-          - ^headache\.llm\.rejections$
-          - ^headache\.stream\.errors$
-      - dimensions: [[service.name, headache.caller.plan, headache.admission.outcome]]
+          - ^genaipocs\.llm\.rejections$
+          - ^genaipocs\.stream\.errors$
+      - dimensions: [[service.name, genaipocs.caller.plan, genaipocs.admission.outcome]]
         metric_name_selectors:
-          - ^headache\.admission\.decisions$
-      - dimensions: [[service.name, headache.cache.outcome]]
+          - ^genaipocs\.admission\.decisions$
+      - dimensions: [[service.name, genaipocs.cache.outcome]]
         metric_name_selectors:
-          - ^headache\.answers$
-          - ^headache\.answer\.time_to_first_chunk$
+          - ^genaipocs\.answers$
+          - ^genaipocs\.answer\.time_to_first_chunk$
       - dimensions: [[service.name]]
         metric_name_selectors:
-          - ^headache\.outbox\.backlog$
-          - ^headache\.eval\..*
+          - ^genaipocs\.outbox\.backlog$
+          - ^genaipocs\.eval\..*
           - ^messaging\..*
 
 service:

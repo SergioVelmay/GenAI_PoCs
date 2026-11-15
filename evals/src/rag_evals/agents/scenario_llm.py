@@ -18,8 +18,8 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from headache_core.application.agents import SUMMARIZER_PROMPT, estimate_tokens
-from headache_core.ports import (
+from genaipocs_core.application.agents import SUMMARIZER_PROMPT, estimate_tokens
+from genaipocs_core.ports import (
     ChatMessage,
     LLMResponse,
     ResponseSchema,

@@ -20,9 +20,9 @@ from contextlib import asynccontextmanager
 import uvicorn
 from starlette.applications import Starlette
 
-from headache_core.adapters.otel import setup_observability
-from headache_core.config import Settings, get_settings
-from headache_core.domain import Specialist
+from genaipocs_core.adapters.otel import setup_observability
+from genaipocs_core.config import Settings, get_settings
+from genaipocs_core.domain import Specialist
 from orchestrator.bootstrap import open_specialist_deps
 from orchestrator.remote import build_verifier, create_specialist_app
 from orchestrator.specialists import build_specialist
@@ -47,7 +47,7 @@ async def specialist_app(
 
 
 async def main() -> None:
-    parser = argparse.ArgumentParser(description="Especialista de Headache como servicio A2A")
+    parser = argparse.ArgumentParser(description="Especialista de Genaipocs como servicio A2A")
     parser.add_argument("specialist", choices=[s.value for s in Specialist])
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8200)

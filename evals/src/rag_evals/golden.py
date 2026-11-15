@@ -16,11 +16,14 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from headache_core.domain import DocumentType
+from genaipocs_core.domain import DocumentType
 from rag_evals import EVALS_DIR
 from retrieval.bootstrap import SyntheticDocument, access_metadata
 
-DATASET_VERSION = 1
+# v2 (15-11-2026): las mismas 144 preguntas que la v1 sobre el corpus con el cliente
+# renombrado a Genaipocs. Un corpus nuevo es un dataset nuevo: la v1 se conserva con la
+# huella de su corpus.
+DATASET_VERSION = 2
 CORPUS_PATH = EVALS_DIR / "corpus" / "knowledge.jsonl"
 DATASET_PATH = EVALS_DIR / "datasets" / f"golden-v{DATASET_VERSION}.jsonl"
 HANDBOOKS = ("handbook-help-center-es", "handbook-help-center-en")

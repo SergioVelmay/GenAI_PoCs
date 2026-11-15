@@ -49,7 +49,7 @@ resource "azurerm_api_management" "mcp" {
   name                = "apim-${local.caf_suffix}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  publisher_name      = "Headache"
+  publisher_name      = "Genaipocs"
   publisher_email     = var.budget_email
   sku_name            = var.apim_sku
   tags                = local.tags
@@ -62,15 +62,15 @@ resource "azurerm_api_management" "mcp" {
 resource "azapi_resource" "mcp_server" {
   for_each  = var.apim_enabled ? var.mcp_server_base_urls : {}
   type      = "Microsoft.ApiManagement/service/apis@2025-09-01-preview"
-  name      = "headache-${each.key}"
+  name      = "genaipocs-${each.key}"
   parent_id = azurerm_api_management.mcp[0].id
 
   body = {
     properties = {
       type        = "mcp"
-      displayName = "Headache ${each.key}"
+      displayName = "Genaipocs ${each.key}"
       description = "Servidor MCP ${each.key} (FastMCP en Container Apps, fase 14)"
-      path        = "headache-${each.key}"
+      path        = "genaipocs-${each.key}"
       protocols   = ["https"]
       serviceUrl  = each.value
       # Sin claves de suscripción: la autorización es OAuth (validate-jwt).

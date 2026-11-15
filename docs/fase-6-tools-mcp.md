@@ -1,6 +1,6 @@
 # Fase 6 · Tool calling avanzado, servidores MCP, OAuth y MCP Gateway
 
-Cómo deja Headache que un LLM consulte y modifique el backend de ticketing de forma segura: el
+Cómo deja Genaipocs que un LLM consulte y modifique el backend de ticketing de forma segura: el
 modelo propone, el backend valida, autoriza, ejecuta y sanea. Las mismas tools se usan en proceso
 (bucle propio), por MCP (tres servidores FastMCP) y detrás de un gateway (propio, AgentCore o APIM).
 
@@ -12,14 +12,14 @@ modelo propone, el backend valida, autoriza, ejecuta y sanea. Las mismas tools s
 
 | Pieza | Qué hace | Código |
 |---|---|---|
-| Tool calling en el puerto | `complete(..., tools=ToolConfig)`, `Role.TOOL`, `ToolCall`; Azure OpenAI, Bedrock Converse y LiteLLM | [ports/llm.py](../packages/headache_core/src/headache_core/ports/llm.py) |
-| Tools tipadas | Esquema strict desde Pydantic; identidad en `ToolContext`, nunca en el esquema | [registry.py](../packages/headache_core/src/headache_core/application/tools/registry.py) |
-| Bucle manual (carril B) | Lecturas en paralelo acotado, escrituras en serie, timeouts, errores tipados, límite de iteraciones | [loop.py](../packages/headache_core/src/headache_core/application/tools/loop.py) |
-| Saneamiento | Invisibles fuera, textos y listas acotados sin romper el JSON | [tool_output.py](../packages/headache_core/src/headache_core/domain/tool_output.py) |
-| Tools de ticketing | 6 tools con proyección de salida y propiedad del pedido | [ticketing.py](../packages/headache_core/src/headache_core/application/tools/ticketing.py) |
-| Servidores MCP | `catalog`, `ticketing`, `refunds` (FastMCP 4, Streamable HTTP), contratos versionados | [headache_mcp](../services/mcp_servers/src/headache_mcp), [contracts/](../services/mcp_servers/contracts) |
-| OAuth 2.1 | Resource servers JWT (firma, `iss`, `exp`, `aud` por servidor, scopes), RFC 9728 | [auth.py](../services/mcp_servers/src/headache_mcp/auth.py) |
-| MCP Gateway propio | Agregación, token exchange por servidor, rate limit y auditoría | [gateway.py](../services/mcp_servers/src/headache_mcp/gateway.py) |
+| Tool calling en el puerto | `complete(..., tools=ToolConfig)`, `Role.TOOL`, `ToolCall`; Azure OpenAI, Bedrock Converse y LiteLLM | [ports/llm.py](../packages/genaipocs_core/src/genaipocs_core/ports/llm.py) |
+| Tools tipadas | Esquema strict desde Pydantic; identidad en `ToolContext`, nunca en el esquema | [registry.py](../packages/genaipocs_core/src/genaipocs_core/application/tools/registry.py) |
+| Bucle manual (carril B) | Lecturas en paralelo acotado, escrituras en serie, timeouts, errores tipados, límite de iteraciones | [loop.py](../packages/genaipocs_core/src/genaipocs_core/application/tools/loop.py) |
+| Saneamiento | Invisibles fuera, textos y listas acotados sin romper el JSON | [tool_output.py](../packages/genaipocs_core/src/genaipocs_core/domain/tool_output.py) |
+| Tools de ticketing | 6 tools con proyección de salida y propiedad del pedido | [ticketing.py](../packages/genaipocs_core/src/genaipocs_core/application/tools/ticketing.py) |
+| Servidores MCP | `catalog`, `ticketing`, `refunds` (FastMCP 4, Streamable HTTP), contratos versionados | [genaipocs_mcp](../services/mcp_servers/src/genaipocs_mcp), [contracts/](../services/mcp_servers/contracts) |
+| OAuth 2.1 | Resource servers JWT (firma, `iss`, `exp`, `aud` por servidor, scopes), RFC 9728 | [auth.py](../services/mcp_servers/src/genaipocs_mcp/auth.py) |
+| MCP Gateway propio | Agregación, token exchange por servidor, rate limit y auditoría | [gateway.py](../services/mcp_servers/src/genaipocs_mcp/gateway.py) |
 | Agente mínimo | Descubre tools MCP y las usa con el mismo bucle | [support_agent](../services/support_agent/src/support_agent) |
 | Gateways gestionados (IaC) | AgentCore Gateway (AWS) y APIM (Azure), desactivados por defecto | [aws/mcp_gateway.tf](../infra/terraform/aws/mcp_gateway.tf), [azure/mcp_gateway.tf](../infra/terraform/azure/mcp_gateway.tf) |
 
@@ -82,14 +82,14 @@ Decisiones:
 - El servidor MCP es **solo transporte**: usa el mismo `ToolExecutor` que el bucle local.
 - Las anotaciones MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`) salen de `read_only`.
 - `tools/list` está versionado en `contracts/*.json`: cambiar nombre, descripción o esquema es un
-  cambio deliberado (`python -m headache_mcp.contracts --update`) y CI lo comprueba.
+  cambio deliberado (`python -m genaipocs_mcp.contracts --update`) y CI lo comprueba.
 - Una imagen (`services/mcp_servers/Dockerfile`) y un contenedor por servidor (`--profile mcp`).
 
 ## 4. OAuth 2.1 en MCP
 
 - Cada servidor es un **resource server**: valida firma, `iss`, `exp`, `aud` y scope antes de
   ejecutar nada, y publica sus metadatos en `/.well-known/oauth-protected-resource/mcp` (RFC 9728).
-- **Un audience por servidor** (`api://headache-mcp/{server}`): un token de `ticketing` no sirve en
+- **Un audience por servidor** (`api://genaipocs-mcp/{server}`): un token de `ticketing` no sirve en
   `refunds`. Es la defensa contra el *token passthrough* que prohíbe la especificación MCP.
 - En local, `DevTokenIssuer` hace de authorization server (clave RSA en `.secrets/`, ignorado por
   Git). En la nube, Entra ID o Cognito (`MCP__ISSUER` + `MCP__JWKS_URI`).
@@ -109,7 +109,7 @@ flowchart LR
 
 | Capacidad | B · Gateway propio (FastMCP) | A · AgentCore Gateway (AWS) | A · API Management (Azure) |
 |---|---|---|---|
-| Endpoint para el agente | uno, con las tools de los tres | uno, con las tools de todos los *targets* | uno **por servidor** (`/headache-{server}/mcp`) |
+| Endpoint para el agente | uno, con las tools de los tres | uno, con las tools de todos los *targets* | uno **por servidor** (`/genaipocs-{server}/mcp`) |
 | Autenticación de entrada | `JWTVerifier` (audience del gateway) | `CUSTOM_JWT` (OIDC discovery, audience, scopes, claims) | política `validate-jwt` |
 | Credencial hacia el servidor | token exchange (dev STS) | OAuth **token exchange (OBO)**, client credentials, API key o SigV4 | reenvía el token del propio servidor (APIM es su puerta) |
 | Token passthrough a MCP | no | **no admitido** para destinos MCP | no aplica (mismo audience) |
@@ -135,7 +135,7 @@ Lectura:
 Uso en local (sin coste):
 
 ```powershell
-uv run python -m headache_mcp.auth --customer cus_0121338 --server gateway   # crea .secrets/
+uv run python -m genaipocs_mcp.auth --customer cus_0121338 --server gateway   # crea .secrets/
 $env:MCP__AUTH="jwt"; docker compose --profile mcp up -d --build              # 3 servidores + gateway
 # Si el 8000 del host está ocupado: API en otro puerto y MCP_TICKETING_API_URL=http://host.docker.internal:8010
 # Agente (tiene coste): uv run python -m support_agent --gateway --customer cus_0121338 "..."

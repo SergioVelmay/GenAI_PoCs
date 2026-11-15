@@ -7,7 +7,7 @@ from typing import Literal, Self
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from headache_core.application.ingestion import Chunker, FixedSizeChunker, SentenceChunker
+from genaipocs_core.application.ingestion import Chunker, FixedSizeChunker, SentenceChunker
 
 
 class IndexerSettings(BaseSettings):

@@ -15,9 +15,9 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel
 
+from genaipocs_core.application.llm import response_schema_for
+from genaipocs_core.ports import ChatMessage, LLMPort, LLMResponse, Role
 from harness.validation import Validator, Violation, parse_output, render_feedback, run_validators
-from headache_core.application.llm import response_schema_for
-from headache_core.ports import ChatMessage, LLMPort, LLMResponse, Role
 
 
 @dataclass(frozen=True, slots=True)

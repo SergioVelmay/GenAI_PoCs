@@ -31,7 +31,7 @@ apim_enabled = false
 # Fase 10.6: workers de casos en Container Apps con KEDA (0 réplicas sin mensajes). Requiere la
 # imagen del orquestador en un registro (fase 14).
 queue_workers_enabled = false
-# queue_worker_image  = "<registro>.azurecr.io/headache-agents:<versión>"
+# queue_worker_image  = "<registro>.azurecr.io/genaipocs-agents:<versión>"
 
 # Fase 11.7: Application Insights + Log Analytics + alertas (pago por GB, tope diario).
 observability_enabled      = false

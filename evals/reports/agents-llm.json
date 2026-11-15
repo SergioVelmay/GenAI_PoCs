@@ -484,7 +484,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "La guía interna del centro de ayuda de Headache no contiene información específica sobre tarjetas regalo en las preguntas frecuentes consultadas. ¿Quieres que busque en otro tipo de documento o te ayude con otra consulta?",
+        "answer": "La guía interna del centro de ayuda de Genaipocs no contiene información específica sobre tarjetas regalo en las preguntas frecuentes consultadas. ¿Quieres que busque en otro tipo de documento o te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -599,7 +599,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No ha sido posible realizar el reembolso del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Headache. ¿Quieres que te ayude con algo más?",
+        "answer": "No ha sido posible realizar el reembolso del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Genaipocs. ¿Quieres que te ayude con algo más?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -630,7 +630,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.",
+        "answer": "No he podido completar la gestión de forma automática. Un agente de Genaipocs revisará tu caso y te contestará.",
         "guardrails": [],
         "stop_reason": "max_iterations",
         "tools": [
@@ -839,7 +839,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No hay información disponible en la guía interna del centro de ayuda de Headache sobre tarjetas regalo. ¿Quieres que te ayude con otra consulta?",
+        "answer": "No hay información disponible en la guía interna del centro de ayuda de Genaipocs sobre tarjetas regalo. ¿Quieres que te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -1186,7 +1186,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "La guía interna del centro de ayuda de Headache no contiene información específica sobre tarjetas regalo en las preguntas frecuentes disponibles. ¿Quieres que busque en otro tipo de documentos o te ayude con otra consulta?",
+        "answer": "La guía interna del centro de ayuda de Genaipocs no contiene información específica sobre tarjetas regalo en las preguntas frecuentes disponibles. ¿Quieres que busque en otro tipo de documentos o te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -1301,7 +1301,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No es posible devolver el dinero del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Headache. ¿Quieres que te ayude con otra cosa?",
+        "answer": "No es posible devolver el dinero del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Genaipocs. ¿Quieres que te ayude con otra cosa?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -1332,7 +1332,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.",
+        "answer": "No he podido completar la gestión de forma automática. Un agente de Genaipocs revisará tu caso y te contestará.",
         "guardrails": [],
         "stop_reason": "max_iterations",
         "tools": [
@@ -1544,7 +1544,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "La guía interna del centro de ayuda de Headache no contiene información específica sobre tarjetas regalo en las preguntas frecuentes consultadas. ¿Quieres que busque en otro tipo de documentos o te ayude con otra consulta?",
+        "answer": "La guía interna del centro de ayuda de Genaipocs no contiene información específica sobre tarjetas regalo en las preguntas frecuentes consultadas. ¿Quieres que busque en otro tipo de documentos o te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -1659,7 +1659,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No es posible devolver el dinero del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Headache. ¿Quieres que te ayude con otra cosa?",
+        "answer": "No es posible devolver el dinero del pedido ord_0000202 porque la categoría del evento no admite reembolsos según la política de Genaipocs. ¿Quieres que te ayude con otra cosa?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -1690,7 +1690,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.",
+        "answer": "No he podido completar la gestión de forma automática. Un agente de Genaipocs revisará tu caso y te contestará.",
         "guardrails": [],
         "stop_reason": "max_iterations",
         "tools": [
@@ -1902,7 +1902,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "En la guía interna del centro de ayuda de Headache no se encontró información específica sobre tarjetas regalo. ¿Quieres que busque algo más o te ayude con otra consulta?",
+        "answer": "En la guía interna del centro de ayuda de Genaipocs no se encontró información específica sobre tarjetas regalo. ¿Quieres que busque algo más o te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -2048,7 +2048,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No he podido completar la gestión de forma automática. Un agente de Headache revisará tu caso y te contestará.",
+        "answer": "No he podido completar la gestión de forma automática. Un agente de Genaipocs revisará tu caso y te contestará.",
         "guardrails": [],
         "stop_reason": "max_iterations",
         "tools": [
@@ -2257,7 +2257,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No hay información disponible en la guía interna del centro de ayuda de Headache sobre tarjetas regalo. ¿Quieres que te ayude con otra consulta?",
+        "answer": "No hay información disponible en la guía interna del centro de ayuda de Genaipocs sobre tarjetas regalo. ¿Quieres que te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [
@@ -2603,7 +2603,7 @@
           "payload_to_model": 0,
           "unapproved_irreversible": 0
         },
-        "answer": "No he encontrado información específica sobre tarjetas regalo en la guía interna del centro de ayuda de Headache. ¿Quieres que busque algo más o te ayude con otra consulta?",
+        "answer": "No he encontrado información específica sobre tarjetas regalo en la guía interna del centro de ayuda de Genaipocs. ¿Quieres que busque algo más o te ayude con otra consulta?",
         "guardrails": [],
         "stop_reason": "answer",
         "tools": [

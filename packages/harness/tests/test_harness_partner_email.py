@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from genaipocs_core.adapters.memory import FakeLLM
 from harness.rules.partner_email import (
     FOOTERS,
     SUBJECT_PREFIX,
     PartnerEmailCase,
     draft_partner_email,
 )
-from headache_core.adapters.memory import FakeLLM
 
 CASE = PartnerEmailCase(
     reference="INC-2026-0042",
@@ -53,7 +53,7 @@ async def test_valid_draft_is_rendered_with_the_mandatory_template() -> None:
     body = result.email.body
     assert body.startswith("Hola, Laura:")
     assert "Acciones solicitadas:\n1. Enviar un informe" in body
-    assert "Equipo de Partners de Headache" in body and body.endswith(FOOTERS["es"])
+    assert "Equipo de Partners de Genaipocs" in body and body.endswith(FOOTERS["es"])
 
 
 async def test_prohibited_data_from_internal_notes_is_removed_by_feedback() -> None:

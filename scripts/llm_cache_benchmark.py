@@ -29,11 +29,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from headache_core.adapters.gemini_cache import ExplicitCache
-from headache_core.adapters.llm_factory import build_provider_llm, build_tracer
-from headache_core.application.llm import ModelTier, ObservedLLM, PriceTable, RateLimitedLLM
-from headache_core.config import LLMProvider, get_settings
-from headache_core.ports import ChatMessage, LLMPort, Role, TokenUsage
+from genaipocs_core.adapters.gemini_cache import ExplicitCache
+from genaipocs_core.adapters.llm_factory import build_provider_llm, build_tracer
+from genaipocs_core.application.llm import ModelTier, ObservedLLM, PriceTable, RateLimitedLLM
+from genaipocs_core.config import LLMProvider, get_settings
+from genaipocs_core.ports import ChatMessage, LLMPort, Role, TokenUsage
 
 ROOT = Path(__file__).resolve().parents[1]
 QUESTIONS = (
@@ -67,8 +67,8 @@ def build_manual(knowledge_dir: Path) -> str:
         )
     body = "\n\n---\n\n".join(doc.read_text(encoding="utf-8") for doc in docs)
     return (
-        "Eres el agente de soporte de Headache. Responde en el idioma de la pregunta, en dos "
-        "frases como máximo y usando solo el manual siguiente.\n\n# Manual de Headache\n\n" + body
+        "Eres el agente de soporte de Genaipocs. Responde en el idioma de la pregunta, en dos "
+        "frases como máximo y usando solo el manual siguiente.\n\n# Manual de Genaipocs\n\n" + body
     )
 
 

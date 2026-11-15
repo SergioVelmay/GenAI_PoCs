@@ -20,15 +20,15 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ValidationError
 
-from harness.validation import Validator, render_feedback, run_validators
-from headache_core.application.tools import (
+from genaipocs_core.application.tools import (
     Tool,
     ToolContext,
     ToolExecution,
     ToolExecutor,
     ToolRegistry,
 )
-from headache_core.ports import ToolCall
+from genaipocs_core.ports import ToolCall
+from harness.validation import Validator, render_feedback, run_validators
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +165,6 @@ class ArgumentRules:
             return None
         return Denial(
             POLICY_DENIED,
-            "Argumentos rechazados por la política de Headache. Corrígelos:\n"
+            "Argumentos rechazados por la política de Genaipocs. Corrígelos:\n"
             + render_feedback(violations),
         )

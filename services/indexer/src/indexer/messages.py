@@ -6,7 +6,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from headache_core.domain import DocumentType, KnowledgeDocument
+from genaipocs_core.domain import DocumentType, KnowledgeDocument
 
 
 class DocumentPayload(BaseModel):

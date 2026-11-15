@@ -8,26 +8,26 @@ la solicitud de aprobación. Más barato, más predecible y más fácil de evalu
 
 from __future__ import annotations
 
-from harness.approvals import APPROVAL_REQUESTED, ApprovalService
-from harness.rules.case_reply import ReplyCase, draft_case_reply, submit_case_reply
-from harness.rules.partner_email import Language
-from harness.security import prompt_guard
-from harness.validation import Validator, run_validators
-from headache_core.application.orchestration import (
+from genaipocs_core.application.orchestration import (
     InvalidHandoffError,
     render_handoff,
     tool_context,
 )
-from headache_core.application.tools import ToolContext
-from headache_core.domain import (
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.domain import (
     CaseEnvelope,
     CaseOutcome,
     CaseStatus,
     Specialist,
     SupportIntent,
 )
-from headache_core.ports import LLMPort, TicketingError, TicketingPort
-from headache_core.ports.guardrails import ContentShieldPort
+from genaipocs_core.ports import LLMPort, TicketingError, TicketingPort
+from genaipocs_core.ports.guardrails import ContentShieldPort
+from harness.approvals import APPROVAL_REQUESTED, ApprovalService
+from harness.rules.case_reply import ReplyCase, draft_case_reply, submit_case_reply
+from harness.rules.partner_email import Language
+from harness.security import prompt_guard
+from harness.validation import Validator, run_validators
 
 ESCALATION_NOTE = "Borrador no válido tras los reintentos: lo redacta una persona."
 

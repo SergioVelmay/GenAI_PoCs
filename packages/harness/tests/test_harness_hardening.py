@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from genaipocs_core.application.tools import ToolContext
 from harness.normalize import detection_view, sanitize
 from harness.pii import RegexPiiDetector, card_spans, pii_filter, redact
 from harness.runtime import TurnRecord
@@ -14,12 +15,11 @@ from harness.security import (
     system_prompt_leak_guard,
 )
 from harness.validation import run_validators
-from headache_core.application.tools import ToolContext
 
 CARD = "4111 1111 1111 1111"
 CONTEXT = ToolContext(customer_id="cus_1")
 SYSTEM = (
-    "Eres el asistente de conocimiento y reservas de Headache, un marketplace de experiencias y "
+    "Eres el asistente de conocimiento y reservas de Genaipocs, un marketplace de experiencias y "
     "eventos. Ayudas a los clientes a encontrar eventos y sesiones."
 )
 
@@ -91,7 +91,7 @@ async def test_clean_text_reaches_the_model_unchanged() -> None:
 
 async def test_system_prompt_leak_is_blocked_even_if_rephrased_in_case() -> None:
     guard = system_prompt_leak_guard(SYSTEM)
-    leak = "Claro: ERES EL ASISTENTE de conocimiento y reservas de Headache, un marketplace."
+    leak = "Claro: ERES EL ASISTENTE de conocimiento y reservas de Genaipocs, un marketplace."
     [violation] = await run_validators([guard], TurnRecord("x", leak, ()), CONTEXT)
     assert violation.code == SYSTEM_PROMPT_LEAK and not violation.correctable
 
@@ -99,7 +99,7 @@ async def test_system_prompt_leak_is_blocked_even_if_rephrased_in_case() -> None
 @pytest.mark.parametrize(
     "answer",
     [
-        "Soy el asistente de Headache: te ayudo a encontrar eventos y sesiones.",
+        "Soy el asistente de Genaipocs: te ayudo a encontrar eventos y sesiones.",
         "En Madrid hay un concierto a la luz de las velas el 20 de noviembre.",
         "",
     ],

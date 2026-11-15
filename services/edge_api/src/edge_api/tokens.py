@@ -9,9 +9,9 @@ import argparse
 from pathlib import Path
 
 from edge_api.settings import EdgeSettings
-from headache_core.config import get_settings
-from headache_core.domain.admission import ClientPlan
-from headache_mcp.auth import DevTokenIssuer
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain.admission import ClientPlan
+from genaipocs_mcp.auth import DevTokenIssuer
 
 
 def mint(settings: EdgeSettings, *, user: str, plan: ClientPlan, ttl_s: int = 3600) -> str:

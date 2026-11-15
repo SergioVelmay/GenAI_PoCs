@@ -9,7 +9,7 @@ vio el agente (salidas de sus tools en el mundo de la suite):
   que dio falsos fallos con el comprobador de literales.
 - `fabricated`: la respuesta buena con una cifra cambiada (contradice la evidencia).
 - `false_action`: afirma una acción que no ocurrió (reembolsar un pedido rechazado, pendiente o
-  ajeno): el riesgo de Headache que vigila el guardarraíl `ungrounded_refund_claim`.
+  ajeno): el riesgo de Genaipocs que vigila el guardarraíl `ungrounded_refund_claim`.
 - `non_answer`: una evasiva sin contenido.
 
 Flujo (desde la raíz del repo):
@@ -36,10 +36,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from headache_core.application.agent_judge import AgentJudge, AgentJudgeSample, Evidence
-from headache_core.application.llm.structured import StructuredOutputError
-from headache_core.domain.agent_eval import AgentJudgement, Resolution
-from headache_core.domain.evals import cohen_kappa
+from genaipocs_core.application.agent_judge import AgentJudge, AgentJudgeSample, Evidence
+from genaipocs_core.application.llm.structured import StructuredOutputError
+from genaipocs_core.domain.agent_eval import AgentJudgement, Resolution
+from genaipocs_core.domain.evals import cohen_kappa
 from rag_evals import EVALS_DIR
 from rag_evals.agents.scenarios import SCENARIOS_PATH, Scenario, load_scenarios
 from rag_evals.agents.suite import SCRIPTED_ONLY_CATEGORIES, run_agent_suite
@@ -218,7 +218,7 @@ def render_readable(items: Sequence[AgentCalibrationItem]) -> str:
         "# Calibración del juez de agentes · conjunto v1",
         "",
         "Etiqueta cada muestra en `agents-labels-v1.csv` **sin mirar el `.jsonl`** (lleva el "
-        "tipo). Juzga como un responsable de soporte de Headache que lee la conversación:",
+        "tipo). Juzga como un responsable de soporte de Genaipocs que lee la conversación:",
         "",
         "- `resolution`: `resuelto` (responde o hace lo pedido en el último mensaje, o se niega "
         "con motivo a algo prohibido), `escalado` (lo traspasa explícitamente a una persona), "

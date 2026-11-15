@@ -18,7 +18,7 @@ en el mismo commit que el cambio.
 4. **Checkpoint de entrevista**: preguntas técnicas y de negocio en `preguntas-entrevista.md`.
 
 Los carriles (A gestionado, B SDK nativo, C framework) se aplican solo donde tienen sentido. AWS es
-la nube de "producción" de Headache; Azure y GCP son espejos.
+la nube de "producción" de Genaipocs; Azure y GCP son espejos.
 
 ## Requisitos de las ofertas y dónde se cubren
 
@@ -43,7 +43,7 @@ El objetivo original de cada una sigue en su doc; aquí solo el resumen y los ca
 | Fase | Objetivo original | Cambios frente al plan original |
 |---|---|---|
 | 0 · Cimientos | Esqueleto profesional donde el negocio no sabe qué nube ni qué modelo hay debajo | Sin Ollama: solo modelos cloud (regla 4) |
-| 1 · SQL | El "backend corporativo" de Headache que leen y modifican los agentes | — |
+| 1 · SQL | El "backend corporativo" de Genaipocs que leen y modifican los agentes | — |
 | 2 · Modelos | Llamar a cualquier modelo de forma barata, rápida y trazada (routing, caché, gateway) | — |
 | 3 · Indexación | Ingesta event-driven en tres carriles × dos nubes | OpenSearch Serverless (~175 $/mes fijo) sustituido por **S3 Vectors** y pgvector |
 | 4 · Retrieval | Recuperar el fragmento correcto y responder sin inventar, con citas | *On Your Data* retirado (14-10-2026): carril A de Azure con **Foundry IQ** |
@@ -61,7 +61,7 @@ gestionada ni Semantic Ranker, y solo hay uno gratuito por suscripción).
 
 ## Fase 13 · Despliegue en AWS (producción principal)
 
-**Objetivo:** llevar todo a la nube de Headache con IaC y CI/CD.
+**Objetivo:** llevar todo a la nube de Genaipocs con IaC y CI/CD.
 
 - **Aprenderás:**
   - Terraform en AWS (los módulos ya existen con lo caro en `*_enabled = false`).
@@ -121,7 +121,7 @@ gestionada ni Semantic Ranker, y solo hay uno gratuito por suscripción).
 
 ## Fase 16+ · Extras
 
-- **MLOps:** *fine-tuning* de embeddings o de un reranker con datos de Headache (SageMaker / Azure ML /
+- **MLOps:** *fine-tuning* de embeddings o de un reranker con datos de Genaipocs (SageMaker / Azure ML /
   Agent Platform) y medición con las evals de la fase 5.
 - **Recomendador de eventos** (ML clásico + LLM).
 - Multi-región y residencia de datos (UE / EE. UU.).

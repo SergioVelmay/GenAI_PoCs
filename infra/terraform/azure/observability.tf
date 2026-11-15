@@ -56,7 +56,7 @@ resource "azurerm_monitor_action_group" "oncall" {
   count               = local.observability
   name                = "ag-${local.caf_suffix}"
   resource_group_name = azurerm_resource_group.main.name
-  short_name          = "headache"
+  short_name          = "genaipocs"
   tags                = local.tags
 
   email_receiver {
@@ -85,7 +85,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "llm_cost_runaway" {
   criteria {
     query                   = <<-KQL
       customMetrics
-      | where name == "headache.llm.cost"
+      | where name == "genaipocs.llm.cost"
       | summarize usd = sum(valueSum)
       | extend usd_per_day = usd * 96.0
     KQL

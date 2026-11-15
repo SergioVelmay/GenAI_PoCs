@@ -13,14 +13,14 @@ from a2a import helpers
 from a2a.client import A2ACardResolver, Client, ClientConfig, create_client
 from a2a.types import a2a_pb2 as pb
 
-from headache_core.application.orchestration import (
+from genaipocs_core.application.orchestration import (
     InvalidHandoffError,
     envelope_to_payload,
     outcome_from_payload,
 )
-from headache_core.application.telemetry import genai, get_telemetry
-from headache_core.domain import CaseEnvelope, CaseOutcome, Specialist
-from headache_core.ports.telemetry import SpanKind
+from genaipocs_core.application.telemetry import genai, get_telemetry
+from genaipocs_core.domain import CaseEnvelope, CaseOutcome, Specialist
+from genaipocs_core.ports.telemetry import SpanKind
 from orchestrator.remote.server import OUTCOME_ARTIFACT, card_name
 from orchestrator.remote.tracing import propagate_trace
 
@@ -66,7 +66,7 @@ class RemoteSpecialist:
                 genai.OPERATION_NAME: genai.GenAIOperation.INVOKE_AGENT.value,
                 genai.AGENT_NAME: self._specialist.value,
                 genai.PROVIDER_NAME: "a2a",
-                "headache.correlation_id": envelope.case_id,
+                "genaipocs.correlation_id": envelope.case_id,
             },
         ):
             request = pb.SendMessageRequest(message=message)

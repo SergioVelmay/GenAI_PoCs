@@ -23,16 +23,16 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from harness.executor import Denial, TurnTrace
-from headache_core.application.tools import Tool, ToolContext, ToolExecutor, ToolRegistry
-from headache_core.ports import ToolCall
-from headache_core.ports.approvals import (
+from genaipocs_core.application.tools import Tool, ToolContext, ToolExecutor, ToolRegistry
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.approvals import (
     ApprovalConflictError,
     ApprovalRequest,
     ApprovalStatus,
     ApprovalStore,
     approval_fingerprint,
 )
+from harness.executor import Denial, TurnTrace
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class ApprovalGate:
             APPROVAL_REQUIRED,
             f"Esta acción necesita la aprobación de una persona y queda pendiente (referencia "
             f"{request.id}). No la repitas ni prometas el resultado: indica al cliente que un "
-            "agente de Headache la revisará y que recibirá la confirmación.",
+            "agente de Genaipocs la revisará y que recibirá la confirmación.",
         )
 
 

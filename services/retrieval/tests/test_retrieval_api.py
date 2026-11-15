@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from headache_core.adapters.llamaindex_retrieval import LlamaIndexRetrieval
-from headache_core.adapters.local_retrieval import LocalRetrieval, TokenCoverageReranker
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.retrieval import RetrievalRequest, RetrievalService
-from headache_core.ports.vector_store import VectorRecord
+from genaipocs_core.adapters.llamaindex_retrieval import LlamaIndexRetrieval
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval, TokenCoverageReranker
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.retrieval import RetrievalRequest, RetrievalService
+from genaipocs_core.ports.vector_store import VectorRecord
 from retrieval.app import STRATEGIES, create_app
 from retrieval.bootstrap import access_metadata, build_local_runtime, load_synthetic
 from retrieval.compare import compare

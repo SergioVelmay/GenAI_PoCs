@@ -13,14 +13,15 @@ locals {
 
 resource "aws_sqs_queue" "support_emails_dlq" {
   count                     = local.queue_workers
-  name                      = "${local.name}-support-emails-dlq"
+  name                      = "support-emails-dlq"
   message_retention_seconds = 1209600
   sqs_managed_sse_enabled   = true
 }
 
+# Topic lógico `support.emails` sin prefijo, como la cola de indexación (main.tf).
 resource "aws_sqs_queue" "support_emails" {
   count                      = local.queue_workers
-  name                       = "${local.name}-support-emails"
+  name                       = "support-emails"
   visibility_timeout_seconds = 300 # Un caso con LLM tarda segundos o minutos.
   receive_wait_time_seconds  = 10
   sqs_managed_sse_enabled    = true

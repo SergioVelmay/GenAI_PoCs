@@ -23,8 +23,8 @@ from decimal import Decimal
 from pathlib import Path
 
 from booking_agent.flavors import FLAVORS
-from headache_core.application.agent_judge import AgentJudge
-from headache_core.ports.llm import LLMPort
+from genaipocs_core.application.agent_judge import AgentJudge
+from genaipocs_core.ports.llm import LLMPort
 from rag_evals.agents.cloud import JUDGES, build_cloud_models
 from rag_evals.agents.scenarios import ATTACKS_PATH, load_scenarios
 from rag_evals.agents.suite import (

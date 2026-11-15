@@ -8,7 +8,7 @@ señales de `domain/drift.py`. Aquí se comprueba el DETECTOR con ventanas sint�
 deterministas: una semana de referencia y un día con un cambio conocido (o sin él). Si el
 detector no ve la ola de cancelaciones, o grita en una semana normal, el gate falla.
 
-Límite: son mezclas inventadas para validar el arnés, no tráfico de Headache. Con tráfico real,
+Límite: son mezclas inventadas para validar el arnés, no tráfico de Genaipocs. Con tráfico real,
 la referencia sale de Prometheus (o de Langfuse) y estos escenarios se quedan como test.
 """
 
@@ -22,7 +22,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from headache_core.domain.drift import (
+from genaipocs_core.domain.drift import (
     DRIFT_SIGNALS,
     MODERATE,
     SIGNALS_BY_NAME,

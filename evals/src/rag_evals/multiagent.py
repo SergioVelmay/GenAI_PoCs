@@ -32,19 +32,19 @@ from typing import Any, Literal
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel, ConfigDict
 
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.memory import (
     FakeLLM,
     InMemoryCaseStore,
     InMemoryMessageBus,
     InMemoryOutbox,
 )
-from headache_core.application.agents.context import estimate_tokens
-from headache_core.application.orchestration import (
+from genaipocs_core.application.agents.context import estimate_tokens
+from genaipocs_core.application.orchestration import (
     TriageAgent,
     email_to_payload,
     outcome_from_payload,
 )
-from headache_core.domain import (
+from genaipocs_core.domain import (
     CaseOutcome,
     CaseStatus,
     OrderStatus,
@@ -53,8 +53,8 @@ from headache_core.domain import (
     SupportIntent,
     route,
 )
-from headache_core.ports import LLMPort, LLMTransientError, ToolCall
-from headache_core.ports.approvals import ApprovalStatus
+from genaipocs_core.ports import LLMPort, LLMTransientError, ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
 from orchestrator.async_flow import SUPPORT_EMAILS, CaseReviewService, subscribe_workers
 from orchestrator.graph import RouterGraph
 from orchestrator.maf_workflow import MafCaseWorkflow
@@ -546,8 +546,8 @@ def write_report(report: MultiAgentReport, out_dir: Path) -> Path:
 
 
 def _gateway(budget: Decimal) -> tuple[LLMPort, CostMeter]:
-    from headache_core.adapters.llm_factory import build_gateway, build_tracer
-    from headache_core.config import Settings
+    from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+    from genaipocs_core.config import Settings
 
     settings = Settings()
     meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))
@@ -565,7 +565,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.mode == "llm" and args.budget_usd is None:
         parser.error("--mode llm requiere --budget-usd (llamadas con coste)")
-    for noisy in ("harness", "orchestrator", "headache_core", "agent_framework"):
+    for noisy in ("harness", "orchestrator", "genaipocs_core", "agent_framework"):
         logging.getLogger(noisy).setLevel(logging.CRITICAL)
     llm, meter = _gateway(args.budget_usd) if args.mode == "llm" else (None, None)
     engines: list[Engine] = args.engine or list(ENGINES)

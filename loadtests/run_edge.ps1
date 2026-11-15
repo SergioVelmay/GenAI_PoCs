@@ -50,7 +50,7 @@ foreach ($line in $dotenv) { $k, $v = $line -split '=', 2; $envs[$k] = $v }
 foreach ($k in $envs.Keys) { Set-Item -Path "Env:$k" -Value $envs[$k] }
 
 # Desde una carpeta sin .env: solo cuenta la configuración de arriba.
-$work = Join-Path $env:TEMP "headache-load"
+$work = Join-Path $env:TEMP "genaipocs-load"
 New-Item -ItemType Directory -Force $work | Out-Null
 Set-Location $work
 & uv run --project $root uvicorn edge_api.app:create_app --factory --host 127.0.0.1 --port $Port --no-access-log

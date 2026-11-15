@@ -11,7 +11,7 @@ import asyncio
 import contextlib
 import logging
 
-from headache_core.config import get_settings
+from genaipocs_core.config import get_settings
 from indexer.bootstrap import open_pipeline
 from indexer.handler import IndexingHandler
 from indexer.messaging import open_bus

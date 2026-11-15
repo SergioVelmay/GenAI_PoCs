@@ -46,13 +46,13 @@ from booking_agent.bridges.langchain import (
     with_cache_checkpoint,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn, StopReason
-from headache_core.application.agents import (
+from genaipocs_core.application.agents import (
     ConversationSummarizer,
     ShortTermMemory,
     build_prompt_prefix,
 )
-from headache_core.application.tools import ToolContext
-from headache_core.ports.memory import ThreadAccessError, ThreadState
+from genaipocs_core.application.tools import ToolContext
+from genaipocs_core.ports.memory import ThreadAccessError, ThreadState
 
 
 class BookingState(TypedDict, total=False):

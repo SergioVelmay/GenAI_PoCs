@@ -1,11 +1,11 @@
 [project]
 name = "rag-evals"
 version = "0.1.0"
-description = "Golden dataset y evals de RAG (fase 5) para Headache"
+description = "Golden dataset y evals de RAG (fase 5) para Genaipocs"
 requires-python = ">=3.12"
 dependencies = [
     "booking-agent",
-    "headache-core[retrieval,llamaindex]",
+    "genaipocs-core[retrieval,llamaindex]",
     "orchestrator",
     "pyyaml>=6.0",
     "retrieval",
@@ -31,7 +31,7 @@ llmops = [
 [tool.uv.sources]
 booking-agent = { workspace = true }
 orchestrator = { workspace = true }
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 retrieval = { workspace = true }
 
 [build-system]

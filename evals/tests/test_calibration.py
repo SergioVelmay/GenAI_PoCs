@@ -48,7 +48,7 @@ def test_perturbations_are_deterministic_and_language_aware() -> None:
     assert "parking" in (perturb(item, "unsupported", other) or "")
     assert perturb(item, "off_topic", other) == "15 minutes before."
     assert perturb(item, "off_topic", _item("c", "refunds", "z")) is None
-    assert "Headache" in (perturb(item, "non_answer", other) or "")
+    assert "Genaipocs" in (perturb(item, "non_answer", other) or "")
     assert _change_number("100 %") == "50 %"
     assert _change_number("sin cifras") is None
 

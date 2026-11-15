@@ -8,7 +8,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from headache_core.domain import (
+from genaipocs_core.domain import (
     MAX_TICKETS_PER_ORDER,
     EventCategory,
     OrderStatus,

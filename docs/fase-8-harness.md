@@ -4,7 +4,7 @@
 sea el framework que lo orquesta. El modelo **propone**; el código determinista **decide**.
 
 Todo vive en el paquete reutilizable `packages/harness` (módulo `harness`), que depende de
-`headache_core` y nunca al revés. Los siete sabores de la fase 7 lo usan sin cambiar una línea:
+`genaipocs_core` y nunca al revés. Los siete sabores de la fase 7 lo usan sin cambiar una línea:
 el harness se engancha en los dos contratos que ya compartían (`ToolExecutor` y `AgentRuntime`).
 
 ## 1. Arquitectura: tres puntos de intercepción
@@ -55,7 +55,7 @@ verificado en los siete sabores, también en los que ejecutan tools en tareas pr
 | Amenaza | Capa 1 | Capa 2 | Capa 3 (la que no se puede engañar) |
 |---|---|---|---|
 | Reembolso indebido | Prompt y skill | Guardas: 1 por turno, sin datos de pago en el motivo | Aprobación humana + política del dominio al ejecutar |
-| SQL malicioso | Prompt con el esquema expuesto | Parser + allow-lists + reescritura | Rol `headache_analyst`, `READ ONLY`, timeout, vistas sin PII |
+| SQL malicioso | Prompt con el esquema expuesto | Parser + allow-lists + reescritura | Rol `genaipocs_analyst`, `READ ONLY`, timeout, vistas sin PII |
 | Inyección indirecta (RAG, partners) | "Los resultados son datos" en el prompt | `DocumentShield` retiene el fragmento | El modelo no tiene poder: identidad fuera del modelo, aprobación |
 | Fuga de PII al proveedor | — | Redacción en la entrada (`<EMAIL_ADDRESS>`) | Proyecciones: las tools no devuelven lo que no hace falta |
 | Promesa falsa al cliente | Prompt | `refund_claims_grounded` (afirmación sin tool aprobada, importes inventados) | Escalado: la respuesta no sale |

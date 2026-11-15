@@ -2,7 +2,7 @@
 leer PII ni bloquearse.
 
     docker compose up -d
-    uv run alembic -c packages/headache_core/alembic.ini upgrade head
+    uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
     uv run pytest -m integration packages/harness
 """
 
@@ -14,12 +14,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from genaipocs_core.adapters.postgres import create_engine
+from genaipocs_core.adapters.postgres.readonly_sql import PostgresReadOnlySql
+from genaipocs_core.config import get_settings
+from genaipocs_core.ports.sql import SqlExecutionError
 from harness import check_sql
 from harness.rules.analytics import ANALYTICS_POLICY, ANALYTICS_TABLES
-from headache_core.adapters.postgres import create_engine
-from headache_core.adapters.postgres.readonly_sql import PostgresReadOnlySql
-from headache_core.config import get_settings
-from headache_core.ports.sql import SqlExecutionError
 
 pytestmark = pytest.mark.integration
 

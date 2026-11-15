@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from headache_core.application.agent_judge import AgentJudge, LLMAgentJudge
-from headache_core.ports import LLMPort
+from genaipocs_core.application.agent_judge import AgentJudge, LLMAgentJudge
+from genaipocs_core.ports import LLMPort
 from rag_evals.metering import CostMeter
 
 if TYPE_CHECKING:
-    from headache_core.config import Settings
+    from genaipocs_core.config import Settings
 
 JUDGES = ("native",)
 
@@ -44,8 +44,8 @@ def build_cloud_models(
     meter: CostMeter | None = None,
 ) -> CloudModels:
     """`meter` compartido: en un experimento, el presupuesto cubre todas las variantes."""
-    from headache_core.adapters.llm_factory import build_gateway, build_judge_llm, build_tracer
-    from headache_core.config import Settings
+    from genaipocs_core.adapters.llm_factory import build_gateway, build_judge_llm, build_tracer
+    from genaipocs_core.config import Settings
 
     settings = with_model(Settings(), model)
     meter = meter or CostMeter(budget_usd=budget, forward_to=build_tracer(settings))

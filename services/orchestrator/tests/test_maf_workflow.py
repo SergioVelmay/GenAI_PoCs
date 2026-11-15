@@ -10,10 +10,10 @@ import pytest
 from agent_framework import CheckpointStorage, FileCheckpointStorage
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS
-from headache_core.application.orchestration import TriageAgent
-from headache_core.domain import CaseStatus, Specialist, SupportEmail
-from headache_core.ports import ToolCall
-from headache_core.ports.approvals import ApprovalStatus
+from genaipocs_core.application.orchestration import TriageAgent
+from genaipocs_core.domain import CaseStatus, Specialist, SupportEmail
+from genaipocs_core.ports import ToolCall
+from genaipocs_core.ports.approvals import ApprovalStatus
 from orchestrator.graph import RouterGraph
 from orchestrator.maf_workflow import (
     CheckpointNotSavedError,
@@ -25,7 +25,7 @@ from orchestrator.specialists import build_approval_service, build_specialists
 from orchestrator.testing import CUSTOMER, ORDER, LocalWorld, local_world, support_email
 
 ALL_FLAVORS = pytest.mark.parametrize("flavor", sorted(set(FLAVORS) - MANAGED_FLAVORS))
-PENDING = "Tu solicitud queda pendiente de revisión por un agente de Headache."
+PENDING = "Tu solicitud queda pendiente de revisión por un agente de Genaipocs."
 REFUND_EMAIL = support_email("No puedo ir, devolvedme el dinero del pedido.")
 INFO_EMAIL = support_email("¿El evento es accesible en silla de ruedas?", order_id=None)
 COMPLAINT_EMAIL = support_email("El sonido era malísimo y empezó 40 minutos tarde.")

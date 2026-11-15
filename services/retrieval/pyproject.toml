@@ -1,16 +1,16 @@
 [project]
 name = "retrieval"
 version = "0.1.0"
-description = "Retrieval avanzado y RAG local con citas verificables para Headache"
+description = "Retrieval avanzado y RAG local con citas verificables para Genaipocs"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "headache-core[llamaindex,postgres,retrieval,telemetry]",
+    "genaipocs-core[llamaindex,postgres,retrieval,telemetry]",
     "uvicorn[standard]>=0.32",
 ]
 
 [tool.uv.sources]
-headache-core = { workspace = true }
+genaipocs-core = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

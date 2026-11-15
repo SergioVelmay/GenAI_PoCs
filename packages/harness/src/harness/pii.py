@@ -14,9 +14,9 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from genaipocs_core.application.tools import ToolContext
 from harness.normalize import detection_view, sanitize
 from harness.rules.patterns import CONTACT_DATA
-from headache_core.application.tools import ToolContext
 
 type TextFilter = Callable[[str, ToolContext], Awaitable[tuple[str, tuple[str, ...]]]]
 

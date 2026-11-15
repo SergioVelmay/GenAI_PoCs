@@ -21,8 +21,8 @@ import httpx
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from headache_core.config import A2ASettings
-from headache_mcp.auth import DevTokenIssuer
+from genaipocs_core.config import A2ASettings
+from genaipocs_mcp.auth import DevTokenIssuer
 
 PUBLIC_PATHS = frozenset({"/.well-known/agent-card.json", "/health"})
 

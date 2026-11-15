@@ -13,9 +13,9 @@ import argparse
 import asyncio
 import json
 
-from headache_core.adapters.azure_search import build_index
-from headache_core.adapters.postgres import EMBEDDING_DIMENSIONS
-from headache_core.config import get_settings
+from genaipocs_core.adapters.azure_search import build_index
+from genaipocs_core.adapters.postgres import EMBEDDING_DIMENSIONS
+from genaipocs_core.config import get_settings
 
 
 async def forget_ledger(index_name: str) -> int:
@@ -23,7 +23,7 @@ async def forget_ledger(index_name: str) -> int:
 
     Sin esto, con AI Search efímero el worker vería "sin cambios" y dejaría el índice vacío.
     """
-    from headache_core.adapters.postgres import (
+    from genaipocs_core.adapters.postgres import (
         PostgresIngestionLedger,
         create_engine,
         create_session_factory,

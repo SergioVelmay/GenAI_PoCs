@@ -17,17 +17,17 @@ from typing import Any
 
 from booking_agent.managed.foundry import BOOKING_AGENT_NAME, agent_definition
 from booking_agent.spec import build_booking_spec
-from headache_core.adapters.foundry_iq import publish_agent
-from headache_core.adapters.local_retrieval import LocalRetrieval
-from headache_core.adapters.memory import (
+from genaipocs_core.adapters.foundry_iq import publish_agent
+from genaipocs_core.adapters.local_retrieval import LocalRetrieval
+from genaipocs_core.adapters.memory import (
     HashingEmbedding,
     InMemoryPreferenceStore,
     InMemoryUnitOfWork,
 )
-from headache_core.adapters.ticketing_local import UnitOfWorkTicketing
-from headache_core.application.retrieval import RetrievalService
-from headache_core.application.tools import build_ticketing_tools
-from headache_core.config import Settings, get_settings
+from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
+from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.application.tools import build_ticketing_tools
+from genaipocs_core.config import Settings, get_settings
 
 AGENT_NAME = BOOKING_AGENT_NAME
 
@@ -42,7 +42,7 @@ def definition(settings: Settings) -> dict[str, Any]:
     )
     return {
         "name": AGENT_NAME,
-        "description": "Knowledge & Booking Agent de Headache (function tools en el cliente).",
+        "description": "Knowledge & Booking Agent de Genaipocs (function tools en el cliente).",
         "definition": agent_definition(
             spec.system_prompt, spec.tools, model=settings.foundry_iq.agent_model
         ),

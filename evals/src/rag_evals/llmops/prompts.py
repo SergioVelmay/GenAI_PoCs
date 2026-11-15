@@ -27,19 +27,19 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from headache_core.application.prompts import Prompt
-from headache_core.ports.prompts import PromptStorePort
+from genaipocs_core.application.prompts import Prompt
+from genaipocs_core.ports.prompts import PromptStorePort
 from rag_evals import EVALS_DIR
 
 ROOT = EVALS_DIR.parent
 LOCK_PATH = ROOT / "prompts.lock.json"
 # Un catálogo por paquete (el dueño del prompt es el dueño del código).
 CATALOGS = (
-    "headache_core.prompts",
+    "genaipocs_core.prompts",
     "harness.prompts",
     "booking_agent.prompts",
     "orchestrator.prompts",
-    "headache_mcp.prompts",
+    "genaipocs_mcp.prompts",
     "rag_evals.prompts",
 )
 # Problemas que `lock` resuelve; el resto (cambio silencioso, versión que baja) no.
@@ -220,8 +220,8 @@ def main() -> None:
         return
     if check(entries, load_lock()):
         raise SystemExit("Antes de publicar, el candado debe cuadrar (check).")
-    from headache_core.adapters.langfuse_prompts import LangfusePromptStore
-    from headache_core.config import Settings
+    from genaipocs_core.adapters.langfuse_prompts import LangfusePromptStore
+    from genaipocs_core.config import Settings
 
     store = LangfusePromptStore.from_settings(Settings().langfuse)
     steps = plan_publish(entries, store)

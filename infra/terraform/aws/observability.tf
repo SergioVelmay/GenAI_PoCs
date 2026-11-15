@@ -10,19 +10,19 @@
 
 locals {
   observability = var.observability_enabled ? 1 : 0
-  metrics_ns    = "Headache/GenAI"
+  metrics_ns    = "Genaipocs/GenAI"
 }
 
 resource "aws_cloudwatch_log_group" "app" {
   count             = local.observability
-  name              = "/headache/${var.environment}/app"
+  name              = "/genaipocs/${var.environment}/app"
   retention_in_days = 14 # Los logs JSON llevan trace_id: se salta de un error a su traza.
 }
 
 # El exporter awsemf escribe aquí y CloudWatch extrae las métricas (Embedded Metric Format).
 resource "aws_cloudwatch_log_group" "metrics" {
   count             = local.observability
-  name              = "/headache/${var.environment}/metrics"
+  name              = "/genaipocs/${var.environment}/metrics"
   retention_in_days = 3 # Solo hacen falta hasta que CloudWatch extrae la métrica.
 }
 
@@ -95,7 +95,7 @@ resource "aws_cloudwatch_metric_alarm" "llm_cost_runaway" {
   metric_query {
     id          = "cost"
     label       = "Coste del modelo en 15 min (USD)"
-    expression  = "SELECT SUM(\"headache.llm.cost\") FROM \"${local.metrics_ns}\""
+    expression  = "SELECT SUM(\"genaipocs.llm.cost\") FROM \"${local.metrics_ns}\""
     period      = 900
     return_data = true
   }
@@ -114,7 +114,7 @@ resource "aws_cloudwatch_metric_alarm" "outbox_backlog" {
   metric_query {
     id          = "backlog"
     label       = "Eventos sin publicar"
-    expression  = "SELECT MAX(\"headache.outbox.backlog\") FROM \"${local.metrics_ns}\""
+    expression  = "SELECT MAX(\"genaipocs.outbox.backlog\") FROM \"${local.metrics_ns}\""
     period      = 300
     return_data = true
   }

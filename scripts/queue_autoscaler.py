@@ -21,11 +21,11 @@ import sys
 import time
 from pathlib import Path
 
-from headache_core.adapters.compose_scaler import DockerComposeScaler
-from headache_core.adapters.queue_metrics import RabbitMQManagementMetrics
-from headache_core.application.autoscaler import QueueAutoscaler, ScalingEvent, ScalingTarget
-from headache_core.config import get_settings
-from headache_core.domain.autoscaling import ScalingPolicy
+from genaipocs_core.adapters.compose_scaler import DockerComposeScaler
+from genaipocs_core.adapters.queue_metrics import RabbitMQManagementMetrics
+from genaipocs_core.application.autoscaler import QueueAutoscaler, ScalingEvent, ScalingTarget
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain.autoscaling import ScalingPolicy
 
 
 def render(events: list[ScalingEvent], policy: ScalingPolicy, started: float) -> str:

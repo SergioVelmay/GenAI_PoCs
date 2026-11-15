@@ -58,8 +58,8 @@ async def test_risky_replies_are_flagged(body: str, code: str) -> None:
 def test_template_adds_greeting_signature_reference_and_footer() -> None:
     email = render_reply(ReplyDraft(subject="Your complaint", body="We are sorry."), CASE)
 
-    assert email.subject == "[Headache] Your complaint · case_1"
+    assert email.subject == "[Genaipocs] Your complaint · case_1"
     assert email.body.startswith("Hello,\n\nWe are sorry.")
-    assert "Headache Customer Care" in email.body
+    assert "Genaipocs Customer Care" in email.body
     assert "Ref.: case_1" in email.body
-    assert email.body.endswith("Headache processes your data under the GDPR.")
+    assert email.body.endswith("Genaipocs processes your data under the GDPR.")

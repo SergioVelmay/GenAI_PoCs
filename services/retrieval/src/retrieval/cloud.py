@@ -10,12 +10,12 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from headache_core.adapters.postgres import EMBEDDING_DIMENSIONS
-from headache_core.config import Settings
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import LLMPort
-from headache_core.ports.retrieval import ManagedKnowledgePort, RerankerPort, RetrievalPort
-from headache_core.ports.vector_store import EmbeddingPort
+from genaipocs_core.adapters.postgres import EMBEDDING_DIMENSIONS
+from genaipocs_core.config import Settings
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import LLMPort
+from genaipocs_core.ports.retrieval import ManagedKnowledgePort, RerankerPort, RetrievalPort
+from genaipocs_core.ports.vector_store import EmbeddingPort
 from retrieval.settings import RetrievalSettings
 
 if TYPE_CHECKING:
@@ -47,11 +47,11 @@ def _require(value: str, variable: str) -> str:
 
 def build_embeddings(config: RetrievalSettings, settings: Settings) -> EmbeddingPort:
     if config.embeddings == "azure":
-        from headache_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
+        from genaipocs_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
 
         _require(settings.azure_openai.endpoint, "AZURE_OPENAI__ENDPOINT")
         return AzureOpenAIEmbedding.from_settings(settings.azure_openai, EMBEDDING_DIMENSIONS)
-    from headache_core.adapters.cloud_embeddings import BedrockTitanEmbedding
+    from genaipocs_core.adapters.cloud_embeddings import BedrockTitanEmbedding
 
     return BedrockTitanEmbedding.from_settings(settings.bedrock, EMBEDDING_DIMENSIONS)
 
@@ -81,7 +81,7 @@ def _bedrock_runtime(region: str, profile: str | None) -> Any:
 def _foundry_iq(settings: Settings, parts: CloudParts) -> ManagedKnowledgePort:
     from azure.search.documents.knowledgebases.aio import KnowledgeBaseRetrievalClient
 
-    from headache_core.adapters.foundry_iq import FoundryIQKnowledge
+    from genaipocs_core.adapters.foundry_iq import FoundryIQKnowledge
 
     foundry = settings.foundry_iq
     retrieval = KnowledgeBaseRetrievalClient(
@@ -125,7 +125,7 @@ def _compose(config: RetrievalSettings, settings: Settings, parts: CloudParts) -
     if config.backend == "azure_search":
         from azure.search.documents.aio import SearchClient
 
-        from headache_core.adapters.azure_retrieval import AzureSearchRetrieval
+        from genaipocs_core.adapters.azure_retrieval import AzureSearchRetrieval
 
         client = SearchClient(
             settings.azure_search.endpoint,
@@ -139,19 +139,19 @@ def _compose(config: RetrievalSettings, settings: Settings, parts: CloudParts) -
         ranker = "+semantic-ranker" if config.semantic_ranker else ""
         parts.components["backend"] = f"azure_search:{config.embeddings}{ranker}"
     if config.reranker == "bedrock":
-        from headache_core.adapters.bedrock_retrieval import BedrockReranker
+        from genaipocs_core.adapters.bedrock_retrieval import BedrockReranker
 
         arn = _require(settings.bedrock.rerank_model_arn, "BEDROCK__RERANK_MODEL_ARN")
         client = _bedrock_runtime(settings.bedrock.region, settings.bedrock.profile)
         parts.reranker = BedrockReranker(client, model_arn=arn)
         parts.components["reranker"] = "bedrock-rerank"
     if config.llm == "gateway":
-        from headache_core.adapters.llm_factory import build_gateway
+        from genaipocs_core.adapters.llm_factory import build_gateway
 
         parts.llm = build_gateway(settings)
         parts.components["llm"] = f"gateway:{settings.llm_gateway.engine}:{settings.llm_provider}"
     if config.managed == "bedrock_kb":
-        from headache_core.adapters.bedrock_retrieval import BedrockKnowledgeBase
+        from genaipocs_core.adapters.bedrock_retrieval import BedrockKnowledgeBase
 
         kb = settings.bedrock_kb
         parts.managed = BedrockKnowledgeBase(

@@ -15,7 +15,7 @@
       },
       "llm_calls": 36,
       "handoff_tokens": 436,
-      "email_tokens": 739,
+      "email_tokens": 743,
       "skipped": []
     },
     {
@@ -31,7 +31,7 @@
       },
       "llm_calls": 33,
       "handoff_tokens": 394,
-      "email_tokens": 727,
+      "email_tokens": 731,
       "skipped": [
         "resilience-transient-error"
       ]
@@ -49,7 +49,7 @@
       },
       "llm_calls": 36,
       "handoff_tokens": 436,
-      "email_tokens": 739,
+      "email_tokens": 743,
       "skipped": []
     }
   ],
@@ -231,7 +231,7 @@
       "routing_ok": true,
       "llm_calls": 2,
       "handoff_tokens": 53,
-      "email_tokens": 575,
+      "email_tokens": 579,
       "error": null
     },
     {
@@ -531,7 +531,7 @@
       "routing_ok": true,
       "llm_calls": 2,
       "handoff_tokens": 53,
-      "email_tokens": 575,
+      "email_tokens": 579,
       "error": null
     },
     {
@@ -811,7 +811,7 @@
       "routing_ok": true,
       "llm_calls": 2,
       "handoff_tokens": 53,
-      "email_tokens": 575,
+      "email_tokens": 579,
       "error": null
     },
     {

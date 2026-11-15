@@ -1,7 +1,7 @@
 """Text-to-SQL de operaciones con el harness (fase 8.2). TIENE COSTE (llama al LLM).
 
 docker compose up -d
-uv run alembic -c packages/headache_core/alembic.ini upgrade head
+uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run python scripts/analytics_sql_demo.py "¿Cuántos reembolsos rechazados hubo por ciudad?"
 """
 
@@ -11,11 +11,11 @@ import argparse
 import asyncio
 from datetime import UTC, datetime
 
+from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+from genaipocs_core.adapters.postgres import create_engine
+from genaipocs_core.adapters.postgres.readonly_sql import PostgresReadOnlySql
+from genaipocs_core.config import get_settings
 from harness.rules.analytics import answer_analytics_question
-from headache_core.adapters.llm_factory import build_gateway, build_tracer
-from headache_core.adapters.postgres import create_engine
-from headache_core.adapters.postgres.readonly_sql import PostgresReadOnlySql
-from headache_core.config import get_settings
 
 
 async def main() -> None:

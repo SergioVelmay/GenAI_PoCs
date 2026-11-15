@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.retrieval import RetrievalRequest
-from headache_core.ports.retrieval import RetrievalStrategy
-from headache_core.ports.vector_store import MetadataValue
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.retrieval import RetrievalRequest
+from genaipocs_core.ports.retrieval import RetrievalStrategy
+from genaipocs_core.ports.vector_store import MetadataValue
 from retrieval.bootstrap import build_local_service, load_postgres, load_synthetic
 from retrieval.settings import RetrievalSettings
 

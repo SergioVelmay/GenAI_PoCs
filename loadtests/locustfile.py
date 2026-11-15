@@ -33,7 +33,7 @@ from locust.env import Environment
 
 from edge_api.settings import EdgeSettings
 from edge_api.tokens import mint
-from headache_core.domain.admission import ClientPlan
+from genaipocs_core.domain.admission import ClientPlan
 
 CITIES = ["Madrid", "Barcelona", "Lisboa", "London", "Paris", "Milán", "Nueva York", "Chicago"]
 TEMPLATES = [

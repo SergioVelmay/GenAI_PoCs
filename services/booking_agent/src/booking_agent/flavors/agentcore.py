@@ -16,7 +16,7 @@ from booking_agent.managed.agentcore import (
     runtime_session_id,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn
-from headache_core.application.tools import ToolContext
+from genaipocs_core.application.tools import ToolContext
 
 HOSTED_FLAVOR = "strands"
 

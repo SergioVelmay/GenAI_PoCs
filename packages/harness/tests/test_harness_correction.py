@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from genaipocs_core.adapters.memory import FakeLLM
+from genaipocs_core.domain import Event, EventCategory, Money, Order, OrderStatus, Session
+from genaipocs_core.ports import ChatMessage, Role
 from harness import Violation, generate_validated
 from harness.rules.refunds import RefundCase, RefundResolution, draft_refund_resolution
-from headache_core.adapters.memory import FakeLLM
-from headache_core.domain import Event, EventCategory, Money, Order, OrderStatus, Session
-from headache_core.ports import ChatMessage, Role
 
 PRICE = Money(Decimal("30.00"), "EUR")
 ORDER = Order(

@@ -16,10 +16,10 @@ from statistics import fmean
 from time import perf_counter
 from typing import Literal
 
-from headache_core.adapters.memory import HashingEmbedding
-from headache_core.application.llm.structured import StructuredOutputError
-from headache_core.application.retrieval import RetrievalRequest, RetrievalService
-from headache_core.domain.evals import (
+from genaipocs_core.adapters.memory import HashingEmbedding
+from genaipocs_core.application.llm.structured import StructuredOutputError
+from genaipocs_core.application.retrieval import RetrievalRequest, RetrievalService
+from genaipocs_core.domain.evals import (
     hit_at_k,
     ndcg_at_k,
     percentile,
@@ -27,10 +27,10 @@ from headache_core.domain.evals import (
     reciprocal_rank,
     unique_in_order,
 )
-from headache_core.domain.retrieval import AccessScope
-from headache_core.ports.llm import LLMContentFilterError, LLMPort
-from headache_core.ports.retrieval import RetrievalStrategy
-from headache_core.ports.vector_store import MetadataValue, VectorRecord
+from genaipocs_core.domain.retrieval import AccessScope
+from genaipocs_core.ports.llm import LLMContentFilterError, LLMPort
+from genaipocs_core.ports.retrieval import RetrievalStrategy
+from genaipocs_core.ports.vector_store import MetadataValue, VectorRecord
 from rag_evals import EVALS_DIR
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, DatasetMeta, GoldenItem, load_golden
 from rag_evals.golden import verify_corpus as verify_corpus_hash
@@ -296,8 +296,8 @@ async def run_retrieval_eval(
         if not selected:
             continue
         if engine in CLOUD_ENGINES:
-            from headache_core.adapters.local_retrieval import TokenCoverageReranker
-            from headache_core.config import Settings
+            from genaipocs_core.adapters.local_retrieval import TokenCoverageReranker
+            from genaipocs_core.config import Settings
             from retrieval.cloud import build_cloud_parts
 
             parts = await build_cloud_parts(cloud_settings(corpus, engine), Settings())
@@ -408,8 +408,8 @@ def write_report(
 
 def _planner(budget: Decimal) -> tuple[LLMPort, CostMeter]:
     """Gateway enrutado (el planificador de consultas va al modelo barato) con presupuesto."""
-    from headache_core.adapters.llm_factory import build_gateway, build_tracer
-    from headache_core.config import Settings
+    from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
+    from genaipocs_core.config import Settings
 
     settings = Settings()
     meter = CostMeter(budget_usd=budget, forward_to=build_tracer(settings))

@@ -1,4 +1,4 @@
-# Preguntas de entrevista · AI Technical Lead en Headache
+# Preguntas de entrevista · AI Technical Lead en Genaipocs
 
 Recopilatorio único para preparar la entrevista: preguntas técnicas y de negocio/stakeholders de
 cada fase, con una respuesta modelo anclada en lo que se ha construido en este repo. Los docs de
@@ -18,7 +18,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 ## Cómo responder
 
 - **Técnica**: decisión → por qué → qué se sacrifica (trade-off) → cómo se verifica (un dato o un test concreto). Terminar con una evidencia: "lo medí", "hay un test que lo demuestra".
-- **Negocio**: problema de Headache → impacto (KPI) → opciones con coste y riesgo → recomendación → cómo se mide el éxito. Primero la versión de 30 segundos; el detalle, si lo piden.
+- **Negocio**: problema de Genaipocs → impacto (KPI) → opciones con coste y riesgo → recomendación → cómo se mide el éxito. Primero la versión de 30 segundos; el detalle, si lo piden.
 - **Nube**: responder primero en AWS y después "en Azure, donde tengo 7 años de experiencia, el equivalente es…". Convierte la falta de experiencia en AWS en experiencia transferible.
 - Decir "no lo sé, lo comprobaría así…" es mejor que inventar. Es lo mismo que pedimos al RAG: abstenerse antes que alucinar.
 
@@ -76,13 +76,13 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
 ## Transversales: liderazgo técnico y stakeholders
 
-1. **Tu experiencia es en Azure y Headache está en AWS. ¿Por qué tú?** Los problemas difíciles de
+1. **Tu experiencia es en Azure y Genaipocs está en AWS. ¿Por qué tú?** Los problemas difíciles de
    un sistema agéntico (calidad medible, seguridad, coste, operación) no dependen de la nube. He
    construido el mismo sistema en ambas, con la nube detrás de puertos y Terraform para las dos, así
    que sé qué cambia (servicios, IAM, límites) y qué no (arquitectura, evals, harness). Mi plan de
    las primeras semanas: aprender la plataforma interna y los límites de cuotas de Bedrock, no los
    conceptos.
-2. **¿Qué caso de uso de IA abordarías primero en Headache?** El de mayor valor con menor riesgo:
+2. **¿Qué caso de uso de IA abordarías primero en Genaipocs?** El de mayor valor con menor riesgo:
    el asistente interno de soporte (reembolsos, información de eventos). Tiene volumen, datos
    propios, un KPI claro (resolución sin humano, tiempo de gestión) y usuarios internos que toleran
    iterar. El asistente público llega después, con las evals y los guardrails ya probados.
@@ -310,7 +310,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    que la decisión se toma con datos de coste y calidad, no por miedo a la factura.
 2. **Dirección pregunta: ¿tres proveedores de modelos no es complicarse?** El código de negocio
    solo conoce un puerto, así que el tercer proveedor ha sido un adaptador más (tres subfases sin
-   tocar casos de uso). A cambio, el asistente de Headache sigue respondiendo si una nube se cae o
+   tocar casos de uso). A cambio, el asistente de Genaipocs sigue respondiendo si una nube se cae o
    agota su cuota, y negociamos precios con alternativas reales. Lo que sí cuesta es operarlo:
    tres cuotas, tres facturas y evals que validen cada modelo. Por eso en producción dejaría AWS
    como principal y las otras dos como respaldo, no reparto de tráfico.
@@ -351,7 +351,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
 ### Negocio y stakeholders
 
-1. **¿Qué recomiendas a Headache y por qué dos respuestas?** Conocimiento interno: Bedrock KB, por
+1. **¿Qué recomiendas a Genaipocs y por qué dos respuestas?** Conocimiento interno: Bedrock KB, por
    tiempo hasta el valor y cero operación; el lock-in es aceptable. Producto público: pipeline
    propio sobre SQS, por control, coste predecible y portabilidad. Y un carril de framework como
    laboratorio para probar estrategias antes de llevarlas a producción.
@@ -402,7 +402,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 1. **¿Te cuesta algo tener la ingesta preparada para una tercera nube?** En código, un adaptador
    de unas 300 líneas y una línea en la factoría: el caso de uso, el ledger y los tests no
    cambian. En la nube, Pub/Sub cuesta 0 a este volumen (10 GiB al mes gratis). El valor para
-   Headache es poder negociar con los proveedores y mover cargas sin reescribir la ingesta.
+   Genaipocs es poder negociar con los proveedores y mover cargas sin reescribir la ingesta.
 2. **Dirección pregunta si el RAG gestionado de GCP sale más barato que el de AWS.** Depende del
    uso, no del precio por consulta. Bedrock KB sobre S3 Vectors no tiene coste fijo; RAG Engine en
    su nivel Basic levanta un Spanner que se paga por horas aunque nadie pregunte, y AI Search Basic
@@ -526,7 +526,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 4. **¿Por qué dedicar tiempo de una persona a etiquetar si ya tienes un juez automático?** Porque
    el juez es el instrumento de medida: si mide mal, todas las decisiones que tomes con él están
    mal. Calibrarlo costó ~1 $ y 15 minutos de etiquetado, y evitó adoptar una métrica (la de un
-   framework conocido) que dejaba pasar justo el fallo más peligroso para Headache: respuestas que
+   framework conocido) que dejaba pasar justo el fallo más peligroso para Genaipocs: respuestas que
    inventan condiciones. Además, hasta el humano se equivoca (2 despistes de 20): por eso se
    etiqueta a ciegas y se adjudica de forma documentada.
 5. **¿Cuándo conviertes un control de calidad en bloqueante?** Cuando ha demostrado ser estable:
@@ -621,7 +621,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
 ### Negocio y stakeholders
 
-1. **¿Qué framework elegirías para el equipo de Headache?** Depende del equipo y de la plataforma,
+1. **¿Qué framework elegirías para el equipo de Genaipocs?** Depende del equipo y de la plataforma,
    no de la moda. En AWS: Strands o LangGraph sobre AgentCore Runtime, según si el flujo necesita
    un grafo explícito. Lo decidiría con la suite comparativa y lo que el equipo ya sabe, y los
    contratos propios limitan el coste de equivocarse.
@@ -732,7 +732,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
 ### Técnicas
 
-1. **¿Router, supervisor, handoff o plan-and-execute?** Para soporte de Headache, router: el LLM
+1. **¿Router, supervisor, handoff o plan-and-execute?** Para soporte de Genaipocs, router: el LLM
    clasifica y una tabla del dominio elige el especialista. Es auditable, se prueba sin modelo y
    no cuesta llamadas extra. Medí el supervisor con un email de reembolso y queja: atiende las dos
    intenciones (el router solo la principal) a cambio del doble de llamadas (6 frente a 3). Lo
@@ -884,7 +884,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
 ### Negocio y stakeholders
 
-1. **¿Qué gana Headache con esto y qué KPI mirarías?** Menos tiempo en detectar y resolver
+1. **¿Qué gana Genaipocs con esto y qué KPI mirarías?** Menos tiempo en detectar y resolver
    incidentes (MTTD, MTTR) y coste bajo control. Una alerta de coste desbocado salta en 15
    minutos, no a fin de mes en la factura. Miraría:
    - coste por caso resuelto y por agente;
@@ -996,7 +996,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
 ### Negocio y stakeholders
 
-1. **Producción de Headache está en AWS. ¿Por qué invertir en una tercera nube?** En producción no
+1. **Producción de Genaipocs está en AWS. ¿Por qué invertir en una tercera nube?** En producción no
    lo haría sin un motivo de negocio (precio, un modelo concreto, un cliente o una región). Lo que sí
    defiendo es diseñar para poder hacerlo: con puertos y evals comunes, evaluar Gemini frente a
    Bedrock es una tarde y una tabla de coste y calidad, no un proyecto. Eso da poder de negociación

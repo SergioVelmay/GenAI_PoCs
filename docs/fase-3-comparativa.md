@@ -1,6 +1,6 @@
 # Fase 3 · Comparativa de los tres carriles de ingesta
 
-Indexación del mismo corpus de conocimiento de Headache (políticas, FAQs, guías de recintos, fichas de
+Indexación del mismo corpus de conocimiento de Genaipocs (políticas, FAQs, guías de recintos, fichas de
 eventos y guía del centro de ayuda) en tres carriles y tres nubes (GCP desde la
 [pasada 3.G](#7-gcp-pasada-3g)), con la misma cola de eventos delante.
 
@@ -16,7 +16,7 @@ eventos y guía del centro de ayuda) en tres carriles y tres nubes (GCP desde la
 | **AWS** | Bedrock Knowledge Base (S3 → S3 Vectors) | `boto3` S3 Vectors + Titan v2 | LlamaIndex + `PGVectorStore` (*) |
 | **GCP** | RAG Engine (Cloud Storage → `RagManagedDb`), un corpus por ACL | Agent Retrieval (antes Vector Search 2.0) + `gemini-embedding-001` | LlamaIndex + `PGVectorStore` (*) con `GeminiEmbedding` |
 | **Local (sin coste)** | — (no hay emulador) | pgvector + embeddings deterministas | pgvector + embeddings deterministas |
-| **Código** | [azure_search_managed.py](../packages/headache_core/src/headache_core/adapters/azure_search_managed.py), [bedrock_kb.py](../packages/headache_core/src/headache_core/adapters/bedrock_kb.py), [gcp_rag_engine.py](../packages/headache_core/src/headache_core/adapters/gcp_rag_engine.py) | [indexer.py](../packages/headache_core/src/headache_core/application/ingestion/indexer.py), [azure_search.py](../packages/headache_core/src/headache_core/adapters/azure_search.py), [s3_vectors.py](../packages/headache_core/src/headache_core/adapters/s3_vectors.py), [gcp_vector_search.py](../packages/headache_core/src/headache_core/adapters/gcp_vector_search.py) | [llamaindex.py](../packages/headache_core/src/headache_core/adapters/llamaindex.py) |
+| **Código** | [azure_search_managed.py](../packages/genaipocs_core/src/genaipocs_core/adapters/azure_search_managed.py), [bedrock_kb.py](../packages/genaipocs_core/src/genaipocs_core/adapters/bedrock_kb.py), [gcp_rag_engine.py](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_rag_engine.py) | [indexer.py](../packages/genaipocs_core/src/genaipocs_core/application/ingestion/indexer.py), [azure_search.py](../packages/genaipocs_core/src/genaipocs_core/adapters/azure_search.py), [s3_vectors.py](../packages/genaipocs_core/src/genaipocs_core/adapters/s3_vectors.py), [gcp_vector_search.py](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_vector_search.py) | [llamaindex.py](../packages/genaipocs_core/src/genaipocs_core/adapters/llamaindex.py) |
 | **IaC** | [aws/lane_a.tf](../infra/terraform/aws/lane_a.tf), [azure/lane_a.tf](../infra/terraform/azure/lane_a.tf), [gcp/lane_a.tf](../infra/terraform/gcp/lane_a.tf) | [aws/main.tf](../infra/terraform/aws/main.tf), [azure/main.tf](../infra/terraform/azure/main.tf), [gcp/vector_search.tf](../infra/terraform/gcp/vector_search.tf) | Esquema `llamaindex` en PostgreSQL |
 
 (*) En la nube, el carril C usaría Aurora PostgreSQL / Azure Database for PostgreSQL / Cloud SQL o
@@ -114,7 +114,7 @@ Calidad del troceo (guías largas, sin coste; `scripts/chunking_report.py --doc-
 El impacto real en la calidad de la recuperación (hit rate, MRR) se mide en la **fase 5** con el
 mismo corpus y un golden dataset.
 
-## 5. Recomendación para Headache
+## 5. Recomendación para Genaipocs
 
 - **Conocimiento interno** (operaciones, soporte, partners): **carril A en AWS** (Bedrock Knowledge
   Base sobre S3). Producción en AWS, menor tiempo hasta valor y sin servidores que operar; el volumen
@@ -197,14 +197,14 @@ anotarán aquí, como los [resultados en Azure](#6-resultados-en-azure-18-10-202
 
 ```powershell
 docker compose --profile pubsub up -d
-uv run pytest -m integration packages/headache_core/tests/integration/test_message_bus_contract.py -k pubsub
+uv run pytest -m integration packages/genaipocs_core/tests/integration/test_message_bus_contract.py -k pubsub
 # Indexer de extremo a extremo con el emulador (en .env o en el shell):
 #   INDEXER__BROKER=pubsub, PUBSUB__EMULATOR_HOST=127.0.0.1:8085
 uv run python -m indexer.producer --limit 20 ; uv run python -m indexer.producer --poison
 uv run python -m indexer.worker
 ```
 
-[`adapters/pubsub.py`](../packages/headache_core/src/headache_core/adapters/pubsub.py) cumple el
+[`adapters/pubsub.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/pubsub.py) cumple el
 mismo `MessageBusPort` que los otros tres. Lo que cambia frente a una cola:
 
 | Concepto | Service Bus | SQS | Pub/Sub |
@@ -263,7 +263,7 @@ uv run python -m indexer.forget_ledger gcp_vector_search   # colección nueva = 
 uv run python -m indexer.producer --source data/synthetic/knowledge-classified.jsonl
 ```
 
-**Embeddings** ([`gemini_embeddings.py`](../packages/headache_core/src/headache_core/adapters/gemini_embeddings.py),
+**Embeddings** ([`gemini_embeddings.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/gemini_embeddings.py),
 `INDEXER__EMBEDDINGS=gcp`): `gemini-embedding-001` a 1024 dimensiones, como `text-embedding-3-small`
 y Titan v2, para que el esquema sea el mismo en las tres nubes.
 
@@ -279,7 +279,7 @@ traducen igual (429 → `LLMRateLimitError`). Un vector con dimensiones distinta
 error, no un dato: corrompería el índice en silencio. El nombre del modelo entra en
 `pipeline_version` (`gcp:gemini-embedding-001-1024`): cambiar de nube obliga a reindexar.
 
-**Almacén** ([`gcp_vector_search.py`](../packages/headache_core/src/headache_core/adapters/gcp_vector_search.py),
+**Almacén** ([`gcp_vector_search.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_vector_search.py),
 `INDEXER__VECTOR_STORE=gcp_vector_search`): una *collection* de Agent Retrieval guarda objetos JSON
 con sus vectores. Se parece más a S3 Vectors (filtros `$eq`/`$and`, pago por uso) que a Vector
 Search 1.0, donde el índice solo guardaba vectores y había que desplegar un endpoint con VMs.
@@ -316,7 +316,7 @@ uv run python scripts/managed_ingestion.py gcp --source data/synthetic/knowledge
 uv run python scripts/managed_ingestion.py gcp --source data/synthetic/knowledge-classified.jsonl --apply
 ```
 
-[`gcp_rag_engine.py`](../packages/headache_core/src/headache_core/adapters/gcp_rag_engine.py) sigue
+[`gcp_rag_engine.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_rag_engine.py) sigue
 el patrón de Bedrock KB: el código sube el corpus a un bucket y pide la importación; RAG Engine
 trocea (fijo, 300 tokens con 60 de solape, como Bedrock), embebe y guarda en `RagManagedDb`. Usa el
 cliente `agentplatform.Client(...).aio.rag`, cuyo `import_files` ya espera a que termine la

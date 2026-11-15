@@ -9,9 +9,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from genaipocs_core.domain import CaseOutcome, CaseStatus
+from genaipocs_core.ports.approvals import ApprovalStatus
 from harness.approvals import ApprovalError, ApprovalService
-from headache_core.domain import CaseOutcome, CaseStatus
-from headache_core.ports.approvals import ApprovalStatus
 
 
 class ReviewError(ValueError):

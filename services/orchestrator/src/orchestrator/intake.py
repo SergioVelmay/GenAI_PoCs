@@ -12,9 +12,9 @@ import asyncio
 import json
 from pathlib import Path
 
-from headache_core.adapters.messaging_factory import open_message_bus
-from headache_core.application.orchestration import email_from_payload, email_to_payload
-from headache_core.config import get_settings
+from genaipocs_core.adapters.messaging_factory import open_message_bus
+from genaipocs_core.application.orchestration import email_from_payload, email_to_payload
+from genaipocs_core.config import get_settings
 from orchestrator.async_flow import SUPPORT_EMAILS
 from orchestrator.settings import OrchestratorSettings
 

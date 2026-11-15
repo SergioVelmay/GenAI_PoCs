@@ -28,9 +28,9 @@ from booking_agent.bridges.strands import (
     tool_spec,
 )
 from booking_agent.bridges.strands import to_chat_messages as from_strands
-from headache_core.adapters.memory import FakeLLM
-from headache_core.ports import ChatMessage, Role, ToolCall
-from headache_core.ports.llm import ToolSpec
+from genaipocs_core.adapters.memory import FakeLLM
+from genaipocs_core.ports import ChatMessage, Role, ToolCall
+from genaipocs_core.ports.llm import ToolSpec
 
 SPEC = ToolSpec(
     "get_order",

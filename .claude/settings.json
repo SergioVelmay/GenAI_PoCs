@@ -9,7 +9,9 @@
       "Bash(git commit --no-verify *)",
       "Bash(git commit -n *)",
       "Bash(docker compose down -v*)",
-      "Bash(docker compose * down -v*)"
+      "Bash(docker compose * down -v*)",
+      "Bash(git branch -d *)",
+      "Bash(git branch -D *)"
     ],
     "ask": [
       "Bash(git commit *)",
@@ -18,8 +20,6 @@
       "Bash(git restore *)",
       "Bash(git checkout -- *)",
       "Bash(git clean *)",
-      "Bash(git branch -d *)",
-      "Bash(git branch -D *)",
       "Bash(gh pr create *)",
       "Bash(gh pr ready *)",
       "Bash(gh pr edit *)",

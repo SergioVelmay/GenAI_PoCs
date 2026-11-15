@@ -29,13 +29,13 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from headache_core.application.orchestration import (
+from genaipocs_core.application.orchestration import (
     InvalidHandoffError,
     SpecialistAgent,
     envelope_from_payload,
     outcome_to_payload,
 )
-from headache_core.domain import ROUTES, Specialist
+from genaipocs_core.domain import ROUTES, Specialist
 from orchestrator.remote.auth import BearerAuthMiddleware
 from orchestrator.remote.tracing import TraceContextMiddleware
 
@@ -47,17 +47,17 @@ OUTCOME_ARTIFACT = "case_outcome"
 BEARER = "bearer"
 
 DESCRIPTIONS: dict[Specialist, str] = {
-    Specialist.REFUNDS: "Resuelve solicitudes de reembolso de pedidos de Headache aplicando la "
+    Specialist.REFUNDS: "Resuelve solicitudes de reembolso de pedidos de Genaipocs aplicando la "
     "política; cada reembolso queda pendiente de aprobación humana.",
     Specialist.CREATIVE: "Redacta respuestas a quejas de clientes y a propuestas de partners con "
     "plantilla y tono controlados; todo envío queda pendiente de aprobación humana.",
     Specialist.KNOWLEDGE: "Responde dudas sobre eventos, entradas y cambios de sesión con la base "
-    "de conocimiento y el catálogo de Headache.",
+    "de conocimiento y el catálogo de Genaipocs.",
 }
 
 
 def card_name(specialist: Specialist) -> str:
-    return f"headache-{specialist.value}-specialist"
+    return f"genaipocs-{specialist.value}-specialist"
 
 
 def build_agent_card(specialist: Specialist, public_url: str) -> pb.AgentCard:
@@ -66,7 +66,7 @@ def build_agent_card(specialist: Specialist, public_url: str) -> pb.AgentCard:
         name=card_name(specialist),
         description=DESCRIPTIONS[specialist],
         version="1.0.0",
-        provider=pb.AgentProvider(organization="Headache", url="https://headache.example"),
+        provider=pb.AgentProvider(organization="Genaipocs", url="https://genaipocs.example"),
         supported_interfaces=[
             pb.AgentInterface(
                 url=f"{public_url.rstrip('/')}{RPC_PATH}",

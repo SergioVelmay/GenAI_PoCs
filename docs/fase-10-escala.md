@@ -1,6 +1,6 @@
 # Fase 10 · Escala y patrones asíncronos bajo carga
 
-**Objetivo:** que un pico de demanda (la salida a la venta de un festival en Headache) no tumbe el
+**Objetivo:** que un pico de demanda (la salida a la venta de un festival en Genaipocs) no tumbe el
 sistema ni agote la cuota de los modelos. Cada petición se decide pronto y barato: se rechaza,
 se sirve desde la caché, se degrada o se encola. Nada espera sin límite.
 
@@ -54,7 +54,7 @@ flowchart LR
 
 | Pieza | Dónde vive |
 |---|---|
-| Breaker, bulkhead, presupuesto de tiempo (`time_budget`, `with_deadline`) | `headache_core/application/llm/resilience.py` |
+| Breaker, bulkhead, presupuesto de tiempo (`time_budget`, `with_deadline`) | `genaipocs_core/application/llm/resilience.py` |
 | Cuota con espera acotada y cuota compartida entre réplicas | `application/llm/gateway.py`, `adapters/llm_factory.py` |
 | Rate limiting (puerto, GCRA en memoria y en Redis con Lua) | `ports/rate_limit.py`, `adapters/memory.py`, `adapters/redis_rate_limit.py` |
 | Admisión: reparto de capacidad por plan, bulkhead por ruta | `domain/admission.py`, `application/admission.py` |

@@ -1,4 +1,4 @@
-"""ticketing_api: el "backend corporativo" de Headache que leerán y modificarán los agentes.
+"""ticketing_api: el "backend corporativo" de Genaipocs que leerán y modificarán los agentes.
 
 Ejecutar en local (con PostgreSQL levantado y migrado):
     uv run uvicorn ticketing_api.app:create_app --factory --reload
@@ -14,11 +14,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, Header, Path, Query, Request, status
 from fastapi.responses import JSONResponse
 
-from headache_core.adapters.otel import instrument_fastapi, setup_observability
-from headache_core.application import NotFoundError, PurchaseService, RefundService
-from headache_core.config import get_settings
-from headache_core.domain import EventCategory, PurchaseNotAllowedError
-from headache_core.ports import ConflictError, UnitOfWork
+from genaipocs_core.adapters.otel import instrument_fastapi, setup_observability
+from genaipocs_core.application import NotFoundError, PurchaseService, RefundService
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import EventCategory, PurchaseNotAllowedError
+from genaipocs_core.ports import ConflictError, UnitOfWork
 from ticketing_api.schemas import (
     ID_PATTERN,
     ErrorOut,
@@ -190,7 +190,7 @@ def create_app(uow_factory: UowFactory | None = None, clock: Clock | None = None
         if uow_factory is not None:
             yield
             return
-        from headache_core.adapters.postgres import (
+        from genaipocs_core.adapters.postgres import (
             SqlAlchemyUnitOfWork,
             create_engine,
             create_session_factory,
@@ -204,7 +204,7 @@ def create_app(uow_factory: UowFactory | None = None, clock: Clock | None = None
 
     settings = get_settings()
     setup_observability(settings, service_name="ticketing_api")
-    app = FastAPI(title="Headache ticketing API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Genaipocs ticketing API", version="0.1.0", lifespan=lifespan)
     instrument_fastapi(app, settings)
     app.state.uow_factory = uow_factory
     app.state.clock = clock or (lambda: datetime.now(UTC))

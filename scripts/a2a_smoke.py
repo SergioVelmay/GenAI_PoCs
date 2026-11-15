@@ -19,10 +19,10 @@ import httpx
 from a2a import helpers
 from a2a.types import a2a_pb2 as pb
 
-from headache_core.application.orchestration import envelope_to_payload
-from headache_core.config import get_settings
-from headache_core.domain import CaseEnvelope, Specialist, SupportIntent
-from headache_mcp.auth import DevTokenIssuer
+from genaipocs_core.application.orchestration import envelope_to_payload
+from genaipocs_core.config import get_settings
+from genaipocs_core.domain import CaseEnvelope, Specialist, SupportIntent
+from genaipocs_mcp.auth import DevTokenIssuer
 from orchestrator.remote import BearerAuth, RemoteSpecialist, dev_token_source
 
 WRONG_INTENT = {

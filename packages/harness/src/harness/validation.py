@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ValidationError
 
-from headache_core.domain import RuleViolation
+from genaipocs_core.domain import RuleViolation
 
 
 @dataclass(frozen=True, slots=True)
