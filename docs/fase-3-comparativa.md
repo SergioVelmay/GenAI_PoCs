@@ -174,7 +174,8 @@ Engine como carril A. Coste 0: todo se prueba en local (emulador y dobles).
 |---|---|---|
 | 3.G1 | `6125727` | `PubSubMessageBus` en el contrato de brokers, `INDEXER__BROKER=pubsub` y `pubsub.tf` |
 | 3.G2 | `7de9010` | `GeminiEmbedding`, `AgentRetrievalVectorStore` (carril B), `vector_search.tf` y `indexer.forget_ledger` |
-| 3.G3 | (este) | RAG Engine (carril A) con un corpus por ACL, `managed_ingestion.py gcp`, `lane_a.tf` y carril C con Gemini |
+| 3.G3 | `6fe7e9f` | RAG Engine (carril A) con un corpus por ACL, `managed_ingestion.py gcp`, `lane_a.tf` y carril C con Gemini |
+| Cierre | `37e935f` | Estado en `AGENTS.md` y `README.md`, lección aprendida |
 
 Resultados: solo locales (emulador de Pub/Sub y dobles construidos desde la documentación; suite
 completa en verde). Las medidas reales están en [pendientes](pendientes-cloud.md#fase-3-gcp) y se
