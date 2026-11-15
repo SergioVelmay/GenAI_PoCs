@@ -17,7 +17,7 @@ from redis.exceptions import ResponseError
 from headache_core.adapters.memory import HashingEmbedding
 from headache_core.adapters.redis_semantic_cache import RedisSemanticCache
 from headache_core.application.semantic_cache import SemanticCache
-from headache_core.config import Settings
+from headache_core.config import ScaleRedisSettings
 from headache_core.domain.semantic_cache import CacheScope
 from headache_core.ports.semantic_cache import CacheEntry
 
@@ -27,9 +27,9 @@ PUBLIC_ES = CacheScope(("public",), "es", "v1", "extractive")
 
 
 @pytest.fixture
-async def store() -> AsyncIterator[RedisSemanticCache]:
+async def store(scale_redis: ScaleRedisSettings) -> AsyncIterator[RedisSemanticCache]:
     instance = RedisSemanticCache.from_settings(
-        Settings().scale_redis, dimensions=256, key_prefix=f"{{test-sc-{uuid.uuid4().hex[:8]}}}"
+        scale_redis, dimensions=256, key_prefix=f"{{test-sc-{uuid.uuid4().hex[:8]}}}"
     )
     try:
         yield instance

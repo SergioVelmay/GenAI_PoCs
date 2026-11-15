@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import socket
 from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
+from headache_core.config import ScaleRedisSettings, Settings
 from headache_core.domain import (
     Customer,
     Event,
@@ -16,6 +18,18 @@ from headache_core.domain import (
 )
 
 SESSION_START = datetime(2026, 11, 20, 20, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def scale_redis() -> ScaleRedisSettings:
+    """Redis de la fase 10 (`docker compose --profile scale up -d`); si no está, el test se salta,
+    como los contratos de colas sin su emulador (antes fallaba con `CancelledError`)."""
+    settings = Settings().scale_redis
+    try:
+        socket.create_connection((settings.host, settings.port), timeout=0.5).close()
+    except OSError:
+        pytest.skip(f"Redis de escala no está arrancado en {settings.host}:{settings.port}")
+    return settings
 
 
 @pytest.fixture

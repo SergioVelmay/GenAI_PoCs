@@ -22,10 +22,10 @@ RULE = RateLimitRule("user_public", 10, 60.0)
 
 
 @pytest.fixture
-async def limiter() -> AsyncIterator[RedisRateLimiter]:
+async def limiter(scale_redis: ScaleRedisSettings) -> AsyncIterator[RedisRateLimiter]:
     # Prefijo único por test: no se pisan entre ejecuciones ni hay que limpiar (todo caduca).
     instance = RedisRateLimiter.from_settings(
-        Settings().scale_redis, key_prefix=f"{{test-{uuid.uuid4().hex[:8]}}}"
+        scale_redis, key_prefix=f"{{test-{uuid.uuid4().hex[:8]}}}"
     )
     try:
         yield instance
