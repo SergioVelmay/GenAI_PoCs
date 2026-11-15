@@ -37,7 +37,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
 | Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
 | Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
-| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus), Vertex AI Search (respuestas citadas) |
+| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Vertex AI Search (respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
 | Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
@@ -390,6 +390,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    ni Azure OpenAI ni Titan hacen. El puerto ya separaba `embed_texts` de `embed_query`, así que
    encajó sin tocarlo. Además, recorto a 1024 dimensiones (Matryoshka) para usar el mismo esquema
    en las tres nubes y normalizo yo, porque Google solo garantiza la norma a 3072.
+5. **¿Cómo garantizas la ACL en RAG Engine si su filtro por metadatos está en preview?** No me
+   apoyo en él: un corpus por nivel de acceso (`public` e `internal`) y la ACL se aplica eligiendo a
+   qué corpus se pregunta. Es separación física de datos en lugar de un filtro que, si falla en
+   silencio, enseña el manual interno a un cliente. El coste es la poda: si un documento pasa de
+   público a interno, primero se importa en el corpus nuevo y después se borra del viejo. Es la
+   misma regla que en todo el repo: una función en preview nunca va en el camino de la seguridad.
 
 **Negocio y stakeholders**
 
@@ -397,6 +403,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    de unas 300 líneas y una línea en la factoría: el caso de uso, el ledger y los tests no
    cambian. En la nube, Pub/Sub cuesta 0 a este volumen (10 GiB al mes gratis). El valor para
    Headache es poder negociar con los proveedores y mover cargas sin reescribir la ingesta.
+2. **Dirección pregunta si el RAG gestionado de GCP sale más barato que el de AWS.** Depende del
+   uso, no del precio por consulta. Bedrock KB sobre S3 Vectors no tiene coste fijo; RAG Engine en
+   su nivel Basic levanta un Spanner que se paga por horas aunque nadie pregunte, y AI Search Basic
+   ronda los 70 €/mes. Para conocimiento interno con poco tráfico, AWS; para un asistente con uso
+   continuado, el coste fijo se diluye y decide la calidad medida con el golden dataset (fase 5).
+   Por eso en desarrollo el carril A de GCP es efímero: se enciende para validar y se apaga.
 
 <a id="fase-4"></a>
 

@@ -108,7 +108,7 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 **4.G · Retrieval**
 
 - 4.G1: `adapters/gcp_retrieval.py`: Agent Retrieval híbrida (`batch_search_data_objects`: vector + texto completo con RRF) con la ACL como filtro JSON en el servidor y reranker con la Ranking API (`RerankerPort`).
-- 4.G2: carril A: RAG Engine `retrieveContexts` y Vertex AI Search (respuesta con citas, equivalente de Foundry IQ); el adaptador rechaza filtros que no pueda garantizar. Scripts de aprovisionamiento en dry-run y composición explícita (`RETRIEVAL__ENGINE=gcp`, `RETRIEVAL__MANAGED=rag_engine|vertex_search`).
+- 4.G2: carril A: RAG Engine `retrieveContexts` y Vertex AI Search (respuesta con citas, equivalente de Foundry IQ); el adaptador rechaza filtros que no pueda garantizar. **Heredado de la 3.G3:** la ACL de RAG Engine se aplica eligiendo los corpus permitidos (uno por ACL; su filtro por metadatos está en preview) y se vuelve a comprobar en cada resultado. Scripts de aprovisionamiento en dry-run y composición explícita (`RETRIEVAL__ENGINE=gcp`, `RETRIEVAL__MANAGED=rag_engine|vertex_search`).
 
 **5.G · Evals de RAG**
 

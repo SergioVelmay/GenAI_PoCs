@@ -218,3 +218,12 @@ def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "251")  # La API admite 250 como mucho.
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GCP_RAG_ENGINE__PUBLIC_CORPUS", "projects/p/locations/l/ragCorpora/1")
+
+    rag = Settings(_env_file=None).gcp_rag_engine
+
+    assert rag.corpora() == {"public": "projects/p/locations/l/ragCorpora/1", "internal": ""}
+    assert (rag.chunk_size, rag.chunk_overlap) == (300, 60)

@@ -1,7 +1,8 @@
 # Fase 3 · Comparativa de los tres carriles de ingesta
 
 Indexación del mismo corpus de conocimiento de Headache (políticas, FAQs, guías de recintos, fichas de
-eventos y guía del centro de ayuda) en tres carriles y dos nubes, con la misma cola de eventos delante.
+eventos y guía del centro de ayuda) en tres carriles y tres nubes (GCP desde la
+[pasada 3.G](#7-gcp-pasada-3g)), con la misma cola de eventos delante.
 
 > Estado: implementación, IaC y tests completos y verificados en local (sin coste). Las cifras de
 > latencia y coste reales en la nube están **pendientes de validación** (ver el final).
@@ -13,11 +14,13 @@ eventos y guía del centro de ayuda) en tres carriles y dos nubes, con la misma 
 | **Quién trocea y embebe** | El servicio | Nuestro código (`DocumentIndexer`) | LlamaIndex (`IngestionPipeline`) |
 | **Azure** | Indexer + skillset de AI Search (vectorización integrada) | `azure-search-documents` + Azure OpenAI | LlamaIndex + `PGVectorStore` (*) |
 | **AWS** | Bedrock Knowledge Base (S3 → S3 Vectors) | `boto3` S3 Vectors + Titan v2 | LlamaIndex + `PGVectorStore` (*) |
+| **GCP** | RAG Engine (Cloud Storage → `RagManagedDb`), un corpus por ACL | Agent Retrieval (antes Vector Search 2.0) + `gemini-embedding-001` | LlamaIndex + `PGVectorStore` (*) con `GeminiEmbedding` |
 | **Local (sin coste)** | — (no hay emulador) | pgvector + embeddings deterministas | pgvector + embeddings deterministas |
-| **Código** | [azure_search_managed.py](../packages/headache_core/src/headache_core/adapters/azure_search_managed.py), [bedrock_kb.py](../packages/headache_core/src/headache_core/adapters/bedrock_kb.py) | [indexer.py](../packages/headache_core/src/headache_core/application/ingestion/indexer.py), [azure_search.py](../packages/headache_core/src/headache_core/adapters/azure_search.py), [s3_vectors.py](../packages/headache_core/src/headache_core/adapters/s3_vectors.py) | [llamaindex.py](../packages/headache_core/src/headache_core/adapters/llamaindex.py) |
-| **IaC** | [aws/lane_a.tf](../infra/terraform/aws/lane_a.tf), [azure/lane_a.tf](../infra/terraform/azure/lane_a.tf) | [aws/main.tf](../infra/terraform/aws/main.tf), [azure/main.tf](../infra/terraform/azure/main.tf) | Esquema `llamaindex` en PostgreSQL |
+| **Código** | [azure_search_managed.py](../packages/headache_core/src/headache_core/adapters/azure_search_managed.py), [bedrock_kb.py](../packages/headache_core/src/headache_core/adapters/bedrock_kb.py), [gcp_rag_engine.py](../packages/headache_core/src/headache_core/adapters/gcp_rag_engine.py) | [indexer.py](../packages/headache_core/src/headache_core/application/ingestion/indexer.py), [azure_search.py](../packages/headache_core/src/headache_core/adapters/azure_search.py), [s3_vectors.py](../packages/headache_core/src/headache_core/adapters/s3_vectors.py), [gcp_vector_search.py](../packages/headache_core/src/headache_core/adapters/gcp_vector_search.py) | [llamaindex.py](../packages/headache_core/src/headache_core/adapters/llamaindex.py) |
+| **IaC** | [aws/lane_a.tf](../infra/terraform/aws/lane_a.tf), [azure/lane_a.tf](../infra/terraform/azure/lane_a.tf), [gcp/lane_a.tf](../infra/terraform/gcp/lane_a.tf) | [aws/main.tf](../infra/terraform/aws/main.tf), [azure/main.tf](../infra/terraform/azure/main.tf), [gcp/vector_search.tf](../infra/terraform/gcp/vector_search.tf) | Esquema `llamaindex` en PostgreSQL |
 
-(*) En la nube, el carril C usaría Aurora PostgreSQL / Azure Database for PostgreSQL (fases 13-14).
+(*) En la nube, el carril C usaría Aurora PostgreSQL / Azure Database for PostgreSQL / Cloud SQL o
+AlloyDB (fases 13-15).
 LlamaIndex también tiene integraciones con AI Search y OpenSearch; se eligió pgvector para comparar
 el framework, no el almacén.
 
@@ -30,12 +33,12 @@ contrato común. El carril A no la necesita: el servicio sondea el origen
 
 | Dimensión | A · Gestionado | B · SDK nativo | C · Framework |
 |---|---|---|---|
-| **Coste fijo** | Azure: AI Search **Basic** si se quiere identidad gestionada (~70 €/mes); Free solo con claves. AWS: ~0 | ~0 en ambas (AI Search Free, S3 Vectors por uso) | El de PostgreSQL (ya existente para el negocio) |
+| **Coste fijo** | Azure: AI Search **Basic** si se quiere identidad gestionada (~70 €/mes); Free solo con claves. AWS: ~0. GCP: RAG Engine Basic = Spanner de 100 PU **por horas** (efímero) | ~0 en las tres (AI Search Free, S3 Vectors y Agent Retrieval por uso; coste real de este último pendiente) | El de PostgreSQL (ya existente para el negocio) |
 | **Coste variable** | Embeddings + operaciones; en Free, 20 documentos enriquecidos/día por indexer | Embeddings + escrituras | Embeddings + escrituras |
 | **Control** | Bajo: troceo por caracteres o tokens configurables, sin código propio en la cadena | Total: chunking, metadatos, idempotencia, orden de escritura | Alto, dentro de lo que exponen los componentes |
 | **Tiempo de implantación** | Horas: IaC + subir documentos | Días: cola, worker, ledger, adaptadores, tests | Horas-días: pipeline + stores; el tiempo se va en los bordes |
 | **Lock-in** | Alto: definición y semántica propias de cada nube | Bajo: puertos propios, adaptadores pequeños | Medio: lock-in al framework y a su esquema |
-| **Incremental y borrados** | Nativo (marca de agua y soft delete / sincronización con `DELETE`) | Propio: hash de contenido + ledger + borrado de chunks obsoletos | `DocstoreStrategy.UPSERTS` (hash del documento) |
+| **Incremental y borrados** | Nativo (marca de agua y soft delete / sincronización con `DELETE`). GCP: importa lo nuevo, pero los borrados son **nuestros** (`prune`) | Propio: hash de contenido + ledger + borrado de chunks obsoletos | `DocstoreStrategy.UPSERTS` (hash del documento) |
 | **Huecos durante un cambio** | Gestionado por el servicio | Ninguno: primero upsert y después borrado de lo obsoleto | Sí: borra los nodos antiguos antes de insertar los nuevos |
 | **Estrategias de troceo** | Páginas/tokens fijos (+ semántico/jerárquico en Bedrock) | Fijo y por frases (propios) | Fijo, frases, semántico, jerárquico |
 | **Observabilidad** | Estado del indexer / ingestion job | Logs propios, DLQ, métricas a medida | Igual que B + callbacks del framework |
@@ -122,6 +125,10 @@ mismo corpus y un golden dataset.
   búsqueda híbrida lo exige (decisión de la fase 4 con datos).
 - **Carril C** como **laboratorio**: probar estrategias de troceo y retrieval avanzadas
   (jerárquico, auto-merging) antes de llevarlas al carril B o descartarlas.
+- **GCP** (pasada 3.G): como segunda nube o para una unidad de negocio que ya viva allí, el
+  carril B con Pub/Sub + Agent Retrieval es el mismo código con otros adaptadores. El carril A
+  (RAG Engine) solo compensa con uso continuado: su nivel Basic se paga por horas aunque nadie
+  pregunte, y su filtro por metadatos aún está en preview (la ACL exige un corpus por nivel).
 
 ## 6. Resultados en Azure (18-10-2026)
 
@@ -166,8 +173,12 @@ Engine como carril A. Coste 0: todo se prueba en local (emulador y dobles).
 | Subfase | Commit | Qué |
 |---|---|---|
 | 3.G1 | `6125727` | `PubSubMessageBus` en el contrato de brokers, `INDEXER__BROKER=pubsub` y `pubsub.tf` |
-| 3.G2 | (este) | `GeminiEmbedding`, `AgentRetrievalVectorStore` (carril B), `vector_search.tf` y `indexer.forget_ledger` |
-| 3.G3 | | RAG Engine (carril A), carril C con Gemini y cierre |
+| 3.G2 | `7de9010` | `GeminiEmbedding`, `AgentRetrievalVectorStore` (carril B), `vector_search.tf` y `indexer.forget_ledger` |
+| 3.G3 | (este) | RAG Engine (carril A) con un corpus por ACL, `managed_ingestion.py gcp`, `lane_a.tf` y carril C con Gemini |
+
+Resultados: solo locales (emulador de Pub/Sub y dobles construidos desde la documentación; suite
+completa en verde). Las medidas reales están en [pendientes](pendientes-cloud.md#fase-3-gcp) y se
+anotarán aquí, como los [resultados en Azure](#6-resultados-en-azure-18-10-2026).
 
 ### Verificación previa (15-11-2026)
 
@@ -295,6 +306,68 @@ recrea vacía, el worker vería "sin cambios" y la dejaría vacía (en AI Search
 **Resultados:** solo locales (dobles construidos desde la documentación y tipos reales del SDK
 `google-cloud-vectorsearch` 0.11.6); la ingesta real, el coste y la latencia, en
 [pendientes](pendientes-cloud.md#fase-3-gcp).
+
+### 7.3 Carril A con RAG Engine y carril C con Gemini (3.G3)
+
+```powershell
+uv run python scripts/managed_ingestion.py gcp --source data/synthetic/knowledge-classified.jsonl          # dry-run
+# Con coste (pendientes-cloud.md): rag_engine_enabled = true, apply, salidas al .env y después
+uv run python scripts/managed_ingestion.py gcp --source data/synthetic/knowledge-classified.jsonl --apply
+```
+
+[`gcp_rag_engine.py`](../packages/headache_core/src/headache_core/adapters/gcp_rag_engine.py) sigue
+el patrón de Bedrock KB: el código sube el corpus a un bucket y pide la importación; RAG Engine
+trocea (fijo, 300 tokens con 60 de solape, como Bedrock), embebe y guarda en `RagManagedDb`. Usa el
+cliente `agentplatform.Client(...).aio.rag`, cuyo `import_files` ya espera a que termine la
+operación y devuelve importados, omitidos y fallidos.
+
+| Decisión | Por qué |
+|---|---|
+| **Un corpus por nivel de ACL** (`public`, `internal`), con el prefijo `gs://<bucket>/<acl>/` | El filtro por metadatos de RAG Engine está en **preview** (`v1beta1`, expresiones CEL, no disponible en modo *serverless*) y hay informes de que se ignora. Si falla, un cliente vería el manual interno. Separar los datos es una garantía que no depende de una función en preview; el coste es elegir el corpus al preguntar (4.G2) |
+| La ACL sale del documento o, si falta, de `domain.retrieval.classify_acl`; una ACL desconocida es un error | La misma fuente de verdad que en local y en las otras nubes; cerrado por defecto |
+| Subir solo si cambian el MD5 o los metadatos | La lección del carril A de Azure: resubir todo hace reprocesar todo. Cloud Storage ya guarda el MD5 (`Blob.md5_hash`, base64): no hay que calcular nada en el bucket |
+| **`prune` propio**, después de importar | Quitar un objeto del bucket no borra su `RagFile`. Además, un documento que pasa de público a interno se importa en el corpus nuevo y solo después se borra del viejo: nunca desaparece, y nunca se queda en el público |
+| Bucket siempre; RAG Engine efímero | El bucket cuesta ~0 y conserva la idempotencia entre sesiones. El nivel Basic (Spanner de 100 PU) se paga por horas: `rag_engine_enabled = false` lo pasa a `Unprovisioned`, que **borra los datos** (se reimporta en la siguiente sesión, como AI Search) |
+
+[`lane_a.tf`](../infra/terraform/gcp/lane_a.tf): bucket (acceso uniforme, sin acceso público),
+`google_vertex_ai_rag_engine_config` siempre gestionado (Basic o `Unprovisioned` según la variable,
+para que apagar sea explícito), un corpus por ACL con KNN y `gemini-embedding-001` y permisos:
+
+- El **agente de servicio de RAG Engine** lee el bucket. Se crea con el primer corpus, así que su
+  permiso depende de los corpus.
+- La app sube, lista y borra objetos y, además, necesita `storage.buckets.get` y
+  `resourcemanager.projects.get`: `import_files` comprueba que el bucket es del proyecto (contra el
+  *bucket squatting*) y, si no puede, no da un 403, sino "el bucket no pertenece al proyecto".
+
+**Carril C:** LlamaIndex usa el mismo `EmbeddingPort` a través de `PortEmbedding`, así que
+`INDEXER__ENGINE=llamaindex` con `INDEXER__EMBEDDINGS=gcp` funciona sin código nuevo. Un test fija
+que el puente llama a `embed_texts` para los nodos y a `embed_query` para la consulta: con Gemini,
+mezclarlos rompería la asimetría `RETRIEVAL_DOCUMENT`/`RETRIEVAL_QUERY` sin ningún error visible.
+
+### 7.4 Comparativa del carril A en las tres nubes
+
+| | Azure (indexer + skillset) | AWS (Bedrock KB) | GCP (RAG Engine) |
+|---|---|---|---|
+| Origen | Blob Storage | S3 | Cloud Storage |
+| Troceo | SplitSkill (páginas) | Fijo, semántico o jerárquico | Fijo (o parser de layout/LLM con coste) |
+| Almacén | Índice de AI Search | S3 Vectors | `RagManagedDb` (Spanner gestionado), Vector Search o Pinecone |
+| Metadatos y ACL | Campos del índice, filtro OData | Sidecar `.metadata.json`, filtro en `Retrieve` | Filtro CEL en **preview** → un corpus por ACL |
+| Incremental | Marca de agua del indexer | Ingestion job (altas, cambios y borrados) | `import_files` omite lo importado; los borrados, con `prune` |
+| Coste fijo | AI Search Basic (~70 €/mes) | ~0 | Spanner de 100 PU por horas (nivel Basic) |
+| Apagar | `search_enabled = false` | — | `Unprovisioned` (borra los datos) |
+
+### 7.5 Decisiones y límites de la pasada
+
+- **Las tres nubes, el mismo caso de uso**: `DocumentIndexer`, el ledger, la cola y el troceo no
+  han cambiado. GCP son cuatro adaptadores (Pub/Sub, embeddings, Agent Retrieval, RAG Engine) y sus
+  `.tf`.
+- **Lo que la verificación previa cambió**: Agent Retrieval en vez de Vector Search 1.0,
+  `agentplatform` en vez de `vertexai.rag`, el emulador de Pub/Sub sí soporta *dead-letter* (sin
+  dobles) y la ACL del carril A por partición.
+- **Límites conocidos**: el lote real de `gemini-embedding-001`, la atomicidad de `batch_create` de
+  Agent Retrieval, si `import_files` vuelve a importar un objeto **modificado** con la misma ruta y si
+  RAG Engine admite `gemini-embedding-001` en `europe-west4` están sin confirmar: van a
+  [pendientes](pendientes-cloud.md#fase-3-gcp) con su forma de comprobarlo.
 
 ## 8. Checkpoint de entrevista
 

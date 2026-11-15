@@ -94,6 +94,20 @@ variable "embedding_dimensions" {
   default     = 1024
 }
 
+# ---------- Carril A: RAG Engine (lane_a.tf) ----------
+
+variable "rag_engine_enabled" {
+  description = "RAG Engine en nivel Basic (Spanner por horas) y sus corpus. false = Unprovisioned: borra los datos y para la facturación."
+  type        = bool
+  default     = false
+}
+
+variable "rag_embedding_model" {
+  description = "Modelo de embeddings de los corpus de RAG Engine (el mismo que el carril B; verificar que RAG Engine lo admite en la región)."
+  type        = string
+  default     = "gemini-embedding-001"
+}
+
 # ---------- Presupuesto (budget.tf) ----------
 
 variable "budget_email" {

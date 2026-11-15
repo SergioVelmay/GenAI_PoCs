@@ -118,6 +118,12 @@ ignore_missing_imports = true
 module = ["google.cloud.pubsub_v1", "google.cloud.pubsub_v1.*", "google.cloud.pubsub", "google.cloud.pubsub.*"]
 follow_untyped_imports = true
 
+# `agentplatform` (RAG Engine, 3.G3; viene con google-cloud-aiplatform) y `google-cloud-storage`
+# no publican py.typed, pero su código está anotado: mypy lo analiza en lugar de tratarlo como Any.
+[[tool.mypy.overrides]]
+module = ["agentplatform", "agentplatform.*", "google.cloud.storage", "google.cloud.storage.*"]
+follow_untyped_imports = true
+
 # `grpcio` no publica tipos y sus stubs (`types-grpcio`) no están en el lock: el canal sin TLS del
 # emulador de Pub/Sub (3.G1) es lo único que se usa de él.
 [[tool.mypy.overrides]]
@@ -157,5 +163,6 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "--import-mode=importlib -m 'not integration' -p no:deepeval"
 markers = ["integration: requiere docker compose up -d (PostgreSQL migrado y RabbitMQ) y --profile scale (Redis)"]
 # llama-index-workflows recorre el agente (modelo Pydantic) con inspect.getmembers y toca
-# atributos deprecados: ruido de la librería, no de nuestro código.
-filterwarnings = ["ignore::pydantic.warnings.PydanticDeprecatedSince20:inspect", "ignore::pydantic.warnings.PydanticDeprecatedSince211:inspect"]
+# atributos deprecados: ruido de la librería, no de nuestro código. `agentplatform` (3.G3) declara
+# un `model_validator` sobre un classmethod, deprecado en Pydantic 2.12: también es suyo.
+filterwarnings = ["ignore::pydantic.warnings.PydanticDeprecatedSince20:inspect", "ignore::pydantic.warnings.PydanticDeprecatedSince211:inspect", "ignore::pydantic.warnings.PydanticDeprecatedSince212:agentplatform"]

@@ -3,8 +3,10 @@
 Uso:
     uv run python scripts/managed_ingestion.py azure            # dry-run: definiciones JSON
     uv run python scripts/managed_ingestion.py aws              # dry-run: objetos y metadatos
+    uv run python scripts/managed_ingestion.py gcp              # dry-run: objetos por corpus (ACL)
     uv run python scripts/managed_ingestion.py azure --apply    # sube blobs y lanza el indexer
     uv run python scripts/managed_ingestion.py aws --apply      # sube a S3 y sincroniza la KB
+    uv run python scripts/managed_ingestion.py gcp --apply      # sube a Cloud Storage e importa
 
 `--apply` usa la nube y tiene coste (embeddings y operaciones): pide confirmación antes.
 """
@@ -19,6 +21,7 @@ from typing import Any
 
 from headache_core.adapters import azure_search_managed as azure_lane
 from headache_core.adapters import bedrock_kb as aws_lane
+from headache_core.adapters import gcp_rag_engine as gcp_lane
 from headache_core.config import Settings, get_settings
 from headache_core.domain import DocumentType, KnowledgeDocument
 
@@ -155,9 +158,36 @@ async def aws_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None:
     print(await ingestion.wait(job_id))
 
 
+def gcp_dry_run(settings: Settings, docs: list[KnowledgeDocument]) -> None:
+    rag = settings.gcp_rag_engine
+    bucket = rag.bucket or "<bucket>"
+    for acl, corpus in rag.corpora().items():
+        selected = [doc for doc in docs if gcp_lane.document_acl(doc) == acl]
+        print(f"corpus {acl}: {corpus or '<terraform output>'} <- gs://{bucket}/{acl}/")
+        print(f"  {len(selected)} documentos; troceo fijo de {rag.chunk_size} tokens")
+        for doc in selected[:2]:
+            name = gcp_lane.object_name(doc)
+            print(f"  gs://{bucket}/{name} metadata={gcp_lane.object_metadata(doc)}")
+
+
+async def gcp_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None:
+    ingestion = gcp_lane.build_ingestion(settings)
+    uploaded = sum([await ingestion.upload(doc) for doc in docs])
+    print(f"{uploaded} de {len(docs)} objetos subidos (el resto, sin cambios).")
+    # Primero importar y después podar: un documento que cambia de ACL nunca desaparece de
+    # golpe (como el upsert → borrado del carril B).
+    for acl in gcp_lane.ACL_LEVELS:
+        status = await ingestion.sync(acl)
+        pruned = await ingestion.prune(acl, docs)
+        print(
+            f"corpus {acl}: {status.imported} importados, {status.skipped} sin cambios, "
+            f"{status.failed} fallidos, {pruned} borrados"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("cloud", choices=["azure", "aws"])
+    parser.add_argument("cloud", choices=["azure", "aws", "gcp"])
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--apply", action="store_true")
@@ -165,10 +195,12 @@ def main() -> None:
 
     settings = get_settings()
     docs = load_corpus(args.source, args.limit)
+    dry_runs = {"azure": azure_dry_run, "aws": aws_dry_run, "gcp": gcp_dry_run}
+    applies = {"azure": azure_apply, "aws": aws_apply, "gcp": gcp_apply}
     if not args.apply:
-        (azure_dry_run if args.cloud == "azure" else aws_dry_run)(settings, docs)
+        dry_runs[args.cloud](settings, docs)
         return
-    asyncio.run((azure_apply if args.cloud == "azure" else aws_apply)(settings, docs))
+    asyncio.run(applies[args.cloud](settings, docs))
 
 
 if __name__ == "__main__":

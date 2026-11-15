@@ -287,6 +287,22 @@ class GcpVectorSearchSettings(BaseModel):
     location: str = ""
 
 
+class GcpRagEngineSettings(BaseModel):
+    """Carril A de GCP: RAG Engine desde Cloud Storage (3.G3). Salidas de `lane_a.tf`."""
+
+    bucket: str = ""
+    # Un corpus por nivel de ACL (`projects/.../ragCorpora/<id>`): el filtro por metadatos de
+    # RAG Engine está en preview, así que la ACL se garantiza separando los documentos.
+    public_corpus: str = ""
+    internal_corpus: str = ""
+    # Troceo del servicio, como en Bedrock KB (300 tokens con un 20 % de solape).
+    chunk_size: int = Field(default=300, ge=100, le=2048)
+    chunk_overlap: int = Field(default=60, ge=0)
+
+    def corpora(self) -> dict[str, str]:
+        return {"public": self.public_corpus, "internal": self.internal_corpus}
+
+
 class AzureManagedIngestionSettings(BaseModel):
     """Carril A en Azure: indexer + skillset de AI Search que leen de Blob Storage."""
 
@@ -439,6 +455,7 @@ class Settings(BaseSettings):
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
     gcp_vector_search: GcpVectorSearchSettings = GcpVectorSearchSettings()
+    gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()

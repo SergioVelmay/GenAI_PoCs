@@ -22,3 +22,7 @@ ci_allowed_refs       = ["refs/heads/main"]
 # Colección de Agent Retrieval del carril B (3.G2). Efímera: true solo durante la sesión de
 # validación y false al terminar (borra la colección y sus datos).
 vector_search_enabled = false
+
+# RAG Engine del carril A (3.G3): Basic (Spanner por horas) durante la sesión; false al terminar
+# = Unprovisioned (borra los datos y para la facturación).
+rag_engine_enabled = false

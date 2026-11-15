@@ -30,3 +30,13 @@ output "vector_search_collection" {
   description = "GCP_VECTOR_SEARCH__COLLECTION (null mientras vector_search_enabled = false)."
   value       = var.vector_search_enabled ? google_vector_search_collection.knowledge[0].collection_id : null
 }
+
+output "rag_docs_bucket" {
+  description = "GCP_RAG_ENGINE__BUCKET."
+  value       = google_storage_bucket.rag_docs.name
+}
+
+output "rag_corpora" {
+  description = "GCP_RAG_ENGINE__PUBLIC_CORPUS e INTERNAL_CORPUS ({} mientras rag_engine_enabled = false)."
+  value       = { for acl, corpus in google_vertex_ai_rag_corpus.knowledge : acl => corpus.name }
+}
