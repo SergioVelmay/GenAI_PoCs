@@ -240,3 +240,5 @@ def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert rag.corpora() == {"public": "projects/p/locations/l/ragCorpora/1", "internal": ""}
     assert (rag.chunk_size, rag.chunk_overlap) == (300, 60)
+    # 4.G2: sin modelo de generación ni reranker por defecto (solo `retrieve`, sin coste extra).
+    assert (rag.generation_model, rag.generation_location, rag.rerank_model) == ("", "", "")

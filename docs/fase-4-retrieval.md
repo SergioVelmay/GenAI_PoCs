@@ -335,7 +335,7 @@ en silencio a local, y lo ya construido se cierra. Los clientes se cierran al ap
 | `RETRIEVAL__SEMANTIC_RANKER` | `false` \| `true` | Ranker integrado en el backend: Semantic Ranker (AI Search) o VertexRanker (Agent Retrieval) |
 | `RETRIEVAL__RERANKER` | `token-coverage` \| `bedrock` \| `gcp` | `/search/rerank` con Bedrock Rerank (`BEDROCK__RERANK_MODEL_ARN`) o la Ranking API (`GCP_RANKING__*`) |
 | `RETRIEVAL__LLM` | `none` \| `gateway` | Gateway de fase 2: rewrite, HyDE, subpreguntas, router, auto y `llm-extractive` |
-| `RETRIEVAL__MANAGED` | `none` \| `bedrock_kb` \| `foundry_iq` | Carril A en `POST /managed/retrieve` y `POST /managed/answer` |
+| `RETRIEVAL__MANAGED` | `none` \| `bedrock_kb` \| `foundry_iq` \| `rag_engine` | Carril A en `POST /managed/retrieve` y `POST /managed/answer` |
 
 Las combinaciones incoherentes fallan al validar la configuración: un backend cloud con
 hashing (no hay un encoder compatible) o un ranker integrado sin backend cloud. Con `backend=local`, un
@@ -533,7 +533,7 @@ documentación y los tipos reales de los SDK.
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 4.G1 | — | Carril B: `AgentRetrievalSearch` (BM25, vector, híbrida con RRF y VertexRanker opcional), `VertexRankingReranker` (Ranking API), composición y `retrieval_eval --engine gcp` |
+| 4.G1 | `0b3e2c3` | Carril B: `AgentRetrievalSearch` (BM25, vector, híbrida con RRF y VertexRanker opcional), `VertexRankingReranker` (Ranking API), composición y `retrieval_eval --engine gcp` |
 | 4.G2 | — | Carril A: RAG Engine (`retrieve_contexts` por corpus de ACL y respuesta de Gemini con *grounding*) |
 | 4.G3 | — | Carril A: Agent Search (antes Vertex AI Search) con ingesta, Terraform y `answer_query` con citas |
 
@@ -547,6 +547,9 @@ documentación y los tipos reales de los SDK.
 | IAM | `roles/vectorsearch.dataObjectWriter` (ya asignado en la 3.G2) incluye `dataObjects.search` y `get`; la Ranking API pide `discoveryengine.rankingConfigs.rank`, incluido en `roles/discoveryengine.viewer` ([roles](https://docs.cloud.google.com/iam/docs/roles-permissions/vectorsearch)) | Un rol nuevo en `identity.tf`; la API `discoveryengine` ya estaba habilitada |
 | Vertex AI Search | Desde el 22-04-2026 se llama **Agent Search**; la API sigue siendo Discovery Engine ([nombres](https://docs.cloud.google.com/gemini-enterprise-agent-platform/vertex-ai-name-changes)) | `RETRIEVAL__MANAGED=agent_search` en la 4.G3 |
 | `search_data_objects` | Devuelve un *pager* asíncrono: iterarlo pide más páginas | Se usa solo la primera página, ya acotada por `top_k` |
+| RAG Engine, `retrieveContexts` (4.G2) | **Un corpus por petición**, también al generar ([API](https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/v1/projects.locations/retrieveContexts)); varios solo con *Cross Corpus Retrieval* (`AsyncRetrieveContexts`/`AskContexts`, v1beta1) | Una petición por corpus del scope y fusión por posición; la generación exige un scope de un solo corpus |
+| Score de `RagManagedDb` | Es la **distancia** coseno (menor = mejor) ([salida de RAG Engine](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/model-reference/rag-output-explained)) | No se mezclan scores de corpus distintos: RRF sobre las posiciones |
+| *Grounding* de Gemini | `grounding_supports[].segment` con índices en **bytes UTF-8** (inicio ausente = 0) y `grounding_chunk_indices` → `retrieved_context` (`uri`, `title`, `text`); solo chunks con confianza ≥ 0,6 | Conversión de bytes a caracteres; un segmento que corta un carácter es un error |
 
 ### 4.G1 · Carril B: Agent Retrieval y Ranking API
 
@@ -597,6 +600,57 @@ ejecución compara motores de una sola nube.
 **Resultados:** solo locales (26 tests del adaptador y 4 de composición; suite completa en verde).
 La comparativa con el golden dataset y la comprobación de la degradación silenciosa del
 VertexRanker, en [pendientes](pendientes-cloud.md#fase-4-gcp).
+
+### 4.G2 · Carril A: RAG Engine
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_gcp_rag_retrieval.py services/retrieval/tests/test_retrieval_cloud.py
+# Con coste (pendientes-cloud.md): corpus de la 3.G3 importados, y en .env o en el shell
+#   RETRIEVAL__MANAGED=rag_engine, GCP_RAG_ENGINE__GENERATION_MODEL=gemini-3.5-flash-lite
+uv run uvicorn retrieval.app:create_app --factory --host 127.0.0.1 --port 8010   # /managed/*
+```
+
+[`adapters/gcp_rag_retrieval.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_rag_retrieval.py)
+cumple el mismo `ManagedKnowledgePort` que Bedrock KB y Foundry IQ:
+
+| | Bedrock KB | Foundry IQ | RAG Engine |
+|---|---|---|---|
+| `retrieve` | `Retrieve` con filtro ACL | `retrieve` de la knowledge base con `filterAddOn` | `retrieve_contexts`, **una petición por corpus** permitido y fusión RRF |
+| `answer` | `RetrieveAndGenerate` (modelo por ARN) | Agent Service + MCP | Gemini con `Retrieval(vertex_rag_store)` en la región del corpus |
+| Citas | `citations[].span` en caracteres | Anotaciones `url_citation` | `grounding_supports[].segment` en **bytes UTF-8** |
+| ACL | Filtro por metadatos + comprobación | Knowledge source por audiencia | **Corpus por ACL** + prefijo de la URI (`gs://<bucket>/<acl>/`) |
+| Filtros por petición | Sí | Rechazados en `answer` | **Rechazados** (filtro en preview, sin metadatos) |
+| `HYBRID` | Según el almacén | — | Rechazado (`RagManagedDb` es KNN) |
+| Abstención | Sin citas o guardrail | `I don't know` o sin consulta a la KB | Sin `grounding_supports`, o respuesta bloqueada por seguridad |
+
+Decisiones:
+
+- **La ACL sale del corpus y se comprueba en la ruta**: se pregunta solo a los corpus del scope y
+  cada fragmento debe estar en `gs://<bucket>/<acl>/<tipo>/<id>.md` con la ACL de ese corpus. Un
+  fragmento interno en el corpus público es un fallo de la partición: error, no resultado. El
+  `document_id` sale de la ruta (el corpus no guarda metadatos), así que es comparable 1:1 con B/C;
+  el título es el propio `document_id`, como el *fallback* de Bedrock.
+- **Fusión por posición, no por score**: con dos corpus (scope interno) hay dos peticiones y sus
+  distancias no se comparan entre almacenes ni con el reranker activado; RRF sobre posiciones no
+  depende de la escala.
+- **La generación no pasa por `LLMPort`**: igual que `RetrieveAndGenerate`, es el servicio el que
+  recupera y genera. Instrucciones versionadas en `prompts/rag-engine-answer.md` (responder solo
+  con los documentos, en el idioma de la pregunta, sin listas ni formato, o "I don't know"). Sin
+  formato porque la validación exige que **todo** el texto no blanco esté cubierto por un
+  segmento: viñetas o negritas sin cita harían rechazar la respuesta entera (política
+  conservadora, como en Bedrock; se mide en la nube antes de relajarla).
+- **Modelo y región explícitos**: `GCP_RAG_ENGINE__GENERATION_MODEL` vacío = solo `retrieve` (como
+  `BEDROCK_KB__GENERATION_MODEL_ARN`); la generación va a `GCP_RAG_ENGINE__GENERATION_LOCATION`
+  (por defecto la del corpus), no al endpoint `global` del chat. Si el modelo no se sirve en
+  `europe-west4`, se ve en la primera llamada real (pendiente).
+- `part_index` de los segmentos se interpreta sobre las partes de respuesta (sin las de
+  razonamiento, que no llegan sin `include_thoughts`). A confirmar con una respuesta real.
+- `GCP_RAG_ENGINE__RERANK_MODEL` activa la Ranking API **dentro** de RAG Engine
+  (`rag_retrieval_config.ranking.rank_service`), la misma del carril B.
+
+**Resultados:** solo locales (30 tests del adaptador con tildes en los segmentos, 5 de
+composición; suite completa en verde). La validación real va a
+[pendientes](pendientes-cloud.md#fase-4-gcp).
 
 ## Checkpoint de entrevista
 

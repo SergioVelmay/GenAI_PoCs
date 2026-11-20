@@ -311,6 +311,14 @@ class GcpRagEngineSettings(BaseModel):
     # Troceo del servicio, como en Bedrock KB (300 tokens con un 20 % de solape).
     chunk_size: int = Field(default=300, ge=100, le=2048)
     chunk_overlap: int = Field(default=60, ge=0)
+    # Consulta (4.G2). Modelo de Gemini con la herramienta de retrieval de RAG Engine: vacío =
+    # solo `retrieve` (como `BEDROCK_KB__GENERATION_MODEL_ARN`). Ubicación vacía = GCP__REGION:
+    # el modelo debe servirse donde vive el corpus (se confirma en la nube).
+    generation_model: str = ""
+    generation_location: str = ""
+    # Reordenar dentro de RAG Engine con la Ranking API (`semantic-ranker-default-004`). Vacío =
+    # el orden del almacén (distancia coseno).
+    rerank_model: str = ""
 
     def corpora(self) -> dict[str, str]:
         return {"public": self.public_corpus, "internal": self.internal_corpus}

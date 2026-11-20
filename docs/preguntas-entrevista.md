@@ -499,6 +499,14 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    registros originales: el servicio no puede cambiar un texto ni colar un documento. Un id
    desconocido, repetido o un score no finito es un error, igual que con Bedrock Rerank.
 
+4. **¿Qué tiene de especial validar las citas de Gemini con RAG Engine?** Tres cosas. Los
+   offsets de cada segmento van en **bytes UTF-8**: si cortas el texto en Python con ellos, la
+   cita se desplaza en cuanto hay una tilde, y en un marketplace en español la hay en casi todas
+   las frases. Cada petición admite **un solo corpus**: con la ACL partida en corpus, un usuario
+   interno exige dos consultas y fusionarlas por posición, porque las distancias de almacenes
+   distintos no se comparan. Y todo el texto no blanco debe estar cubierto por un segmento: lo
+   que el modelo diga sin fuente invalida la respuesta, como en Bedrock.
+
 **Negocio y stakeholders**
 
 1. **¿Cuánto cuesta añadir el reranker de GCP y cuándo lo pagarías?** Por uso: del orden de 1 $
@@ -506,6 +514,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    dentro de AI Search Basic (~70 €/mes, con 1000 consultas gratis). En Azure, el ranker subió el
    recall@5 de 0,79 a 0,97 a cambio de ~40 ms. Lo pagaría si el golden dataset muestra la misma
    mejora en GCP; si no, vector solo, que en Azure ya daba 0,95.
+2. **Operaciones quiere que el asistente interno use también el manual de empleados. ¿Qué
+   implica en GCP?** Que el usuario interno pregunta a dos corpus (público e interno) y la
+   respuesta generada solo admite uno por petición: o se responde desde el interno, o se usa la
+   recuperación entre corpus, que está en preview. Lo planteo como decisión de producto con su
+   riesgo, no como detalle técnico: separar los datos por ACL es lo que garantiza que un cliente
+   nunca vea el manual, y ese aislamiento vale más que la comodidad de una sola consulta.
 
 <a id="fase-5"></a>
 

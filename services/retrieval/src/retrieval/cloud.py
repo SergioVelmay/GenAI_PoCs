@@ -147,6 +147,38 @@ def _agent_retrieval(
     return backend
 
 
+def _rag_engine(settings: Settings) -> ManagedKnowledgePort:
+    import agentplatform
+
+    from genaipocs_core.adapters.gcp_auth import gcp_credentials
+    from genaipocs_core.adapters.gcp_rag_retrieval import RagEngineKnowledge
+    from genaipocs_core.adapters.gemini import gemini_client
+
+    gcp, rag = settings.gcp, settings.gcp_rag_engine
+    project = _require(gcp.project, "GCP__PROJECT")
+    _require(rag.bucket, "GCP_RAG_ENGINE__BUCKET")
+    _require(rag.public_corpus, "GCP_RAG_ENGINE__PUBLIC_CORPUS")
+    _require(rag.internal_corpus, "GCP_RAG_ENGINE__INTERNAL_CORPUS")
+    client = agentplatform.Client(
+        project=project, location=gcp.region, credentials=gcp_credentials(gcp)
+    )
+    models = None
+    if rag.generation_model:
+        # La generación con la herramienta de RAG Engine va a la región del corpus, no al
+        # endpoint `global` del chat.
+        location = rag.generation_location or gcp.region
+        gemini = settings.gemini.model_copy(update={"enterprise": True, "location": location})
+        models = gemini_client(gcp, gemini).aio.models
+    return RagEngineKnowledge(
+        client.aio.rag,
+        bucket=rag.bucket,
+        corpora=rag.corpora(),
+        models=models,
+        generation_model=rag.generation_model,
+        rerank_model=rag.rerank_model,
+    )
+
+
 async def build_cloud_parts(config: RetrievalSettings, settings: Settings) -> CloudParts:
     parts = CloudParts()
     try:
@@ -223,3 +255,7 @@ def _compose(config: RetrievalSettings, settings: Settings, parts: CloudParts) -
     elif config.managed == "foundry_iq":
         parts.managed = _foundry_iq(settings, parts)
         parts.components["managed"] = "foundry_iq"
+    elif config.managed == "rag_engine":
+        parts.managed = _rag_engine(settings)
+        model = settings.gcp_rag_engine.generation_model
+        parts.components["managed"] = f"rag_engine:{model}" if model else "rag_engine"

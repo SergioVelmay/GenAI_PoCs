@@ -30,7 +30,7 @@ class RetrievalSettings(BaseSettings):
     semantic_ranker: bool = False
     reranker: Literal["token-coverage", "bedrock", "gcp"] = "token-coverage"
     llm: Literal["none", "gateway"] = "none"
-    managed: Literal["none", "bedrock_kb", "foundry_iq"] = "none"
+    managed: Literal["none", "bedrock_kb", "foundry_iq", "rag_engine"] = "none"
 
     @model_validator(mode="after")
     def validate_composition(self) -> Self:
