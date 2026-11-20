@@ -28,6 +28,18 @@ lo borrado que retenga nombre (AI Services, Content Safety), revisar el `plan` e
 las salidas nuevas al `.env`. El perfil aislado de la CLI es ahora
 `%USERPROFILE%\.azure-genaipocs` (movido, con la sesión intacta). AWS y GCP no se han aplicado.
 
+**Suscripción de Azure perdida (20-11-2026):** Sergio eliminó el grupo de recursos y todos sus
+recursos, y ya no hay acceso a esa suscripción. Todo lo de Azure (fases 2–8 y el checkpoint
+8→9) se rehará en **otra suscripción**: los resultados medidos en los docs se conservan como
+histórico, pero ningún recurso, endpoint ni identificador de entonces sirve. El `.env` local ya no
+tiene endpoints ni IDs de Azure (vuelven a los valores de `.env.example`). Antes del primer `plan`
+en la suscripción nueva: `az login` en el perfil aislado con la cuenta nueva (aún guarda la sesión
+de la antigua), `subscription_id` nuevo en `infra/terraform/azure/terraform.tfvars` (ahora tiene el
+marcador de la plantilla), comprobar cuotas de modelos y nombres libres en la suscripción y región
+nuevas, y volcar las salidas al `.env`. El estado de Terraform de la suscripción perdida se archivó
+fuera del repo (`%USERPROFILE%\.genaipocs-archive\azure-2026-11-20\`), así que el próximo `plan`
+empieza limpio y propone crearlo todo.
+
 **AI Search es efímero** (`search_enabled`): se cobra por hora aunque no se use, así que solo existe
 durante las sesiones de trabajo (p. ej., de viernes a domingo). El nombre y el endpoint no cambian.
 
