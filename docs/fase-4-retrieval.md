@@ -535,7 +535,13 @@ documentación y los tipos reales de los SDK.
 |---|---|---|
 | 4.G1 | `0b3e2c3` | Carril B: `AgentRetrievalSearch` (BM25, vector, híbrida con RRF y VertexRanker opcional), `VertexRankingReranker` (Ranking API), composición y `retrieval_eval --engine gcp` |
 | 4.G2 | `248d2ba` | Carril A: RAG Engine (`retrieve_contexts` por corpus de ACL y respuesta de Gemini con *grounding*) |
-| 4.G3 | — | Carril A: Agent Search (antes Vertex AI Search) con ingesta, Terraform y `answer_query` con citas |
+| 4.G3 | `9beaf31` | Carril A: Agent Search (antes Vertex AI Search) con ingesta, Terraform y `answer_query` con citas |
+| Cierre | (este commit) | Estado en `AGENTS.md` y `README.md`, decisiones de la pasada y lecciones aprendidas |
+
+Resultados: solo locales (dobles construidos desde la documentación y los tipos reales de los
+SDK; suite completa en verde). Las medidas reales están en
+[pendientes](pendientes-cloud.md#fase-4-gcp) y se anotarán aquí, como los
+[resultados en Azure](#resultados-en-azure-18-10-2026).
 
 ### Verificación previa (20-11-2026)
 
@@ -718,6 +724,26 @@ con el corpus de evals: 114 documentos públicos y 2 internos). La validación r
 | Abstención | `I don't know` o sin consulta a la KB | Sin citas o guardrail | Sin soportes o bloqueo | `answer_skipped_reasons` o sin citas |
 | Prompt | Instrucciones del agente (versionadas) | El de la KB | `rag-engine-answer` (versionado) | Ninguno (modelo `stable`) |
 | Coste fijo | AI Search Basic (~70 €/mes) | ~0 | Spanner por horas (Basic) | 0 (por consulta) |
+
+### Decisiones y límites de la pasada
+
+- **El mismo contrato en tres nubes**: `RetrievalService`, `RetrievalPort`, `RerankerPort` y
+  `ManagedKnowledgePort` no han cambiado. GCP son tres adaptadores (`gcp_retrieval.py`,
+  `gcp_rag_retrieval.py`, `gcp_agent_search.py`), su composición explícita y `agent_search.tf`.
+- **Lo que la verificación previa cambió**: la Ranking API como reranker por defecto (el
+  VertexRanker integrado degrada en silencio), la 4.G2 partida en dos, `agent_search` en lugar de
+  `vertex_search`, una petición por corpus en RAG Engine y HTML en lugar de Markdown en Agent
+  Search.
+- **Regla común a los tres adaptadores**: la ACL se aplica en el servidor y se vuelve a comprobar
+  en cada resultado; lo que no se puede garantizar (filtros sin metadatos, `HYBRID` sin soporte,
+  varios corpus al generar) se rechaza en lugar de ignorarse; texto generado sin cita, rechazo.
+- **Descartado por ahora**: la recuperación entre corpus de RAG Engine (`AsyncRetrieveContexts` y
+  `AskContexts`, en v1beta1) y un *preamble* propio para `answer_query`; se reconsideran si las
+  evals en la nube lo piden.
+- **Límites conocidos**: el formato real del score del batch de Agent Retrieval, `part_index` de
+  los segmentos de Gemini, `struct_data` en los fragmentos de Agent Search y qué modelos de
+  Gemini sirven la herramienta de RAG Engine en `europe-west4` están sin confirmar: van a
+  [pendientes](pendientes-cloud.md#fase-4-gcp) con su forma de comprobarlo.
 
 ## Checkpoint de entrevista
 

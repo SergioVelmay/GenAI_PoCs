@@ -100,7 +100,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 11 | Observabilidad: OpenTelemetry GenAI, propagación por colas y A2A, SLO y alertas como código, Langfuse, App Insights y X-Ray | ✅* | [fase-11](docs/fase-11-observabilidad.md) |
 | 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
-| G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita) y la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) |
+| G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita), la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL) y la 4.G (híbrida en Agent Retrieval con la Ranking API, RAG Engine y Agent Search con citas verificadas) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) · [4.G](docs/fase-4-retrieval.md#gcp-pasada-4g) |
 | 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | [plan de fases](docs/plan-fases.md) |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
@@ -140,8 +140,8 @@ mensaje corto; la skill reconstruye el contexto desde el repo (plan, rama, PR dr
 Sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 % o se sigue otro día:
 
 ```text
-Vamos a por la 4.G de la pasada GCP. Usa la skill iniciar-fase.        # fase nueva (rama fase/4-g desde main)
-Seguimos con la 4.G. Usa la skill retomar-fase.                       # fase empezada, en sesión nueva
+Vamos a por la 5.G de la pasada GCP. Usa la skill iniciar-fase.        # fase nueva (rama fase/5-g desde main)
+Seguimos con la 5.G. Usa la skill retomar-fase.                       # fase empezada, en sesión nueva
 revisado                                                              # commit + push + PR de la subfase
 dale                                                                  # empieza la subfase propuesta
 ```
