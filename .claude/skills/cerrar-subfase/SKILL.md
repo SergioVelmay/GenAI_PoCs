@@ -38,7 +38,7 @@ Si algo falla, arreglar la causa raíz (no silenciar) y volver a verificar.
 ## 2. Documentación y estado
 
 - Si cambian comandos, variables o convenciones: actualizar la instrucción de su área (`.github/instructions/`) y, si aplica siempre, `AGENTS.md`.
-- Si cambian variables: instrucciones exactas para el `.env` de Sergio (clave, valor, bloque, añadir o modificar, para qué).
+- Si cambian variables: alinear el `.env` local de Sergio con `.env.example` (lo hace el agente, sin mostrar valores ni poner valores con coste) e informarle de qué se ha añadido o modificado, en qué bloque y para qué.
 - Lo aplazado con coste: `docs/pendientes-cloud.md`. Si cambió el alcance de la fase: `docs/plan-fases.md`.
 - Informes regenerados (`evals/reports/*`): si solo cambian latencias, proponer restaurarlos (`git restore`, con su confirmación); si cambian campos o resultados, entran en el commit.
 
