@@ -46,7 +46,7 @@ Si algo falla, arreglar la causa raíz (no silenciar) y volver a verificar.
 
 1. `git status --short` y `git --no-pager diff --stat`: solo entra lo de esta subfase (nunca `.env`, `.secrets/`, `data/`). Un arreglo ajeno a la subfase va en un commit `fix:` aparte.
 2. `git add <rutas concretas>`.
-3. Mensaje Conventional Commits en español: `feat: fase N.M - <qué>` (`fix:`, `docs:`, `ci:`, `chore:` según el caso), con cuerpo breve si aporta, y el trailer del agente que hizo el trabajo (Copilot: `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`; Claude Code: `Co-authored-by: Claude <noreply@anthropic.com>`). Escribir el mensaje en un fichero temporal fuera del repo con la tool de creación y usar `git commit -F <fichero>` (el here-string por tubería rompe tildes y comillas).
+3. Mensaje Conventional Commits en español: `feat: fase N.M - <qué>` (`fix:`, `docs:`, `ci:`, `chore:` según el caso), con cuerpo breve si aporta, y el trailer del agente que hizo el trabajo (Copilot: `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`; Claude Code: `Co-authored-by: Claude <noreply@anthropic.com>`). El mensaje, sin ficheros fuera del repo: en Claude Code (Git Bash), heredoc directo `git commit -F - <<'EOF'` ... `EOF` (comillas simples en `'EOF'`: sin expansión de `$` ni de barras); en Copilot (PowerShell 5.1, sin heredocs), fichero `.tmp/commit-msg.txt` creado con la tool de edición y `git commit -F .tmp/commit-msg.txt` (el here-string por tubería rompe tildes y comillas).
 4. El hook `pre-commit` comprueba los términos prohibidos; si falla, quitar el término (nunca `--no-verify`).
 5. Comprobar con `git --no-pager log --oneline -1` que el commit existe (el terminal a veces mete un carácter espurio).
 
@@ -54,11 +54,12 @@ Si algo falla, arreglar la causa raíz (no silenciar) y volver a verificar.
 
 1. Primer push de la rama: `git push -u origin <rama>`; después, `git push`. Comprobar que no hay error.
 2. PR: si la rama aún no tiene (`gh pr view --json number,isDraft` falla), abrirla en **draft**
-   contra `main`: `gh pr create --draft --base main --title "<fase>: <tema>" --body-file <fichero>`.
+   contra `main`: `gh pr create --draft --base main --title "<fase>: <tema>" --body-file .tmp/pr-<fase>.md`
+   (p. ej. `.tmp/pr-5-g.md`, creado con la tool de edición; `.tmp/` está ignorado por Git).
    El cuerpo es el **estado de la fase para la próxima sesión** (la lee `retomar-fase`): lista de
    subfases con casilla (`- [x] 2.G1 ...` con su commit, `- [ ] 2.G2 ...` con sus entregables),
    decisiones tomadas, qué se verificó y lo que va a `pendientes-cloud.md`; termina con el trailer
-   del agente. Si ya existe, marcar la subfase cerrada con `gh pr edit --body-file <fichero>`.
+   del agente. Si ya existe, marcar la subfase cerrada en ese mismo fichero y `gh pr edit --body-file .tmp/pr-<fase>.md` (si el fichero no está, por ser otra sesión, partir de `gh pr view --json body`).
 3. La CI corre por `pull_request` (no por push a la rama): `gh run list --branch <rama> --limit 1` y `gh run watch <id> --exit-status`. Si la API devuelve jobs en `in_progress` con el run ya terminado, fiarse de la conclusión del run (exige `release-gate`).
 4. Informar por job (tabla) con el enlace a la ejecución y a la PR. Si falla, diagnosticar con `gh run view <id> --log-failed`, arreglar en un commit nuevo, informar y repetir.
 
