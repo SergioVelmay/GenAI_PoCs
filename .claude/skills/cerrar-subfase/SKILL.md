@@ -40,7 +40,7 @@ Si algo falla, arreglar la causa raíz (no silenciar) y volver a verificar.
 - Si cambian comandos, variables o convenciones: actualizar la instrucción de su área (`.github/instructions/`) y, si aplica siempre, `AGENTS.md`.
 - Si cambian variables: alinear el `.env` local de Sergio con `.env.example` (lo hace el agente, sin mostrar valores ni poner valores con coste) e informarle de qué se ha añadido o modificado, en qué bloque y para qué.
 - Lo aplazado con coste: `docs/pendientes-cloud.md`. Si cambió el alcance de la fase: `docs/plan-fases.md`.
-- Informes regenerados (`evals/reports/*`): si solo cambian latencias, restaurarlos siempre (`git restore`, sin preguntar: decidido el 20-11-2026) e informar; si cambian campos o resultados, entran en el commit.
+- Informes regenerados (`evals/reports/*`): si solo cambian latencias, restaurarlos siempre con `uv run python scripts/restore_latency_reports.py` (sin preguntar: decidido el 20-11-2026; se niega si cambia algo más que latencias) e informar; si cambian campos o resultados, entran en el commit.
 
 ## 3. Commit
 

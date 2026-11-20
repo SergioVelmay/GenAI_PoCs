@@ -16,7 +16,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 
 ## Informes regenerados
 
-Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran **siempre** con `git restore`, sin preguntar (decidido con Sergio el 20-11-2026), y se informa; si cambian campos, resultados o baselines, entran en el commit de la subfase.
+Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran **siempre**, sin preguntar (decidido con Sergio el 20-11-2026), con `uv run python scripts/restore_latency_reports.py [ruta]`, y se informa. El script compara con `HEAD` ignorando las claves `*_ms` y se niega (código 1) si cambia cualquier otro campo; no usar `git restore`, que sigue en `ask`; si cambian campos, resultados o baselines, entran en el commit de la subfase.
 
 ## Ejecutar (coste 0)
 
