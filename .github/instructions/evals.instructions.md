@@ -16,7 +16,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 
 ## Informes regenerados
 
-Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran con `git restore`, con confirmación de Sergio; si cambian campos, resultados o baselines, entran en el commit de la subfase.
+Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran **siempre** con `git restore`, sin preguntar (decidido con Sergio el 20-11-2026), y se informa; si cambian campos, resultados o baselines, entran en el commit de la subfase.
 
 ## Ejecutar (coste 0)
 

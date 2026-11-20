@@ -17,7 +17,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 ## Reglas obligatorias
 
 1. El cliente se llama **siempre "Genaipocs"**: código, comentarios, datos, commits, docs y chat. **Nunca** el nombre de la empresa real en que se inspira ni marcas comerciales de terceros (tampoco en ejemplos ni datos sintéticos). El hook `pre-commit` lo comprueba.
-2. **Pedir confirmación** antes de: crear recursos cloud, `terraform plan/apply`, cualquier acción con coste, cualquier acción destructiva (borrar ficheros, ramas o volúmenes, `docker compose down -v`, `git restore`/`reset`), **instalar software** en el equipo, **aceptar licencias** (EULA) y regenerar `data/synthetic/`. **Commit y push a la rama de la fase, sin pedir permiso** (desde el 20-11-2026: `main` está protegida y Sergio revisa la PR antes de fusionarla): tras verificar cada paso, commit, push y CI, y **después informar** de lo hecho.
+2. **Pedir confirmación** antes de: crear recursos cloud, `terraform plan/apply`, cualquier acción con coste, cualquier acción destructiva (borrar ficheros, ramas o volúmenes, `docker compose down -v`, `git restore`/`reset`; excepción: restaurar informes de evals en los que solo cambian latencias), **instalar software** en el equipo, **aceptar licencias** (EULA) y regenerar `data/synthetic/`. **Commit y push a la rama de la fase, sin pedir permiso** (desde el 20-11-2026: `main` está protegida y Sergio revisa la PR antes de fusionarla): tras verificar cada paso, commit, push y CI, y **después informar** de lo hecho.
 3. **Nunca secretos** en el repo: `.env` en local (ignorado), `.secrets/` para claves de desarrollo, OIDC en CI, Managed Identity / IAM Roles en la nube.
 4. **Solo modelos cloud** (Azure AI Foundry, Amazon Bedrock y Gemini en Gemini Enterprise Agent Platform). Docker en local solo ejecuta infraestructura.
 5. **Local y sin coste primero.** Lo que necesite nube o tenga coste se implementa (código e IaC) pero su ejecución se aplaza a `docs/pendientes-cloud.md`. La fase queda `✅ Hecha*`.
@@ -81,7 +81,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 falta AWS; y GCP en todas). No escribir "asterisco".
 - Pasada GCP: subfases `N.G1`, `N.G2`... por fase (`feat: fase 3.G1 - ...`), con paridad total con Azure y AWS; cada una actualiza el doc de su fase y la columna GCP de la tabla de estado.
-- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran (con confirmación); si cambian campos o resultados, entran en el commit.
+- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre con `git restore`, sin preguntar, y se informa; si cambian campos o resultados, entran en el commit.
 
 ## Entorno y problemas conocidos
 
