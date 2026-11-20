@@ -602,6 +602,15 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    lo calibré: acierta igual que nuestro juez en fidelidad, pero cuesta ~3 veces más y, con su
    escala 1-5, el umbral importa (exigiendo la nota máxima no servía para nada). Lo dejo para
    revisiones periódicas en el portal, que es lo que ve negocio, y el juez propio para la CI.
+7. **(GCP) El evaluador gestionado de Google no tiene la métrica que necesitas. ¿Qué haces?**
+   Lo que hice con la relevancia: no cambiar de criterio para adaptarme a la herramienta. El
+   servicio permite definir una métrica propia con un juez LLM; la escribí con la misma escala y
+   el mismo criterio que validaron las etiquetas humanas, versionada como cualquier prompt, y así
+   el resultado sigue siendo comparable con Azure y con nuestro juez. La alternativa (su métrica
+   de "calidad general") mide otra cosa: el número saldría, pero no respondería a la pregunta de
+   negocio. Y dos cautelas que explico a quien decide: está en Preview, así que no va en el
+   camino crítico (la CI usa nuestro juez), y en la fidelidad el modelo juez lo elige Google con
+   la versión de la métrica, no nosotros.
 
 <a id="fase-6"></a>
 

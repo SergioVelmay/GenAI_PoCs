@@ -293,8 +293,8 @@ Service**. Coste 0: todo con dobles; las medidas reales, en
 | Subfase | Commit | Qué |
 |---|---|---|
 | 5.G0 | `5e07bdc` | Ficheros temporales en `.tmp/` y plan de la 5.G (dividido en G1–G3) |
-| 5.G1 | (este commit) | Juez Gemini por los carriles B y C, informes con coste por nube y esquemas compatibles con Gemini |
-| 5.G2 | | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
+| 5.G1 | `4885272` | Juez Gemini por los carriles B y C, informes con coste por nube y esquemas compatibles con Gemini |
+| 5.G2 | (este commit) | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
 | 5.G3 | | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
 
 ### Verificación previa (20-11-2026)
@@ -334,6 +334,52 @@ uv run python -m rag_evals.calibration agreement --cloud gcp
   DeepEval (también precisión y recall de contexto, que solo corren con referencia) usan solo
   palabras clave que Gemini admite. Queda por ver en la nube la **complejidad**: `JudgeVerdict`
   tiene listas con `maxItems` de 20 y 30, y Gemini despliega cada posición en su gramática.
+
+### 5.G2 · Carril A: Gen AI Evaluation Service
+
+```powershell
+uv run pytest evals/tests/test_gcp_eval.py          # sin el extra: dobles con los tipos reales
+uv sync --all-packages --extra evals ; uv run --no-sync pytest -p no:deepeval evals/tests/test_gcp_eval.py
+# Con coste (pendientes-cloud.md), gcloud aislado:
+uv run --no-sync python -m rag_evals.gcp_eval [--dest gs://<bucket>/evals/]   # → evals/reports/gcp/
+uv run --no-sync python -m rag_evals.calibration agreement --cloud gcp
+```
+
+[`rag_evals/gcp_eval.py`](../evals/src/rag_evals/gcp_eval.py) es el equivalente de
+`foundry_eval`: pasa `calibration-v1` por el servicio y guarda `calibration-gcp_eval.json` con el
+formato de `calibration judge`, así que `agreement` lo compara sin cambios con los otros jueces.
+
+| | Foundry Evaluation (Azure) | Evaluation Service (GCP) |
+|---|---|---|
+| Fidelidad | `GroundednessEvaluator`, escala 1-5; fiel = aprobado (≥ 3), calibrado | `grounding_v2` (rúbrica gestionada, 0-1 frase a frase; 0 si alguna frase no está respaldada): el mismo criterio que "fiel", **sin umbral que calibrar** |
+| Relevancia | `RelevanceEvaluator`, escala 1-5 | Métrica LLM propia `genaipocs_relevance` (prompt versionado [`gcp-eval-relevance`](../evals/src/rag_evals/prompts/gcp-eval-relevance.md)), escala 0-3 del juez nativo |
+| Juez | El despliegue `judge` (`gpt-4.1`) | Fidelidad: el del servicio (Gemini 3.5 Flash en v2, 2.5 Flash en v1); relevancia: `gemini-4-argon`, como el nativo |
+| Portal | `--log-to-foundry` | `--dest gs://...` guarda el resultado; verlo en la consola está por comprobar |
+| SDK | `azure-ai-evaluation` (GA) | `client.evals` de Agent Platform (**Preview**) |
+| Coste | Tokens que informa el SDK | El servicio no devuelve tokens: se factura con el SKU del modelo juez |
+
+- **Fidelidad sin umbral:** en Foundry el umbral fue la mitad del trabajo (exigir un 5 daba
+  kappa 0). `grounding` ya puntúa como el humano: cualquier frase sin respaldo hace la respuesta
+  no fiel. A cambio, **el juez de la fidelidad no es nuestro**: lo elige la versión de la métrica.
+- **Relevancia propia:** el servicio no tiene una métrica equivalente (las adaptativas, como
+  `GENERAL_QUALITY`, generan rúbricas por pregunta con 6 llamadas y miden calidad general).
+  La propia se define con `LLMMetric` sobre la estructura de `MetricPromptBuilder` del SDK
+  (Criteria, Rating Scores, Evaluation Steps), con el criterio de las etiquetas adjudicadas
+  ("responde a lo preguntado, sea verdad o no") y como prompt versionado con candado.
+- **Configuración** (`GCP_EVAL__*`): región (vacío = `GCP__REGION`), versión de `grounding`
+  (`v2` por defecto; `v1` donde no haya Gemini 3.5 Flash), juez de la relevancia (vacío = el
+  nativo) y `ALLOW_CROSS_REGION_MODEL` (por defecto no: residencia de datos).
+- **Sin recursos ni Terraform:** el servicio no se aprovisiona y el permiso
+  (`aiplatform.locations.evaluateInstances`) ya está en `roles/aiplatform.user` (2.G).
+- **Fail-closed por muestra:** un error del servicio, una métrica ausente o una puntuación fuera
+  de escala cuentan como error del juez; no se puntúa a ciegas ni se aborta.
+
+Tests ([test_gcp_eval.py](../evals/tests/test_gcp_eval.py)) con los **tipos reales** del SDK, que
+cargan sin `pandas` (en la CI). Con el extra `evals`, dos más que nada de lo anterior cubriría:
+que el SDK manda `context` a cada métrica (es un campo *extra* de `EvalCase`: sin él, `grounding`
+daría 0 sin avisar) y el **flujo completo de `client.evals.evaluate`** sustituyendo solo la
+llamada HTTP (`_evaluate_instances`): acepta el dataset, las dos métricas reciben el contexto y
+cada resultado vuelve con el nombre de su métrica.
 
 ## 9. Checkpoint de entrevista
 
