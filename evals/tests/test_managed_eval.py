@@ -13,6 +13,7 @@ from genaipocs_core.ports.vector_store import MetadataValue
 from rag_evals.golden import DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores
 from rag_evals.managed_eval import (
+    MANAGED_CLOUD,
     NO_CITATIONS,
     contexts_of,
     evaluate_managed,
@@ -170,3 +171,13 @@ def test_sample_is_deterministic_and_unfiltered() -> None:
     assert [i.id for i in first] == [i.id for i in second]
     assert all(not item.filters for item in first)
     assert sum(item.answerable for item in first) == 10
+
+
+def test_each_managed_engine_reports_to_its_own_cloud() -> None:
+    """El informe va con el servicio evaluado, no con el juez."""
+    assert MANAGED_CLOUD == {
+        "foundry_iq": "azure",
+        "bedrock_kb": "aws",
+        "rag_engine": "gcp",
+        "agent_search": "gcp",
+    }

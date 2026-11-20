@@ -54,6 +54,12 @@
       "sha256": "311d425fcbf4195064238ca920c57c93ac426ccbc4ca74c05e307598be5f285c",
       "fragment": false
     },
+    "gcp-eval-relevance": {
+      "package": "rag_evals",
+      "version": 1,
+      "sha256": "639c839e3428ffab6383eee2aff700ab85c4d280a108cb725e60ff33064e5414",
+      "fragment": false
+    },
     "knowledge-specialist": {
       "package": "orchestrator",
       "version": 2,

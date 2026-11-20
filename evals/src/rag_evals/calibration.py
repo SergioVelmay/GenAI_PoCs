@@ -42,7 +42,7 @@ from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
 from rag_evals.golden import verify_corpus as verify_corpus_hash
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, RagJudge
 from rag_evals.metering import BudgetExceededError
-from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR, local_settings
+from rag_evals.retrieval_eval import Cloud, cloud_reports_dir, llm_reports_dir, local_settings
 from retrieval.bootstrap import build_local_service, load_synthetic
 
 Kind = Literal["good", "fabricated", "unsupported", "off_topic", "non_answer"]
@@ -338,13 +338,16 @@ def agreement(
     )
 
 
-def _report_path(judge: str) -> Path:
-    return CLOUD_REPORTS_DIR / f"calibration-{judge}.json"
+def _report_path(judge: str, out_dir: Path) -> Path:
+    return out_dir / f"calibration-{judge}.json"
 
 
-def write_judged(judge: str, judged: Sequence[JudgedItem], cost: Mapping[str, object]) -> Path:
-    CLOUD_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = _report_path(judge)
+def write_judged(
+    judge: str, judged: Sequence[JudgedItem], cost: Mapping[str, object], out_dir: Path
+) -> Path:
+    """Veredictos de un juez en la carpeta de su nube (`evals/reports/<nube>/`)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = _report_path(judge, out_dir)
     payload = {"judge": judge, "cost": cost, "items": [asdict(item) for item in judged]}
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
@@ -405,6 +408,14 @@ def render_agreement(sections: Mapping[str, Sequence[Agreement]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _agreement_dir(cloud: Cloud | None) -> Path:
+    if cloud is not None:
+        return cloud_reports_dir(cloud)
+    from genaipocs_core.config import Settings
+
+    return llm_reports_dir(Settings().llm_provider)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -413,7 +424,12 @@ def main() -> None:
     judge = commands.add_parser("judge", help="Puntua el conjunto con un juez (con coste)")
     judge.add_argument("--judge", choices=["native", "ragas", "deepeval"], required=True)
     judge.add_argument("--budget-usd", type=Decimal, required=True)
-    commands.add_parser("agreement", help="Acuerdo humano-juez (coste 0)")
+    agree = commands.add_parser("agreement", help="Acuerdo humano-juez (coste 0)")
+    agree.add_argument(
+        "--cloud",
+        choices=["azure", "aws", "gcp"],
+        help="Carpeta de informes que se compara (por defecto, la de LLM_PROVIDER)",
+    )
     args = parser.parse_args()
 
     if args.command == "build":
@@ -423,29 +439,30 @@ def main() -> None:
         write_set(chosen, overwrite_labels=args.overwrite_labels)
         print(f"{len(chosen)} muestras: {SET_PATH}, {READABLE_PATH} y {LABELS_PATH}")
     elif args.command == "judge":
+        from genaipocs_core.config import Settings
         from rag_evals.generation_eval import _gateway, _judge_embeddings, build_judge
 
+        out_dir = llm_reports_dir(Settings().llm_provider)
         _, judge_llm, meter = _gateway(args.budget_usd)
         embeddings = _judge_embeddings() if args.judge == "ragas" else None
         rag_judge = build_judge(args.judge, judge_llm, embeddings)
         if rag_judge is None:
             raise ValueError("Juez desconocido")
         judged = asyncio.run(judge_set(load_set(), rag_judge))
-        path = write_judged(args.judge, judged, asdict(meter.snapshot()))
+        path = write_judged(args.judge, judged, asdict(meter.snapshot()), out_dir)
         print(
             f"{path}: {sum(i.error is None for i in judged)} puntuadas, coste {meter.cost_usd} USD"
         )
     else:
-        reports = [
-            load_judged(path) for path in sorted(CLOUD_REPORTS_DIR.glob("calibration-*.json"))
-        ]
+        out_dir = _agreement_dir(args.cloud)
+        reports = [load_judged(path) for path in sorted(out_dir.glob("calibration-*.json"))]
         versions = {"Etiquetas a ciegas": LABELS_PATH, "Etiquetas adjudicadas": ADJUDICATED_PATH}
         sections = {
             title: [agreement(name, items, load_labels(path)) for name, items in reports]
             for title, path in versions.items()
             if path.exists()
         }
-        out = CLOUD_REPORTS_DIR / "calibration.md"
+        out = out_dir / "calibration.md"
         out.write_text(render_agreement(sections), encoding="utf-8", newline="\n")
         print(out.read_text(encoding="utf-8"))
 

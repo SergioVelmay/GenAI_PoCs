@@ -13,7 +13,7 @@ actualiza `docs/plan-fases.md`).
 
 1. `AGENTS.md` (ya cargado): tabla de estado, reglas y vocabulario.
 2. El plan de la fase: `docs/plan-fases.md`. En la **pasada GCP** (`N.G`): `docs/fase-13-12-checkpoint.md#plan-gcp` (§3.3 equivalencias, §3.4 subfases, §3.5 convenciones, §3.6 riesgos).
-3. El doc de la propia fase (`docs/fase-N-*.md`), el de la fase anterior y su sección de `docs/pendientes-cloud.md`. En la pasada GCP, la sección "GCP (pasada 0.G)" de `docs/fase-0-cimientos.md` (qué hay ya: `GcpSettings`, `unsupported_provider`, Terraform, emulador).
+3. El doc de la propia fase (`docs/fase-N-*.md`), el de la fase anterior y su sección de `docs/pendientes-cloud.md`. En la pasada GCP, la sección "GCP (pasada 0.G)" de `docs/fase-0-cimientos.md` (qué hay ya: `GcpSettings`, Terraform, emulador).
 4. `git branch --show-current`, `git --no-pager log --oneline -15` y `git status --short`. Si hay cambios sin commit que no son de esta sesión, **parar y analizarlos** con Sergio antes de nada. Si queda una PR abierta (`gh pr list --author @me`), recordárselo: la fase nueva sale de `main` actualizada. Si ya existe la rama de la fase, cambiar a la skill `retomar-fase`.
 5. Estado de la CI de `main`: `gh run list --branch main --limit 1`.
 6. Explorar el código que la fase va a tocar o reutilizar (puertos, contratos, sabores, harness) y, en la pasada GCP, los adaptadores de Azure y AWS que hay que igualar.

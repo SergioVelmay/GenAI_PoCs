@@ -114,7 +114,11 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 **5.G · Evals de RAG**
 
 - **Primer commit de la 5.G** (acordado al cerrar la 4.G, 20-11-2026): ficheros temporales dentro del repo. Añadir `.tmp/` a `.gitignore` y actualizar la skill `cerrar-subfase` (mensaje de commit con heredoc `git commit -F - <<'EOF'`; cuerpo de la PR en `.tmp/pr-<fase>.md`), quitar la nota "pendiente" de `AGENTS.md` y una lección en `lecciones-aprendidas.md` (las rutas de `$LOCALAPPDATA` y los escapes de Python desde el shell causaron caracteres BEL en la 4.G).
-- 5.G1: juez Gemini fijo (distinto del generador), RAGAS y DeepEval con Gemini, `rag_evals.gcp_eval` con el Gen AI Evaluation Service (como `foundry_eval`) y `managed_eval` para RAG Engine y Vertex AI Search.
+- ~~5.G1: juez Gemini fijo (distinto del generador), RAGAS y DeepEval con Gemini, `rag_evals.gcp_eval` con el Gen AI Evaluation Service (como `foundry_eval`) y `managed_eval` para RAG Engine y Vertex AI Search.~~ **Al empezar (20-11-2026)** se divide en tres (decidido con Sergio): el juez Gemini ya existía desde la 2.G (`GEMINI__JUDGE_MODEL=gemini-4-argon`), los informes con coste se escribían siempre en `evals/reports/azure/` (una calibración con Gemini habría sobrescrito la de Azure) y el Evaluation Service tiene un cliente nuevo (`client.evals`, Preview, con `pandas`; su extra `[evaluation]` exige `litellm<1.97` y no se instala) sin métrica de relevancia equivalente a la de Foundry.
+- 5.G0: el primer commit de arriba (ficheros temporales en `.tmp/`).
+- 5.G1: juez Gemini por los carriles B y C: informes con coste separados por nube (`evals/reports/<nube>/`) en `generation_eval`, `calibration` y `managed_eval`; test de que el juez no es ningún modelo del router; esquemas del juez nativo, RAGAS y DeepEval aceptados por el convertidor de `GeminiLLM`.
+- 5.G2: carril A `rag_evals.gcp_eval` con el Evaluation Service: `RubricMetric.GROUNDING` (0-1, frase a frase) y una **métrica LLM propia** de relevancia con el criterio de las etiquetas adjudicadas (decidido con Sergio, frente a `QUESTION_ANSWERING_QUALITY` y `GENERAL_QUALITY`), sobre `calibration-v1` y comparable en `calibration agreement`.
+- 5.G3: `managed_eval --engine rag_engine|agent_search`, doc de la fase 5 a tres nubes, pendientes y preguntas.
 
 **6.G · Tools y MCP**
 

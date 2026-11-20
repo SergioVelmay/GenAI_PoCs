@@ -23,6 +23,7 @@ from genaipocs_core.application.llm.pricing import PriceTable
 from genaipocs_core.ports.llm import TokenUsage
 from rag_evals.calibration import CalibrationItem, JudgedItem, load_set, write_judged
 from rag_evals.judges import JudgeScores
+from rag_evals.retrieval_eval import cloud_reports_dir
 
 JUDGE_NAME = "foundry"
 # Umbral de aprobado por defecto de los evaluadores de Foundry (escala 1-5).
@@ -172,7 +173,7 @@ def main() -> None:
                 rows[index] |= {f"outputs.{name}.{key}": value for key, value in output.items()}
     judged = judged_from_rows(items, rows)
     cost = token_cost(rows, azure.judge_deployment)
-    path = write_judged(JUDGE_NAME, judged, cost)
+    path = write_judged(JUDGE_NAME, judged, cost, cloud_reports_dir("azure"))
     print(
         f"{path}: {sum(i.error is None for i in judged)} puntuadas, coste ~{cost['cost_usd']} USD"
     )

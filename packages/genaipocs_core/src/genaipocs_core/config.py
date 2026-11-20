@@ -108,6 +108,9 @@ class GeminiSettings(BaseModel):
     embedding_batch_size: int = Field(default=100, ge=1, le=250)
     # Juez de evals: distinto y más capaz que el generador (sesgo de autopreferencia); 5.G1.
     judge_model: str = "gemini-4-argon"
+    # Razonamiento del juez, propio (no el del generador): `low` acota coste y latencia por
+    # muestra; si la calibración en la nube da peor kappa que Azure, probar `medium`.
+    judge_thinking_level: ThinkingLevel = "low"
     # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
     timeout_seconds: float = 120.0
     # implicit: Gemini cachea solo los prefijos repetidos (best-effort, sin coste de escritura).
@@ -341,6 +344,23 @@ class GcpAgentSearchSettings(BaseModel):
     answer_model: str = "stable"
 
 
+class GcpEvalSettings(BaseModel):
+    """Carril A de las evals en GCP: Gen AI Evaluation Service (5.G2), como Foundry Evaluation.
+
+    Sin recursos que crear: se paga por los tokens del juez (`roles/aiplatform.user`, ya en
+    `identity.tf`)."""
+
+    # Vacío = GCP__REGION. Las métricas v2 solo están donde se sirve Gemini 3.5 Flash.
+    location: str = ""
+    # `grounding_v2` juzga con Gemini 3.5 Flash y `grounding_v1` con Gemini 2.5 Flash.
+    grounding_version: Literal["v1", "v2"] = "v2"
+    # Juez de la métrica de relevancia propia. Vacío = GEMINI__JUDGE_MODEL (el del juez nativo,
+    # para comparar 1:1, como Foundry Evaluation con `gpt-4.1`).
+    relevance_judge_model: str = ""
+    # Deja al servicio llevar el juez a otra región si la suya no lo sirve (residencia de datos).
+    allow_cross_region_model: bool = False
+
+
 class AzureManagedIngestionSettings(BaseModel):
     """Carril A en Azure: indexer + skillset de AI Search que leen de Blob Storage."""
 
@@ -496,6 +516,7 @@ class Settings(BaseSettings):
     gcp_ranking: GcpRankingSettings = GcpRankingSettings()
     gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
     gcp_agent_search: GcpAgentSearchSettings = GcpAgentSearchSettings()
+    gcp_eval: GcpEvalSettings = GcpEvalSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()

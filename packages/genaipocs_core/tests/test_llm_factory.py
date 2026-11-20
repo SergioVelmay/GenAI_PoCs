@@ -85,10 +85,43 @@ def test_gateway_wires_up_the_three_clouds(engine: str) -> None:
     assert isinstance(build_gateway(settings, tracer=NullTracer()), RoutingLLM)
 
 
-def test_gcp_fails_loudly_where_its_adapter_does_not_exist_yet() -> None:
-    """El riesgo no es el error, es el silencio: sin este corte, `gcp` construiría Bedrock."""
-    with pytest.raises(LLMError, match=r"5\.G1"):
-        build_judge_provider_llm(_three_clouds("native"), LLMProvider.GCP)
+def test_gcp_judge_is_gemini_pinned_to_its_own_model_and_thinking() -> None:
+    settings = _three_clouds("native")
+
+    judge = build_judge_provider_llm(settings, LLMProvider.GCP)
+
+    assert isinstance(judge, GeminiLLM)
+    assert judge._model == settings.gemini.judge_model == "gemini-4-argon"
+    assert judge._thinking_level == settings.gemini.judge_thinking_level == "low"
+    # Con GCP de principal y Azure y AWS de respaldo, el juez también cae entre nubes.
+    assert isinstance(build_judge_llm(settings, tracer=NullTracer()), FallbackLLM)
+
+
+@pytest.mark.parametrize(
+    ("provider", "overrides"),
+    [
+        (LLMProvider.GCP, {"gemini": {"judge_model": "gemini-4-hydrogen"}}),
+        (LLMProvider.AZURE, {"azure_openai": {"judge_deployment": "gpt-4.1-mini"}}),
+        (LLMProvider.AWS, {"bedrock": {"judge_model_id": "eu.amazon.nova-lite-v1:0"}}),
+    ],
+)
+def test_a_judge_that_is_also_a_router_model_is_rejected(
+    provider: LLMProvider, overrides: dict[str, dict[str, str]]
+) -> None:
+    """Una variable de entorno puede poner de juez al generador: el juez se puntuaría a sí mismo."""
+    base = _three_clouds("native").model_dump()
+    for section, values in overrides.items():
+        base[section] |= values
+    settings = Settings.model_validate(base | {"llm_provider": provider})
+
+    with pytest.raises(LLMError, match="router"):
+        build_judge_provider_llm(settings, provider)
+
+
+def test_a_provider_without_judge_fails_loudly() -> None:
+    """El riesgo no es el error, es el silencio: sin este corte, `simulated` construiría Bedrock."""
+    with pytest.raises(LLMError, match="no tiene modelo juez"):
+        build_judge_provider_llm(_three_clouds("native"), LLMProvider.SIMULATED)
 
 
 def test_without_langfuse_keys_nothing_is_traced() -> None:

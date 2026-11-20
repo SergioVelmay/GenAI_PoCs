@@ -17,7 +17,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 ## Reglas obligatorias
 
 1. El cliente se llama **siempre "Genaipocs"**: código, comentarios, datos, commits, docs y chat. **Nunca** el nombre de la empresa real en que se inspira ni marcas comerciales de terceros (tampoco en ejemplos ni datos sintéticos). El hook `pre-commit` lo comprueba.
-2. **Pedir confirmación** antes de: crear recursos cloud, `terraform plan/apply`, cualquier acción con coste, cualquier acción destructiva (borrar ficheros, ramas o volúmenes, `docker compose down -v`, `git restore`/`reset`), **instalar software** en el equipo, **aceptar licencias** (EULA) y regenerar `data/synthetic/`. **Commit y push a la rama de la fase, sin pedir permiso** (desde el 20-11-2026: `main` está protegida y Sergio revisa la PR antes de fusionarla): tras verificar cada paso, commit, push y CI, y **después informar** de lo hecho.
+2. **Pedir confirmación** antes de: crear recursos cloud, `terraform plan/apply`, cualquier acción con coste, cualquier acción destructiva (borrar ficheros, ramas o volúmenes, `docker compose down -v`, `git restore`/`reset`; excepción: restaurar con `scripts/restore_latency_reports.py` informes de evals en los que solo cambian latencias), **instalar software** en el equipo, **aceptar licencias** (EULA) y regenerar `data/synthetic/`. **Commit y push a la rama de la fase, sin pedir permiso** (desde el 20-11-2026: `main` está protegida y Sergio revisa la PR antes de fusionarla): tras verificar cada paso, commit, push y CI, y **después informar** de lo hecho.
 3. **Nunca secretos** en el repo: `.env` en local (ignorado), `.secrets/` para claves de desarrollo, OIDC en CI, Managed Identity / IAM Roles en la nube.
 4. **Solo modelos cloud** (Azure AI Foundry, Amazon Bedrock y Gemini en Gemini Enterprise Agent Platform). Docker en local solo ejecuta infraestructura.
 5. **Local y sin coste primero.** Lo que necesite nube o tenga coste se implementa (código e IaC) pero su ejecución se aplaza a `docs/pendientes-cloud.md`. La fase queda `✅ Hecha*`.
@@ -30,7 +30,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 - **Tres carriles** cuando tenga sentido, con el mismo dataset y las mismas evals: **A. Gestionado** (Foundry Agent Service, Bedrock KB, AgentCore, RAG Engine, Agent Runtime...), **B. SDK nativo** (`azure-*`, `boto3`, `google-genai`/`google-cloud-*`), **C. Framework** (LlamaIndex, LangGraph, MAF, Strands, ADK).
 - Ritmo: subfases pequeñas; tras cada una, verificar, commit + push + CI (skill `cerrar-subfase`), informar y esperar el "dale" para la siguiente. Skills: `iniciar-fase`, `retomar-fase`, `cerrar-subfase`, `cerrar-fase`, `explicar-concepto`.
 - **Vocabulario de Sergio:** "dale" = empieza la subfase que acabas de proponer; "revisado" = visto bueno a lo informado (sigue valiendo, pero ya no hace falta para el commit). La revisión final la hace Sergio en la PR, lista para revisión, antes de fusionarla.
-- **Ficheros temporales** (Claude Code, Git Bash): mensajes de commit con heredoc directo (`git commit -F - <<'EOF'`); cuerpo de la PR y scripts auxiliares en `.tmp/` dentro del repo (ignorado por Git), creados con la tool de edición. Nunca `$LOCALAPPDATA`, `$TEMP` ni rutas fuera del repo. Copilot (PowerShell 5.1, sin heredocs) usa también `.tmp/`. *Pendiente de aplicar como primer commit de la 5.G: `.tmp/` en `.gitignore` y la skill `cerrar-subfase`.*
+- **Ficheros temporales** (Claude Code, Git Bash): mensajes de commit con heredoc directo (`git commit -F - <<'EOF'`); cuerpo de la PR y scripts auxiliares en `.tmp/` dentro del repo (ignorado por Git), creados con la tool de edición. Nunca `$LOCALAPPDATA`, `$TEMP` ni rutas fuera del repo. Copilot (PowerShell 5.1, sin heredocs) usa también `.tmp/` (`.tmp/commit-msg.txt`).
 - **Preguntas:** pocas, solo las que bloquean el paso actual, con la opción recomendada primero; decir explícitamente si una propuesta **cambia el plan** original; aparcar las dudas que no bloquean.
 - Explorar y planificar antes de codificar cambios de varios ficheros. Antes de escribir contra una librería, leer **la API instalada** (firmas, código fuente; en Terraform, `terraform providers schema -json`): las versiones van por delante de lo que conoce el modelo.
 - Dar evidencia, no afirmaciones: salida de los tests, comando ejecutado, enlace a la ejecución de la CI. Si la subfase arranca un servicio, probarlo de verdad (HTTP o E2E sin LLM), no solo los tests.
@@ -81,7 +81,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 falta AWS; y GCP en todas). No escribir "asterisco".
 - Pasada GCP: subfases `N.G1`, `N.G2`... por fase (`feat: fase 3.G1 - ...`), con paridad total con Azure y AWS; cada una actualiza el doc de su fase y la columna GCP de la tabla de estado.
-- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran (con confirmación); si cambian campos o resultados, entran en el commit.
+- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre sin preguntar con `uv run python scripts/restore_latency_reports.py` (comprueba que solo cambian claves `*_ms` y, si no, no toca nada; `git restore` sigue en `ask`) y se informa; si cambian campos o resultados, entran en el commit.
 
 ## Entorno y problemas conocidos
 
@@ -105,7 +105,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 2 | Capa de modelos, LLM gateway, routing, prompt caching, coste | ✅ Hecha* | ✅* | `docs/fase-2-modelos.md` |
 | 3 | Indexación event-driven, 3 carriles × 3 nubes | ✅ Hecha* | ✅* | `docs/fase-3-comparativa.md` |
 | 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | ✅* | `docs/fase-4-retrieval.md` |
-| 5 | Evals de RAG y gate en CI | ✅ Hecha* | 5.G | `docs/fase-5-evals.md` |
+| 5 | Evals de RAG y gate en CI | ✅ Hecha* | ✅* | `docs/fase-5-evals.md` |
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅ Hecha* | 6.G | `docs/fase-6-tools-mcp.md` |
 | 7 | Un agente en 7 sabores y context engineering | ✅ Hecha* | 7.G | `docs/fase-7-agentes.md` |
 | 8 | Agentic harness y guardrails | ✅ Hecha* | 8.G | `docs/fase-8-harness.md` |
@@ -115,7 +115,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G y 4.G; siguiente: **5.G**, rama `fase/5-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G y 5.G; siguiente: **6.G**, rama `fase/6-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |

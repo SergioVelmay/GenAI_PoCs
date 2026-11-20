@@ -1,10 +1,12 @@
 import json
 from collections.abc import Mapping, Sequence
 from importlib.util import find_spec
+from typing import Any
 
 import pytest
 
 from genaipocs_core.adapters.memory import FakeLLM, HashingEmbedding
+from genaipocs_core.application.llm.structured import response_schema_for
 from genaipocs_core.ports.llm import (
     ChatMessage,
     LLMResponse,
@@ -12,7 +14,7 @@ from genaipocs_core.ports.llm import (
     TokenUsage,
     ToolConfig,
 )
-from rag_evals.judges import JudgeError, JudgeSample, NativeJudge
+from rag_evals.judges import JudgeError, JudgeSample, JudgeVerdict, NativeJudge
 
 SAMPLE = JudgeSample(
     question="How many hours before can I get a refund?",
@@ -24,6 +26,42 @@ SAMPLE = JudgeSample(
 needs_ragas = pytest.mark.skipif(find_spec("ragas") is None, reason="extra evals")
 needs_deepeval = pytest.mark.skipif(find_spec("deepeval") is None, reason="extra evals")
 
+# Subconjunto de JSON Schema que admite `response_json_schema` de Gemini (documentacion oficial,
+# 20-11-2026). Las restricciones de longitud las descarta sin error (Pydantic las valida igual).
+GEMINI_SCHEMA_KEYWORDS = frozenset(
+    {
+        "$defs", "$ref", "additionalProperties", "anyOf", "description", "enum", "format",
+        "items", "maxItems", "maximum", "minItems", "minimum", "prefixItems", "properties",
+        "required", "title", "type",
+        "maxLength", "minLength", "maxProperties", "minProperties", "uniqueItems",
+    }
+)  # fmt: skip
+
+
+def gemini_unknown_keywords(schema: Mapping[str, Any]) -> set[str]:
+    """Palabras clave del esquema fuera del subconjunto de Gemini (los nombres de propiedades y
+    de `$defs` son datos, no palabras clave)."""
+    unknown: set[str] = set()
+
+    def visit(node: Any) -> None:
+        if isinstance(node, list):
+            for item in node:
+                visit(item)
+            return
+        if not isinstance(node, Mapping):
+            return
+        for key, value in node.items():
+            if key not in GEMINI_SCHEMA_KEYWORDS:
+                unknown.add(key)
+            if key in {"properties", "$defs"} and isinstance(value, Mapping):
+                for child in value.values():
+                    visit(child)
+            elif key not in {"enum", "required", "description", "title"}:
+                visit(value)
+
+    visit(schema)
+    return unknown
+
 
 class SchemaRoutedLLM:
     """Responde segun el nombre del esquema pedido: robusto a llamadas concurrentes."""
@@ -31,6 +69,7 @@ class SchemaRoutedLLM:
     def __init__(self, routes: Mapping[str, str]) -> None:
         self._routes = routes
         self.seen: list[str] = []
+        self.schemas: list[ResponseSchema] = []
 
     async def complete(
         self,
@@ -42,6 +81,8 @@ class SchemaRoutedLLM:
         tools: ToolConfig | None = None,
     ) -> LLMResponse:
         name = response_schema.name if response_schema is not None else "text"
+        if response_schema is not None:
+            self.schemas.append(response_schema)
         self.seen.append(name)
         return LLMResponse(self._routes[name], "gpt-4.1-nano", TokenUsage(10, 5), "fake")
 
@@ -65,6 +106,18 @@ async def test_native_judge_computes_scores_from_labels() -> None:
     assert llm.schemas[0] is not None and llm.schemas[0].name == "JudgeVerdict"
     payload = json.loads(llm.calls[0][-1].content)
     assert [context["index"] for context in payload["contexts"]] == [0, 1]
+
+
+def test_native_judge_schema_fits_gemini() -> None:
+    """El juez con Gemini (5.G1) recibe el mismo esquema strict que Azure: debe caber en el
+    subconjunto de Gemini, o la llamada daria 400 solo en la nube."""
+    schema = response_schema_for(JudgeVerdict).json_schema
+
+    assert gemini_unknown_keywords(schema) == set()
+    # El detector mira palabras clave anidadas, no los nombres de las propiedades.
+    assert gemini_unknown_keywords(
+        {"type": "object", "properties": {"const": {"const": 1, "type": "integer"}}}
+    ) == {"const"}
 
 
 async def test_native_judge_rejects_verdicts_that_skip_contexts() -> None:
@@ -120,6 +173,9 @@ async def test_ragas_judge_runs_through_our_llm_port() -> None:
         "NLIStatementOutput",
         "AnswerRelevanceOutput",
     }
+    assert {s.name: gemini_unknown_keywords(s.json_schema) for s in llm.schemas} == {
+        name: set() for name in llm.seen
+    }
 
 
 @needs_deepeval
@@ -141,3 +197,45 @@ async def test_deepeval_judge_runs_through_our_llm_port() -> None:
     assert scores.answer_relevancy == 0.5
     assert scores.context_precision is None and scores.context_recall is None
     assert "text" not in llm.seen
+    assert {s.name: gemini_unknown_keywords(s.json_schema) for s in llm.schemas} == {
+        name: set() for name in llm.seen
+    }
+
+
+def _response_models(modules: Sequence[str]) -> dict[str, type]:
+    import importlib
+    import inspect
+
+    from pydantic import BaseModel
+
+    found: dict[str, type] = {}
+    for name in modules:
+        module = importlib.import_module(name)
+        for cls_name, cls in inspect.getmembers(module, inspect.isclass):
+            if issubclass(cls, BaseModel) and cls.__module__ == module.__name__:
+                found[f"{name.split('.')[-2]}.{cls_name}"] = cls
+    return found
+
+
+def _assert_fit_gemini(models: Mapping[str, type]) -> None:
+    unknown = {
+        name: gemini_unknown_keywords(response_schema_for(model).json_schema)
+        for name, model in models.items()
+    }
+    assert models, "no se encontraron modelos de respuesta: ¿ha cambiado el paquete?"
+    assert {name: keys for name, keys in unknown.items() if keys} == {}
+
+
+_METRICS = ("context_precision", "context_recall", "faithfulness", "answer_relevancy")
+
+
+@needs_ragas
+def test_every_ragas_response_model_fits_gemini() -> None:
+    """Las cuatro métricas, también las que solo corren con referencia (precision y recall)."""
+    _assert_fit_gemini(_response_models([f"ragas.metrics.collections.{m}.util" for m in _METRICS]))
+
+
+@needs_deepeval
+def test_every_deepeval_response_model_fits_gemini() -> None:
+    names = ("contextual_precision", "contextual_recall", "faithfulness", "answer_relevancy")
+    _assert_fit_gemini(_response_models([f"deepeval.metrics.{m}.schema" for m in names]))

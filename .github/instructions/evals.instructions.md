@@ -16,7 +16,7 @@ Doc: `docs/fase-5-evals.md` (y secciones de evals en las fases 7 y 8).
 
 ## Informes regenerados
 
-Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran con `git restore`, con confirmación de Sergio; si cambian campos, resultados o baselines, entran en el commit de la subfase.
+Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al terminar solo cambian latencias (p50/p95: ruido entre máquinas), se restauran **siempre**, sin preguntar (decidido con Sergio el 20-11-2026), con `uv run python scripts/restore_latency_reports.py [ruta]`, y se informa. El script compara con `HEAD` ignorando las claves `*_ms` y se niega (código 1) si cambia cualquier otro campo; no usar `git restore`, que sigue en `ask`; si cambian campos, resultados o baselines, entran en el commit de la subfase.
 
 ## Ejecutar (coste 0)
 
@@ -38,10 +38,12 @@ Los gates reescriben `evals/reports/*` (`agents.*`, `attacks.json`...). Si al te
 - Invariantes siempre 0 y siempre bloqueantes: `acl_leaks`, `cross_customer`, `identity_args`, `unexpected_writes`, `payload_to_model`, `unapproved_irreversible`; citas 100 % válidas; mismo corpus.
 - Subir el baseline es deliberado: `--update-baseline` y revisión en el commit.
 - Con coste: `--mode llm` y `--judge native|ragas|deepeval` exigen `--budget-usd` (`CostMeter` corta antes de cada llamada) y `--limit N` (muestra estratificada). Pedir confirmación.
-- El juez va fijo y fuera del router (`build_judge_llm`, despliegue `AZURE_OPENAI__JUDGE_DEPLOYMENT=gpt-4.1`): nunca el mismo modelo que genera. Un veredicto incoherente cuenta como `judge_errors` (no se puntúa ni aborta). Informes con coste en `evals/reports/azure/`.
+- El juez va fijo y fuera del router (`build_judge_llm`; `AZURE_OPENAI__JUDGE_DEPLOYMENT=gpt-4.1`, `BEDROCK__JUDGE_MODEL_ID`, `GEMINI__JUDGE_MODEL=gemini-4-argon` con `GEMINI__JUDGE_THINKING_LEVEL`): nunca el mismo modelo que genera, y la fábrica lo rechaza si coincide con uno del router. Un veredicto incoherente cuenta como `judge_errors` (no se puntúa ni aborta).
+- Informes con coste **por nube**: `evals/reports/<nube>/` según `LLM_PROVIDER` (`llm_reports_dir`) en `generation_eval` (con LLM), `calibration judge|agreement [--cloud X]` y `managed_eval` (la nube del servicio evaluado, `MANAGED_CLOUD`); `foundry_eval` siempre en `azure/`. Los esquemas de salida estructurada del juez nativo, RAGAS y DeepEval caben en el subconjunto de JSON Schema de Gemini (`test_judges.py`): un esquema nuevo de juez pasa por ese test.
 - Calibración: `uv run python -m rag_evals.calibration build|judge --judge X --budget-usd N|agreement`. El conjunto `evals/calibration/calibration-v1.jsonl` es determinista (test de reproducibilidad); las etiquetas humanas (`labels-v1.csv`) las pone Sergio, nunca el agente.
 - Fidelidad del carril A: `uv run python -m rag_evals.managed_eval --budget-usd N` (AI Search encendido y Foundry IQ aprovisionado). Filtro de contenido y guardarraíl de citas son estados (`blocked`, `rejected`), no errores.
 - Carril A (Foundry Evaluation): `uv run python -m rag_evals.foundry_eval [--log-to-foundry]` puntúa `calibration-v1` con `GroundednessEvaluator` y `RelevanceEvaluator` (juez `gpt-4.1`) y deja `calibration-foundry.json` para `calibration agreement`. Fiel = groundedness ≥ 3 (su aprobado; calibrado).
+- Carril A en GCP (Gen AI Evaluation Service, 5.G2): `uv run --no-sync python -m rag_evals.gcp_eval [--dest gs://...]` (extra `evals`: `client.evals` importa `pandas`; cliente en Preview) puntúa `calibration-v1` con `grounding_v2` (fidelidad 0-1) y la métrica propia `genaipocs_relevance` (prompt versionado `gcp-eval-relevance`, escala 0-3) y deja `evals/reports/gcp/calibration-gcp_eval.json` para `calibration agreement --cloud gcp`. Configuración `GCP_EVAL__*`. Tests con los tipos reales del SDK; con el extra, también el flujo completo de `client.evals.evaluate` con solo `_evaluate_instances` sustituido.
 - La CI ejecuta el gate en `--mode enforce`: una regresión > 0,01 respecto al baseline bloquea el merge.
 - RAGAS/DeepEval/azure-ai-evaluation en el extra `evals` (`uv sync --all-packages --extra evals`); la CI no lo instala y sus tests se saltan por `skipif`.
 - Los embeddings `hashing` locales validan el arnés, no la calidad semántica: no sacar conclusiones de calidad sin embeddings reales.

@@ -1,4 +1,6 @@
-"""Fidelidad de las respuestas del carril A (Foundry IQ / Bedrock KB) con el juez calibrado.
+"""Fidelidad de las respuestas del carril A con el juez calibrado.
+
+Motores: Foundry IQ (Azure), Bedrock KB (AWS), RAG Engine y Agent Search (GCP, 5.G3).
 
 Las respuestas gestionadas son texto redactado por el modelo del servicio, no citas literales: la
 fidelidad ya no esta garantizada por construccion y hay que medirla. El juez nativo (calibrado
@@ -7,6 +9,9 @@ cita; una respuesta sin citas no tiene respaldo y cuenta como no fiel sin gastar
 
 Uso (con coste: AI Search encendido, agente aprovisionado y perfil de `az` aislado):
     uv run python -m rag_evals.managed_eval --budget-usd 0.30 [--answerable 10 --unanswerable 5]
+En GCP (gcloud aislado; corpus o data store de la 3.G/4.G creados y `LLM_PROVIDER=gcp` para que
+juzgue Gemini): `--engine rag_engine` (con GCP_RAG_ENGINE__GENERATION_MODEL) o
+`--engine agent_search`. El informe va a la carpeta de la nube del servicio (`MANAGED_CLOUD`).
 """
 
 import argparse
@@ -28,9 +33,16 @@ from genaipocs_core.ports.llm import LLMContentFilterError
 from genaipocs_core.ports.retrieval import ManagedKnowledgePort, ManagedRagResponse
 from rag_evals.golden import DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, RagJudge
-from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR
+from rag_evals.retrieval_eval import Cloud, cloud_reports_dir
 
-ManagedEngine = Literal["foundry_iq", "bedrock_kb"]
+ManagedEngine = Literal["foundry_iq", "bedrock_kb", "rag_engine", "agent_search"]
+# El informe va a la carpeta de la nube del servicio evaluado (no a la del juez).
+MANAGED_CLOUD: dict[ManagedEngine, Cloud] = {
+    "foundry_iq": "azure",
+    "bedrock_kb": "aws",
+    "rag_engine": "gcp",
+    "agent_search": "gcp",
+}
 Status = Literal["answered", "rejected", "blocked"]
 SEED = 42
 NO_CITATIONS = "respuesta sin citas: sin respaldo"
@@ -249,13 +261,17 @@ async def _run(args: argparse.Namespace) -> Path:
     from retrieval.cloud import build_cloud_parts
     from retrieval.settings import RetrievalSettings
 
+    settings = Settings()
+    if args.engine == "rag_engine" and not settings.gcp_rag_engine.generation_model:
+        # Sin modelo, RAG Engine solo recupera: no hay respuesta redactada que juzgar.
+        raise ValueError("Falta GCP_RAG_ENGINE__GENERATION_MODEL (p. ej. gemini-3.5-flash-lite)")
     _, items = load_golden(DATASET_PATH)
     sample = sample_items(items, args.answerable, args.unanswerable)
     _, judge_llm, meter = _gateway(args.budget_usd)
     judge = build_judge("native", judge_llm)
     if judge is None:
         raise ValueError("Juez no disponible")
-    parts = await build_cloud_parts(RetrievalSettings(managed=args.engine), Settings())
+    parts = await build_cloud_parts(RetrievalSettings(managed=args.engine), settings)
     try:
         if parts.managed is None:
             raise ValueError(f"{args.engine} no esta configurado")
@@ -263,8 +279,9 @@ async def _run(args: argparse.Namespace) -> Path:
     finally:
         await parts.aclose()
     summary = summarize_managed(args.engine, outcomes)
-    CLOUD_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    base = CLOUD_REPORTS_DIR / f"managed-{args.engine}"
+    out_dir = cloud_reports_dir(MANAGED_CLOUD[args.engine])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base = out_dir / f"managed-{args.engine}"
     cost = asdict(meter.snapshot())
     payload = {"summary": asdict(summary), "cost": cost, "outcomes": [asdict(o) for o in outcomes]}
     base.with_suffix(".json").write_text(
@@ -277,7 +294,7 @@ async def _run(args: argparse.Namespace) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--engine", choices=["foundry_iq", "bedrock_kb"], default="foundry_iq")
+    parser.add_argument("--engine", choices=list(MANAGED_CLOUD), default="foundry_iq")
     parser.add_argument("--answerable", type=int, default=10)
     parser.add_argument("--unanswerable", type=int, default=5)
     parser.add_argument("--budget-usd", type=Decimal, required=True)

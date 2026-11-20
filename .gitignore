@@ -11,6 +11,10 @@ __pycache__/
 dist/
 build/
 
+# Ficheros temporales de los agentes (cuerpo de la PR, scripts auxiliares): dentro del repo,
+# nunca en $LOCALAPPDATA o $TEMP (rutas con barras invertidas y escapes; ver lecciones).
+.tmp/
+
 # Secretos
 .secrets/
 .env

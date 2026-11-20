@@ -260,15 +260,17 @@ deterministas). En el checkpoint 8→9, tras **15 ejecuciones seguidas con 0 reg
 11-10 al 18-10-2026), el gate pasó a `enforce`: una regresión ya no es un aviso, impide el merge.
 Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como cualquier otro cambio.
 
-## 6. Equivalencias Azure ↔ AWS ↔ framework
+## 6. Equivalencias Azure ↔ AWS ↔ GCP ↔ framework
 
-| Necesidad | Azure | AWS | Framework / propio |
-|---|---|---|---|
-| Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `golden-v2.jsonl` versionado en Git |
-| Métricas de retrieval | Evaluadores de Foundry (document retrieval) | Bedrock Evaluations (retrieve only) | `domain/evals.py` |
-| LLM-as-a-judge para RAG | Groundedness, Relevance, Retrieval... en Foundry Evaluation | Bedrock Evaluations (retrieve and generate) | Juez nativo, RAGAS, DeepEval |
-| Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | `rag_evals.gate` |
-| Control de coste | Presupuestos de suscripción | AWS Budgets | `CostMeter` por ejecución |
+| Necesidad | Azure | AWS | GCP | Framework / propio |
+|---|---|---|---|---|
+| Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `EvaluationDataset` (casos en memoria, o en Cloud Storage / BigQuery) | `golden-v2.jsonl` versionado en Git |
+| Métricas de retrieval | Evaluadores de Foundry (document retrieval) | Bedrock Evaluations (retrieve only) | Sin evaluador propio de retrieval: métricas en código | `domain/evals.py` |
+| LLM-as-a-judge para RAG (carril A) | Groundedness, Relevance... en Foundry Evaluation | Bedrock Evaluations (retrieve and generate) | Gen AI Evaluation Service: `grounding_v2` y `LLMMetric` propia | Juez nativo (B), RAGAS y DeepEval (C) |
+| Juez fijo fuera del router | `gpt-4.1` | Claude Sonnet 4.5 | `gemini-4-argon` | `build_judge_llm` (rechaza un juez que sea del router) |
+| Fidelidad del RAG gestionado | `managed_eval --engine foundry_iq` | `--engine bedrock_kb` | `--engine rag_engine` y `--engine agent_search` | Juez nativo calibrado |
+| Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | Job de evaluación en Cloud Build / GitHub Actions | `rag_evals.gate` |
+| Control de coste | Presupuestos de suscripción | AWS Budgets | Presupuestos de Cloud Billing | `CostMeter` por ejecución |
 
 ## 7. Pendiente de validación con coste
 
@@ -283,7 +285,145 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
    con el mismo conjunto.
 5. Repetir el retrieval con embeddings reales y reranker de nube (fase 4) y fijar un baseline nuevo.
 
-## 8. Checkpoint de entrevista
+## 8. GCP (pasada 5.G)
+
+**Objetivo:** juzgar con Gemini lo mismo que se juzgó con Azure (mismo conjunto de calibración,
+mismas etiquetas humanas, mismo kappa) y sumar el carril A de GCP, el **Gen AI Evaluation
+Service**. Coste 0: todo con dobles; las medidas reales, en
+[pendientes](pendientes-cloud.md#fase-5-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 5.G0 | `5e07bdc` | Ficheros temporales en `.tmp/` y plan de la 5.G (dividido en G1–G3) |
+| 5.G1 | `4885272` | Juez Gemini por los carriles B y C, informes con coste por nube y esquemas compatibles con Gemini |
+| 5.G2 | `c2e53be` | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
+| 5.G3 | (este commit) | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
+
+### Verificación previa (20-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Juez Gemini | `GEMINI__JUDGE_MODEL=gemini-4-argon` y su precio existían desde la 2.G, pero `build_judge_provider_llm` cortaba con "llega en la fase 5.G1" | Se implementa en la 5.G1 |
+| Informes con coste | `generation_eval`, `calibration` y `managed_eval` escribían siempre en `evals/reports/azure/` | Una calibración con Gemini habría **sobrescrito** la de Azure (mismos nombres): carpeta por nube |
+| Salida estructurada de Gemini | `response_json_schema` admite un subconjunto de JSON Schema; las longitudes (`minLength`...) las descarta sin error y un esquema demasiado complejo da `400 INVALID_ARGUMENT` ([salida estructurada](https://aistudio.google.com/docs/structured-output)) | Test de palabras clave sobre todos los esquemas de los jueces; la complejidad solo se puede comprobar en la nube |
+| Evaluation Service | Cliente nuevo `client.evals` (**Preview**, rúbricas) frente a `EvalTask` (GA, sin desarrollo activo y sin `GROUNDING`) ([visión general](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/evaluation-overview)); `europe-west4` soportada | Carril A con el cliente nuevo (5.G2) |
+| Dependencias del Evaluation Service | El extra `google-cloud-aiplatform[evaluation]` exige `litellm<1.97` (aquí 1.104); `client.evals` solo necesita `pandas`, que ya trae el extra `evals` | No se instala el extra de Google; `gcp_eval` va en el extra `evals`, como `foundry_eval` |
+| Métricas gestionadas | `GROUNDING` (0-1, frase a frase, una llamada); v2 juzga con Gemini 3.5 Flash y v1 con 2.5 Flash ([métricas](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/rubric-metric-details)). Sin métrica de relevancia equivalente a la de Foundry | Relevancia con una métrica LLM propia con el criterio de las etiquetas adjudicadas (decidido con Sergio) |
+
+### 5.G1 · Juez Gemini en los carriles B y C
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_llm_factory.py evals/tests/test_judges.py
+uv sync --all-packages --extra evals ; uv run --no-sync pytest -p no:deepeval evals/tests/test_judges.py  # RAGAS y DeepEval
+# Con coste (pendientes-cloud.md), con LLM_PROVIDER=gcp:
+uv run python -m rag_evals.calibration judge --judge native --budget-usd 0.30   # → evals/reports/gcp/
+uv run python -m rag_evals.calibration agreement --cloud gcp
+```
+
+- **Juez Gemini** (`build_judge_provider_llm`): `gemini-4-argon` con su propio
+  `GEMINI__JUDGE_THINKING_LEVEL=low` (no el del generador). Con GCP de principal y Azure y AWS de
+  respaldo, el juez también cae entre nubes (`build_judge_llm`). RAGAS y DeepEval no cambian:
+  hablan con el modelo por nuestro `LLMPort`.
+- **Guardarraíl juez ≠ generador** en la fábrica, para las tres nubes: si una variable de entorno
+  pone de juez a un modelo del router, falla en vez de dejar que se puntúe a sí mismo. Antes solo
+  lo comprobaban los valores por defecto. Con él cae `unsupported_provider`, el último corte de
+  la 0.G: un proveedor sin juez (`simulated`) sigue fallando en vez de construir Bedrock.
+- **Informes por nube:** `llm_reports_dir(LLM_PROVIDER)` → `evals/reports/<nube>/` en
+  `generation_eval` (con LLM) y `calibration judge`; `calibration agreement --cloud X` compara los
+  jueces de una nube; `managed_eval` escribe en la nube del **servicio** evaluado
+  (`MANAGED_CLOUD`), no en la del juez.
+- **Esquemas:** el del juez nativo y las 28 clases de respuesta de las cuatro métricas de RAGAS y
+  DeepEval (también precisión y recall de contexto, que solo corren con referencia) usan solo
+  palabras clave que Gemini admite. Queda por ver en la nube la **complejidad**: `JudgeVerdict`
+  tiene listas con `maxItems` de 20 y 30, y Gemini despliega cada posición en su gramática.
+
+### 5.G2 · Carril A: Gen AI Evaluation Service
+
+```powershell
+uv run pytest evals/tests/test_gcp_eval.py          # sin el extra: dobles con los tipos reales
+uv sync --all-packages --extra evals ; uv run --no-sync pytest -p no:deepeval evals/tests/test_gcp_eval.py
+# Con coste (pendientes-cloud.md), gcloud aislado:
+uv run --no-sync python -m rag_evals.gcp_eval [--dest gs://<bucket>/evals/]   # → evals/reports/gcp/
+uv run --no-sync python -m rag_evals.calibration agreement --cloud gcp
+```
+
+[`rag_evals/gcp_eval.py`](../evals/src/rag_evals/gcp_eval.py) es el equivalente de
+`foundry_eval`: pasa `calibration-v1` por el servicio y guarda `calibration-gcp_eval.json` con el
+formato de `calibration judge`, así que `agreement` lo compara sin cambios con los otros jueces.
+
+| | Foundry Evaluation (Azure) | Evaluation Service (GCP) |
+|---|---|---|
+| Fidelidad | `GroundednessEvaluator`, escala 1-5; fiel = aprobado (≥ 3), calibrado | `grounding_v2` (rúbrica gestionada, 0-1 frase a frase; 0 si alguna frase no está respaldada): el mismo criterio que "fiel", **sin umbral que calibrar** |
+| Relevancia | `RelevanceEvaluator`, escala 1-5 | Métrica LLM propia `genaipocs_relevance` (prompt versionado [`gcp-eval-relevance`](../evals/src/rag_evals/prompts/gcp-eval-relevance.md)), escala 0-3 del juez nativo |
+| Juez | El despliegue `judge` (`gpt-4.1`) | Fidelidad: el del servicio (Gemini 3.5 Flash en v2, 2.5 Flash en v1); relevancia: `gemini-4-argon`, como el nativo |
+| Portal | `--log-to-foundry` | `--dest gs://...` guarda el resultado; verlo en la consola está por comprobar |
+| SDK | `azure-ai-evaluation` (GA) | `client.evals` de Agent Platform (**Preview**) |
+| Coste | Tokens que informa el SDK | El servicio no devuelve tokens: se factura con el SKU del modelo juez |
+
+- **Fidelidad sin umbral:** en Foundry el umbral fue la mitad del trabajo (exigir un 5 daba
+  kappa 0). `grounding` ya puntúa como el humano: cualquier frase sin respaldo hace la respuesta
+  no fiel. A cambio, **el juez de la fidelidad no es nuestro**: lo elige la versión de la métrica.
+- **Relevancia propia:** el servicio no tiene una métrica equivalente (las adaptativas, como
+  `GENERAL_QUALITY`, generan rúbricas por pregunta con 6 llamadas y miden calidad general).
+  La propia se define con `LLMMetric` sobre la estructura de `MetricPromptBuilder` del SDK
+  (Criteria, Rating Scores, Evaluation Steps), con el criterio de las etiquetas adjudicadas
+  ("responde a lo preguntado, sea verdad o no") y como prompt versionado con candado.
+- **Configuración** (`GCP_EVAL__*`): región (vacío = `GCP__REGION`), versión de `grounding`
+  (`v2` por defecto; `v1` donde no haya Gemini 3.5 Flash), juez de la relevancia (vacío = el
+  nativo) y `ALLOW_CROSS_REGION_MODEL` (por defecto no: residencia de datos).
+- **Sin recursos ni Terraform:** el servicio no se aprovisiona y el permiso
+  (`aiplatform.locations.evaluateInstances`) ya está en `roles/aiplatform.user` (2.G).
+- **Fail-closed por muestra:** un error del servicio, una métrica ausente o una puntuación fuera
+  de escala cuentan como error del juez; no se puntúa a ciegas ni se aborta.
+
+Tests ([test_gcp_eval.py](../evals/tests/test_gcp_eval.py)) con los **tipos reales** del SDK, que
+cargan sin `pandas` (en la CI). Con el extra `evals`, dos más que nada de lo anterior cubriría:
+que el SDK manda `context` a cada métrica (es un campo *extra* de `EvalCase`: sin él, `grounding`
+daría 0 sin avisar) y el **flujo completo de `client.evals.evaluate`** sustituyendo solo la
+llamada HTTP (`_evaluate_instances`): acepta el dataset, las dos métricas reciben el contexto y
+cada resultado vuelve con el nombre de su métrica.
+
+### 5.G3 · Fidelidad de RAG Engine y Agent Search
+
+```powershell
+uv run pytest evals/tests/test_managed_eval.py
+# Con coste (pendientes-cloud.md), en la misma sesión que la ingesta de la 3.G/4.G y LLM_PROVIDER=gcp:
+uv run python -m rag_evals.managed_eval --engine rag_engine --budget-usd 0.30     # → evals/reports/gcp/
+uv run python -m rag_evals.managed_eval --engine agent_search --budget-usd 0.30
+```
+
+`managed_eval` ya era genérico sobre `ManagedKnowledgePort`: la 5.G3 añade los dos motores de GCP
+de la [4.G](fase-4-retrieval.md#gcp-pasada-4g) con la misma muestra que Foundry IQ (10 preguntas
+con respuesta y 5 sin ella, sin filtros, semilla fija) y el mismo juez calibrado, que con
+`LLM_PROVIDER=gcp` es Gemini. El informe va a la carpeta de la nube del **servicio**
+(`MANAGED_CLOUD`), aunque el juez sea de otra nube. Con `rag_engine`, sin
+`GCP_RAG_ENGINE__GENERATION_MODEL` la eval se niega antes de gastar nada: RAG Engine solo
+recuperaría y no habría respuesta redactada que juzgar.
+
+### Decisiones y límites de la pasada
+
+- **Mismo instrumento de medida en las tres nubes**: mismo conjunto de calibración, mismas
+  etiquetas humanas y mismo kappa. El juez de GCP no hereda la calibración de Azure: se calibra
+  otra vez (pendiente con coste).
+- **Lo que la verificación previa cambió**: el juez Gemini no existía (se implementó), los
+  informes con coste se pisaban entre nubes (carpeta por nube) y el Evaluation Service no tiene
+  métrica de relevancia equivalente (métrica propia versionada). La 5.G1 del plan se dividió en
+  tres.
+- **Salvaguardas nuevas que valen para todas las nubes**: la fábrica rechaza un juez que sea del
+  router, y los esquemas de los jueces se comprueban contra el subconjunto de JSON Schema de
+  Gemini.
+- **Evaluation Service fuera del camino crítico**: está en Preview; la CI y el gate siguen con
+  el juez nativo y deterministas. Sirve como contraste y para revisiones en la consola, como
+  Foundry Evaluation.
+- **Descartado**: el extra `google-cloud-aiplatform[evaluation]` (exige `litellm<1.97`; solo
+  hacía falta `pandas`, que ya trae el extra `evals`), el módulo antiguo `EvalTask` (sin
+  `grounding` ni rúbricas) y `GENERAL_QUALITY` como relevancia (mide otra cosa con 6 llamadas).
+- **Límites conocidos**, con su forma de comprobarlo en
+  [pendientes](pendientes-cloud.md#fase-5-gcp): si Gemini acepta la complejidad del esquema de
+  `JudgeVerdict`, si `grounding_v2` está en `europe-west4`, el coste real del servicio (no
+  devuelve tokens) y si `--dest` hace visible la ejecución en la consola.
+
+## 9. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 5](preguntas-entrevista.md#fase-5).
