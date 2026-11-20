@@ -1,14 +1,14 @@
 ---
 name: cerrar-subfase
-description: Verifica, hace commit y push a la rama de la fase, abre o actualiza la PR en draft y vigila la CI de una subfase revisada. Úsala cuando Sergio diga "revisado", "revisado, haz commit y push", "prepara el commit" o "haz push y comprueba la CI".
+description: Verifica, hace commit y push a la rama de la fase, abre o actualiza la PR en draft y vigila la CI de una subfase terminada. Úsala al terminar cada subfase, o cuando Sergio diga "revisado", "prepara el commit" o "haz push y comprueba la CI".
 ---
 
 # Cerrar una subfase
 
-Sergio ya revisó el cambio. "Revisado" o "revisado, haz commit y push" autoriza el commit y el push
-**a la rama de la fase**; "haz commit" autoriza solo el commit (no hacer push). Cualquier otra acción
+Desde el 20-11-2026 el commit y el push **a la rama de la fase** no necesitan permiso: al terminar y
+verificar una subfase, se hacen y después se informa a Sergio de lo hecho. Cualquier otra acción
 con coste o destructiva sigue necesitando confirmación. `main` está protegida: nunca se hace push a
-`main` ni merge de la PR (lo hace Sergio a mano).
+`main` ni merge de la PR (lo hace Sergio a mano, tras revisarla).
 
 ## 0. Rama
 

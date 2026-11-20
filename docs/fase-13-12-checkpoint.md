@@ -113,6 +113,7 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **5.G · Evals de RAG**
 
+- **Primer commit de la 5.G** (acordado al cerrar la 4.G, 20-11-2026): ficheros temporales dentro del repo. Añadir `.tmp/` a `.gitignore` y actualizar la skill `cerrar-subfase` (mensaje de commit con heredoc `git commit -F - <<'EOF'`; cuerpo de la PR en `.tmp/pr-<fase>.md`), quitar la nota "pendiente" de `AGENTS.md` y una lección en `lecciones-aprendidas.md` (las rutas de `$LOCALAPPDATA` y los escapes de Python desde el shell causaron caracteres BEL en la 4.G).
 - 5.G1: juez Gemini fijo (distinto del generador), RAGAS y DeepEval con Gemini, `rag_evals.gcp_eval` con el Gen AI Evaluation Service (como `foundry_eval`) y `managed_eval` para RAG Engine y Vertex AI Search.
 
 **6.G · Tools y MCP**
@@ -149,6 +150,7 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 - 12.G1: juez de agentes con Gemini, métricas de trayectoria del Evaluation Service como contraste de la 12.1, promptfoo y PyRIT contra Gemini (aplazado).
 - 12.G2: publicación de prompts en la gestión de prompts de Agent Platform (dry-run), `VertexExperimentTracker` junto a MLflow, reglas de drift en Managed Service for Prometheus.
 - 12.G3: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.
+- 12.G4 (añadida el 20-11-2026, documental): **alinear el repo público con las buenas prácticas de GitHub**. Punto de partida (`gh api repos/SergioVelmay/GenAI_PoCs/community/profile`, 20-11-2026): *community profile* al **28 %**, solo con README; sin licencia, `CODE_OF_CONDUCT`, `CONTRIBUTING` ni plantillas de issues y PR; sin *topics*; la descripción no menciona GCP y el enlace de documentación apunta a `master` (la rama es `main`). Entregables: licencia (decidir cuál con Sergio), `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, plantillas de issues y de PR, descripción y *topics*, y medir el resultado (perfil de comunidad y, si aplica, OpenSSF Scorecard) antes y después. Sin el nombre real del cliente ni marcas de terceros en ninguno de esos ficheros.
 
 ### 3.5 Convenciones de la pasada
 
