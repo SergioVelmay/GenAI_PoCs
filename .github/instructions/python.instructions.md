@@ -33,7 +33,7 @@ description: "Convenciones de Python del monorepo: Clean Architecture, tipado es
 - `genaipocs_core/config.py`: Pydantic Settings, variables anidadas con `__` (`BEDROCK__REGION`), secretos como `SecretStr`. Al añadir una variable: valor por defecto seguro, entrada en `.env.example` y test en `test_config.py`.
 - Por defecto todo es local y sin coste; la nube se activa solo de forma explícita por configuración.
 - Hosts locales `127.0.0.1`, nunca `localhost`. Excepción: URLs que abre el navegador (`NEXTAUTH_URL`, `LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT` de Langfuse), que deben quedarse en `localhost` o el login falla.
-- Si cambian variables, dar a Sergio las instrucciones exactas para su `.env` (clave, valor, bloque, añadir o modificar, para qué); su `.env` sigue el orden, los grupos y los comentarios de `.env.example`. Los valores de la nube salen de `terraform -chdir=infra/terraform/<nube> output` (con la CLI aislada). `AZURE_OPENAI__API_KEY` vacía = Entra ID.
+- Si cambian variables, el agente **alinea él mismo el `.env` local** de Sergio con `.env.example` (orden, grupos y comentarios; nuevas con su valor por defecto; conserva sus valores y lo que tenga comentado a propósito) y le informa de qué ha cambiado. Sin imprimir valores (comparar claves, diff enmascarado) y sin poner valores con coste: esos se le proponen. Los valores de la nube salen de `terraform -chdir=infra/terraform/<nube> output` (con la CLI aislada). `AZURE_OPENAI__API_KEY` vacía = Entra ID.
 - FastAPI con `from __future__ import annotations`: las dependencias (`Annotated[..., Depends(...)]`) a nivel de módulo; dentro de una *closure* no se resuelven y devuelven 422.
 
 ## Tests

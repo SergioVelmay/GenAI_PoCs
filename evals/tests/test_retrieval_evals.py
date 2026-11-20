@@ -10,8 +10,12 @@ from genaipocs_core.ports.llm import LLMContentFilterError, LLMResponse
 from genaipocs_core.ports.vector_store import VectorRecord
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
 from rag_evals.retrieval_eval import (
+    REPORTS_DIR,
     Engine,
     Outcome,
+    cloud_reports_dir,
+    cloud_settings,
+    engines_cloud,
     evaluate_service,
     render_markdown,
     run_retrieval_eval,
@@ -117,8 +121,31 @@ async def test_failed_llm_plans_are_counted_not_fatal() -> None:
 
 async def test_llm_strategies_need_a_cloud_engine() -> None:
     meta, items = load_golden(DATASET_PATH)
-    with pytest.raises(ValueError, match="AI Search"):
+    with pytest.raises(ValueError, match="motores en la nube"):
         await run_retrieval_eval(items[:3], meta, engines=["native"], llm=FakeLLM([]))
+
+
+def test_gcp_engines_compose_agent_retrieval_and_ranking() -> None:
+    """4.G1: `gcp` evalúa BM25, vector, híbrida y `rerank` con la Ranking API; `gcp-semantic`,
+    la híbrida con el VertexRanker integrado. Sin red: solo la configuración."""
+    plain = cloud_settings(CORPUS_PATH, "gcp")
+    semantic = cloud_settings(CORPUS_PATH, "gcp-semantic")
+    assert (plain.backend, plain.embeddings, plain.reranker, plain.semantic_ranker) == (
+        "gcp_vector_search",
+        "gcp",
+        "gcp",
+        False,
+    )
+    assert semantic.semantic_ranker and semantic.reranker == "token-coverage"
+    assert cloud_settings(CORPUS_PATH, "azure").backend == "azure_search"
+
+
+def test_one_run_one_cloud_and_its_own_reports_dir() -> None:
+    assert engines_cloud(["native", "llamaindex"]) is None
+    assert engines_cloud(["native", "gcp", "gcp-semantic"]) == "gcp"
+    with pytest.raises(ValueError, match="una sola nube"):
+        engines_cloud(["azure", "gcp"])
+    assert cloud_reports_dir("gcp") == REPORTS_DIR / "gcp"
 
 
 @pytest.mark.parametrize("engine", ["native", "llamaindex"])

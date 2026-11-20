@@ -220,6 +220,19 @@ def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
 
+def test_gcp_ranking_is_pinned_and_global(monkeypatch: pytest.MonkeyPatch) -> None:
+    """4.G1: modelo fijado (no `@latest`) y configuración por defecto del proyecto."""
+    ranking = Settings(_env_file=None).gcp_ranking
+    assert (ranking.model, ranking.location, ranking.ranking_config) == (
+        "semantic-ranker-default-004",
+        "global",
+        "default_ranking_config",
+    )
+
+    monkeypatch.setenv("GCP_RANKING__MODEL", "semantic-ranker-fast-004")
+    assert Settings(_env_file=None).gcp_ranking.model == "semantic-ranker-fast-004"
+
+
 def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GCP_RAG_ENGINE__PUBLIC_CORPUS", "projects/p/locations/l/ragCorpora/1")
 
@@ -227,3 +240,16 @@ def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert rag.corpora() == {"public": "projects/p/locations/l/ragCorpora/1", "internal": ""}
     assert (rag.chunk_size, rag.chunk_overlap) == (300, 60)
+    # 4.G2: sin modelo de generación ni reranker por defecto (solo `retrieve`, sin coste extra).
+    assert (rag.generation_model, rag.generation_location, rag.rerank_model) == ("", "", "")
+
+
+def test_gcp_agent_search_defaults_match_terraform() -> None:
+    """4.G3: los nombres por defecto son los de `agent_search.tf` y la ubicación, multirregión."""
+    search = Settings(_env_file=None).gcp_agent_search
+    assert (search.location, search.data_store, search.engine) == (
+        "eu",
+        "knowledge",
+        "knowledge-search",
+    )
+    assert (search.bucket, search.prefix, search.answer_model) == ("", "agent-search", "stable")

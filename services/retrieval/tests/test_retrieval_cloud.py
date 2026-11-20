@@ -12,6 +12,9 @@ from pydantic import ValidationError
 from genaipocs_core.adapters.azure_retrieval import AzureSearchRetrieval
 from genaipocs_core.adapters.bedrock_retrieval import BedrockKnowledgeBase, BedrockReranker
 from genaipocs_core.adapters.foundry_iq import FoundryIQKnowledge
+from genaipocs_core.adapters.gcp_agent_search import AgentSearchKnowledge
+from genaipocs_core.adapters.gcp_rag_retrieval import RagEngineKnowledge
+from genaipocs_core.adapters.gcp_retrieval import AgentRetrievalSearch, VertexRankingReranker
 from genaipocs_core.adapters.local_retrieval import LocalRetrieval
 from genaipocs_core.adapters.memory import HashingEmbedding
 from genaipocs_core.application.retrieval import RetrievalService
@@ -76,6 +79,8 @@ def test_defaults_are_local_only() -> None:
         {"embeddings": "azure"},
         {"semantic_ranker": True},
         {"backend": "azure_search"},
+        {"backend": "gcp_vector_search"},
+        {"embeddings": "gcp"},
         {"backend": "bogus"},
     ],
 )
@@ -109,6 +114,128 @@ async def test_full_cloud_composition_builds_without_network() -> None:
         }
     finally:
         await parts.aclose()
+
+
+@pytest.fixture
+def anonymous_gcp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Los clientes gRPC de GCP resuelven ADC al construirse: en la CI no hay credenciales."""
+    from google.auth.credentials import AnonymousCredentials
+
+    from genaipocs_core.adapters import gcp_auth
+
+    # `google.auth` no anota el constructor.
+    anonymous = AnonymousCredentials()  # type: ignore[no-untyped-call]
+    monkeypatch.setattr(gcp_auth, "gcp_credentials", lambda _: anonymous)
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize("semantic", [False, True])
+async def test_gcp_composition_builds_without_network(semantic: bool) -> None:
+    """4.G1: Agent Retrieval + embeddings de Gemini + Ranking API, sin llamar a la red."""
+    settings = cloud_settings(gcp={"project": "genaipocs-dev"})
+    parts = await build_cloud_parts(
+        config(
+            backend="gcp_vector_search", embeddings="gcp", semantic_ranker=semantic, reranker="gcp"
+        ),
+        settings,
+    )
+    try:
+        assert isinstance(parts.backend, AgentRetrievalSearch)
+        assert isinstance(parts.reranker, VertexRankingReranker)
+        ranker = "+vertex-ranker" if semantic else ""
+        assert parts.components == {
+            "backend": f"gcp_vector_search:gcp{ranker}",
+            "reranker": "gcp-ranking:semantic-ranker-default-004",
+        }
+        assert len(parts.closers) == 2
+    finally:
+        await parts.aclose()
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    "values",
+    [{"backend": "gcp_vector_search", "embeddings": "gcp"}, {"reranker": "gcp"}],
+)
+async def test_gcp_without_project_fails_fast(values: dict[str, Any]) -> None:
+    with pytest.raises(ValueError, match="GCP__PROJECT"):
+        await build_cloud_parts(config(**values), cloud_settings())
+
+
+RAG_ENGINE = {
+    "bucket": "genaipocs-dev-rag-docs",
+    "public_corpus": "projects/p/locations/europe-west4/ragCorpora/1",
+    "internal_corpus": "projects/p/locations/europe-west4/ragCorpora/2",
+}
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize("model", ["", "gemini-3.5-flash-lite"])
+async def test_rag_engine_composition(model: str) -> None:
+    """4.G2: sin modelo de generación, solo `retrieve` (como Bedrock KB sin model ARN)."""
+    settings = cloud_settings(
+        gcp={"project": "genaipocs-dev"},
+        gcp_rag_engine=RAG_ENGINE | {"generation_model": model},
+    )
+    parts = await build_cloud_parts(config(managed="rag_engine"), settings)
+    try:
+        assert isinstance(parts.managed, RagEngineKnowledge)
+        assert parts.components == {"managed": f"rag_engine:{model}" if model else "rag_engine"}
+        if not model:
+            with pytest.raises(Exception, match="GENERATION_MODEL"):
+                await parts.managed.answer("refund", top_k=5, filters={}, scope=AccessScope())
+    finally:
+        await parts.aclose()
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    ("overrides", "variable"),
+    [
+        ({"gcp_rag_engine": RAG_ENGINE}, "GCP__PROJECT"),
+        ({"gcp": {"project": "p"}, "gcp_rag_engine": RAG_ENGINE | {"bucket": ""}}, "BUCKET"),
+        (
+            {"gcp": {"project": "p"}, "gcp_rag_engine": RAG_ENGINE | {"internal_corpus": ""}},
+            "INTERNAL_CORPUS",
+        ),
+    ],
+)
+async def test_rag_engine_without_configuration_fails_fast(
+    overrides: dict[str, Any], variable: str
+) -> None:
+    with pytest.raises(ValueError, match=variable):
+        await build_cloud_parts(config(managed="rag_engine"), cloud_settings(**overrides))
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    "bucket", [{"gcp_rag_engine": RAG_ENGINE}, {"gcp_agent_search": {"bucket": "b"}}]
+)
+async def test_agent_search_composition(bucket: dict[str, Any]) -> None:
+    """4.G3: el bucket es el suyo o, si no se fija, el de RAG Engine (mismo bucket del carril A)."""
+    settings = cloud_settings(gcp={"project": "genaipocs-dev"}, **bucket)
+    parts = await build_cloud_parts(config(managed="agent_search"), settings)
+    try:
+        assert isinstance(parts.managed, AgentSearchKnowledge)
+        assert parts.components == {"managed": "agent_search:stable"}
+        assert len(parts.closers) == 2
+    finally:
+        await parts.aclose()
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    ("overrides", "variable"),
+    [
+        ({"gcp_agent_search": {"bucket": "b"}}, "GCP__PROJECT"),
+        ({"gcp": {"project": "p"}}, "BUCKET"),
+    ],
+)
+async def test_agent_search_without_configuration_fails_fast(
+    overrides: dict[str, Any], variable: str
+) -> None:
+    with pytest.raises(ValueError, match=variable):
+        await build_cloud_parts(config(managed="agent_search"), cloud_settings(**overrides))
 
 
 @pytest.mark.parametrize("project_endpoint", ["", "https://h.services.ai.azure.com/api/projects/p"])

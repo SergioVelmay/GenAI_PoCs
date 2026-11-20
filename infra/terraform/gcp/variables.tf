@@ -108,6 +108,25 @@ variable "rag_embedding_model" {
   default     = "gemini-embedding-001"
 }
 
+# ---------- Carril A: Agent Search (agent_search.tf) ----------
+
+variable "agent_search_enabled" {
+  description = "Data store, esquema y motor de Agent Search (antes Vertex AI Search). Pago por consulta, sin coste por hora; false = borra el índice."
+  type        = bool
+  default     = false
+}
+
+variable "agent_search_location" {
+  description = "GCP_AGENT_SEARCH__LOCATION: multirregión de Agent Search (global, us o eu)."
+  type        = string
+  default     = "eu"
+
+  validation {
+    condition     = contains(["global", "us", "eu"], var.agent_search_location)
+    error_message = "Agent Search solo admite las ubicaciones global, us y eu."
+  }
+}
+
 # ---------- Presupuesto (budget.tf) ----------
 
 variable "budget_email" {

@@ -36,6 +36,11 @@ output "rag_docs_bucket" {
   value       = google_storage_bucket.rag_docs.name
 }
 
+output "agent_search_engine" {
+  description = "GCP_AGENT_SEARCH__ENGINE (null mientras agent_search_enabled = false)."
+  value       = var.agent_search_enabled ? google_discovery_engine_search_engine.knowledge[0].engine_id : null
+}
+
 output "rag_corpora" {
   description = "GCP_RAG_ENGINE__PUBLIC_CORPUS e INTERNAL_CORPUS ({} mientras rag_engine_enabled = false)."
   value       = { for acl, corpus in google_vertex_ai_rag_corpus.knowledge : acl => corpus.name }

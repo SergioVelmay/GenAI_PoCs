@@ -28,6 +28,18 @@ lo borrado que retenga nombre (AI Services, Content Safety), revisar el `plan` e
 las salidas nuevas al `.env`. El perfil aislado de la CLI es ahora
 `%USERPROFILE%\.azure-genaipocs` (movido, con la sesión intacta). AWS y GCP no se han aplicado.
 
+**Suscripción de Azure perdida (20-11-2026):** Sergio eliminó el grupo de recursos y todos sus
+recursos, y ya no hay acceso a esa suscripción. Todo lo de Azure (fases 2–8 y el checkpoint
+8→9) se rehará en **otra suscripción**: los resultados medidos en los docs se conservan como
+histórico, pero ningún recurso, endpoint ni identificador de entonces sirve. El `.env` local ya no
+tiene endpoints ni IDs de Azure (vuelven a los valores de `.env.example`). Antes del primer `plan`
+en la suscripción nueva: `az login` en el perfil aislado con la cuenta nueva (aún guarda la sesión
+de la antigua), `subscription_id` nuevo en `infra/terraform/azure/terraform.tfvars` (ahora tiene el
+marcador de la plantilla), comprobar cuotas de modelos y nombres libres en la suscripción y región
+nuevas, y volcar las salidas al `.env`. El estado de Terraform de la suscripción perdida se archivó
+fuera del repo (`%USERPROFILE%\.genaipocs-archive\azure-2026-11-20\`), así que el próximo `plan`
+empieza limpio y propone crearlo todo.
+
 **AI Search es efímero** (`search_enabled`): se cobra por hora aunque no se use, así que solo existe
 durante las sesiones de trabajo (p. ej., de viernes a domingo). El nombre y el endpoint no cambian.
 
@@ -133,6 +145,20 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [x] Azure (18-10-2026): corpus clasificado con ACL explícita e ingerido en el índice `knowledge`; AI Search Basic con Semantic Ranker; Foundry IQ aprovisionado (KB en preview con esfuerzo `minimal`, salida extractiva y 5 documentos) y comparativa A/B/C con el golden dataset completo. Resultados y hallazgos en [fase 4](fase-4-retrieval.md#resultados-en-azure-18-10-2026).
 - [ ] AWS: resincronizar Bedrock KB con los sidecars con ACL, habilitar Cohere Rerank (`BEDROCK__RERANK_MODEL_ARN`, `BEDROCK_KB__GENERATION_MODEL_ARN`) y repetir la comparativa con `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb`.
 - [x] Estrategias con LLM (rewrite, HyDE, subpreguntas, router, auto) sobre AI Search con el golden dataset (18-10-2026, 0,10 $): ninguna mejora a la híbrida + Semantic Ranker y todas triplican la latencia. Informe en `evals/reports/azure/retrieval-llm.md`.
+
+<a id="fase-4-gcp"></a>
+
+### GCP (pasada 4.G)
+
+Requiere los [pendientes de GCP de la fase 3](#fase-3-gcp) con el corpus clasificado ya ingerido:
+hacerlo **en la misma sesión** que el carril B de la 3.G2 (`vector_search_enabled` efímero). La
+consulta cuesta céntimos: embeddings de Gemini por pregunta, lecturas de Agent Retrieval y la
+Ranking API (~1 $ por 1000 consultas según fuentes de terceros; confirmar el precio oficial).
+
+- [ ] **Carril B con Agent Retrieval** (4.G1): `apply` (añade `roles/discoveryengine.viewer` a la cuenta de la app), `uv run python -m rag_evals.retrieval_eval --engine gcp --engine gcp-semantic` → `evals/reports/gcp/`. Comparar con [Azure](fase-4-retrieval.md#resultados-en-azure-18-10-2026): hit@1, nDCG@5, recall@5, 0 fugas y latencia p50/p95 de BM25, vector, híbrida, híbrida + Ranking API (`rerank`) e híbrida + VertexRanker. Comprobar: qué devuelve `distance` en el batch (RRF y VertexRanker: escala y orden descendente), si `TextSearch` funciona sin índice y con texto en español (sin *stemming*), que el filtro `$in` de ACL más `$and` se acepta, y **si el VertexRanker degrada en silencio** (p. ej. con un `top_n` fuera de rango: si el batch responde igual, documentarlo y no usarlo como ranker de producción). Capturar respuestas reales para los dobles de `test_gcp_retrieval.py`.
+- [ ] **Ranking API** (4.G1): confirmar el precio en la página oficial de Agent Search, que `semantic-ranker-default-004` está disponible en `global` y la latencia frente a `fast-004` (`GCP_RANKING__MODEL`). Si la cuota de la cuenta de prueba no la admite, anotarlo aquí.
+- [ ] **RAG Engine, consulta** (4.G2): en la misma sesión que la ingesta de la 3.G3 (Spanner por horas), `RETRIEVAL__MANAGED=rag_engine` y `GCP_RAG_ENGINE__GENERATION_MODEL=gemini-3.5-flash-lite`. `POST /managed/retrieve` y `/managed/answer` con preguntas del golden dataset (como la [muestra de Foundry IQ](fase-4-retrieval.md#resultados-en-azure-18-10-2026): 10 con respuesta y 5 sin ella) y con y sin `GCP_RAG_ENGINE__RERANK_MODEL`. Comprobar: que `source_uri` es la ruta `gs://` del objeto (lo exige la ACL por prefijo), qué modelos de Gemini admiten la herramienta de RAG Engine en `europe-west4` (si ninguno, probar `GCP_RAG_ENGINE__GENERATION_LOCATION`), que los índices de los segmentos son bytes y si `part_index` cuenta las partes de razonamiento, cuántas respuestas rechaza la cobertura total de citas (si muchas, medir antes de relajarla) y que `score` es la distancia. Capturar respuestas reales para `test_gcp_rag_retrieval.py`.
+- [ ] **Agent Search** (4.G3): `agent_search_enabled = true` y `apply` (data store `eu`, esquema, motor Enterprise con respuestas generativas, permisos del agente de servicio de Discovery Engine y `roles/discoveryengine.editor`), `managed_ingestion.py gcp-search --source data/synthetic/knowledge-classified.jsonl --apply` y `RETRIEVAL__MANAGED=agent_search`. Medir con la misma muestra que RAG Engine y Foundry IQ (`retrieve` y `answer`, latencia, citas correctas y abstenciones). Comprobar: que el HTML generado se trocea bien y el texto de los fragmentos no trae marcado, que `Chunk.document_metadata.struct_data` llega en modo `CHUNKS` (si no, los filtros por petición fallarán siempre: decidir si se rechazan), que el filtro `acl: ANY(...)` funciona con el esquema de Terraform, que las citas de `answer_query` están en bytes, que `reference_id` es la posición en `references`, cuántas respuestas rechaza la cobertura total de citas, que republicar sin cambios sube 0 HTML y que mover un documento de ACL lo saca del filtro público. Al terminar, `agent_search_enabled = false` y confirmar en la facturación que no queda coste. Capturar respuestas reales para `test_gcp_agent_search.py`.
 
 ## Fase 5 · Evals ([doc](fase-5-evals.md))
 

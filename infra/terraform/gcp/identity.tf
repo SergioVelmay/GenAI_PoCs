@@ -37,6 +37,16 @@ resource "google_project_iam_member" "app_agent_platform" {
   member  = google_service_account.app.member
 }
 
+# Fase 4.G1: reranker del carril B con la Ranking API (`discoveryengine.rankingConfigs.rank`),
+# equivalente de `bedrock:Rerank`. No hay recurso que crear ni coste fijo: se paga por consulta.
+# Es el rol de lectura más acotado que lo incluye; también lee los data stores de Agent Search
+# (4.G3), así que no da permisos de escritura.
+resource "google_project_iam_member" "app_ranking" {
+  project = var.project_id
+  role    = "roles/discoveryengine.viewer"
+  member  = google_service_account.app.member
+}
+
 # Quién puede suplantarla desde local (GCP__IMPERSONATE_SERVICE_ACCOUNT).
 resource "google_service_account_iam_member" "app_impersonation" {
   for_each = toset(var.developer_members)

@@ -49,6 +49,8 @@ locals {
 }
 
 # Escribir, borrar y buscar data objects (no crear ni borrar colecciones: eso es de Terraform).
+# Incluye `dataObjects.search` y `get`: el servicio de retrieval (4.G1) usa la misma identidad.
+# Al separar identidades (fase 15), el de retrieval llevaría solo `roles/vectorsearch.viewer`.
 # Agent Retrieval no tiene IAM por colección en el provider: el rol va a nivel de proyecto y
 # solo mientras la colección existe.
 resource "google_project_iam_member" "app_vector_search" {

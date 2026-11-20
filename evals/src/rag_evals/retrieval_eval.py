@@ -38,10 +38,17 @@ from rag_evals.metering import CostMeter
 from retrieval.bootstrap import build_local_service, load_synthetic
 from retrieval.settings import RetrievalSettings
 
-Engine = Literal["native", "llamaindex", "azure", "azure-semantic"]
+Engine = Literal["native", "llamaindex", "azure", "azure-semantic", "gcp", "gcp-semantic"]
+type Cloud = Literal["azure", "gcp"]
 LOCAL_ENGINES: tuple[Engine, ...] = ("native", "llamaindex")
-# Con coste (embeddings de Foundry por consulta) y solo si se piden con --engine: nunca en CI.
-CLOUD_ENGINES: tuple[Engine, ...] = ("azure", "azure-semantic")
+# Con coste (embeddings por consulta) y solo si se piden con --engine: nunca en CI.
+ENGINE_CLOUD: dict[Engine, Cloud] = {
+    "azure": "azure",
+    "azure-semantic": "azure",
+    "gcp": "gcp",
+    "gcp-semantic": "gcp",
+}
+CLOUD_ENGINES: tuple[Engine, ...] = tuple(ENGINE_CLOUD)
 ENGINE_STRATEGIES: dict[Engine, tuple[RetrievalStrategy, ...]] = {
     "native": ("bm25", "vector", "hybrid", "rerank", "parent-child"),
     "llamaindex": ("bm25", "vector", "hybrid", "rerank", "parent-child", "auto-merge"),
@@ -49,9 +56,13 @@ ENGINE_STRATEGIES: dict[Engine, tuple[RetrievalStrategy, ...]] = {
     "azure": ("bm25", "vector", "hybrid"),
     # Híbrida + Semantic Ranker (reordena hasta 50 candidatos dentro del servicio).
     "azure-semantic": ("hybrid",),
+    # Colección `knowledge` de Agent Retrieval (4.G1); `rerank` = híbrida → Ranking API.
+    "gcp": ("bm25", "vector", "hybrid", "rerank"),
+    # Híbrida + VertexRanker integrado en el batch (degrada a RRF en silencio si falla).
+    "gcp-semantic": ("hybrid",),
 }
 # Estrategias que planifican la consulta con un LLM (fase 4): solo en la nube y con
-# `--budget-usd`, sobre la busqueda hibrida de cada motor de AI Search.
+# `--budget-usd`, sobre la busqueda hibrida de cada motor en la nube.
 LLM_STRATEGIES: tuple[RetrievalStrategy, ...] = (
     "rewrite",
     "hyde",
@@ -62,7 +73,10 @@ LLM_STRATEGIES: tuple[RetrievalStrategy, ...] = (
 REPORTS_DIR = EVALS_DIR / "reports"
 CLOUD_REPORTS_DIR = REPORTS_DIR / "azure"
 EMBEDDINGS = "hashing-1024"
-CLOUD_EMBEDDINGS = "azure:text-embedding-3-small-1024"
+CLOUD_EMBEDDINGS: dict[Cloud, str] = {
+    "azure": "azure:text-embedding-3-small-1024",
+    "gcp": "gcp:gemini-embedding-001-1024",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,8 +270,30 @@ def local_settings(corpus: Path) -> RetrievalSettings:
     )
 
 
+def engines_cloud(engines: Sequence[Engine]) -> Cloud | None:
+    """La nube de los motores pedidos (None = solo locales). Un informe, una nube."""
+    clouds = {ENGINE_CLOUD[engine] for engine in engines if engine in ENGINE_CLOUD}
+    if len(clouds) > 1:
+        raise ValueError("Una ejecucion compara motores de una sola nube")
+    return clouds.pop() if clouds else None
+
+
+def cloud_reports_dir(cloud: Cloud) -> Path:
+    return REPORTS_DIR / cloud
+
+
 def cloud_settings(corpus: Path, engine: Engine) -> RetrievalSettings:
-    # Composición explícita: solo el backend de AI Search con embeddings de Foundry.
+    # Composición explícita: solo el backend de la nube con los embeddings de su ingesta.
+    if ENGINE_CLOUD[engine] == "gcp":
+        return local_settings(corpus).model_copy(
+            update={
+                "backend": "gcp_vector_search",
+                "embeddings": "gcp",
+                "semantic_ranker": engine == "gcp-semantic",
+                # La estrategia `rerank` del motor `gcp` es la Ranking API.
+                "reranker": "gcp" if engine == "gcp" else "token-coverage",
+            }
+        )
     return local_settings(corpus).model_copy(
         update={
             "backend": "azure_search",
@@ -282,8 +318,9 @@ async def run_retrieval_eval(
     verify_corpus_hash(meta, corpus)
     if not engines:
         raise ValueError("Se necesita al menos un motor")
-    if llm is not None and not any(engine in CLOUD_ENGINES for engine in engines):
-        raise ValueError("Las estrategias con LLM solo se evaluan sobre AI Search")
+    cloud = engines_cloud(engines)
+    if llm is not None and cloud is None:
+        raise ValueError("Las estrategias con LLM solo se evaluan sobre motores en la nube")
     settings = local_settings(corpus)
     embeddings = HashingEmbedding(1024)
     records, parents = await load_synthetic(settings, embeddings)
@@ -303,7 +340,7 @@ async def run_retrieval_eval(
             parts = await build_cloud_parts(cloud_settings(corpus, engine), Settings())
             try:
                 if parts.backend is None:
-                    raise ValueError("AI Search no esta configurado")
+                    raise ValueError("El backend en la nube no esta configurado")
                 service = RetrievalService(
                     parts.backend, reranker=parts.reranker or TokenCoverageReranker(), llm=llm
                 )
@@ -332,7 +369,8 @@ async def run_retrieval_eval(
             runs.append(summarize(engine, strategy, outcomes, top_k))
     if not runs:
         raise ValueError("Ninguna combinacion motor/estrategia seleccionada")
-    label = CLOUD_EMBEDDINGS if all(e in CLOUD_ENGINES for e in engines) else EMBEDDINGS
+    only_cloud = cloud is not None and all(e in CLOUD_ENGINES for e in engines)
+    label = CLOUD_EMBEDDINGS[cloud] if cloud is not None and only_cloud else EMBEDDINGS
     return RetrievalReport(meta, top_k, candidate_k, label, len(parents), len(records), runs)
 
 
@@ -425,7 +463,8 @@ def main() -> None:
         "--engine",
         action="append",
         choices=list(ENGINE_STRATEGIES),
-        help="Por defecto, solo los locales. azure y azure-semantic consultan la nube (coste).",
+        help="Por defecto, solo los locales. azure* y gcp* consultan la nube (coste); "
+        "una ejecución, una nube.",
     )
     parser.add_argument(
         "--strategy",
@@ -437,13 +476,16 @@ def main() -> None:
     parser.add_argument(
         "--budget-usd",
         type=Decimal,
-        help="Activa las estrategias con LLM en los motores de AI Search (con coste).",
+        help="Activa las estrategias con LLM en los motores de la nube (con coste).",
     )
     args = parser.parse_args()
     engines: list[Engine] = args.engine or list(LOCAL_ENGINES)
-    cloud = any(engine in CLOUD_ENGINES for engine in engines)
-    if args.budget_usd is not None and not cloud:
-        parser.error("--budget-usd solo tiene sentido con --engine azure o azure-semantic")
+    try:
+        cloud = engines_cloud(engines)
+    except ValueError as error:
+        parser.error(str(error))
+    if args.budget_usd is not None and cloud is None:
+        parser.error("--budget-usd solo tiene sentido con un motor en la nube (azure*, gcp*)")
     llm, meter = _planner(args.budget_usd) if args.budget_usd is not None else (None, None)
     meta, items = load_golden(args.dataset)
     report = asyncio.run(
@@ -461,7 +503,7 @@ def main() -> None:
     # Los informes de la nube van aparte: no sustituyen al baseline local que usa la CI.
     json_path, md_path = write_report(
         report,
-        args.out or (CLOUD_REPORTS_DIR if cloud else REPORTS_DIR),
+        args.out or (cloud_reports_dir(cloud) if cloud else REPORTS_DIR),
         "retrieval-llm" if llm is not None else "retrieval",
     )
     print(f"Informe: {md_path} y {json_path}")

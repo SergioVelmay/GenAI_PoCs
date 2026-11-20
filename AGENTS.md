@@ -33,7 +33,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 - **Preguntas:** pocas, solo las que bloquean el paso actual, con la opción recomendada primero; decir explícitamente si una propuesta **cambia el plan** original; aparcar las dudas que no bloquean.
 - Explorar y planificar antes de codificar cambios de varios ficheros. Antes de escribir contra una librería, leer **la API instalada** (firmas, código fuente; en Terraform, `terraform providers schema -json`): las versiones van por delante de lo que conoce el modelo.
 - Dar evidencia, no afirmaciones: salida de los tests, comando ejecutado, enlace a la ejecución de la CI. Si la subfase arranca un servicio, probarlo de verdad (HTTP o E2E sin LLM), no solo los tests.
-- **Variables de entorno:** si un cambio toca variables, dar a Sergio las instrucciones exactas para su `.env` (clave, valor, bloque, si se añade o modifica y para qué). Su `.env` sigue el mismo orden, grupos y comentarios que `.env.example`.
+- **Variables de entorno:** si una implementación toca variables, **el agente alinea él mismo el `.env` local de Sergio** con `.env.example` (mismo orden, grupos y comentarios; añade las nuevas con su valor por defecto, actualiza comentarios y conserva los valores de Sergio) y después le **informa** de qué ha cambiado (clave, bloque, si se añade o modifica y para qué). Sin mostrar nunca valores (comparar solo claves; diff con valores enmascarados), sin commitearlo y sin activar la nube por su cuenta: un valor con coste o que viene de `terraform output` se le propone, no se pone.
 - **Tareas humanas** (etiquetar, revisar datos) que no bloquean: commit, apuntarlas en `docs/pendientes-cloud.md` y seguir.
 - **Ramas y PR** (desde la 0.G): las ramas locales fusionadas no se borran nunca. Una rama por fase desde `main` actualizada (`fase/<N>` o `fase/<N>-g`, p. ej. `fase/0-g`), un commit por subfase tras el "revisado" y una **PR en draft** abierta con el primer push (la CI corre en `pull_request`). Al cerrar la fase, la PR pasa a lista para revisión. `main` exige PR, el check `release-gate` y **merge commit** (squash y rebase desactivados: los docs citan hashes de commits que no deben reescribirse). Arreglos ajenos a la subfase, en un commit `fix:` aparte; un arreglo para devolver a verde la CI de la propia subfase entra en el flujo de `cerrar-subfase` y se informa.
 - Tras cada push, **vigilar la CI hasta el final** e informar por job.
@@ -103,7 +103,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 1 | SQL avanzado + `ticketing_api` | ✅ Hecha | ✅* | `docs/fase-1-sql.md` |
 | 2 | Capa de modelos, LLM gateway, routing, prompt caching, coste | ✅ Hecha* | ✅* | `docs/fase-2-modelos.md` |
 | 3 | Indexación event-driven, 3 carriles × 3 nubes | ✅ Hecha* | ✅* | `docs/fase-3-comparativa.md` |
-| 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | 4.G | `docs/fase-4-retrieval.md` |
+| 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | ✅* | `docs/fase-4-retrieval.md` |
 | 5 | Evals de RAG y gate en CI | ✅ Hecha* | 5.G | `docs/fase-5-evals.md` |
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅ Hecha* | 6.G | `docs/fase-6-tools-mcp.md` |
 | 7 | Un agente en 7 sabores y context engineering | ✅ Hecha* | 7.G | `docs/fase-7-agentes.md` |
@@ -114,7 +114,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G y 3.G; siguiente: **4.G**, rama `fase/4-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G y 4.G; siguiente: **5.G**, rama `fase/5-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |

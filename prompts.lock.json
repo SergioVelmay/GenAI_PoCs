@@ -84,6 +84,12 @@
       "sha256": "3698d093de46c831ef018fd6a107b20839ab6dfab4bf3852bdf6743f482040e3",
       "fragment": false
     },
+    "rag-engine-answer": {
+      "package": "genaipocs_core",
+      "version": 1,
+      "sha256": "3df8a5709885e02b1e75072b3c7059a2ab5e4c52de849531abce6c1f6ba89ab8",
+      "fragment": false
+    },
     "rag-judge": {
       "package": "rag_evals",
       "version": 1,

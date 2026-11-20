@@ -287,6 +287,19 @@ class GcpVectorSearchSettings(BaseModel):
     location: str = ""
 
 
+class GcpRankingSettings(BaseModel):
+    """Ranking API (Agent Search, API Discovery Engine) como reranker del carril B (4.G1).
+
+    Equivalente de Bedrock Rerank: se paga por consulta y no tiene recurso que crear (usa la
+    configuración `default_ranking_config` del proyecto)."""
+
+    # `semantic-ranker-default-004`: el más preciso, 1024 tokens por registro. `fast-004` es
+    # ~3 veces más rápido. Fijado (no `@latest`) para que un cambio de modelo sea deliberado.
+    model: str = "semantic-ranker-default-004"
+    location: str = "global"
+    ranking_config: str = "default_ranking_config"
+
+
 class GcpRagEngineSettings(BaseModel):
     """Carril A de GCP: RAG Engine desde Cloud Storage (3.G3). Salidas de `lane_a.tf`."""
 
@@ -298,9 +311,34 @@ class GcpRagEngineSettings(BaseModel):
     # Troceo del servicio, como en Bedrock KB (300 tokens con un 20 % de solape).
     chunk_size: int = Field(default=300, ge=100, le=2048)
     chunk_overlap: int = Field(default=60, ge=0)
+    # Consulta (4.G2). Modelo de Gemini con la herramienta de retrieval de RAG Engine: vacío =
+    # solo `retrieve` (como `BEDROCK_KB__GENERATION_MODEL_ARN`). Ubicación vacía = GCP__REGION:
+    # el modelo debe servirse donde vive el corpus (se confirma en la nube).
+    generation_model: str = ""
+    generation_location: str = ""
+    # Reordenar dentro de RAG Engine con la Ranking API (`semantic-ranker-default-004`). Vacío =
+    # el orden del almacén (distancia coseno).
+    rerank_model: str = ""
 
     def corpora(self) -> dict[str, str]:
         return {"public": self.public_corpus, "internal": self.internal_corpus}
+
+
+class GcpAgentSearchSettings(BaseModel):
+    """Carril A de GCP con Agent Search (antes Vertex AI Search; API Discovery Engine), 4.G3.
+
+    Equivalente de Foundry IQ: búsqueda gestionada y respuestas con citas. Data store y motor
+    los crea Terraform (`agent_search.tf`, `agent_search_enabled`)."""
+
+    # Multirregión de Agent Search (`global`, `us` o `eu`): no hay regiones sueltas.
+    location: str = "eu"
+    data_store: str = "knowledge"
+    engine: str = "knowledge-search"
+    # Vacío = GCP_RAG_ENGINE__BUCKET: el mismo bucket del carril A, con otro prefijo.
+    bucket: str = ""
+    prefix: str = "agent-search"
+    # Modelo de respuestas de `answer_query`: `stable` (fijado por Google) o una versión concreta.
+    answer_model: str = "stable"
 
 
 class AzureManagedIngestionSettings(BaseModel):
@@ -455,7 +493,9 @@ class Settings(BaseSettings):
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
     gcp_vector_search: GcpVectorSearchSettings = GcpVectorSearchSettings()
+    gcp_ranking: GcpRankingSettings = GcpRankingSettings()
     gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
+    gcp_agent_search: GcpAgentSearchSettings = GcpAgentSearchSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()
