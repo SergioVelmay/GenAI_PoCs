@@ -193,6 +193,15 @@ estimado: ~1 $ en total (Azure, con el mismo conjunto: nativo 0,06 $, RAGAS 0,31
 - [ ] Con los servidores MCP en HTTPS (fases 13/14): `mcp_gateway_enabled=true` (AgentCore Gateway) y `apim_enabled=true` (APIM); comparar latencia y coste con el gateway propio.
 - [ ] Tool de compra con `Idempotency-Key` estable y aprobación humana.
 
+<a id="fase-6-gcp"></a>
+
+### GCP (pasada 6.G)
+
+Requiere el [modelo de la 2.G](#fase-2-gcp). Coste estimado: céntimos (en Azure, 0,0012 $ el
+reembolso completo con `mini`).
+
+- [ ] **Agentes con Gemini** (6.G1): `tool_loop_demo.py` (pedidos y reembolso) y `support_agent` sin y con `--gateway` con `LLM_PROVIDER=gcp` y `MCP__AUTH=jwt`. Comprobar: que Gemini acepta los esquemas de los contratos MCP tal cual (`pattern`, `anyOf` con `null`, `minimum`/`maximum`, `additionalProperties: false`; si da `400 INVALID_ARGUMENT`, adaptar el esquema solo en `GeminiLLM`, porque Pydantic valida igual), que pide las lecturas en paralelo y que las firmas reales vuelven sin `400`; repetir los tres casos de diseño de tools que fallaron en [Azure](fase-6-tools-mcp.md#7-resultados-en-azure-18-10-2026) (IDs deducidos, ID de ejemplo, política antes del reembolso). Capturar una respuesta real con dos `functionCall` para los dobles de `test_gemini_tool_loop.py`.
+
 ## Fase 7 · Agentes ([doc](fase-7-agentes.md))
 
 - [x] Suite de agentes con LLM real en Azure (18-10-2026, ~0,08 $): 4-6 de 12 por sabor, pero la mayoría de fallos son del comprobador por literales; fallos reales: idioma, bucle en una pregunta informativa y una escritura de memoria no pedida. Criterios de modo `llm` basados en el resultado; juez de respuestas para la fase 12.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack
@@ -11,10 +12,18 @@ from typing import Any
 import pytest
 from fastmcp import Client
 from fastmcp.utilities.tests import asgi_server
+from google.genai import types
 
+from genaipocs_core.adapters.gemini import GeminiLLM
 from genaipocs_core.adapters.memory import FakeLLM, InMemoryUnitOfWork
 from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
-from genaipocs_core.application.tools import Tool, ToolContext, ToolLoop, ToolRegistry
+from genaipocs_core.application.tools import (
+    TICKETING_AGENT_PROMPT,
+    Tool,
+    ToolContext,
+    ToolLoop,
+    ToolRegistry,
+)
 from genaipocs_core.config import McpSettings
 from genaipocs_core.domain import (
     Customer,
@@ -179,3 +188,67 @@ def test_lax_third_party_schemas_are_not_sent_as_strict() -> None:
     )
 
     assert ToolRegistry([tool]).config().tools[0].strict is False
+
+
+class ScriptedGemini:
+    """Doble de `Client.aio.models` de `google-genai`: contesta por turnos y guarda la petición."""
+
+    def __init__(self, *turns: list[dict[str, Any]]) -> None:
+        self._turns = list(turns)
+        self.requests: list[tuple[list[types.Content], types.GenerateContentConfig]] = []
+
+    async def generate_content(
+        self, *, model: str, contents: list[types.Content], config: types.GenerateContentConfig
+    ) -> types.GenerateContentResponse:
+        self.requests.append(([c.model_copy(deep=True) for c in contents], config))
+        return types.GenerateContentResponse.model_validate(
+            {
+                "candidates": [{"content": {"role": "model", "parts": self._turns.pop(0)}}],
+                "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 10},
+            }
+        )
+
+    async def generate_content_stream(self, **_: Any) -> Any:
+        raise AssertionError("El agente no usa streaming")
+
+
+def _gemini_call(call_id: str, name: str, signature: bytes | None, **args: Any) -> dict[str, Any]:
+    part: dict[str, Any] = {"functionCall": {"id": call_id, "name": name, "args": args}}
+    if signature is not None:
+        part["thoughtSignature"] = base64.b64encode(signature).decode()
+    return part
+
+
+async def test_agent_refunds_through_mcp_with_gemini(
+    clients: dict[str, Client[Any]], uow: InMemoryUnitOfWork
+) -> None:
+    """Fase 6.G1: el mismo agente con Gemini. Los esquemas descubiertos por MCP llegan tal
+    cual como `parameters_json_schema` y cada firma vuelve en el turno siguiente."""
+    models = ScriptedGemini(
+        [
+            _gemini_call("g1", "list_my_orders", b"firma-1", limit=5),
+            _gemini_call("g2", "search_events", None, city="Madrid"),
+        ],
+        [_gemini_call("g3", "request_refund", b"firma-2", order_id="ord_1", reason="Enfermo")],
+        [{"text": "Reembolso aprobado: 60.00 EUR."}],
+    )
+
+    async with McpToolset(clients) as tools:
+        published = {spec.name: spec.json_schema for spec in tools.config().tools}
+        result = await SupportAgent(GeminiLLM(models, "gemini-4-hydrogen"), tools).answer(
+            "Devuélveme mi última compra", ANA
+        )
+
+    assert result.stop_reason == "answer"
+    assert [e.error for e in result.executions] == [None, None, None]
+    order = await uow.orders.get("ord_1")
+    assert order is not None and order.status is OrderStatus.REFUNDED
+
+    first_config = models.requests[0][1]
+    assert first_config.system_instruction == TICKETING_AGENT_PROMPT
+    declarations = first_config.tools[0].function_declarations  # type: ignore[index, union-attr]
+    assert {d.name: d.parameters_json_schema for d in declarations} == published  # type: ignore[union-attr]
+
+    history = models.requests[2][0]
+    assert history[1].parts[0].thought_signature == b"firma-1"  # type: ignore[index]
+    assert history[3].parts[0].thought_signature == b"firma-2"  # type: ignore[index]

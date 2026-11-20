@@ -6,7 +6,9 @@ un token por servidor (audience y scopes propios) al emisor de desarrollo, en no
     $env:MCP__AUTH="jwt"
     uv run python -m support_agent --customer cus_0121338 "¿Qué pedidos tengo?"
 
-En la nube el token lo emite Entra ID (On-Behalf-Of) o Cognito a partir del token del usuario.
+El modelo sale de `LLM_PROVIDER` (`azure`, `aws` o `gcp`; Gemini desde la fase 6.G1). En la nube
+el token lo emite Entra ID (On-Behalf-Of) o Cognito a partir del token del usuario, y en GCP el
+gateway firma uno por servidor con la cuenta de servicio (`signJwt`, fase 6.G2).
 """
 
 from __future__ import annotations

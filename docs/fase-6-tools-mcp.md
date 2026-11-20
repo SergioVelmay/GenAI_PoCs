@@ -187,7 +187,55 @@ Lo que no se ve con modelos falsos (cada uno con su test):
   `apim_enabled` (Azure) con confirmación; medir latencia y coste frente al gateway propio.
 - Tool de compra con `Idempotency-Key` estable y aprobación humana (fase 8).
 
-## 9. Checkpoint de entrevista
+## 9. GCP (pasada 6.G)
+
+**Objetivo:** el mismo agente de tools con Gemini, el token por servidor con identidades de
+Google y los gateways gestionados de GCP. Coste 0: todo con dobles; lo real, en
+[pendientes](pendientes-cloud.md#fase-6-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 6.G1 | (este commit) | Bucle de tools y `support_agent` con Gemini de punta a punta |
+| 6.G2 | — | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
+| 6.G3 | — | Agent Gateway + Agent Registry + Agent Identity y Apigee en Terraform; cierre |
+
+### Verificación previa (20-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| `GeminiLLM` (2.G1) | Ya traduce tools paralelas, *thought signatures* y resultados agrupados | La 6.G1 no toca el adaptador: prueba el bucle entero |
+| Google STS ([`token`](https://docs.cloud.google.com/iam/docs/reference/sts/rest/v1/TopLevel/token)) | RFC 8693, pero solo cambia un token externo por un *access token* de Google (federación) o lo acota con *Credential Access Boundaries* | **No hay OBO** como Entra o AgentCore Identity: no emite un JWT con el audience de un servidor nuestro |
+| [`signJwt`](https://docs.cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/signJwt) de IAM Credentials | GA; firma con la clave gestionada de la cuenta de servicio (sin secretos), `exp` ≤ 12 h y JWKS público por cuenta | Base del `GcpTokenExchanger` (6.G2, decidido con Sergio): el gateway hace de STS sin claves |
+| [Agent Identity](https://docs.cloud.google.com/iam/docs/agent-identity-overview) *auth manager* | Broker de credenciales (API key, 2LO, **3LO** con consentimiento del usuario) para que un agente llame a un tercero | Contraste con OBO: delegación por consentimiento guardado, no por intercambio; Terraform en la 6.G3 |
+| [Agent Gateway](https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/gateways/agent-gateway-overview) | Modos `AGENT_TO_ANYWHERE` y `CLIENT_TO_AGENT`; Cloud Run en *Limited Preview*; exige registrar los servidores en Agent Registry | Terraform desactivado por defecto; validarlo pide un agente en Agent Runtime (7.G2) |
+| Provider `google` 8.11 | `google_network_services_agent_gateway`, `google_agent_registry_service`/`_binding`, `google_agent_identity_auth_provider`, `google_apigee_*`, `google_identity_platform_config` | Todo con el provider GA |
+| [Apigee y MCP](https://docs.cloud.google.com/apigee/docs/api-platform/apigee-mcp/apigee-mcp-overview) | Proxy MCP (también delante de un servidor propio) con política por tool y productos de API; evaluación gratis 60 días, pago por uso ~365 $/mes por entorno | Equivalente de APIM; `apigee_enabled = false` |
+
+### 6.G1 · Bucle de tools y `support_agent` con Gemini
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_gemini_tool_loop.py services/support_agent
+# Con coste (pendientes-cloud.md), API de ticketing y servidores MCP levantados:
+$env:LLM_PROVIDER="gcp"; uv run python scripts/tool_loop_demo.py --customer cus_0000001 "Quiero el reembolso de mi último pedido"
+$env:LLM_PROVIDER="gcp"; $env:MCP__AUTH="jwt"; uv run python -m support_agent --gateway --customer cus_0121338 "¿Qué pedidos tengo?"
+```
+
+- **Una conversación de reembolso en tres turnos** (`test_gemini_tool_loop.py`): dos lecturas
+  en paralelo con la firma solo en la primera llamada, los dos resultados juntos y en orden en
+  un turno `user`, la escritura en serie con su propia firma y, en el último turno, el historial
+  con **las dos firmas, cada una en su paso**. Es lo que daría `400` en la nube si una capa
+  (bucle, puente, checkpoint) perdiera `ToolCall.signature`.
+- **Routing con los dos tiers de Gemini**: un turno que ofrece `request_refund` va siempre a
+  `gemini-4-hydrogen`; solo con lecturas, a `gemini-3.5-flash-lite` (la regla que salió del
+  fallo de `nano` en Azure).
+- **Errores como datos**: el `ses_` que `nano` pasó como pedido en Azure llega a Gemini como
+  `functionResponse` con `error` (no `output`) y no ejecuta la tool.
+- **`support_agent` por MCP con Gemini**: los esquemas que publican los servidores llegan tal
+  cual como `parameters_json_schema` (sin reescribirlos) y el reembolso se completa con
+  identidad del token. Usan `pattern`, `anyOf` con `null`, `minimum`/`maximum` y
+  `additionalProperties: false`; que Gemini los acepte todos solo se ve en la nube (pendiente).
+
+## 10. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 6](preguntas-entrevista.md#fase-6).

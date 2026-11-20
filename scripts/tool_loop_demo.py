@@ -6,6 +6,11 @@ Requiere PostgreSQL con datos (fase 1) y la API levantada:
     uv run python scripts/tool_loop_demo.py --customer cus_0000001 "¿Qué pedidos tengo?"
     $env:LLM_PROVIDER="aws"; uv run python scripts/tool_loop_demo.py --customer cus_0000001 `
         "Quiero el reembolso de mi último pedido, no puedo ir"
+    $env:LLM_PROVIDER="gcp"; uv run python scripts/tool_loop_demo.py --customer cus_0000001 `
+        "Quiero el reembolso de mi último pedido, no puedo ir"
+
+Con Gemini (fase 6.G1) las *thought signatures* viajan en `ToolCall.signature` y vuelven en el
+turno siguiente; las lecturas en paralelo y la escritura van al modelo potente por el routing.
 """
 
 from __future__ import annotations
