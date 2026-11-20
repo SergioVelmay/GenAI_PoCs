@@ -175,4 +175,9 @@ def test_sample_is_deterministic_and_unfiltered() -> None:
 
 def test_each_managed_engine_reports_to_its_own_cloud() -> None:
     """El informe va con el servicio evaluado, no con el juez."""
-    assert MANAGED_CLOUD == {"foundry_iq": "azure", "bedrock_kb": "aws"}
+    assert MANAGED_CLOUD == {
+        "foundry_iq": "azure",
+        "bedrock_kb": "aws",
+        "rag_engine": "gcp",
+        "agent_search": "gcp",
+    }

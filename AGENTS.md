@@ -105,7 +105,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 2 | Capa de modelos, LLM gateway, routing, prompt caching, coste | ✅ Hecha* | ✅* | `docs/fase-2-modelos.md` |
 | 3 | Indexación event-driven, 3 carriles × 3 nubes | ✅ Hecha* | ✅* | `docs/fase-3-comparativa.md` |
 | 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | ✅* | `docs/fase-4-retrieval.md` |
-| 5 | Evals de RAG y gate en CI | ✅ Hecha* | 5.G | `docs/fase-5-evals.md` |
+| 5 | Evals de RAG y gate en CI | ✅ Hecha* | ✅* | `docs/fase-5-evals.md` |
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅ Hecha* | 6.G | `docs/fase-6-tools-mcp.md` |
 | 7 | Un agente en 7 sabores y context engineering | ✅ Hecha* | 7.G | `docs/fase-7-agentes.md` |
 | 8 | Agentic harness y guardrails | ✅ Hecha* | 8.G | `docs/fase-8-harness.md` |
@@ -115,7 +115,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G y 4.G; siguiente: **5.G**, rama `fase/5-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G y 5.G; siguiente: **6.G**, rama `fase/6-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |

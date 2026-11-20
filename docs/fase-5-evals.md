@@ -260,15 +260,17 @@ deterministas). En el checkpoint 8→9, tras **15 ejecuciones seguidas con 0 reg
 11-10 al 18-10-2026), el gate pasó a `enforce`: una regresión ya no es un aviso, impide el merge.
 Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como cualquier otro cambio.
 
-## 6. Equivalencias Azure ↔ AWS ↔ framework
+## 6. Equivalencias Azure ↔ AWS ↔ GCP ↔ framework
 
-| Necesidad | Azure | AWS | Framework / propio |
-|---|---|---|---|
-| Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `golden-v2.jsonl` versionado en Git |
-| Métricas de retrieval | Evaluadores de Foundry (document retrieval) | Bedrock Evaluations (retrieve only) | `domain/evals.py` |
-| LLM-as-a-judge para RAG | Groundedness, Relevance, Retrieval... en Foundry Evaluation | Bedrock Evaluations (retrieve and generate) | Juez nativo, RAGAS, DeepEval |
-| Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | `rag_evals.gate` |
-| Control de coste | Presupuestos de suscripción | AWS Budgets | `CostMeter` por ejecución |
+| Necesidad | Azure | AWS | GCP | Framework / propio |
+|---|---|---|---|---|
+| Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `EvaluationDataset` (casos en memoria, o en Cloud Storage / BigQuery) | `golden-v2.jsonl` versionado en Git |
+| Métricas de retrieval | Evaluadores de Foundry (document retrieval) | Bedrock Evaluations (retrieve only) | Sin evaluador propio de retrieval: métricas en código | `domain/evals.py` |
+| LLM-as-a-judge para RAG (carril A) | Groundedness, Relevance... en Foundry Evaluation | Bedrock Evaluations (retrieve and generate) | Gen AI Evaluation Service: `grounding_v2` y `LLMMetric` propia | Juez nativo (B), RAGAS y DeepEval (C) |
+| Juez fijo fuera del router | `gpt-4.1` | Claude Sonnet 4.5 | `gemini-4-argon` | `build_judge_llm` (rechaza un juez que sea del router) |
+| Fidelidad del RAG gestionado | `managed_eval --engine foundry_iq` | `--engine bedrock_kb` | `--engine rag_engine` y `--engine agent_search` | Juez nativo calibrado |
+| Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | Job de evaluación en Cloud Build / GitHub Actions | `rag_evals.gate` |
+| Control de coste | Presupuestos de suscripción | AWS Budgets | Presupuestos de Cloud Billing | `CostMeter` por ejecución |
 
 ## 7. Pendiente de validación con coste
 
@@ -294,8 +296,8 @@ Service**. Coste 0: todo con dobles; las medidas reales, en
 |---|---|---|
 | 5.G0 | `5e07bdc` | Ficheros temporales en `.tmp/` y plan de la 5.G (dividido en G1–G3) |
 | 5.G1 | `4885272` | Juez Gemini por los carriles B y C, informes con coste por nube y esquemas compatibles con Gemini |
-| 5.G2 | (este commit) | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
-| 5.G3 | | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
+| 5.G2 | `c2e53be` | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
+| 5.G3 | (este commit) | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
 
 ### Verificación previa (20-11-2026)
 
@@ -380,6 +382,46 @@ que el SDK manda `context` a cada métrica (es un campo *extra* de `EvalCase`: s
 daría 0 sin avisar) y el **flujo completo de `client.evals.evaluate`** sustituyendo solo la
 llamada HTTP (`_evaluate_instances`): acepta el dataset, las dos métricas reciben el contexto y
 cada resultado vuelve con el nombre de su métrica.
+
+### 5.G3 · Fidelidad de RAG Engine y Agent Search
+
+```powershell
+uv run pytest evals/tests/test_managed_eval.py
+# Con coste (pendientes-cloud.md), en la misma sesión que la ingesta de la 3.G/4.G y LLM_PROVIDER=gcp:
+uv run python -m rag_evals.managed_eval --engine rag_engine --budget-usd 0.30     # → evals/reports/gcp/
+uv run python -m rag_evals.managed_eval --engine agent_search --budget-usd 0.30
+```
+
+`managed_eval` ya era genérico sobre `ManagedKnowledgePort`: la 5.G3 añade los dos motores de GCP
+de la [4.G](fase-4-retrieval.md#gcp-pasada-4g) con la misma muestra que Foundry IQ (10 preguntas
+con respuesta y 5 sin ella, sin filtros, semilla fija) y el mismo juez calibrado, que con
+`LLM_PROVIDER=gcp` es Gemini. El informe va a la carpeta de la nube del **servicio**
+(`MANAGED_CLOUD`), aunque el juez sea de otra nube. Con `rag_engine`, sin
+`GCP_RAG_ENGINE__GENERATION_MODEL` la eval se niega antes de gastar nada: RAG Engine solo
+recuperaría y no habría respuesta redactada que juzgar.
+
+### Decisiones y límites de la pasada
+
+- **Mismo instrumento de medida en las tres nubes**: mismo conjunto de calibración, mismas
+  etiquetas humanas y mismo kappa. El juez de GCP no hereda la calibración de Azure: se calibra
+  otra vez (pendiente con coste).
+- **Lo que la verificación previa cambió**: el juez Gemini no existía (se implementó), los
+  informes con coste se pisaban entre nubes (carpeta por nube) y el Evaluation Service no tiene
+  métrica de relevancia equivalente (métrica propia versionada). La 5.G1 del plan se dividió en
+  tres.
+- **Salvaguardas nuevas que valen para todas las nubes**: la fábrica rechaza un juez que sea del
+  router, y los esquemas de los jueces se comprueban contra el subconjunto de JSON Schema de
+  Gemini.
+- **Evaluation Service fuera del camino crítico**: está en Preview; la CI y el gate siguen con
+  el juez nativo y deterministas. Sirve como contraste y para revisiones en la consola, como
+  Foundry Evaluation.
+- **Descartado**: el extra `google-cloud-aiplatform[evaluation]` (exige `litellm<1.97`; solo
+  hacía falta `pandas`, que ya trae el extra `evals`), el módulo antiguo `EvalTask` (sin
+  `grounding` ni rúbricas) y `GENERAL_QUALITY` como relevancia (mide otra cosa con 6 llamadas).
+- **Límites conocidos**, con su forma de comprobarlo en
+  [pendientes](pendientes-cloud.md#fase-5-gcp): si Gemini acepta la complejidad del esquema de
+  `JudgeVerdict`, si `grounding_v2` está en `europe-west4`, el coste real del servicio (no
+  devuelve tokens) y si `--dest` hace visible la ejecución en la consola.
 
 ## 9. Checkpoint de entrevista
 

@@ -64,6 +64,7 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) | Collector de OpenTelemetry con los exporters `googlecloud` |
 | Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability | Trazas de Agent Runtime en Cloud Trace |
 | Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana | Managed Service for Prometheus (Grafana autogestionado) |
+| Evals de RAG gestionadas (LLM-juez) | Foundry Evaluation (`GroundednessEvaluator`, `RelevanceEvaluator`, escala 1-5) | Bedrock Evaluations (RAG: *retrieve only* y *retrieve and generate*) | Gen AI Evaluation Service (`client.evals`, Preview): rúbrica `grounding` (0-1) y métricas LLM propias (`LLMMetric`) |
 | Evals de agentes y LLM-juez | Foundry evaluators (`ToolCallAccuracy`, `IntentResolution`) | Bedrock evaluations (LLM-as-a-judge), AgentCore Evaluations | Gen AI Evaluation Service (métricas de trayectoria) |
 | Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | PyRIT o promptfoo contra Bedrock (sin servicio propio) | PyRIT o promptfoo contra Gemini (sin servicio propio) |
 | Prompts versionados | Prompts de Foundry | Bedrock Prompt Management | Gestión de prompts de Agent Platform |
@@ -567,14 +568,6 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    autopreferencia). En este repo el router mandaba los dos al mismo modelo sin que nadie lo
    decidiera; ahora el juez es `gpt-4.1`, fijo y fuera del router, y el informe desglosa el coste
    por modelo para que se vea.
-8. **(GCP) Cambias el juez de Azure a Gemini. ¿Qué puede romperse sin que nadie lo vea?** Tres
-   cosas que encontré al hacerlo: que el juez acabe siendo el generador por una variable de
-   entorno (la fábrica ahora lo rechaza en las tres nubes, no solo en los valores por defecto);
-   que los informes de una nube pisen los de otra (mismos nombres en la misma carpeta: la
-   calibración de Azure se habría perdido); y que el esquema de salida estructurada no lo acepte
-   el otro proveedor (Gemini admite un subconjunto de JSON Schema, así que un test revisa todos
-   los esquemas de los jueces). Y el kappa no se hereda: un juez nuevo se calibra otra vez con las
-   mismas etiquetas humanas.
 
 ### Negocio y stakeholders
 
@@ -602,7 +595,37 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    lo calibré: acierta igual que nuestro juez en fidelidad, pero cuesta ~3 veces más y, con su
    escala 1-5, el umbral importa (exigiendo la nota máxima no servía para nada). Lo dejo para
    revisiones periódicas en el portal, que es lo que ve negocio, y el juez propio para la CI.
-7. **(GCP) El evaluador gestionado de Google no tiene la métrica que necesitas. ¿Qué haces?**
+
+### GCP (pasada 5.G)
+
+**Técnicas**
+
+1. **Cambias el juez de Azure a Gemini. ¿Qué puede romperse sin que nadie lo vea?** Tres
+   cosas que encontré al hacerlo: que el juez acabe siendo el generador por una variable de
+   entorno (la fábrica ahora lo rechaza en las tres nubes, no solo en los valores por defecto);
+   que los informes de una nube pisen los de otra (mismos nombres en la misma carpeta: la
+   calibración de Azure se habría perdido); y que el esquema de salida estructurada no lo acepte
+   el otro proveedor (Gemini admite un subconjunto de JSON Schema, así que un test revisa todos
+   los esquemas de los jueces). Y el kappa no se hereda: un juez nuevo se calibra otra vez con las
+   mismas etiquetas humanas.
+2. **¿Cómo pruebas sin coste un SDK en Preview que solo habla con la nube?** En dos capas. Los
+   tests de la CI usan los tipos reales del SDK (cargan sin dependencias pesadas) para construir
+   respuestas con la forma exacta del servicio. Y, con el extra instalado, ejecuto el flujo
+   completo de `client.evals.evaluate` sustituyendo solo la llamada HTTP: así veo lo que un doble
+   no ve, como que el contexto viaja en un campo *extra* del caso y, si faltara, la fidelidad
+   saldría 0 sin un solo error. La primera ejecución real captura respuestas para sustituir los
+   dobles.
+3. **Tienes cuatro servicios gestionados de RAG (Foundry IQ, Bedrock KB, RAG Engine, Agent
+   Search). ¿Cómo comparas sus respuestas?** Con la misma muestra del golden dataset y el mismo
+   juez calibrado (`managed_eval`): cada respuesta se juzga frente a los textos que ella misma
+   cita, y una respuesta sin citas cuenta como no fiel sin gastar juez. Se mide fidelidad,
+   abstención correcta, fugas de ACL y latencia; los rechazos del guardarraíl de citas y los
+   bloqueos de contenido son estados, no errores. El informe va a la carpeta de la nube del
+   servicio evaluado, no a la del juez.
+
+**Negocio y stakeholders**
+
+1. **El evaluador gestionado de Google no tiene la métrica que necesitas. ¿Qué haces?**
    Lo que hice con la relevancia: no cambiar de criterio para adaptarme a la herramienta. El
    servicio permite definir una métrica propia con un juez LLM; la escribí con la misma escala y
    el mismo criterio que validaron las etiquetas humanas, versionada como cualquier prompt, y así
