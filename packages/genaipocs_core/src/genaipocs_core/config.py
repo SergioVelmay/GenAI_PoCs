@@ -287,6 +287,19 @@ class GcpVectorSearchSettings(BaseModel):
     location: str = ""
 
 
+class GcpRankingSettings(BaseModel):
+    """Ranking API (Agent Search, API Discovery Engine) como reranker del carril B (4.G1).
+
+    Equivalente de Bedrock Rerank: se paga por consulta y no tiene recurso que crear (usa la
+    configuración `default_ranking_config` del proyecto)."""
+
+    # `semantic-ranker-default-004`: el más preciso, 1024 tokens por registro. `fast-004` es
+    # ~3 veces más rápido. Fijado (no `@latest`) para que un cambio de modelo sea deliberado.
+    model: str = "semantic-ranker-default-004"
+    location: str = "global"
+    ranking_config: str = "default_ranking_config"
+
+
 class GcpRagEngineSettings(BaseModel):
     """Carril A de GCP: RAG Engine desde Cloud Storage (3.G3). Salidas de `lane_a.tf`."""
 
@@ -455,6 +468,7 @@ class Settings(BaseSettings):
     azure_search: AzureSearchSettings = AzureSearchSettings()
     s3_vectors: S3VectorsSettings = S3VectorsSettings()
     gcp_vector_search: GcpVectorSearchSettings = GcpVectorSearchSettings()
+    gcp_ranking: GcpRankingSettings = GcpRankingSettings()
     gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()

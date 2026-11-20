@@ -37,15 +37,15 @@ se activa componiéndola de forma explícita (ver "Composición cloud explícita
 
 ## Conceptos y equivalencias
 
-| Concepto | Local, carril B | Azure | AWS | Carril C local |
-|---|---|---|---|---|
-| Léxico | BM25 con `rank-bm25` | Búsqueda textual de AI Search | Depende del backend de KB; S3 Vectors no ofrece BM25 | BM25Retriever de LlamaIndex |
-| Vector | Hashing de fase 3, **no semántico** | Embeddings de Foundry + AI Search | Titan + pgvector/S3 Vectors | VectorIndexRetriever |
-| Híbrida | Rankings fusionados por RRF | Híbrida con RRF | KB híbrida solo donde el backend la admite | QueryFusionRetriever |
-| Filtros | Igualdad de metadatos + ACL del servidor | Filtros OData | Filtros de Retrieve/KB | Prefiltrado antes de construir los retrievers |
-| Reranking | Cobertura léxica, **no neuronal** | Semantic Ranker | Bedrock Rerank, incluido Cohere según región/modelo | Integración de reranker |
-| Parent-child | Chunk -> documento padre | Campos de padre + recuperación adicional | Chunking jerárquico de KB | AutoMergingRetriever/docstore |
-| RAG gestionado, carril A | Sin equivalente local real | Foundry IQ (`retrieve`) + Foundry Agent Service vía MCP | Retrieve / RetrieveAndGenerate de KB | No sustituye al carril A |
+| Concepto | Local, carril B | Azure | AWS | GCP ([4.G](#gcp-pasada-4g)) | Carril C local |
+|---|---|---|---|---|---|
+| Léxico | BM25 con `rank-bm25` | Búsqueda textual de AI Search | Depende del backend de KB; S3 Vectors no ofrece BM25 | `TextSearch` de Agent Retrieval sobre `title` y `text` | BM25Retriever de LlamaIndex |
+| Vector | Hashing de fase 3, **no semántico** | Embeddings de Foundry + AI Search | Titan + pgvector/S3 Vectors | Gemini (`RETRIEVAL_QUERY`) + Agent Retrieval | VectorIndexRetriever |
+| Híbrida | Rankings fusionados por RRF | Híbrida con RRF | KB híbrida solo donde el backend la admite | `batch_search_data_objects` con `Ranker(rrf)` | QueryFusionRetriever |
+| Filtros | Igualdad de metadatos + ACL del servidor | Filtros OData | Filtros de Retrieve/KB | Filtro JSON (`$in`, `$eq`, `$and`) en cada búsqueda | Prefiltrado antes de construir los retrievers |
+| Reranking | Cobertura léxica, **no neuronal** | Semantic Ranker | Bedrock Rerank, incluido Cohere según región/modelo | Ranking API (`RerankerPort`) o VertexRanker integrado en el batch | Integración de reranker |
+| Parent-child | Chunk -> documento padre | Campos de padre + recuperación adicional | Chunking jerárquico de KB | `get` por id + expansión de `RetrievalService` | AutoMergingRetriever/docstore |
+| RAG gestionado, carril A | Sin equivalente local real | Foundry IQ (`retrieve`) + Foundry Agent Service vía MCP | Retrieve / RetrieveAndGenerate de KB | RAG Engine (4.G2) y Agent Search (4.G3) | No sustituye al carril A |
 
 El mismo contrato permite comparar implementaciones, pero **ninguna equivalencia implica
 idéntica calidad, seguridad o funcionalidades entre proveedores**. Los adaptadores
@@ -330,15 +330,15 @@ en silencio a local, y lo ya construido se cierra. Los clientes se cierran al ap
 
 | Variable | Valores | Efecto |
 |---|---|---|
-| `RETRIEVAL__BACKEND` | `local` \| `azure_search` | Corpus en memoria o carril B en AI Search (`AZURE_SEARCH__*`) |
-| `RETRIEVAL__EMBEDDINGS` | `hashing` \| `azure` \| `bedrock` | Encoder de consulta; debe ser el de la ingesta. `local` exige `hashing` |
-| `RETRIEVAL__SEMANTIC_RANKER` | `false` \| `true` | Semantic Ranker de AI Search (solo con `azure_search`) |
-| `RETRIEVAL__RERANKER` | `token-coverage` \| `bedrock` | `/search/rerank` con Bedrock Rerank (`BEDROCK__RERANK_MODEL_ARN`) |
+| `RETRIEVAL__BACKEND` | `local` \| `azure_search` \| `gcp_vector_search` | Corpus en memoria o carril B en AI Search (`AZURE_SEARCH__*`) o Agent Retrieval (`GCP__*`, `GCP_VECTOR_SEARCH__*`) |
+| `RETRIEVAL__EMBEDDINGS` | `hashing` \| `azure` \| `bedrock` \| `gcp` | Encoder de consulta; debe ser el de la ingesta. `local` exige `hashing` |
+| `RETRIEVAL__SEMANTIC_RANKER` | `false` \| `true` | Ranker integrado en el backend: Semantic Ranker (AI Search) o VertexRanker (Agent Retrieval) |
+| `RETRIEVAL__RERANKER` | `token-coverage` \| `bedrock` \| `gcp` | `/search/rerank` con Bedrock Rerank (`BEDROCK__RERANK_MODEL_ARN`) o la Ranking API (`GCP_RANKING__*`) |
 | `RETRIEVAL__LLM` | `none` \| `gateway` | Gateway de fase 2: rewrite, HyDE, subpreguntas, router, auto y `llm-extractive` |
 | `RETRIEVAL__MANAGED` | `none` \| `bedrock_kb` \| `foundry_iq` | Carril A en `POST /managed/retrieve` y `POST /managed/answer` |
 
-Las combinaciones incoherentes fallan al validar la configuración: AI Search con hashing
-(no hay un encoder compatible) o Semantic Ranker sin AI Search. Con `backend=local`, un
+Las combinaciones incoherentes fallan al validar la configuración: un backend cloud con
+hashing (no hay un encoder compatible) o un ranker integrado sin backend cloud. Con `backend=local`, un
 reranker o un LLM cloud se combinan con el corpus local. `/health` informa de cada pieza
 activa y `cloud_calls`. Las rutas `/managed/*` usan siempre el scope público y devuelven
 503 si no hay carril gestionado; en Foundry IQ, `answer` exige además
@@ -521,6 +521,82 @@ Hallazgos (con su test de regresión):
 | auto copiaba la etiqueta visible («Gastronomía y bebidas») en vez del código (`food_drink`) y filtraba por un valor inexistente | `category` y `doc_type` como enumeraciones del dominio en el esquema; el idioma de la pregunta deja de ser un filtro. auto sube de 0,69 a 0,83 de hit@5 |
 
 Pendiente: AWS (Bedrock KB y Bedrock Rerank).
+
+<a id="gcp-pasada-4g"></a>
+
+## GCP (pasada 4.G)
+
+**Objetivo:** consultar en GCP lo que la [3.G](fase-3-comparativa.md#7-gcp-pasada-3g) indexó, con
+las mismas garantías que en Azure y AWS: ACL en el servidor y comprobada otra vez en la app, nada
+que degrade en silencio y citas verificables. Coste 0: todo con dobles construidos desde la
+documentación y los tipos reales de los SDK.
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 4.G1 | — | Carril B: `AgentRetrievalSearch` (BM25, vector, híbrida con RRF y VertexRanker opcional), `VertexRankingReranker` (Ranking API), composición y `retrieval_eval --engine gcp` |
+| 4.G2 | — | Carril A: RAG Engine (`retrieve_contexts` por corpus de ACL y respuesta de Gemini con *grounding*) |
+| 4.G3 | — | Carril A: Agent Search (antes Vertex AI Search) con ingesta, Terraform y `answer_query` con citas |
+
+### Verificación previa (20-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| `google-cloud-vectorsearch` 0.11.6 | `batch_search_data_objects` con `TextSearch`, `VectorSearch` y `Ranker(rrf)`; el texto completo no exige índice ([búsqueda](https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/vector-search-2/query-search/search)) | Híbrida en el servidor, como en AI Search; `vector_search.tf` no cambia |
+| VertexRanker integrado | `semantic-ranker-fast@latest` es el único modelo y, **si el ranking falla, el batch devuelve el RRF sin avisar** ([reranking](https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/vector-search-2/query-search/reranking)) | El reranker de GCP por defecto es la Ranking API (falla de forma explícita); el integrado, solo como motor `gcp-semantic` de la comparativa (decidido con Sergio) |
+| Ranking API | `discoveryengine_v1.RankServiceAsyncClient.rank`, modelos `semantic-ranker-default-004` y `fast-004` (1024 tokens por registro), hasta 200 registros; ~1 $ por 1000 consultas según fuentes de terceros ([ranking](https://docs.cloud.google.com/generative-ai-app-builder/docs/ranking)) | `VertexRankingReranker` con el modelo fijado (no `@latest`) |
+| IAM | `roles/vectorsearch.dataObjectWriter` (ya asignado en la 3.G2) incluye `dataObjects.search` y `get`; la Ranking API pide `discoveryengine.rankingConfigs.rank`, incluido en `roles/discoveryengine.viewer` ([roles](https://docs.cloud.google.com/iam/docs/roles-permissions/vectorsearch)) | Un rol nuevo en `identity.tf`; la API `discoveryengine` ya estaba habilitada |
+| Vertex AI Search | Desde el 22-04-2026 se llama **Agent Search**; la API sigue siendo Discovery Engine ([nombres](https://docs.cloud.google.com/gemini-enterprise-agent-platform/vertex-ai-name-changes)) | `RETRIEVAL__MANAGED=agent_search` en la 4.G3 |
+| `search_data_objects` | Devuelve un *pager* asíncrono: iterarlo pide más páginas | Se usa solo la primera página, ya acotada por `top_k` |
+
+### 4.G1 · Carril B: Agent Retrieval y Ranking API
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_gcp_retrieval.py services/retrieval/tests/test_retrieval_cloud.py
+# Con coste (pendientes-cloud.md): colección de la 3.G2 llena, y en .env o en el shell
+#   RETRIEVAL__BACKEND=gcp_vector_search, RETRIEVAL__EMBEDDINGS=gcp, RETRIEVAL__RERANKER=gcp
+uv run python -m rag_evals.retrieval_eval --engine gcp --engine gcp-semantic   # → evals/reports/gcp/
+```
+
+[`adapters/gcp_retrieval.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_retrieval.py):
+
+| Modo | Petición | Score |
+|---|---|---|
+| `vector` | `search_data_objects` con `VectorSearch` (coseno) | `1 - distancia`, como el almacén de la 3.G2 |
+| `bm25` | Batch con un `TextSearch` (`title`, `text`) y `Ranker(rrf)` | El del ranker (RRF), que el batch devuelve en `distance` |
+| `hybrid` | Batch con `VectorSearch` + `TextSearch` y RRF con pesos 1:1 | Ídem |
+| Cualquiera con `RETRIEVAL__SEMANTIC_RANKER=true` | Batch con ventana de 50 candidatos y `VertexRanker` sobre `{title}`/`{text}` | El del VertexRanker (o el RRF si falló: ver arriba) |
+| `rerank` (estrategia) | Candidatos de cualquier modo → Ranking API | Score de la Ranking API sobre los registros originales |
+
+Decisiones:
+
+- **La ACL va con `$in` dentro de un `$and`**: el filtro admite como mucho dos niveles de
+  anidación y un `$or` de ACL dentro del `$and` ya los gastaría. Los filtros de la petición solo
+  pueden ser los del dominio (`FILTER_KEYS`): pedir `acl` es un error, la ACL es del servidor.
+- **Todo modo con fusión pasa por el batch**, incluso BM25 solo: así su score siempre es el
+  documentado del ranker. El de una búsqueda de texto suelta no está documentado.
+- **Un resultado fuera del alcance o de los filtros es un error**, no algo que se descarta: indica
+  que el filtro del servidor no se aplicó. Un score ausente (el campo es opcional en el proto) no
+  se convierte en 0, y uno no finito se rechaza, como en AI Search.
+- **La Ranking API ve posiciones, no identificadores**: cada registro lleva como id su índice en la
+  lista, se pide sin detalles (`ignore_record_details_in_response`) y el orden se aplica sobre
+  los registros originales. Ids desconocidos, repetidos o scores no finitos son un error.
+- `get` (citas y parent-child) resuelve el id con el mismo hash que la ingesta (`object_id`) y
+  comprueba que el objeto devuelto es el pedido y que su ACL lo permite.
+
+**Composición** (`retrieval/cloud.py`): `RETRIEVAL__BACKEND=gcp_vector_search` exige
+`RETRIEVAL__EMBEDDINGS=gcp` u otro encoder cloud (con `hashing` falla al validar) y
+`GCP__PROJECT`; `RETRIEVAL__RERANKER=gcp` también funciona sobre el corpus local, como Bedrock
+Rerank. Los clientes gRPC resuelven las credenciales (ADC) **al construirse**: sin ellas, el
+servicio no arranca (`DefaultCredentialsError`), en lugar de degradar a local. Comprobado el
+20-11-2026 sin ADC; los tests sustituyen las credenciales por anónimas.
+
+**Evals** (`rag_evals.retrieval_eval`): motores `gcp` (BM25, vector, híbrida y `rerank` con la
+Ranking API) y `gcp-semantic` (híbrida + VertexRanker), con informe en `evals/reports/gcp/`. Una
+ejecución compara motores de una sola nube.
+
+**Resultados:** solo locales (26 tests del adaptador y 4 de composición; suite completa en verde).
+La comparativa con el golden dataset y la comprobación de la degradación silenciosa del
+VertexRanker, en [pendientes](pendientes-cloud.md#fase-4-gcp).
 
 ## Checkpoint de entrevista
 

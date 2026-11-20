@@ -24,19 +24,20 @@ class RetrievalSettings(BaseSettings):
     chunk_max_words: int = Field(default=80, ge=10, le=1000)
     chunk_overlap_words: int = Field(default=15, ge=0)
     # Composicion cloud (carril B/A). Cada opcion distinta del valor por defecto tiene coste.
-    backend: Literal["local", "azure_search"] = "local"
-    embeddings: Literal["hashing", "azure", "bedrock"] = "hashing"
+    backend: Literal["local", "azure_search", "gcp_vector_search"] = "local"
+    embeddings: Literal["hashing", "azure", "bedrock", "gcp"] = "hashing"
+    # Ranker integrado en el backend: Semantic Ranker (AI Search) o VertexRanker (Agent Retrieval).
     semantic_ranker: bool = False
-    reranker: Literal["token-coverage", "bedrock"] = "token-coverage"
+    reranker: Literal["token-coverage", "bedrock", "gcp"] = "token-coverage"
     llm: Literal["none", "gateway"] = "none"
     managed: Literal["none", "bedrock_kb", "foundry_iq"] = "none"
 
     @model_validator(mode="after")
     def validate_composition(self) -> Self:
         if self.backend == "local" and (self.embeddings != "hashing" or self.semantic_ranker):
-            raise ValueError("El backend local solo usa hashing y no tiene Semantic Ranker")
-        if self.backend == "azure_search" and self.embeddings == "hashing":
-            raise ValueError("AI Search necesita el mismo encoder cloud que la ingesta")
+            raise ValueError("El backend local solo usa hashing y no tiene ranker integrado")
+        if self.backend != "local" and self.embeddings == "hashing":
+            raise ValueError("El backend cloud necesita el mismo encoder cloud que la ingesta")
         return self
 
     @property

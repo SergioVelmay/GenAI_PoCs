@@ -51,6 +51,13 @@ def build_embeddings(config: RetrievalSettings, settings: Settings) -> Embedding
 
         _require(settings.azure_openai.endpoint, "AZURE_OPENAI__ENDPOINT")
         return AzureOpenAIEmbedding.from_settings(settings.azure_openai, EMBEDDING_DIMENSIONS)
+    if config.embeddings == "gcp":
+        from genaipocs_core.adapters.gemini_embeddings import GeminiEmbedding
+
+        if settings.gemini.enterprise:
+            _require(settings.gcp.project, "GCP__PROJECT")
+        # `embed_query` usa `RETRIEVAL_QUERY`; la ingesta, `RETRIEVAL_DOCUMENT` (3.G2).
+        return GeminiEmbedding.from_settings(settings.gcp, settings.gemini, EMBEDDING_DIMENSIONS)
     from genaipocs_core.adapters.cloud_embeddings import BedrockTitanEmbedding
 
     return BedrockTitanEmbedding.from_settings(settings.bedrock, EMBEDDING_DIMENSIONS)
@@ -111,6 +118,35 @@ def _foundry_iq(settings: Settings, parts: CloudParts) -> ManagedKnowledgePort:
     )
 
 
+def _agent_retrieval(
+    config: RetrievalSettings, settings: Settings, parts: CloudParts
+) -> RetrievalPort:
+    from google.cloud.vectorsearch_v1 import (
+        DataObjectSearchServiceAsyncClient,
+        DataObjectServiceAsyncClient,
+    )
+
+    from genaipocs_core.adapters.gcp_auth import gcp_credentials
+    from genaipocs_core.adapters.gcp_retrieval import AgentRetrievalSearch
+
+    gcp, vector_search = settings.gcp, settings.gcp_vector_search
+    project = _require(gcp.project, "GCP__PROJECT")
+    embeddings = build_embeddings(config, settings)
+    location = vector_search.location or gcp.region
+    credentials = gcp_credentials(gcp)
+    backend = AgentRetrievalSearch(
+        DataObjectSearchServiceAsyncClient(credentials=credentials),
+        DataObjectServiceAsyncClient(credentials=credentials),
+        collection=(
+            f"projects/{project}/locations/{location}/collections/{vector_search.collection}"
+        ),
+        embeddings=embeddings,
+        semantic=config.semantic_ranker,
+    )
+    parts.closers.append(backend.close)
+    return backend
+
+
 async def build_cloud_parts(config: RetrievalSettings, settings: Settings) -> CloudParts:
     parts = CloudParts()
     try:
@@ -138,7 +174,31 @@ def _compose(config: RetrievalSettings, settings: Settings, parts: CloudParts) -
         )
         ranker = "+semantic-ranker" if config.semantic_ranker else ""
         parts.components["backend"] = f"azure_search:{config.embeddings}{ranker}"
-    if config.reranker == "bedrock":
+    elif config.backend == "gcp_vector_search":
+        parts.backend = _agent_retrieval(config, settings, parts)
+        ranker = "+vertex-ranker" if config.semantic_ranker else ""
+        parts.components["backend"] = f"gcp_vector_search:{config.embeddings}{ranker}"
+    if config.reranker == "gcp":
+        from google.cloud.discoveryengine_v1 import RankServiceAsyncClient
+
+        from genaipocs_core.adapters.gcp_auth import gcp_credentials
+        from genaipocs_core.adapters.gcp_retrieval import VertexRankingReranker
+
+        ranking = settings.gcp_ranking
+        ranking_client = RankServiceAsyncClient(credentials=gcp_credentials(settings.gcp))
+        reranker = VertexRankingReranker(
+            ranking_client,
+            ranking_config=RankServiceAsyncClient.ranking_config_path(
+                _require(settings.gcp.project, "GCP__PROJECT"),
+                ranking.location,
+                ranking.ranking_config,
+            ),
+            model=ranking.model,
+        )
+        parts.closers.append(reranker.close)
+        parts.reranker = reranker
+        parts.components["reranker"] = f"gcp-ranking:{ranking.model}"
+    elif config.reranker == "bedrock":
         from genaipocs_core.adapters.bedrock_retrieval import BedrockReranker
 
         arn = _require(settings.bedrock.rerank_model_arn, "BEDROCK__RERANK_MODEL_ARN")

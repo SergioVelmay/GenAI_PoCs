@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from genaipocs_core.adapters.azure_retrieval import AzureSearchRetrieval
 from genaipocs_core.adapters.bedrock_retrieval import BedrockKnowledgeBase, BedrockReranker
 from genaipocs_core.adapters.foundry_iq import FoundryIQKnowledge
+from genaipocs_core.adapters.gcp_retrieval import AgentRetrievalSearch, VertexRankingReranker
 from genaipocs_core.adapters.local_retrieval import LocalRetrieval
 from genaipocs_core.adapters.memory import HashingEmbedding
 from genaipocs_core.application.retrieval import RetrievalService
@@ -76,6 +77,8 @@ def test_defaults_are_local_only() -> None:
         {"embeddings": "azure"},
         {"semantic_ranker": True},
         {"backend": "azure_search"},
+        {"backend": "gcp_vector_search"},
+        {"embeddings": "gcp"},
         {"backend": "bogus"},
     ],
 )
@@ -109,6 +112,52 @@ async def test_full_cloud_composition_builds_without_network() -> None:
         }
     finally:
         await parts.aclose()
+
+
+@pytest.fixture
+def anonymous_gcp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Los clientes gRPC de GCP resuelven ADC al construirse: en la CI no hay credenciales."""
+    from google.auth.credentials import AnonymousCredentials
+
+    from genaipocs_core.adapters import gcp_auth
+
+    # `google.auth` no anota el constructor.
+    anonymous = AnonymousCredentials()  # type: ignore[no-untyped-call]
+    monkeypatch.setattr(gcp_auth, "gcp_credentials", lambda _: anonymous)
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize("semantic", [False, True])
+async def test_gcp_composition_builds_without_network(semantic: bool) -> None:
+    """4.G1: Agent Retrieval + embeddings de Gemini + Ranking API, sin llamar a la red."""
+    settings = cloud_settings(gcp={"project": "genaipocs-dev"})
+    parts = await build_cloud_parts(
+        config(
+            backend="gcp_vector_search", embeddings="gcp", semantic_ranker=semantic, reranker="gcp"
+        ),
+        settings,
+    )
+    try:
+        assert isinstance(parts.backend, AgentRetrievalSearch)
+        assert isinstance(parts.reranker, VertexRankingReranker)
+        ranker = "+vertex-ranker" if semantic else ""
+        assert parts.components == {
+            "backend": f"gcp_vector_search:gcp{ranker}",
+            "reranker": "gcp-ranking:semantic-ranker-default-004",
+        }
+        assert len(parts.closers) == 2
+    finally:
+        await parts.aclose()
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    "values",
+    [{"backend": "gcp_vector_search", "embeddings": "gcp"}, {"reranker": "gcp"}],
+)
+async def test_gcp_without_project_fails_fast(values: dict[str, Any]) -> None:
+    with pytest.raises(ValueError, match="GCP__PROJECT"):
+        await build_cloud_parts(config(**values), cloud_settings())
 
 
 @pytest.mark.parametrize("project_endpoint", ["", "https://h.services.ai.azure.com/api/projects/p"])

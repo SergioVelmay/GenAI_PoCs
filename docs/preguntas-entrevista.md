@@ -37,9 +37,9 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
 | Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
 | Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
-| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Vertex AI Search (respuestas citadas) |
+| RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Agent Search (antes Vertex AI Search; respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
-| Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API |
+| Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API (suelta) o VertexRanker integrado en Agent Retrieval |
 | Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
 | Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee, Agent Gateway (parte en preview) |
@@ -477,6 +477,35 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    validación real del carril gestionado aparecieron seis fallos que los tests locales no podían
    ver (versión de API, valores por defecto, formato de citas). Cada uno quedó con su test de
    regresión basado en la respuesta real capturada.
+
+### GCP (pasada 4.G)
+
+**Técnicas**
+
+1. **¿Cómo haces búsqueda híbrida en Agent Retrieval?** Con `batch_search_data_objects`: una
+   búsqueda vectorial y una de texto completo en la misma petición, fusionadas en el servidor con
+   RRF (`Ranker(rrf)`), como la híbrida de AI Search. La ACL viaja como filtro JSON en cada
+   búsqueda (`{"acl": {"$in": [...]}}` dentro de un `$and`, porque el filtro admite dos niveles
+   de anidación) y se vuelve a comprobar en cada resultado: uno fuera del alcance es un error, no
+   algo que se descarta. Incluso BM25 solo pasa por el batch, para que el score sea siempre el
+   documentado del ranker.
+2. **Agent Retrieval trae un reranker integrado. ¿Por qué no es tu reranker por defecto?** Porque
+   la documentación dice que, si el ranking falla, el batch devuelve el RRF **sin avisar**. Medirías
+   un sistema y estarías sirviendo otro. En Azure pedimos lo contrario (`semantic_error_mode=fail`).
+   Por defecto uso la Ranking API como `RerankerPort`, que falla de forma explícita, y el
+   integrado queda como motor de la comparativa hasta comprobar en la nube cómo se comporta.
+3. **¿Qué ve la Ranking API de tus datos?** Solo el título y el texto de candidatos que la app ya
+   autorizó, con su posición como id. Pido la respuesta sin detalles y aplico el orden sobre mis
+   registros originales: el servicio no puede cambiar un texto ni colar un documento. Un id
+   desconocido, repetido o un score no finito es un error, igual que con Bedrock Rerank.
+
+**Negocio y stakeholders**
+
+1. **¿Cuánto cuesta añadir el reranker de GCP y cuándo lo pagarías?** Por uso: del orden de 1 $
+   por 1000 consultas y sin recurso fijo, como Bedrock Rerank; el Semantic Ranker de Azure va
+   dentro de AI Search Basic (~70 €/mes, con 1000 consultas gratis). En Azure, el ranker subió el
+   recall@5 de 0,79 a 0,97 a cambio de ~40 ms. Lo pagaría si el golden dataset muestra la misma
+   mejora en GCP; si no, vector solo, que en Azure ya daba 0,95.
 
 <a id="fase-5"></a>
 

@@ -220,6 +220,19 @@ def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
 
+def test_gcp_ranking_is_pinned_and_global(monkeypatch: pytest.MonkeyPatch) -> None:
+    """4.G1: modelo fijado (no `@latest`) y configuración por defecto del proyecto."""
+    ranking = Settings(_env_file=None).gcp_ranking
+    assert (ranking.model, ranking.location, ranking.ranking_config) == (
+        "semantic-ranker-default-004",
+        "global",
+        "default_ranking_config",
+    )
+
+    monkeypatch.setenv("GCP_RANKING__MODEL", "semantic-ranker-fast-004")
+    assert Settings(_env_file=None).gcp_ranking.model == "semantic-ranker-fast-004"
+
+
 def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GCP_RAG_ENGINE__PUBLIC_CORPUS", "projects/p/locations/l/ragCorpora/1")
 

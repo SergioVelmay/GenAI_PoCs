@@ -134,6 +134,18 @@ Requiere antes los pendientes de las fases 2 y 3.
 - [ ] AWS: resincronizar Bedrock KB con los sidecars con ACL, habilitar Cohere Rerank (`BEDROCK__RERANK_MODEL_ARN`, `BEDROCK_KB__GENERATION_MODEL_ARN`) y repetir la comparativa con `RETRIEVAL__RERANKER=bedrock` y `RETRIEVAL__MANAGED=bedrock_kb`.
 - [x] Estrategias con LLM (rewrite, HyDE, subpreguntas, router, auto) sobre AI Search con el golden dataset (18-10-2026, 0,10 $): ninguna mejora a la híbrida + Semantic Ranker y todas triplican la latencia. Informe en `evals/reports/azure/retrieval-llm.md`.
 
+<a id="fase-4-gcp"></a>
+
+### GCP (pasada 4.G)
+
+Requiere los [pendientes de GCP de la fase 3](#fase-3-gcp) con el corpus clasificado ya ingerido:
+hacerlo **en la misma sesión** que el carril B de la 3.G2 (`vector_search_enabled` efímero). La
+consulta cuesta céntimos: embeddings de Gemini por pregunta, lecturas de Agent Retrieval y la
+Ranking API (~1 $ por 1000 consultas según fuentes de terceros; confirmar el precio oficial).
+
+- [ ] **Carril B con Agent Retrieval** (4.G1): `apply` (añade `roles/discoveryengine.viewer` a la cuenta de la app), `uv run python -m rag_evals.retrieval_eval --engine gcp --engine gcp-semantic` → `evals/reports/gcp/`. Comparar con [Azure](fase-4-retrieval.md#resultados-en-azure-18-10-2026): hit@1, nDCG@5, recall@5, 0 fugas y latencia p50/p95 de BM25, vector, híbrida, híbrida + Ranking API (`rerank`) e híbrida + VertexRanker. Comprobar: qué devuelve `distance` en el batch (RRF y VertexRanker: escala y orden descendente), si `TextSearch` funciona sin índice y con texto en español (sin *stemming*), que el filtro `$in` de ACL más `$and` se acepta, y **si el VertexRanker degrada en silencio** (p. ej. con un `top_n` fuera de rango: si el batch responde igual, documentarlo y no usarlo como ranker de producción). Capturar respuestas reales para los dobles de `test_gcp_retrieval.py`.
+- [ ] **Ranking API** (4.G1): confirmar el precio en la página oficial de Agent Search, que `semantic-ranker-default-004` está disponible en `global` y la latencia frente a `fast-004` (`GCP_RANKING__MODEL`). Si la cuota de la cuenta de prueba no la admite, anotarlo aquí.
+
 ## Fase 5 · Evals ([doc](fase-5-evals.md))
 
 - [x] `generation_eval --mode llm --judge native|ragas|deepeval --limit 20 --budget-usd 0.50` con la misma muestra (18-10-2026, ~0,39 $ en total): informes en `evals/reports/azure/`.
