@@ -283,7 +283,59 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
    con el mismo conjunto.
 5. Repetir el retrieval con embeddings reales y reranker de nube (fase 4) y fijar un baseline nuevo.
 
-## 8. Checkpoint de entrevista
+## 8. GCP (pasada 5.G)
+
+**Objetivo:** juzgar con Gemini lo mismo que se juzgó con Azure (mismo conjunto de calibración,
+mismas etiquetas humanas, mismo kappa) y sumar el carril A de GCP, el **Gen AI Evaluation
+Service**. Coste 0: todo con dobles; las medidas reales, en
+[pendientes](pendientes-cloud.md#fase-5-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 5.G0 | `5e07bdc` | Ficheros temporales en `.tmp/` y plan de la 5.G (dividido en G1–G3) |
+| 5.G1 | (este commit) | Juez Gemini por los carriles B y C, informes con coste por nube y esquemas compatibles con Gemini |
+| 5.G2 | | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
+| 5.G3 | | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
+
+### Verificación previa (20-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Juez Gemini | `GEMINI__JUDGE_MODEL=gemini-4-argon` y su precio existían desde la 2.G, pero `build_judge_provider_llm` cortaba con "llega en la fase 5.G1" | Se implementa en la 5.G1 |
+| Informes con coste | `generation_eval`, `calibration` y `managed_eval` escribían siempre en `evals/reports/azure/` | Una calibración con Gemini habría **sobrescrito** la de Azure (mismos nombres): carpeta por nube |
+| Salida estructurada de Gemini | `response_json_schema` admite un subconjunto de JSON Schema; las longitudes (`minLength`...) las descarta sin error y un esquema demasiado complejo da `400 INVALID_ARGUMENT` ([salida estructurada](https://aistudio.google.com/docs/structured-output)) | Test de palabras clave sobre todos los esquemas de los jueces; la complejidad solo se puede comprobar en la nube |
+| Evaluation Service | Cliente nuevo `client.evals` (**Preview**, rúbricas) frente a `EvalTask` (GA, sin desarrollo activo y sin `GROUNDING`) ([visión general](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/evaluation-overview)); `europe-west4` soportada | Carril A con el cliente nuevo (5.G2) |
+| Dependencias del Evaluation Service | El extra `google-cloud-aiplatform[evaluation]` exige `litellm<1.97` (aquí 1.104); `client.evals` solo necesita `pandas`, que ya trae el extra `evals` | No se instala el extra de Google; `gcp_eval` va en el extra `evals`, como `foundry_eval` |
+| Métricas gestionadas | `GROUNDING` (0-1, frase a frase, una llamada); v2 juzga con Gemini 3.5 Flash y v1 con 2.5 Flash ([métricas](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/rubric-metric-details)). Sin métrica de relevancia equivalente a la de Foundry | Relevancia con una métrica LLM propia con el criterio de las etiquetas adjudicadas (decidido con Sergio) |
+
+### 5.G1 · Juez Gemini en los carriles B y C
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_llm_factory.py evals/tests/test_judges.py
+uv sync --all-packages --extra evals ; uv run --no-sync pytest -p no:deepeval evals/tests/test_judges.py  # RAGAS y DeepEval
+# Con coste (pendientes-cloud.md), con LLM_PROVIDER=gcp:
+uv run python -m rag_evals.calibration judge --judge native --budget-usd 0.30   # → evals/reports/gcp/
+uv run python -m rag_evals.calibration agreement --cloud gcp
+```
+
+- **Juez Gemini** (`build_judge_provider_llm`): `gemini-4-argon` con su propio
+  `GEMINI__JUDGE_THINKING_LEVEL=low` (no el del generador). Con GCP de principal y Azure y AWS de
+  respaldo, el juez también cae entre nubes (`build_judge_llm`). RAGAS y DeepEval no cambian:
+  hablan con el modelo por nuestro `LLMPort`.
+- **Guardarraíl juez ≠ generador** en la fábrica, para las tres nubes: si una variable de entorno
+  pone de juez a un modelo del router, falla en vez de dejar que se puntúe a sí mismo. Antes solo
+  lo comprobaban los valores por defecto. Con él cae `unsupported_provider`, el último corte de
+  la 0.G: un proveedor sin juez (`simulated`) sigue fallando en vez de construir Bedrock.
+- **Informes por nube:** `llm_reports_dir(LLM_PROVIDER)` → `evals/reports/<nube>/` en
+  `generation_eval` (con LLM) y `calibration judge`; `calibration agreement --cloud X` compara los
+  jueces de una nube; `managed_eval` escribe en la nube del **servicio** evaluado
+  (`MANAGED_CLOUD`), no en la del juez.
+- **Esquemas:** el del juez nativo y las 28 clases de respuesta de las cuatro métricas de RAGAS y
+  DeepEval (también precisión y recall de contexto, que solo corren con referencia) usan solo
+  palabras clave que Gemini admite. Queda por ver en la nube la **complejidad**: `JudgeVerdict`
+  tiene listas con `maxItems` de 20 y 30, y Gemini despliega cada posición en su gramática.
+
+## 9. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 5](preguntas-entrevista.md#fase-5).

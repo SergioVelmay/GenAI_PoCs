@@ -12,6 +12,7 @@ from genaipocs_core.ports.llm import ChatMessage, Role
 from genaipocs_core.ports.vector_store import VectorRecord
 from rag_evals.generation_eval import (
     GenerationOutcome,
+    _out_dir,
     evaluate_generation,
     render_markdown,
     run_generation_eval,
@@ -21,6 +22,7 @@ from rag_evals.generation_eval import (
 from rag_evals.golden import CORPUS_PATH, DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores
 from rag_evals.metering import BudgetExceededError, CostMeter
+from rag_evals.retrieval_eval import REPORTS_DIR
 
 POLICY = "Refundable: yes, up to 48 hours before the session."
 SECRET = "Internal: gift cards are valid for twelve months."
@@ -218,3 +220,8 @@ async def test_cost_meter_refuses_to_continue_with_unpriced_models() -> None:
         await llm.complete([ChatMessage(Role.USER, "hola")])
     with pytest.raises(ValueError):
         CostMeter(budget_usd=Decimal(0))
+
+
+def test_without_llm_the_report_feeds_the_gate() -> None:
+    """Sin LLM (coste 0), el informe que lee el gate; con LLM, la carpeta de la nube."""
+    assert _out_dir(needs_llm=False) == REPORTS_DIR

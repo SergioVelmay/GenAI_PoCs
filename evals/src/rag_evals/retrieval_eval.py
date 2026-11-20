@@ -19,6 +19,7 @@ from typing import Literal
 from genaipocs_core.adapters.memory import HashingEmbedding
 from genaipocs_core.application.llm.structured import StructuredOutputError
 from genaipocs_core.application.retrieval import RetrievalRequest, RetrievalService
+from genaipocs_core.config import LLMProvider
 from genaipocs_core.domain.evals import (
     hit_at_k,
     ndcg_at_k,
@@ -39,7 +40,7 @@ from retrieval.bootstrap import build_local_service, load_synthetic
 from retrieval.settings import RetrievalSettings
 
 Engine = Literal["native", "llamaindex", "azure", "azure-semantic", "gcp", "gcp-semantic"]
-type Cloud = Literal["azure", "gcp"]
+type Cloud = Literal["azure", "aws", "gcp"]
 LOCAL_ENGINES: tuple[Engine, ...] = ("native", "llamaindex")
 # Con coste (embeddings por consulta) y solo si se piden con --engine: nunca en CI.
 ENGINE_CLOUD: dict[Engine, Cloud] = {
@@ -71,6 +72,8 @@ LLM_STRATEGIES: tuple[RetrievalStrategy, ...] = (
     "auto",
 )
 REPORTS_DIR = EVALS_DIR / "reports"
+# Informes con coste de Azure. Las evals de la fase 5 eligen la carpeta por nube
+# (`cloud_reports_dir`, `llm_reports_dir`); las de otras fases, en su pasada GCP.
 CLOUD_REPORTS_DIR = REPORTS_DIR / "azure"
 EMBEDDINGS = "hashing-1024"
 CLOUD_EMBEDDINGS: dict[Cloud, str] = {
@@ -280,6 +283,21 @@ def engines_cloud(engines: Sequence[Engine]) -> Cloud | None:
 
 def cloud_reports_dir(cloud: Cloud) -> Path:
     return REPORTS_DIR / cloud
+
+
+def llm_reports_dir(provider: LLMProvider) -> Path:
+    """Carpeta de los informes con LLM real (generacion y jueces): la de la nube del proveedor.
+
+    Asi una calibracion con Gemini no sobrescribe la de Azure (mismos nombres de fichero).
+    """
+    if provider is LLMProvider.SIMULATED:
+        raise ValueError("El proveedor simulado no genera informes de evals con coste")
+    clouds: dict[LLMProvider, Cloud] = {
+        LLMProvider.AZURE: "azure",
+        LLMProvider.AWS: "aws",
+        LLMProvider.GCP: "gcp",
+    }
+    return cloud_reports_dir(clouds[provider])
 
 
 def cloud_settings(corpus: Path, engine: Engine) -> RetrievalSettings:

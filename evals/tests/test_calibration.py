@@ -16,11 +16,13 @@ from rag_evals.calibration import (
     build_set,
     judge_faithful,
     judge_set,
+    load_judged,
     load_labels,
     load_set,
     perturb,
     render_agreement,
     render_readable,
+    write_judged,
 )
 from rag_evals.golden import DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores
@@ -133,3 +135,14 @@ async def test_budget_stop_keeps_what_was_already_judged() -> None:
 
     judged = await judge_set(load_set()[:5], Metered())
     assert [item.error for item in judged] == [None, None] + [BUDGET_ERROR] * 3
+
+
+def test_judged_reports_of_two_clouds_do_not_overwrite_each_other(tmp_path: Path) -> None:
+    azure, gcp = tmp_path / "azure", tmp_path / "gcp"
+    scores = JudgeScores(1.0, 1.0, None, None)
+    write_judged("native", [JudgedItem("a", "good", scores, None)], {"cost_usd": "0"}, azure)
+    path = write_judged("native", [JudgedItem("a", "good", None, "x")], {"cost_usd": "0"}, gcp)
+
+    assert path == gcp / "calibration-native.json"
+    assert load_judged(azure / "calibration-native.json")[1][0].scores == scores
+    assert load_judged(path)[1][0].error == "x"

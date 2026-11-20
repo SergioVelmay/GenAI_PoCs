@@ -567,6 +567,14 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    autopreferencia). En este repo el router mandaba los dos al mismo modelo sin que nadie lo
    decidiera; ahora el juez es `gpt-4.1`, fijo y fuera del router, y el informe desglosa el coste
    por modelo para que se vea.
+8. **(GCP) Cambias el juez de Azure a Gemini. ¿Qué puede romperse sin que nadie lo vea?** Tres
+   cosas que encontré al hacerlo: que el juez acabe siendo el generador por una variable de
+   entorno (la fábrica ahora lo rechaza en las tres nubes, no solo en los valores por defecto);
+   que los informes de una nube pisen los de otra (mismos nombres en la misma carpeta: la
+   calibración de Azure se habría perdido); y que el esquema de salida estructurada no lo acepte
+   el otro proveedor (Gemini admite un subconjunto de JSON Schema, así que un test revisa todos
+   los esquemas de los jueces). Y el kappa no se hereda: un juez nuevo se calibra otra vez con las
+   mismas etiquetas humanas.
 
 ### Negocio y stakeholders
 

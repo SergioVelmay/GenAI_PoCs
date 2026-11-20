@@ -37,7 +37,13 @@ from rag_evals.golden import CORPUS_PATH, DATASET_PATH, DatasetMeta, GoldenItem,
 from rag_evals.golden import verify_corpus as verify_corpus_hash
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, NativeJudge, RagJudge
 from rag_evals.metering import CostMeter, MeterSnapshot
-from rag_evals.retrieval_eval import EMBEDDINGS, REPORTS_DIR, Engine, local_settings
+from rag_evals.retrieval_eval import (
+    EMBEDDINGS,
+    REPORTS_DIR,
+    Engine,
+    llm_reports_dir,
+    local_settings,
+)
 from retrieval.bootstrap import build_local_service, load_synthetic
 
 Mode = Literal["extractive", "llm"]
@@ -515,11 +521,24 @@ def _judge_embeddings() -> EmbeddingPort:
     return BedrockTitanEmbedding.from_settings(settings.bedrock)
 
 
+def _out_dir(needs_llm: bool) -> Path:
+    """Sin LLM, el informe del gate; con LLM, la carpeta de la nube que genera y juzga."""
+    if not needs_llm:
+        return REPORTS_DIR
+    from genaipocs_core.config import Settings
+
+    return llm_reports_dir(Settings().llm_provider)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
     parser.add_argument("--corpus", type=Path, default=CORPUS_PATH)
-    parser.add_argument("--out", type=Path, default=REPORTS_DIR)
+    parser.add_argument(
+        "--out",
+        type=Path,
+        help="Por defecto, evals/reports/ (coste 0) o la carpeta de la nube de LLM_PROVIDER",
+    )
     parser.add_argument("--engine", action="append", choices=["native", "llamaindex"])
     parser.add_argument("--strategy", action="append", choices=GENERATION_STRATEGIES)
     parser.add_argument("--top-k", type=int, default=5)
@@ -554,7 +573,7 @@ def main() -> None:
         )
     )
     name = "generation" if not needs_llm else f"generation-{args.mode}-{args.judge}"
-    json_path, md_path = write_report(report, args.out, name)
+    json_path, md_path = write_report(report, args.out or _out_dir(needs_llm), name)
     print(f"Informe: {md_path} y {json_path}")
     for run in report.runs:
         print(

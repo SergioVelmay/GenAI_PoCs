@@ -21,19 +21,6 @@ from genaipocs_core.config import LLMProvider, Settings
 from genaipocs_core.ports import LLMError, LLMPort, LLMTracer, RateLimiterPort
 
 
-def unsupported_provider(provider: LLMProvider, *, feature: str, phase: str) -> LLMError:
-    """Error de un proveedor declarado en el enum pero todavía sin adaptador.
-
-    Las raíces de composición eligen con cadenas de `if` que terminan en Bedrock. Sin este
-    corte, cualquier valor nuevo del enum caería ahí y el sistema "funcionaría" hablando con
-    el proveedor equivocado: un fallo silencioso que solo se vería en la factura.
-    """
-    return LLMError(
-        f"El proveedor '{provider}' aún no tiene adaptador de {feature} (llega en la "
-        f"{phase}). Usa azure o aws."
-    )
-
-
 def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTier) -> LLMPort:
     """Un modelo concreto de un proveedor, sin capas (carril B: SDK nativo)."""
     if provider is LLMProvider.SIMULATED:
@@ -188,21 +175,53 @@ def _litellm_routes(
     }
 
 
+def judge_models(settings: Settings, provider: LLMProvider) -> tuple[str, frozenset[str]]:
+    """El modelo juez de un proveedor y los modelos de su router (barato y potente)."""
+    if provider is LLMProvider.AZURE:
+        azure = settings.azure_openai
+        return azure.judge_deployment, frozenset(
+            {azure.chat_deployment, azure.cheap_chat_deployment}
+        )
+    if provider is LLMProvider.AWS:
+        bedrock = settings.bedrock
+        return bedrock.judge_model_id, frozenset(
+            {bedrock.chat_model_id, bedrock.cheap_chat_model_id}
+        )
+    if provider is LLMProvider.GCP:
+        gemini = settings.gemini
+        return gemini.judge_model, frozenset({gemini.chat_model, gemini.cheap_chat_model})
+    # Sin este corte, un valor nuevo del enum (o `simulated`) construiría Bedrock en silencio.
+    raise LLMError(f"El proveedor '{provider}' no tiene modelo juez. Usa azure, aws o gcp.")
+
+
 def build_judge_provider_llm(settings: Settings, provider: LLMProvider) -> LLMPort:
-    """Modelo juez de evals de un proveedor (sin capas)."""
+    """Modelo juez de evals de un proveedor (sin capas).
+
+    Nunca uno de los modelos del router: el juez puntuaría sus propias respuestas (sesgo de
+    autopreferencia). Se comprueba aquí, no solo en los valores por defecto, porque una variable
+    de entorno puede romperlo sin que nada más falle.
+    """
+    judge, router = judge_models(settings, provider)
+    if judge in router:
+        raise LLMError(
+            f"El juez de '{provider}' ({judge}) es también un modelo del router: "
+            "elige otro modelo para juzgar"
+        )
     if provider is LLMProvider.AZURE:
         from genaipocs_core.adapters.azure_openai import AzureOpenAILLM
 
-        azure = settings.azure_openai
-        return AzureOpenAILLM.from_settings(azure, deployment=azure.judge_deployment)
+        return AzureOpenAILLM.from_settings(settings.azure_openai, deployment=judge)
     if provider is LLMProvider.GCP:
-        raise unsupported_provider(provider, feature="juez", phase="fase 5.G1")
+        from genaipocs_core.adapters.gemini import GeminiLLM
+
+        gemini = settings.gemini
+        return GeminiLLM.from_settings(
+            settings.gcp, gemini, model=judge, thinking_level=gemini.judge_thinking_level
+        )
 
     from genaipocs_core.adapters.bedrock import BedrockConverseLLM
 
-    return BedrockConverseLLM.from_settings(
-        settings.bedrock, model_id=settings.bedrock.judge_model_id
-    )
+    return BedrockConverseLLM.from_settings(settings.bedrock, model_id=judge)
 
 
 def shared_limiter(

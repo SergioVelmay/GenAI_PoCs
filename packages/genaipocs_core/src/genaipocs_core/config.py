@@ -108,6 +108,9 @@ class GeminiSettings(BaseModel):
     embedding_batch_size: int = Field(default=100, ge=1, le=250)
     # Juez de evals: distinto y más capaz que el generador (sesgo de autopreferencia); 5.G1.
     judge_model: str = "gemini-4-argon"
+    # Razonamiento del juez, propio (no el del generador): `low` acota coste y latencia por
+    # muestra; si la calibración en la nube da peor kappa que Azure, probar `medium`.
+    judge_thinking_level: ThinkingLevel = "low"
     # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
     timeout_seconds: float = 120.0
     # implicit: Gemini cachea solo los prefijos repetidos (best-effort, sin coste de escritura).

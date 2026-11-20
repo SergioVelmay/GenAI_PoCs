@@ -28,9 +28,11 @@ from genaipocs_core.ports.llm import LLMContentFilterError
 from genaipocs_core.ports.retrieval import ManagedKnowledgePort, ManagedRagResponse
 from rag_evals.golden import DATASET_PATH, GoldenItem, load_golden
 from rag_evals.judges import JudgeError, JudgeSample, JudgeScores, RagJudge
-from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR
+from rag_evals.retrieval_eval import Cloud, cloud_reports_dir
 
 ManagedEngine = Literal["foundry_iq", "bedrock_kb"]
+# El informe va a la carpeta de la nube del servicio evaluado (no a la del juez).
+MANAGED_CLOUD: dict[ManagedEngine, Cloud] = {"foundry_iq": "azure", "bedrock_kb": "aws"}
 Status = Literal["answered", "rejected", "blocked"]
 SEED = 42
 NO_CITATIONS = "respuesta sin citas: sin respaldo"
@@ -263,8 +265,9 @@ async def _run(args: argparse.Namespace) -> Path:
     finally:
         await parts.aclose()
     summary = summarize_managed(args.engine, outcomes)
-    CLOUD_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    base = CLOUD_REPORTS_DIR / f"managed-{args.engine}"
+    out_dir = cloud_reports_dir(MANAGED_CLOUD[args.engine])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base = out_dir / f"managed-{args.engine}"
     cost = asdict(meter.snapshot())
     payload = {"summary": asdict(summary), "cost": cost, "outcomes": [asdict(o) for o in outcomes]}
     base.with_suffix(".json").write_text(
@@ -277,7 +280,7 @@ async def _run(args: argparse.Namespace) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--engine", choices=["foundry_iq", "bedrock_kb"], default="foundry_iq")
+    parser.add_argument("--engine", choices=list(MANAGED_CLOUD), default="foundry_iq")
     parser.add_argument("--answerable", type=int, default=10)
     parser.add_argument("--unanswerable", type=int, default=5)
     parser.add_argument("--budget-usd", type=Decimal, required=True)

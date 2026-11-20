@@ -5,6 +5,7 @@ import pytest
 from genaipocs_core.adapters.local_retrieval import LocalRetrieval
 from genaipocs_core.adapters.memory import FakeLLM, HashingEmbedding
 from genaipocs_core.application.retrieval import RetrievalService
+from genaipocs_core.config import LLMProvider
 from genaipocs_core.domain.retrieval import AccessScope
 from genaipocs_core.ports.llm import LLMContentFilterError, LLMResponse
 from genaipocs_core.ports.vector_store import VectorRecord
@@ -17,6 +18,7 @@ from rag_evals.retrieval_eval import (
     cloud_settings,
     engines_cloud,
     evaluate_service,
+    llm_reports_dir,
     render_markdown,
     run_retrieval_eval,
     summarize,
@@ -146,6 +148,15 @@ def test_one_run_one_cloud_and_its_own_reports_dir() -> None:
     with pytest.raises(ValueError, match="una sola nube"):
         engines_cloud(["azure", "gcp"])
     assert cloud_reports_dir("gcp") == REPORTS_DIR / "gcp"
+
+
+def test_llm_reports_go_to_the_cloud_of_the_provider() -> None:
+    """Una calibracion con Gemini no puede pisar la de Azure: mismos nombres, otra carpeta."""
+    assert llm_reports_dir(LLMProvider.AZURE) == REPORTS_DIR / "azure"
+    assert llm_reports_dir(LLMProvider.AWS) == REPORTS_DIR / "aws"
+    assert llm_reports_dir(LLMProvider.GCP) == REPORTS_DIR / "gcp"
+    with pytest.raises(ValueError, match="simulado"):
+        llm_reports_dir(LLMProvider.SIMULATED)
 
 
 @pytest.mark.parametrize("engine", ["native", "llamaindex"])

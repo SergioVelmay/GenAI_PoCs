@@ -171,6 +171,18 @@ Ranking API (~1 $ por 1000 consultas según fuentes de terceros; confirmar el pr
 - [x] Juez de fidelidad sobre el `answer` de Foundry IQ (18-10-2026, `rag_evals.managed_eval`): 19/21 fieles; detecta la sobre-respuesta y una respuesta que añade condiciones no citadas. Informe en `evals/reports/azure/managed-foundry_iq.md`.
 - [x] Job `evals` de la CI en `--mode enforce` (18-10-2026), tras 15 ejecuciones seguidas con 0 regresiones.
 
+<a id="fase-5-gcp"></a>
+
+### GCP (pasada 5.G)
+
+Requiere el [modelo de la 2.G](#fase-2-gcp) (Gemini en Agent Platform con `roles/aiplatform.user`).
+Todo con `LLM_PROVIDER=gcp` y el extra `evals`; los informes van a `evals/reports/gcp/`. Coste
+estimado: ~1 $ en total (Azure, con el mismo conjunto: nativo 0,06 $, RAGAS 0,31 $ y DeepEval
+0,29 $), algo más con `gemini-4-argon` (4 $/20 $ por millón frente a 2 $/8 $ de `gpt-4.1`).
+
+- [ ] **Calibración con el juez Gemini** (5.G1): `calibration judge --judge native|ragas|deepeval --budget-usd 0.50` y `calibration agreement --cloud gcp`. Comparar el kappa con el de [Azure](fase-5-evals.md#calibración-de-los-jueces-18-10-2026) (nativo 0,82 / 1,00). Comprobar: que Gemini acepta el esquema de `JudgeVerdict` (listas con `maxItems` 20 y 30: si da `400 INVALID_ARGUMENT` por complejidad, quitar `maxItems` solo en el esquema que se envía a Gemini, porque Pydantic lo valida igual), el coste por muestra y si `GEMINI__JUDGE_THINKING_LEVEL=low` basta (si el kappa baja, repetir con `medium`). Para RAGAS, embeddings de Gemini (`_judge_embeddings`).
+- [ ] **Generación con juez Gemini** (5.G1): `generation_eval --mode llm --judge native --limit 20 --budget-usd 0.50` con generador Gemini enrutado (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`) y juez `gemini-4-argon`; comparar con los [resultados en Azure](fase-5-evals.md#resultados-en-azure-18-10-2026).
+
 ## Fase 6 · Tools y MCP ([doc](fase-6-tools-mcp.md))
 
 - [x] Azure (18-10-2026): `tool_loop_demo.py` y `support_agent` (con y sin `--gateway`, `MCP__AUTH=jwt`) con Azure OpenAI; trazas y coste en Langfuse. Tres fallos de diseño de tools corregidos y regla de routing para escrituras.
