@@ -26,3 +26,7 @@ vector_search_enabled = false
 # RAG Engine del carril A (3.G3): Basic (Spanner por horas) durante la sesión; false al terminar
 # = Unprovisioned (borra los datos y para la facturación).
 rag_engine_enabled = false
+
+# Agent Search del carril A (4.G3): pago por consulta (Enterprise + respuestas generativas), sin
+# coste por hora; aun así, false al terminar (borra el índice; se reimporta con FULL).
+agent_search_enabled = false

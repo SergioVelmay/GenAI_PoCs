@@ -179,6 +179,45 @@ def _rag_engine(settings: Settings) -> ManagedKnowledgePort:
     )
 
 
+def _agent_search(settings: Settings, parts: CloudParts) -> ManagedKnowledgePort:
+    from google.cloud.discoveryengine_v1 import (
+        ConversationalSearchServiceAsyncClient,
+        SearchServiceAsyncClient,
+    )
+
+    from genaipocs_core.adapters.gcp_agent_search import (
+        AgentSearchKnowledge,
+        discovery_engine_options,
+    )
+    from genaipocs_core.adapters.gcp_auth import gcp_credentials
+
+    gcp, search = settings.gcp, settings.gcp_agent_search
+    project = _require(gcp.project, "GCP__PROJECT")
+    bucket = _require(
+        search.bucket or settings.gcp_rag_engine.bucket,
+        "GCP_AGENT_SEARCH__BUCKET o GCP_RAG_ENGINE__BUCKET",
+    )
+    credentials = gcp_credentials(gcp)
+    options = discovery_engine_options(search.location)
+    search_client = SearchServiceAsyncClient(credentials=credentials, client_options=options)
+    parts.closers.append(search_client.transport.close)
+    answer_client = ConversationalSearchServiceAsyncClient(
+        credentials=credentials, client_options=options
+    )
+    parts.closers.append(answer_client.transport.close)
+    return AgentSearchKnowledge(
+        search=search_client,
+        answers=answer_client,
+        serving_config=(
+            f"projects/{project}/locations/{search.location}/collections/default_collection"
+            f"/engines/{search.engine}/servingConfigs/default_search"
+        ),
+        bucket=bucket,
+        prefix=search.prefix,
+        answer_model=search.answer_model,
+    )
+
+
 async def build_cloud_parts(config: RetrievalSettings, settings: Settings) -> CloudParts:
     parts = CloudParts()
     try:
@@ -259,3 +298,6 @@ def _compose(config: RetrievalSettings, settings: Settings, parts: CloudParts) -
         parts.managed = _rag_engine(settings)
         model = settings.gcp_rag_engine.generation_model
         parts.components["managed"] = f"rag_engine:{model}" if model else "rag_engine"
+    elif config.managed == "agent_search":
+        parts.managed = _agent_search(settings, parts)
+        parts.components["managed"] = f"agent_search:{settings.gcp_agent_search.answer_model}"

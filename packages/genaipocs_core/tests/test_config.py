@@ -242,3 +242,14 @@ def test_gcp_lane_a_has_one_corpus_per_acl(monkeypatch: pytest.MonkeyPatch) -> N
     assert (rag.chunk_size, rag.chunk_overlap) == (300, 60)
     # 4.G2: sin modelo de generación ni reranker por defecto (solo `retrieve`, sin coste extra).
     assert (rag.generation_model, rag.generation_location, rag.rerank_model) == ("", "", "")
+
+
+def test_gcp_agent_search_defaults_match_terraform() -> None:
+    """4.G3: los nombres por defecto son los de `agent_search.tf` y la ubicación, multirregión."""
+    search = Settings(_env_file=None).gcp_agent_search
+    assert (search.location, search.data_store, search.engine) == (
+        "eu",
+        "knowledge",
+        "knowledge-search",
+    )
+    assert (search.bucket, search.prefix, search.answer_model) == ("", "agent-search", "stable")

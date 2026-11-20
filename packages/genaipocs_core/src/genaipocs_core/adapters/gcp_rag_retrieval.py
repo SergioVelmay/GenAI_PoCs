@@ -286,18 +286,29 @@ def _segment(segment: types.Segment | None, texts: Sequence[str]) -> tuple[str, 
     part_index = (segment.part_index if segment else None) or 0
     if segment is None or not 0 <= part_index < len(texts) or segment.end_index is None:
         raise InvalidCitationError("Segmento de Gemini sin parte de texto o sin fin")
-    raw = texts[part_index].encode()
-    start, end = segment.start_index or 0, segment.end_index
-    if not 0 <= start < end <= len(raw):
-        raise InvalidCitationError("Segmento de Gemini fuera del texto generado")
-    try:
-        prefix, text = raw[:start].decode(), raw[start:end].decode()
-    except UnicodeDecodeError as exc:
-        raise InvalidCitationError("Segmento de Gemini corta un caracter") from exc
-    if not text.strip() or (segment.text is not None and segment.text != text):
+    text, start, end = utf8_span(texts[part_index], segment.start_index or 0, segment.end_index)
+    if segment.text is not None and segment.text != text:
         raise InvalidCitationError("Segmento de Gemini no corresponde al texto generado")
-    begin = sum(len(previous) for previous in texts[:part_index]) + len(prefix)
-    return text, begin, begin + len(text)
+    offset = sum(len(previous) for previous in texts[:part_index])
+    return text, offset + start, offset + end
+
+
+def utf8_span(text: str, start: int, end: int) -> tuple[str, int, int]:
+    """Índices en bytes UTF-8 (`[start, end)`) → (fragmento, inicio, fin) en caracteres.
+
+    Gemini (*grounding*) y Agent Search (`answer_query`) miden las citas en bytes: cortar el `str`
+    con ellos desplaza la cita en cuanto hay una tilde. Un corte a mitad de carácter es un error.
+    """
+    raw = text.encode()
+    if not 0 <= start < end <= len(raw):
+        raise InvalidCitationError("Cita fuera del texto generado")
+    try:
+        prefix, fragment = raw[:start].decode(), raw[start:end].decode()
+    except UnicodeDecodeError as exc:
+        raise InvalidCitationError("La cita corta un caracter") from exc
+    if not fragment.strip():
+        raise InvalidCitationError("Cita vacia")
+    return fragment, len(prefix), len(prefix) + len(fragment)
 
 
 def _fuse(rankings: Sequence[Sequence[ManagedReference]], top_k: int) -> list[ManagedReference]:

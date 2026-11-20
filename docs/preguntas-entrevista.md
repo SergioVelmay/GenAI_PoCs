@@ -507,6 +507,14 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    distintos no se comparan. Y todo el texto no blanco debe estar cubierto por un segmento: lo
    que el modelo diga sin fuente invalida la respuesta, como en Bedrock.
 
+5. **GCP tiene dos RAG gestionados, RAG Engine y Agent Search. ¿En qué se diferencian para tu
+   ACL?** En RAG Engine el filtro por metadatos está en preview, así que separé los datos en un
+   corpus por nivel de acceso; en Agent Search el filtro sobre `structData` es GA y lo uso como
+   en AI Search, comprobando además cada fragmento por su ruta. La regla es la misma en las tres
+   nubes: la seguridad no se apoya en una función en preview y todo lo que devuelve el servicio
+   se vuelve a comprobar. Y un detalle que solo se ve leyendo el SDK: el troceo de Agent Search
+   no admite Markdown, así que el corpus se sube como HTML.
+
 **Negocio y stakeholders**
 
 1. **¿Cuánto cuesta añadir el reranker de GCP y cuándo lo pagarías?** Por uso: del orden de 1 $
@@ -520,6 +528,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    recuperación entre corpus, que está en preview. Lo planteo como decisión de producto con su
    riesgo, no como detalle técnico: separar los datos por ACL es lo que garantiza que un cliente
    nunca vea el manual, y ese aislamiento vale más que la comodidad de una sola consulta.
+3. **Dirección pregunta qué RAG gestionado de GCP elegirías para el asistente de clientes.**
+   Agent Search por coste y operación: se paga por consulta (unos 4 $ por 1000, con 10 000
+   gratis al mes) y no tiene coste por hora, mientras que RAG Engine en su nivel básico paga un
+   Spanner aunque nadie pregunte. Además trae abstenciones ante preguntas adversarias. La
+   condición es medirlo con el mismo golden dataset que Foundry IQ y Bedrock KB antes de decidir:
+   el precio no sirve de nada si cita peor o se abstiene de más.
 
 <a id="fase-5"></a>
 

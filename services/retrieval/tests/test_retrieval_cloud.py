@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from genaipocs_core.adapters.azure_retrieval import AzureSearchRetrieval
 from genaipocs_core.adapters.bedrock_retrieval import BedrockKnowledgeBase, BedrockReranker
 from genaipocs_core.adapters.foundry_iq import FoundryIQKnowledge
+from genaipocs_core.adapters.gcp_agent_search import AgentSearchKnowledge
 from genaipocs_core.adapters.gcp_rag_retrieval import RagEngineKnowledge
 from genaipocs_core.adapters.gcp_retrieval import AgentRetrievalSearch, VertexRankingReranker
 from genaipocs_core.adapters.local_retrieval import LocalRetrieval
@@ -204,6 +205,37 @@ async def test_rag_engine_without_configuration_fails_fast(
 ) -> None:
     with pytest.raises(ValueError, match=variable):
         await build_cloud_parts(config(managed="rag_engine"), cloud_settings(**overrides))
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    "bucket", [{"gcp_rag_engine": RAG_ENGINE}, {"gcp_agent_search": {"bucket": "b"}}]
+)
+async def test_agent_search_composition(bucket: dict[str, Any]) -> None:
+    """4.G3: el bucket es el suyo o, si no se fija, el de RAG Engine (mismo bucket del carril A)."""
+    settings = cloud_settings(gcp={"project": "genaipocs-dev"}, **bucket)
+    parts = await build_cloud_parts(config(managed="agent_search"), settings)
+    try:
+        assert isinstance(parts.managed, AgentSearchKnowledge)
+        assert parts.components == {"managed": "agent_search:stable"}
+        assert len(parts.closers) == 2
+    finally:
+        await parts.aclose()
+
+
+@pytest.mark.usefixtures("anonymous_gcp")
+@pytest.mark.parametrize(
+    ("overrides", "variable"),
+    [
+        ({"gcp_agent_search": {"bucket": "b"}}, "GCP__PROJECT"),
+        ({"gcp": {"project": "p"}}, "BUCKET"),
+    ],
+)
+async def test_agent_search_without_configuration_fails_fast(
+    overrides: dict[str, Any], variable: str
+) -> None:
+    with pytest.raises(ValueError, match=variable):
+        await build_cloud_parts(config(managed="agent_search"), cloud_settings(**overrides))
 
 
 @pytest.mark.parametrize("project_endpoint", ["", "https://h.services.ai.azure.com/api/projects/p"])

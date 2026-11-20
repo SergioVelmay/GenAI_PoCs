@@ -324,6 +324,23 @@ class GcpRagEngineSettings(BaseModel):
         return {"public": self.public_corpus, "internal": self.internal_corpus}
 
 
+class GcpAgentSearchSettings(BaseModel):
+    """Carril A de GCP con Agent Search (antes Vertex AI Search; API Discovery Engine), 4.G3.
+
+    Equivalente de Foundry IQ: búsqueda gestionada y respuestas con citas. Data store y motor
+    los crea Terraform (`agent_search.tf`, `agent_search_enabled`)."""
+
+    # Multirregión de Agent Search (`global`, `us` o `eu`): no hay regiones sueltas.
+    location: str = "eu"
+    data_store: str = "knowledge"
+    engine: str = "knowledge-search"
+    # Vacío = GCP_RAG_ENGINE__BUCKET: el mismo bucket del carril A, con otro prefijo.
+    bucket: str = ""
+    prefix: str = "agent-search"
+    # Modelo de respuestas de `answer_query`: `stable` (fijado por Google) o una versión concreta.
+    answer_model: str = "stable"
+
+
 class AzureManagedIngestionSettings(BaseModel):
     """Carril A en Azure: indexer + skillset de AI Search que leen de Blob Storage."""
 
@@ -478,6 +495,7 @@ class Settings(BaseSettings):
     gcp_vector_search: GcpVectorSearchSettings = GcpVectorSearchSettings()
     gcp_ranking: GcpRankingSettings = GcpRankingSettings()
     gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
+    gcp_agent_search: GcpAgentSearchSettings = GcpAgentSearchSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()

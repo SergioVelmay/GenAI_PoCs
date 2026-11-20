@@ -4,9 +4,11 @@ Uso:
     uv run python scripts/managed_ingestion.py azure            # dry-run: definiciones JSON
     uv run python scripts/managed_ingestion.py aws              # dry-run: objetos y metadatos
     uv run python scripts/managed_ingestion.py gcp              # dry-run: objetos por corpus (ACL)
+    uv run python scripts/managed_ingestion.py gcp-search       # dry-run: HTML y metadata.jsonl
     uv run python scripts/managed_ingestion.py azure --apply    # sube blobs y lanza el indexer
     uv run python scripts/managed_ingestion.py aws --apply      # sube a S3 y sincroniza la KB
     uv run python scripts/managed_ingestion.py gcp --apply      # sube a Cloud Storage e importa
+    uv run python scripts/managed_ingestion.py gcp-search --apply  # HTML + importación FULL
 
 `--apply` usa la nube y tiene coste (embeddings y operaciones): pide confirmación antes.
 """
@@ -21,6 +23,7 @@ from typing import Any
 
 from genaipocs_core.adapters import azure_search_managed as azure_lane
 from genaipocs_core.adapters import bedrock_kb as aws_lane
+from genaipocs_core.adapters import gcp_agent_search as search_lane
 from genaipocs_core.adapters import gcp_rag_engine as gcp_lane
 from genaipocs_core.config import Settings, get_settings
 from genaipocs_core.domain import DocumentType, KnowledgeDocument
@@ -185,9 +188,31 @@ async def gcp_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None:
         )
 
 
+def gcp_search_dry_run(settings: Settings, docs: list[KnowledgeDocument]) -> None:
+    search = settings.gcp_agent_search
+    bucket = search.bucket or settings.gcp_rag_engine.bucket or "<bucket>"
+    for acl in gcp_lane.ACL_LEVELS:
+        selected = [doc for doc in docs if gcp_lane.document_acl(doc) == acl]
+        print(f"acl {acl}: {len(selected)} documentos en gs://{bucket}/{search.prefix}/{acl}/")
+    print(f"data store {search.data_store} ({search.location}); importación FULL desde:")
+    print(f"  gs://{bucket}/{search.prefix}/{search_lane.METADATA_FILE}")
+    for line in search_lane.manifest(docs[:2], bucket, search.prefix).splitlines():
+        print(f"  {line}")
+
+
+async def gcp_search_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None:
+    result = await search_lane.build_ingestion(settings).sync(docs)
+    print(
+        f"{result.uploaded} HTML subidos; importación FULL: {result.succeeded} correctos, "
+        f"{result.failed} fallidos; {result.pruned_objects} objetos huérfanos borrados"
+    )
+    for error in result.errors:
+        print(f"  error: {error}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("cloud", choices=["azure", "aws", "gcp"])
+    parser.add_argument("cloud", choices=["azure", "aws", "gcp", "gcp-search"])
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--apply", action="store_true")
@@ -195,8 +220,18 @@ def main() -> None:
 
     settings = get_settings()
     docs = load_corpus(args.source, args.limit)
-    dry_runs = {"azure": azure_dry_run, "aws": aws_dry_run, "gcp": gcp_dry_run}
-    applies = {"azure": azure_apply, "aws": aws_apply, "gcp": gcp_apply}
+    dry_runs = {
+        "azure": azure_dry_run,
+        "aws": aws_dry_run,
+        "gcp": gcp_dry_run,
+        "gcp-search": gcp_search_dry_run,
+    }
+    applies = {
+        "azure": azure_apply,
+        "aws": aws_apply,
+        "gcp": gcp_apply,
+        "gcp-search": gcp_search_apply,
+    }
     if not args.apply:
         dry_runs[args.cloud](settings, docs)
         return

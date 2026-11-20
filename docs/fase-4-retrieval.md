@@ -335,7 +335,7 @@ en silencio a local, y lo ya construido se cierra. Los clientes se cierran al ap
 | `RETRIEVAL__SEMANTIC_RANKER` | `false` \| `true` | Ranker integrado en el backend: Semantic Ranker (AI Search) o VertexRanker (Agent Retrieval) |
 | `RETRIEVAL__RERANKER` | `token-coverage` \| `bedrock` \| `gcp` | `/search/rerank` con Bedrock Rerank (`BEDROCK__RERANK_MODEL_ARN`) o la Ranking API (`GCP_RANKING__*`) |
 | `RETRIEVAL__LLM` | `none` \| `gateway` | Gateway de fase 2: rewrite, HyDE, subpreguntas, router, auto y `llm-extractive` |
-| `RETRIEVAL__MANAGED` | `none` \| `bedrock_kb` \| `foundry_iq` \| `rag_engine` | Carril A en `POST /managed/retrieve` y `POST /managed/answer` |
+| `RETRIEVAL__MANAGED` | `none` \| `bedrock_kb` \| `foundry_iq` \| `rag_engine` \| `agent_search` | Carril A en `POST /managed/retrieve` y `POST /managed/answer` |
 
 Las combinaciones incoherentes fallan al validar la configuración: un backend cloud con
 hashing (no hay un encoder compatible) o un ranker integrado sin backend cloud. Con `backend=local`, un
@@ -534,7 +534,7 @@ documentación y los tipos reales de los SDK.
 | Subfase | Commit | Qué |
 |---|---|---|
 | 4.G1 | `0b3e2c3` | Carril B: `AgentRetrievalSearch` (BM25, vector, híbrida con RRF y VertexRanker opcional), `VertexRankingReranker` (Ranking API), composición y `retrieval_eval --engine gcp` |
-| 4.G2 | — | Carril A: RAG Engine (`retrieve_contexts` por corpus de ACL y respuesta de Gemini con *grounding*) |
+| 4.G2 | `248d2ba` | Carril A: RAG Engine (`retrieve_contexts` por corpus de ACL y respuesta de Gemini con *grounding*) |
 | 4.G3 | — | Carril A: Agent Search (antes Vertex AI Search) con ingesta, Terraform y `answer_query` con citas |
 
 ### Verificación previa (20-11-2026)
@@ -549,6 +549,9 @@ documentación y los tipos reales de los SDK.
 | `search_data_objects` | Devuelve un *pager* asíncrono: iterarlo pide más páginas | Se usa solo la primera página, ya acotada por `top_k` |
 | RAG Engine, `retrieveContexts` (4.G2) | **Un corpus por petición**, también al generar ([API](https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/v1/projects.locations/retrieveContexts)); varios solo con *Cross Corpus Retrieval* (`AsyncRetrieveContexts`/`AskContexts`, v1beta1) | Una petición por corpus del scope y fusión por posición; la generación exige un scope de un solo corpus |
 | Score de `RagManagedDb` | Es la **distancia** coseno (menor = mejor) ([salida de RAG Engine](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/model-reference/rag-output-explained)) | No se mezclan scores de corpus distintos: RRF sobre las posiciones |
+| Agent Search, troceo (4.G3) | El *layout parser* (necesario para trocear) admite HTML, PDF y Office, **no TXT ni Markdown**; `chunk_size` de 100 a 500 y no se cambia tras crear el data store ([parsear y trocear](https://docs.cloud.google.com/generative-ai-app-builder/docs/parse-chunk-documents)) | La ingesta sube HTML generado desde el Markdown del corpus; 300 tokens, como RAG Engine y Bedrock |
+| Agent Search, resultados | En modo `CHUNKS` la documentación solo muestra `uri` y `title`, pero `Chunk.DocumentMetadata` del SDK 0.20 trae `struct_data`; `answer_query` cita en **bytes UTF-8** (`Answer.Citation`) | La ACL se comprueba siempre por la ruta y, si llega, por `structData`; los filtros sin `structData` no se pueden comprobar: error |
+| Agent Search, IAM y coste | `roles/discoveryengine.viewer` incluye `servingConfigs.search` y `.answer`; importar exige `documents.import` (`roles/discoveryengine.editor`) ([roles](https://docs.cloud.google.com/iam/docs/roles-permissions/discoveryengine)). Enterprise ~4 $/1000 consultas, índice gratis hasta 10 GiB, sin coste por hora ([precios](https://cloud.google.com/generative-ai-app-builder/pricing)) | `editor` solo mientras existe el data store; efímero igualmente (`agent_search_enabled`) |
 | *Grounding* de Gemini | `grounding_supports[].segment` con índices en **bytes UTF-8** (inicio ausente = 0) y `grounding_chunk_indices` → `retrieved_context` (`uri`, `title`, `text`); solo chunks con confianza ≥ 0,6 | Conversión de bytes a caracteres; un segmento que corta un carácter es un error |
 
 ### 4.G1 · Carril B: Agent Retrieval y Ranking API
@@ -651,6 +654,70 @@ Decisiones:
 **Resultados:** solo locales (30 tests del adaptador con tildes en los segmentos, 5 de
 composición; suite completa en verde). La validación real va a
 [pendientes](pendientes-cloud.md#fase-4-gcp).
+
+### 4.G3 · Carril A: Agent Search
+
+```powershell
+uv run python scripts/managed_ingestion.py gcp-search --source data/synthetic/knowledge-classified.jsonl   # dry-run
+# Con coste (pendientes-cloud.md): agent_search_enabled = true, apply y después
+uv run python scripts/managed_ingestion.py gcp-search --source data/synthetic/knowledge-classified.jsonl --apply
+#   RETRIEVAL__MANAGED=agent_search → POST /managed/retrieve y /managed/answer
+```
+
+[`adapters/gcp_agent_search.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_agent_search.py)
+tiene la ingesta y el `ManagedKnowledgePort`; [`agent_search.tf`](../infra/terraform/gcp/agent_search.tf),
+el data store (`eu`, troceo de 300 tokens), su esquema y el motor Enterprise con respuestas
+generativas, detrás de `agent_search_enabled`.
+
+**Ingesta** (`managed_ingestion.py gcp-search`): cada documento se sube como HTML a
+`gs://<bucket>/agent-search/<acl>/<tipo>/<id>.html` (solo si cambia su MD5), se escribe un
+`metadata.jsonl` con su `structData` (ACL, filtros del dominio y título) y se importa con
+reconciliación **FULL**: lo que no está en el manifiesto se borra del data store. Un documento que
+cambia de ACL conserva su id y solo cambia su `structData` y su URI; el HTML viejo se borra
+después de importar. Es el mismo bucket que RAG Engine, con otro prefijo.
+
+**Consulta:**
+
+- `retrieve` = `search` en modo `CHUNKS` con el filtro `acl: ANY(...)` (más los del dominio) y
+  `page_size = top_k`. Agent Search decide su propia mezcla léxico-semántica: el `mode` no cambia
+  la petición.
+- `answer` = `answer_query` con citas y con las abstenciones del servicio activadas (preguntas
+  adversarias, *jailbreak*, sin intención de respuesta o sin contenido relevante). Un
+  `answer_skipped_reasons` es abstención; un estado distinto de `SUCCEEDED`, 503; sin citas,
+  abstención; texto sin cita, rechazo.
+
+Decisiones:
+
+- **ACL en dos capas** (decidido con Sergio): filtro del servidor sobre `structData.acl`, que aquí
+  es GA (en RAG Engine está en preview y por eso se partió en corpus), y comprobación de cada
+  fragmento por la ruta (`agent-search/<acl>/`) y por su `structData` si llega.
+- **Filtros por petición, al servidor y comprobados**: viajan en la expresión del filtro y se
+  vuelven a comprobar en el `structData` devuelto. Si no llega `structData`, no se pueden
+  comprobar y la petición falla. Los valores con comillas o barras se rechazan: con ellos se
+  podría cerrar la cadena e inyectar `OR acl: ANY("internal")` en el filtro.
+- **HTML generado, no Markdown**: es lo que admite el troceo. El conversor es mínimo (títulos,
+  listas y párrafos, todo escapado); el texto de los fragmentos lo extrae Agent Search del HTML.
+- **Sin prompt propio**: `answer_query` usa el modelo `stable` de Google y sus abstenciones. Un
+  *preamble* propio sería un prompt más que versionar; se añadiría solo si las evals lo piden.
+- El endpoint es regional (`eu-discoveryengine.googleapis.com`): sin él, las peticiones a un data
+  store de `eu` fallan.
+
+**Resultados:** solo locales (35 tests del adaptador, 4 de composición y el dry-run de la ingesta
+con el corpus de evals: 114 documentos públicos y 2 internos). La validación real va a
+[pendientes](pendientes-cloud.md#fase-4-gcp).
+
+### Comparativa del carril A en las tres nubes
+
+| | Azure: Foundry IQ | AWS: Bedrock KB | GCP: RAG Engine | GCP: Agent Search |
+|---|---|---|---|---|
+| `retrieve` | Knowledge base de AI Search | `Retrieve` | `retrieve_contexts`, un corpus por petición | `search` en modo `CHUNKS` |
+| `answer` | Agent Service + MCP | `RetrieveAndGenerate` | Gemini + herramienta de RAG Engine | `answer_query` |
+| ACL | Knowledge source por audiencia (`baseFilter`) | Filtro por metadatos | **Corpus por ACL** + ruta | Filtro de `structData` (GA) + ruta + `structData` |
+| Filtros por petición | Rechazados en `answer` | Sí | Rechazados | Sí, comprobados en `structData` |
+| Citas | Anotaciones `url_citation` | Spans en caracteres | Segmentos en bytes UTF-8 | Citas en bytes UTF-8 |
+| Abstención | `I don't know` o sin consulta a la KB | Sin citas o guardrail | Sin soportes o bloqueo | `answer_skipped_reasons` o sin citas |
+| Prompt | Instrucciones del agente (versionadas) | El de la KB | `rag-engine-answer` (versionado) | Ninguno (modelo `stable`) |
+| Coste fijo | AI Search Basic (~70 €/mes) | ~0 | Spanner por horas (Basic) | 0 (por consulta) |
 
 ## Checkpoint de entrevista
 
