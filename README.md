@@ -13,7 +13,7 @@ agentes para usuarios internos (operaciones, soporte, partners) y para el públi
 
 ```mermaid
 flowchart LR
-  U[Cliente / operador] --> AG["booking_agent<br/>(7 sabores)"]
+  U[Cliente / operador] --> AG["booking_agent<br/>(9 sabores)"]
   EM[Emails] --> OR["orchestrator<br/>triaje → especialistas<br/>(LangGraph · MAF · cola · A2A)"]
   OR --> H
   AG --> H["harness<br/>guardrails · HITL · validación"]
@@ -48,7 +48,7 @@ services/
   retrieval/       servicio RAG (híbrido, filtros, rerank, citas)
   mcp_servers/     servidores MCP (FastMCP) y MCP gateway
   support_agent/   agente mínimo sobre MCP
-  booking_agent/   el mismo agente en 7 sabores
+  booking_agent/   el mismo agente en 9 sabores
   orchestrator/    multi-agente: triaje y especialistas (LangGraph, MAF, cola, A2A)
 evals/             golden datasets, evals de RAG, de agentes, multi-agente y tests de ataque
 infra/             Terraform (aws, azure, gcp), SQL de benchmark, config de emuladores
@@ -92,7 +92,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, citas | ✅* | [fase-4](docs/fase-4-retrieval.md) |
 | 5 | Evals de RAG: golden dataset, métricas, RAGAS/DeepEval, gate en CI | ✅* | [fase-5](docs/fase-5-evals.md) |
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅* | [fase-6](docs/fase-6-tools-mcp.md) |
-| 7 | Un agente en 7 sabores (LangGraph, LlamaIndex, MAF, Strands, Foundry, AgentCore...) | ✅* | [fase-7](docs/fase-7-agentes.md) |
+| 7 | Un agente en 9 sabores (LangGraph, LlamaIndex, MAF, Strands, ADK, Foundry, AgentCore, Agent Runtime...) | ✅* | [fase-7](docs/fase-7-agentes.md) |
 | 8 | Agentic harness: validación, SQL seguro, PII, prompt injection, human-in-the-loop | ✅* | [fase-8](docs/fase-8-harness.md) |
 | 8→9 | Checkpoint: CI, documentación, desarrollo con IA y validación en Azure de las fases 2–8 | ✅ | [checkpoint](docs/fase-9-8-checkpoint.md) |
 | 9 | Orquestación multi-agente (LangGraph, MAF, cola), A2A y evals de los tres motores | ✅* | [fase-9](docs/fase-9-multiagente.md) |
@@ -100,7 +100,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 11 | Observabilidad: OpenTelemetry GenAI, propagación por colas y A2A, SLO y alertas como código, Langfuse, App Insights y X-Ray | ✅* | [fase-11](docs/fase-11-observabilidad.md) |
 | 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
-| G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita), la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL), la 4.G (híbrida en Agent Retrieval con la Ranking API, RAG Engine y Agent Search con citas verificadas), la 5.G (juez Gemini, Gen AI Evaluation Service y fidelidad de RAG Engine y Agent Search) y la 6.G (tools con Gemini, token por servidor con `signJwt` e Identity Platform, Agent Gateway + Agent Registry y Apigee) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) · [4.G](docs/fase-4-retrieval.md#gcp-pasada-4g) · [5.G](docs/fase-5-evals.md#8-gcp-pasada-5g) · [6.G](docs/fase-6-tools-mcp.md#9-gcp-pasada-6g) |
+| G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita), la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL), la 4.G (híbrida en Agent Retrieval con la Ranking API, RAG Engine y Agent Search con citas verificadas), la 5.G (juez Gemini, Gen AI Evaluation Service y fidelidad de RAG Engine y Agent Search) la 6.G (tools con Gemini, token por servidor con `signJwt` e Identity Platform, Agent Gateway + Agent Registry y Apigee) y la 7.G (firmas de Gemini en todos los sabores, sabores `adk` y `agentplatform`, Sessions y Memory Bank, Agent Identity con política de acceso por tool) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) · [4.G](docs/fase-4-retrieval.md#gcp-pasada-4g) · [5.G](docs/fase-5-evals.md#8-gcp-pasada-5g) · [6.G](docs/fase-6-tools-mcp.md#9-gcp-pasada-6g) · [7.G](docs/fase-7-agentes.md#10-gcp-pasada-7g) |
 | 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | [plan de fases](docs/plan-fases.md) |
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
@@ -115,7 +115,7 @@ términos y librerías del proyecto: [glosario.md](docs/glosario.md).
 revisión) y solo si pasa el check `release-gate`, que resume todos los jobs de la CI.
 
 GitHub Actions ejecuta en cada PR y en cada merge a `main`: lint, formato, `mypy --strict`, tests, evals deterministas con
-gate contra un baseline, tests de ataque en los 7 sabores, evals multi-agente en los 3 motores,
+gate contra un baseline, tests de ataque en los 9 sabores, evals multi-agente en los 3 motores,
 build de las imágenes MCP y de especialistas A2A, dashboard y reglas de alerta al día y probadas
 con `promtool`, configuración de los collectors de OpenTelemetry, validación de Terraform y tests de integración con PostgreSQL, RabbitMQ, Redis y SQS emulado. Sin secretos y sin coste.
 
@@ -140,8 +140,8 @@ mensaje corto; la skill reconstruye el contexto desde el repo (plan, rama, PR dr
 Sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 % o se sigue otro día:
 
 ```text
-Vamos a por la 7.G de la pasada GCP. Usa la skill iniciar-fase.        # fase nueva (rama fase/7-g desde main)
-Seguimos con la 7.G. Usa la skill retomar-fase.                       # fase empezada, en sesión nueva
+Vamos a por la 8.G de la pasada GCP. Usa la skill iniciar-fase.        # fase nueva (rama fase/8-g desde main)
+Seguimos con la 8.G. Usa la skill retomar-fase.                       # fase empezada, en sesión nueva
 revisado                                                              # commit + push + PR de la subfase
 dale                                                                  # empieza la subfase propuesta
 ```

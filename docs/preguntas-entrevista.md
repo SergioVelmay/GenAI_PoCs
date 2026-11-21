@@ -40,7 +40,8 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Agent Search (antes Vertex AI Search; respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API (suelta) o VertexRanker integrado en Agent Retrieval |
-| Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
+| Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK; Managed Agents API (Antigravity, Pre-GA) |
+| Identidad del agente desplegado | Identidad gestionada | Rol de IAM del AgentCore Runtime | Agent Identity (principal SPIFFE por agente) + política de acceso de IAM v3 por tool |
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
 | Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee (proxy MCP con `ParsePayload`), Agent Gateway + Agent Registry (salida gobernada; Cloud Run en Limited Preview) |
 | Token de usuario hacia una API propia (OBO) | Entra On-Behalf-Of | AgentCore Identity (token exchange RFC 8693) | Sin OBO nativo: el gateway firma con `signJwt` de IAM (sin claves); Agent Identity (3LO) para terceros |
@@ -824,6 +825,13 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    tool registrados en Agent Registry, generada desde los contratos de los servidores; en AWS es
    la lista de targets y tools del AgentCore Gateway. La escribí para que falle cerrada: si el
    *handshake* no casa con la condición, se deniega y se ve en la validación, nunca al revés.
+7. **¿Por qué no usas la Managed Agents API de Google para el agente de reservas?** Porque es
+   Pre-GA y sus condiciones prohíben producción y datos confidenciales, y porque el agente
+   decide dentro de un sandbox con sus propias tools (código, web, MCP directo). Para que fuera un
+   sabor, todas las tools que tocan datos de Genaipocs tendrían que volver a mi harness: la
+   Gemini API lo permite con *custom functions* (`requires_action`), pero en Agent Platform no está
+   documentado para agentes. Lo dejé como prueba de céntimos y, aun así, heredaría el límite de
+   Foundry: el historial es del servicio y no lo compacto yo.
 
 **Negocio y stakeholders**
 

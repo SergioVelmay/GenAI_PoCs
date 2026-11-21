@@ -1,16 +1,18 @@
-# Fase 7 · Un agente, siete implementaciones: frameworks, servicios gestionados y context engineering
+# Fase 7 · Un agente, nueve implementaciones: frameworks, servicios gestionados y context engineering
 
 El **Knowledge & Booking Agent** de Genaipocs (RAG + tools de ticketing + memoria) implementado
-sobre el mismo núcleo en:
+sobre el mismo núcleo en tres nubes:
 
 - **Carril B**: `native` (bucle propio, la referencia).
-- **Carril C**: `langgraph`, `llamaindex`, `maf` (Microsoft Agent Framework) y `strands`.
-- **Carril A**: `foundry` (Foundry Agent Service) y `agentcore` (Bedrock AgentCore Runtime + Memory).
+- **Carril C**: `langgraph`, `llamaindex`, `maf` (Microsoft Agent Framework), `strands` y `adk`
+  (Google ADK, pasada 7.G).
+- **Carril A**: `foundry` (Foundry Agent Service), `agentcore` (Bedrock AgentCore Runtime +
+  Memory) y `agentplatform` (Agent Runtime + Sessions + Memory Bank, pasada 7.G).
 
 Todos pasan la **misma suite** (`evals/datasets/agent-scenarios-v1.jsonl`, 14 escenarios) con el
 mismo modelo guionizado, así que las diferencias que aparecen son del framework, no del modelo.
-La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
-[GCP (pasada 7.G)](#10-gcp-pasada-7g).
+Lo específico de GCP (firmas de Gemini, ADK, Agent Runtime, Agent Identity y la Managed Agents
+API) está en [GCP (pasada 7.G)](#10-gcp-pasada-7g).
 
 ## 1. Piezas
 
@@ -21,8 +23,10 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
 | `JournaledExecutor` | `booking_agent/runtime.py` | Todas las tools pasan por aquí: validación, timeouts, saneamiento, lock de escrituras y diario que lee la eval. |
 | Puentes al gateway | `booking_agent/bridges/` | Cada framework llama al modelo a través de nuestro `LLMPort` (routing, fallback, caché, coste, trazas). |
 | Context engineering | `genaipocs_core/application/agents/` | Orden del prompt, compactación con resumen, hilos con dueño, preferencias, skills bajo demanda. |
-| Carril A | `booking_agent/managed/` | Cliente/emulador de Foundry Agent Service y contrato HTTP de AgentCore Runtime. |
+| Carril A | `booking_agent/managed/` | Cliente/emulador de Foundry Agent Service y contratos HTTP de AgentCore Runtime y de Agent Runtime. |
 | AgentCore Memory | `genaipocs_core/adapters/agentcore_memory.py` | `CheckpointStore` (eventos) y `PreferenceStore` (registros a largo plazo). |
+| Sessions y Memory Bank | `genaipocs_core/adapters/memory_bank.py` | Lo mismo en GCP: un evento por guardado en Sessions y memorias `clave=valor` en Memory Bank (7.G3). |
+| Terraform del carril A | `infra/terraform/{azure/foundry.tf,aws/agentcore.tf,gcp/agent_platform.tf}` | Desactivado por defecto en las tres nubes; en GCP, con Agent Identity y la política de acceso por tool (7.G4). |
 | Suite | `evals/src/rag_evals/agents/` | Mundo determinista, `ScenarioLLM`, invariantes de seguridad, informe `evals/reports/agents.{md,json}`. |
 
 ## 2. Context engineering (común a todos los sabores)
@@ -30,7 +34,8 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
 1. **Orden del prompt pensado para la caché**: instrucciones + índice de skills (estable para
    todos los clientes, primer checkpoint) → contexto de sesión (preferencias + resumen, marcado
    como *datos, no instrucciones*) → historial (segundo checkpoint al final) → mensaje nuevo.
-   Bedrock lo traduce a `cachePoint`; Azure OpenAI cachea solo los prefijos idénticos.
+   Bedrock lo traduce a `cachePoint`; Azure OpenAI y Gemini (caché implícita) cachean solo los
+   prefijos idénticos.
 2. **Memoria a corto plazo**: compactación por intercambios completos (nunca se parte una ronda de
    tools) con histéresis (`trigger_tokens` → `target_tokens`) y resumen incremental con el modelo
    barato. Sin resumen se pierde el dato antiguo: hay un test que lo demuestra.
@@ -66,23 +71,24 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
 
 ## 4. Comparativa
 
-| | native | LangGraph | LlamaIndex | MAF | Strands | Foundry Agent Service | AgentCore |
-|---|---|---|---|---|---|---|---|
-| **Modelo mental** | Bucle explícito | Grafo de estado (nodos, aristas condicionales, reducers) | Workflow de eventos | Agente + cliente por capas (el bucle de tools vive en el cliente) | Bucle "model-driven" mínimo | Agente servidor + conversación | Tu contenedor en una microVM por sesión |
-| **Control del bucle** | Total | Total (el grafo es tuyo) | Medio | Medio-alto (middleware de chat/función) | Medio (hooks, `limits`) | Bajo: decide el servicio, tú ejecutas tools | El del sabor que alojes |
-| **Persistencia** | `CheckpointStore` propio | Checkpointer por paso (`InMemorySaver`, `PostgresSaver`) | No impone (aquí, nuestro store) | `HistoryProvider` (aquí, nuestro store) | `session_manager` (aquí, nuestro store) | `conversation` del servicio | AgentCore Memory (eventos + registros) |
-| **Compactación** | Nuestra política | Nuestra política en un nodo (`RemoveMessage`) | Nuestra política antes del turno | Nuestra política | Nuestra política (`NullConversationManager`) | **No controlable** (truncado del servicio) | La del sabor alojado |
-| **Identidad (fuera del modelo)** | `ToolContext` | `context_schema` del runtime | Closure por turno | `function_invocation_kwargs` | `invocation_state` | Las tools corren en tu backend | `runtimeUserId` (solo con `InvokeAgentRuntimeForUser`) |
-| **Límite de iteraciones** | Fallback determinista | Contador + nodo `fallback` | Excepción con N + 1 | Llamada extra sin tools → `ChatMiddleware` la sustituye | `limits={"turns": N}` (igual que native) | Contado en el cliente | El del sabor alojado |
-| **Observabilidad** | Gateway → Langfuse/OTel | + callbacks LangChain/LangSmith | + instrumentación de LlamaIndex | + OTel GenAI integrado (`ChatTelemetryLayer`) | + OTel integrado | + trazas del proyecto en Foundry (App Insights) | + AgentCore Observability (CloudWatch) |
-| **Portabilidad** | Máxima | Alta (Python/JS, cualquier modelo) | Alta | Alta (Python/.NET; nativo en Foundry) | Alta (nativo en AgentCore) | Azure | AWS (pero el contenedor es portable) |
-| **DX / curva** | Escribes todo | Verboso pero explícito; ideal para flujos con pasos y aprobación | Sencillo para RAG; agentes con sorpresas | Muchas piezas (capas, providers, middleware) bien pensadas | El más directo | Poco código; tools y prompt viven fuera | Poco código cliente; empaquetar y desplegar el contenedor |
+| | native | LangGraph | LlamaIndex | MAF | Strands | ADK | Foundry Agent Service | AgentCore | Agent Runtime |
+|---|---|---|---|---|---|---|---|---|---|
+| **Modelo mental** | Bucle explícito | Grafo de estado (nodos, aristas condicionales, reducers) | Workflow de eventos | Agente + cliente por capas (el bucle de tools vive en el cliente) | Bucle "model-driven" mínimo | Agente + `Runner` + eventos de sesión | Agente servidor + conversación | Tu contenedor en una microVM por sesión | Tu contenedor detrás de `reasoningEngines.query` |
+| **Control del bucle** | Total | Total (el grafo es tuyo) | Medio | Medio-alto (middleware de chat/función) | Medio (hooks, `limits`) | Medio (callbacks antes y después del modelo y de cada tool) | Bajo: decide el servicio, tú ejecutas tools | El del sabor que alojes | El del sabor que alojes |
+| **Persistencia** | `CheckpointStore` propio | Checkpointer por paso (`InMemorySaver`, `PostgresSaver`) | No impone (aquí, nuestro store) | `HistoryProvider` (aquí, nuestro store) | `session_manager` (aquí, nuestro store) | `SessionService` (aquí, sembrado por turno desde nuestro store) | `conversation` del servicio | AgentCore Memory (eventos + registros) | Sessions + Memory Bank |
+| **Compactación** | Nuestra política | Nuestra política en un nodo (`RemoveMessage`) | Nuestra política antes del turno | Nuestra política | Nuestra política (`NullConversationManager`) | Nuestra política (no `EventsCompactionConfig`) | **No controlable** (truncado del servicio) | La del sabor alojado | La del sabor alojado |
+| **Identidad (fuera del modelo)** | `ToolContext` | `context_schema` del runtime | Closure por turno | `function_invocation_kwargs` | `invocation_state` | *Closure* de la tool (nunca `session.state`) | Las tools corren en tu backend | `runtimeUserId` (solo con `InvokeAgentRuntimeForUser`) | `user_id` en el cuerpo: la frontera es quién puede invocar |
+| **Límite de iteraciones** | Fallback determinista | Contador + nodo `fallback` | Excepción con N + 1 | Llamada extra sin tools → `ChatMiddleware` la sustituye | `limits={"turns": N}` (igual que native) | `before_model_callback` (no `max_llm_calls`, que acaba en error) | Contado en el cliente | El del sabor alojado | El del sabor alojado |
+| **Observabilidad** | Gateway → Langfuse/OTel | + callbacks LangChain/LangSmith | + instrumentación de LlamaIndex | + OTel GenAI integrado (`ChatTelemetryLayer`) | + OTel integrado | + OTel integrado (Cloud Trace) | + trazas del proyecto en Foundry (App Insights) | + AgentCore Observability (CloudWatch) | + Cloud Trace y Cloud Logging |
+| **Portabilidad** | Máxima | Alta (Python/JS, cualquier modelo) | Alta | Alta (Python/.NET; nativo en Foundry) | Alta (nativo en AgentCore) | Alta (Python, Java, Go; nativo en Agent Runtime) | Azure | AWS (pero el contenedor es portable) | GCP (pero el contenedor es portable) |
+| **DX / curva** | Escribes todo | Verboso pero explícito; ideal para flujos con pasos y aprobación | Sencillo para RAG; agentes con sorpresas | Muchas piezas (capas, providers, middleware) bien pensadas | El más directo | Directo, pero con convenciones propias (prompt de sistema, plantillas `{estado}`) que hay que desactivar | Poco código; tools y prompt viven fuera | Poco código cliente; empaquetar y desplegar el contenedor | Como AgentCore, más `class_methods` declarados a mano |
 
 ## 5. Hallazgos (lo que no cuentan los "hello world")
 
 1. **Identidad**: en ningún sabor el modelo elige `customer_id`. Cada framework tiene su canal
    (contexto de runtime, `invocation_state`, kwargs de invocación); el invariante `identity_args`
-   lo comprueba en los siete.
+   lo comprueba en los nueve (en ADK, la *closure* de la tool; en Agent Runtime, el cuerpo de la
+   invocación que solo puede hacer el backend).
 2. **LangGraph persiste la entrada en el primer paso**: comprobar el dueño del hilo *dentro* del
    grafo dejaría escribir en hilos ajenos. Se comprueba antes de `ainvoke`.
 3. **LlamaIndex `Memory` ordena por `time.time_ns()`** en SQLite: con la resolución del reloj de
@@ -100,19 +106,25 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
    caracteres): se derivan con hash. Derivar la sesión de cliente + hilo aísla las microVM por cliente.
 9. **Dependencias**: `strands-agents` exige `mcp<2.2`; el lock resolvió `mcp` 2.1.1 (compatible
    con FastMCP 4.1, tests MCP verdes). En un monorepo, cada framework añade restricciones.
+10. **Cambiar de modelo no es solo cambiar de proveedor** (pasada 7.G): Gemini exige recibir de
+    vuelta sus *thought signatures*, y cuatro de los cinco puentes las perdían al reconstruir el
+    historial. Ningún test con otro modelo lo habría visto; lo cubre un test de ida y vuelta por
+    sabor ([7.G1](#7g1--thought-signatures-a-través-de-los-sabores)).
 
-## 6. Equivalencias Azure ↔ AWS ↔ framework
+## 6. Equivalencias Azure ↔ AWS ↔ GCP ↔ framework
 
-| Concepto | Azure | AWS | Frameworks |
-|---|---|---|---|
-| Agente gestionado | Foundry Agent Service (prompt agents) | Bedrock Agents / AgentCore Runtime | — |
-| Hospedar tu propio agente | Foundry hosted agents / Container Apps | AgentCore Runtime | LangGraph Platform |
-| Historial de conversación | `conversation` (Responses API) | AgentCore Memory (eventos) | Checkpointer (LangGraph), `HistoryProvider` (MAF), `session_manager` (Strands) |
-| Memoria a largo plazo | Memoria de Foundry (preview) | AgentCore Memory (registros + estrategias) | `BaseStore` (LangGraph), memory blocks (LlamaIndex) |
-| Tools del cliente | *Function tools* | *Return of control* / tools del contenedor | `@tool`, `FunctionTool`, `AgentTool` |
-| Middleware / hooks | Middleware de MAF | Hooks de Strands | Middleware de LangChain `create_agent` |
-| Observabilidad | Foundry tracing + App Insights | AgentCore Observability + CloudWatch | LangSmith, OTel GenAI |
-| SDK "nativo" de la nube | Microsoft Agent Framework | Strands Agents | — |
+| Concepto | Azure | AWS | GCP | Frameworks |
+|---|---|---|---|---|
+| Agente gestionado | Foundry Agent Service (prompt agents) | Bedrock Agents / AgentCore Runtime | Managed Agents API (Pre-GA, *spike* en la [7.G5](#7g5--spike-de-la-managed-agents-api)) | — |
+| Hospedar tu propio agente | Foundry hosted agents / Container Apps | AgentCore Runtime | Agent Runtime (contenedor propio) / Cloud Run | LangGraph Platform |
+| Historial de conversación | `conversation` (Responses API) | AgentCore Memory (eventos) | Sessions (eventos con `state_delta`) | Checkpointer (LangGraph), `HistoryProvider` (MAF), `session_manager` (Strands), `SessionService` (ADK) |
+| Memoria a largo plazo | Memoria de Foundry (preview) | AgentCore Memory (registros + estrategias) | Memory Bank (memorias por ámbito + *topics*) | `BaseStore` (LangGraph), memory blocks (LlamaIndex), `MemoryService` (ADK) |
+| Tools del cliente | *Function tools* | *Return of control* / tools del contenedor | Tools del contenedor (en Managed Agents, *custom functions* con `requires_action`) | `@tool`, `FunctionTool`, `AgentTool` |
+| Identidad del agente | Identidad gestionada | Rol de IAM del Runtime | Agent Identity (principal SPIFFE por agente) | — |
+| Qué tools puede usar | Lista de tools del agente | Targets del AgentCore Gateway | Política de acceso v3 en Agent Gateway (por servidor y tool) | — |
+| Middleware / hooks | Middleware de MAF | Hooks de Strands | Callbacks de ADK | Middleware de LangChain `create_agent` |
+| Observabilidad | Foundry tracing + App Insights | AgentCore Observability + CloudWatch | Cloud Trace + Cloud Logging | LangSmith, OTel GenAI |
+| SDK "nativo" de la nube | Microsoft Agent Framework | Strands Agents | Agent Development Kit (ADK) | — |
 
 ## 7. Recomendación por escenario
 
@@ -120,6 +132,9 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
   checkpoint por paso) o el bucle propio si el flujo es pequeño.
 - **Plataforma Azure / .NET en el equipo** → MAF; desplegarlo como agente alojado en Foundry.
 - **Plataforma AWS** → Strands en AgentCore Runtime + Memory.
+- **Plataforma GCP** → ADK en Agent Runtime + Sessions + Memory Bank, con Agent Identity y la
+  salida gobernada por Agent Gateway. La Managed Agents API todavía no: es Pre-GA y sus
+  condiciones prohíben producción y datos confidenciales.
 - **Agente "estándar" con poco código y sin requisitos de contexto** → Foundry Agent Service
   (asumiendo que el servicio gestione el historial).
 - **RAG avanzado con agentes ligeros** → LlamaIndex (fuerte en ingesta/retrieval, más sorpresas en agentes).
@@ -129,7 +144,8 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
 ## 8. Cómo ejecutarlo
 
 ```powershell
-uv run python -m rag_evals.agents                          # 7 sabores, coste 0
+uv run python -m rag_evals.agents                          # 9 sabores, coste 0
+uv run python -m rag_evals.attacks                         # ataques con harness en los 9 sabores
 uv run python -m rag_evals.agents --flavor maf --scenario refund-approved-es
 uv run pytest services/booking_agent evals/tests/test_agent_evals.py
 uv run python scripts/provision_foundry_agent.py           # definición del agente (dry-run)
@@ -219,7 +235,10 @@ servicio real ([informe](../evals/reports/azure/context-growth.md)):
 Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md): suite con LLM real
 (`--mode llm --budget-usd`), agente en Foundry (`--apply`), imagen del Runtime en ECR (fase 13) con
 `agentcore_enabled=true`, y estrategias de extracción de AgentCore Memory frente a la tool explícita.
-GCP: [pendientes de la 7.G](pendientes-cloud.md#fase-7-gcp).
+GCP: [pendientes de la 7.G](pendientes-cloud.md#fase-7-gcp): suite con Gemini (firmas reales y
+compactación), Sessions y Memory Bank con el motor *standalone*, el agente en Agent Runtime (fase
+15), Agent Identity con la política de acceso por tool y la prueba de *custom functions* de la
+Managed Agents API en Agent Platform.
 
 ## 10. GCP (pasada 7.G)
 
@@ -233,8 +252,8 @@ funcionen con Gemini. Coste 0: todo con dobles; lo real, en
 | 7.G1 | `efc9a96` | *Thought signatures* de Gemini a través de los puentes y política al compactar |
 | 7.G2 | `7a8e408` | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
 | 7.G3 | `f027fe2` | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
-| 7.G4 | (este commit) | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
-| 7.G5 | | *Spike* de la Managed Agents API, 9 sabores en informes y ataques, cierre |
+| 7.G4 | `1bad990` | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
+| 7.G5 | (este commit) | *Spike* de la Managed Agents API, doc a tres nubes, cierre (los informes ya tenían los 9 sabores desde la 7.G3) |
 
 ### Verificación previa (21-11-2026)
 
@@ -246,7 +265,7 @@ funcionen con Gemini. Coste 0: todo con dobles; lo real, en
 | [Contrato de Agent Runtime](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/runtime/runtime-contract) | Contenedor propio en `:8080`, `POST /api/reasoning_engine` con `{class_method, input}`; no impone `user_id`; `europe-west4`; 0,085 $/vCPU-h | Se prueba como AgentCore: la app en proceso (ASGI) con el mismo contrato |
 | [Sessions](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/sessions) y [Memory Bank](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank) | Cuelgan de un Agent Runtime (puede ser *standalone*, sin código); Memory Bank admite `memories.create` directo, *topics* propios y scope por usuario; facturan desde el 01-09-2026 | `remember_preference` escribe directo, como en AgentCore; la extracción por *topics*, como contraste |
 | Provider `google` 8.11 (8.12 publicado) | `google_vertex_ai_reasoning_engine` (`container_spec`, `memory_bank_config`, `identity_type=AGENT_IDENTITY`, `agent_gateway_config`), `google_iam_project_access_policy`, `google_iam_projects_policy_binding` | La herencia de la 6.G3 se hace con el provider GA (7.G4) |
-| [Managed Agents API](https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/managed-agents) | Pre-GA, solo `global`, prohíbe datos confidenciales y **no admite *function tools* ejecutadas en el cliente** | No puede ser sabor (las tools deben pasar por el harness): *spike* documental (7.G5) |
+| [Managed Agents API](https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/managed-agents) | Pre-GA, solo `global`, prohíbe datos confidenciales y **no admite *function tools* ejecutadas en el cliente** | No puede ser sabor (las tools deben pasar por el harness): *spike* documental (7.G5). **Corregido en la 7.G5:** la Gemini API sí documenta *custom functions*; en Agent Platform, sin confirmar |
 | Firmas en los puentes (heredado de la 2.G) | LangChain, LlamaIndex, MAF y Strands reconstruían `ToolCall` **sin firma** | Se arregla en la 7.G1 |
 | `prefix_mismatch_behavior="DROP"` (heredado de la 2.G) | Ya no está en la [documentación de firmas](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking/thought-signatures) ni en ningún SDK; solo en un issue abierto de go-genai | **Cambio de plan** (decidido con Sergio): no se envía; al compactar se quitan las firmas |
 
@@ -455,6 +474,42 @@ Hallazgos y decisiones (21-11-2026):
    `count = 0`, que es todo lo que tiene coste: el test hace un `plan` simulado con todo
    activado. Comprobado con mutaciones (sin la tool vacía o sin la región del gateway, fallan
    cuatro aserciones).
+
+### 7.G5 · *Spike* de la Managed Agents API
+
+Sin código: qué es, si puede ser el décimo sabor y qué haría falta para comprobarlo.
+
+**Qué es.** Un agente autónomo con una llamada, sobre el *harness* Antigravity de Google: planifica
+y ejecuta código, ficheros, búsqueda web y *skills* en un **sandbox propio** (sin red ni
+credenciales por defecto). Dos planos: Agents API (crear el agente: configuración, fuentes de datos
+montadas, red permitida) e Interactions API (hablar con él; `previous_interaction_id` encadena el
+historial y `environment` reutiliza el sandbox, con TTL de 7 días).
+
+| | Gemini API (AI Studio) | Agent Platform (Enterprise) |
+|---|---|---|
+| Agente base | `antigravity-preview-09-2026` | `antigravity-preview-05-2026`, solo `global`, `v1beta1` |
+| Tools documentadas para el agente | Código, búsqueda, URL, ficheros, **`function`** y `mcp_server` | Solo `mcp_server` (necesita `roles/mcp.toolUser`) |
+| *Custom functions* | Sí: la interacción queda en `requires_action` con pasos `function_call`; el cliente responde con `function_result` y `previous_interaction_id` | El tipo `function` y los pasos `function_call`/`function_result` existen en la referencia del Interactions API, pero la guía de agentes no los menciona |
+| Condiciones | Pre-GA | Pre-GA: **ni producción ni datos confidenciales**; el modelo se paga a precio estándar |
+
+Hallazgos y decisiones (21-11-2026, con Sergio):
+
+1. **La premisa del plan era incompleta.** La verificación previa concluyó "sin *function tools*
+   del cliente": vale para la guía de Agent Platform, no para la Gemini API, que sí las documenta
+   con el mismo patrón que Foundry (el servicio decide y nuestro backend ejecuta).
+2. **Aun así, no es sabor en esta fase** (decidido con Sergio). Las condiciones Pre-GA prohíben
+   producción y datos confidenciales, en Agent Platform el contrato con funciones no está
+   documentado para agentes y comprobarlo cuesta dinero. Queda en
+   [pendientes](pendientes-cloud.md#fase-7-gcp) una prueba de céntimos: si en Agent Platform
+   funciona, sería un sabor como `foundry`, con el bucle `requires_action` → `function_result`.
+3. **Si llega a sabor, hereda los límites de Foundry.** El historial vive en el servicio
+   (`previous_interaction_id`): no se compacta con nuestra política (13/14, como `foundry`) y
+   cuenta también las salidas de las tools ([crecimiento del contexto](#contexto-en-una-conversación-larga-compactación-propia-frente-a-foundry-18-10-2026)).
+   Las tools nativas del sandbox (código, búsqueda web, MCP directo) se desactivarían: todo lo que
+   toca datos de Genaipocs pasa por el harness.
+4. **Dónde encaja.** Es un agente "de trabajo" (investigar, programar, transformar ficheros con
+   sandbox), más cerca de un asistente interno de operaciones que del agente de clientes. Para el
+   agente de reservas, ADK en Agent Runtime da el mismo control que AgentCore.
 
 ## 11. Checkpoint de entrevista
 

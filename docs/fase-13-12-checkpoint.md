@@ -54,7 +54,7 @@ Data*) y que sus librerías conviven con las nuestras:
 | **Vector Search** se paga por VMs que sirven el índice (mínimo del orden de < 100 $/mes) | Carril B efímero, igual que AI Search: `vector_search_enabled` solo durante las sesiones |
 | **RAG Engine** guarda los vectores en un Spanner gestionado que se factura; GA en `europe-west3/4`, lista de acceso en `us-central1` y `europe-west1` | Región `europe-west4`; elegir el tier más barato y apagar al terminar |
 | **Agent Gateway** gobierna tráfico usuario↔agente, agente↔MCP y agente↔agente, con Model Armor, políticas de IAM, *semantic governance* y cuotas de tokens (algunas en preview) | Equivalente de AgentCore Gateway / APIM en las fases 6 y 10 |
-| **Managed Agents API** está en Pre-GA, con sandbox propio y "no usar datos confidenciales" | Se explora en un *spike* de la 7.G; solo será sabor si admite tools ejecutadas por nuestro harness |
+| **Managed Agents API** está en Pre-GA, con sandbox propio y "no usar datos confidenciales" | Se explora en un *spike* de la 7.G; solo será sabor si admite tools ejecutadas por nuestro harness. **7.G5:** la Gemini API sí las admite (*custom functions*); en Agent Platform, sin confirmar: idea aparcada en el plan |
 | El emulador de Pub/Sub escucha por defecto en el `localhost` **del contenedor** (no en IPv6, como se anotó al principio: corregido en la 0.G3 tras comprobarlo) y no admite `gcloud pubsub` | Arrancarlo con `--host-port=0.0.0.0:8085` y conectar a `127.0.0.1` |
 | Los *services* de GitHub Actions no admiten `command` | El emulador de Pub/Sub se arranca en la CI con un paso `docker run` |
 | Prueba de resolución en una copia del workspace (`uv add` de `google-adk`, `google-genai`, `google-cloud-{pubsub,aiplatform,discoveryengine,dlp,modelarmor,monitoring,storage}`): **resuelve** con ADK 2.14 | Cambian `websockets` 16.1 → 15.0 (ADK exige `<16`), `authlib` 1.8 → 1.9 y `beartype` (de rc a estable). Se valida con la CI completa en la 0.G1 |
@@ -134,7 +134,9 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 primera sesión, 7.G4–7.G5 en la segunda); `prefix_mismatch_behavior` ya no está documentado, así
 que al compactar se quitan las firmas del historial conservado; ADK se queda en 2.14 (la 2.15
 cambia el orden del prompt por defecto); `agentplatform` aloja el sabor `adk`, como AgentCore
-aloja `strands`; y la Managed Agents API no admite *function tools* del cliente, así que no será sabor.
+aloja `strands`; y la Managed Agents API no admite *function tools* del cliente, así que no será sabor
+(**corregido en la 7.G5**: la Gemini API sí las documenta; en Agent Platform no está confirmado, y
+sigue sin ser sabor por ser Pre-GA).
 
 - 7.G1: *thought signatures* en los puentes de LangChain, LlamaIndex, MAF y Strands, test de ida y vuelta por sabor y firmas fuera del historial conservado al compactar.
 - 7.G2: puente `bridges/adk.py` y sabor `adk` (14 escenarios, paridad, invariantes, compactación propia frente a `EventsCompactionConfig`).
