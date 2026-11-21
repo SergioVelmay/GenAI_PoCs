@@ -187,8 +187,8 @@ todo con dobles; lo real, en [pendientes](pendientes-cloud.md#fase-8-gcp).
 | Subfase | Commit | Qué |
 |---|---|---|
 | 8.G1 | `60f0312` | Escudo `ModelArmorShield` y `rag_evals.shields` con Bedrock y Model Armor |
-| 8.G2 | (este commit) | Detector de PII con Sensitive Data Protection y caída a patrones |
-| 8.G3 | | Terraform `model_armor.tf` (plantilla, *floor setting*, plantilla de inspección de SDP) |
+| 8.G2 | `4bbf29b` | Detector de PII con Sensitive Data Protection y caída a patrones |
+| 8.G3 | (este commit) | Terraform `model_armor.tf` (plantillas de SDP y de Model Armor, *floor setting*, IAM) |
 | 8.G4 | | Ataques con Gemini (informes por nube) y doc a tres nubes |
 
 ### Verificación previa (21-11-2026)
@@ -273,6 +273,40 @@ uv run pytest packages/harness/tests/test_pii_gcp.py
   manda el texto sin redactar ni se tumba el turno: los patrones con checksum son el suelo
   determinista (lo que se pierde son los nombres).
 - Como con Presidio, solo en la entrada: la salida sigue con patrones (`guarded_agent`).
+
+### 8.G3 · Terraform `model_armor.tf`
+
+```powershell
+cd infra/terraform/gcp ; terraform fmt -check -recursive ; terraform validate ; terraform test
+```
+
+Dos variables, desactivadas por defecto (sin coste en reposo; se paga lo evaluado):
+
+| Variable | Qué crea | Coste |
+|---|---|---|
+| `model_armor_enabled` | Plantillas de inspección de SDP `<name>-pii` (los 9 infoTypes del detector, `LIKELY`) y `<name>-payment` (tarjeta e IBAN); plantilla de Model Armor `<name>-harness` en `europe-west4`; `roles/dlp.user` y `dlp.reader` para el agente de servicio de Model Armor | Por uso: 2 M de tokens al mes gratis (Model Armor), 1 GB al mes gratis (SDP) |
+| `model_armor_floor_setting_enabled` | *Floor setting* del proyecto (`global`) para Agent Platform en `INSPECT_ONLY` con logging, y `roles/modelarmor.user` para el agente de servicio de Agent Platform | Cada llamada a Gemini del proyecto consume tokens de Model Armor |
+
+- **Plantilla del harness**: inyección en `MEDIUM_AND_ABOVE`, RAI en `HIGH` (recomendación de
+  Google), URL maliciosas y SDP avanzado con la plantilla de **datos de pago**: bloquea
+  tarjetas e IBAN como Bedrock (`BLOCK`); el contacto lo redacta el filtro de PII, que corre
+  después de las guardas. Filtros en la versión `STABLE` (un cambio de detector es una
+  decisión), detección multilenguaje, `ignore_partial_invocation_failures = false` (el escudo
+  ve el filtro saltado) y **sin `log_sanitize_operations`**: esos registros llevan el texto
+  evaluado, es decir, PII en Cloud Logging.
+- **Floor setting**: red de seguridad para cualquier llamada a Gemini del proyecto, también las
+  que no pasan por el harness. Empieza en `INSPECT_ONLY` (medir antes de bloquear); si se pasa a
+  bloquear, el bloqueo llega como `BlockedReason.MODEL_ARMOR` y el harness lo convierte en
+  `provider_content_filter`. Es también el mínimo de cualquier plantilla del proyecto: la del
+  harness lo cumple. Es un ajuste del proyecto, no un recurso: qué deja `destroy` se comprueba
+  en la nube.
+- Los roles de la aplicación (`roles/modelarmor.user`, `roles/dlp.user`) no tienen coste y se
+  crean siempre, como los de las fases anteriores.
+- Output `guardrails_env`: `GCP_MODEL_ARMOR__TEMPLATE`, `GCP_MODEL_ARMOR__LOCATION` y
+  `GCP_SENSITIVE_DATA__INSPECT_TEMPLATE` para el `.env`.
+- `tests/model_armor.tftest.hcl` (plan y apply simulados): nada sin la variable, región de las
+  plantillas, SDP de Model Armor solo con datos de pago, umbrales, sin registros del texto y
+  *floor setting* en `INSPECT_ONLY`.
 
 ## 10. Checkpoint de entrevista
 

@@ -921,6 +921,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    (tarjetas, NIF/NIE, IBAN, email, teléfono) y marca el turno con `pii_fallback`. Lo que se pierde
    en ese rato son los nombres de persona, y queda medido. Lo mismo si la respuesta no es fiable:
    hallazgos truncados o una posición fuera del texto cuentan como caída, no como "sin PII".
+3. **¿Para qué quieres una *floor setting* si ya tienes el escudo en el harness?** Para lo que no
+   pasa por el harness: un notebook, una prueba o un servicio nuevo que llame a Gemini directamente.
+   Es el mínimo del proyecto, como la política de contenido de un despliegue en Azure. La activo
+   primero en modo solo inspección con registros, para medir falsos positivos y coste en tokens
+   antes de bloquear; los registros del texto evaluado los dejo apagados en la plantilla del
+   harness porque llevan PII.
 
 **Negocio y stakeholders**
 
