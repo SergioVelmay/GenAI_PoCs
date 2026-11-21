@@ -514,7 +514,8 @@ class GuardrailsSettings(BaseModel):
     """Fase 8.4: escudo de contenido y detector de PII del harness."""
 
     # heuristic: local y sin coste. azure: Content Safety. bedrock: Bedrock Guardrails.
-    shield: Literal["heuristic", "azure", "bedrock"] = "heuristic"
+    # gcp: Model Armor (8.G1).
+    shield: Literal["heuristic", "azure", "bedrock", "gcp"] = "heuristic"
     # presidio exige `uv sync --all-packages --extra pii`.
     pii: Literal["regex", "presidio"] = "regex"
     # False = si el escudo no responde, se bloquea (falla cerrado).
@@ -532,6 +533,20 @@ class BedrockGuardrailSettings(BaseModel):
     profile: str | None = None
     guardrail_id: str = ""
     version: str = "DRAFT"
+
+
+class GcpModelArmorSettings(BaseModel):
+    """Plantilla de Model Armor del harness (8.G1), creada por `model_armor.tf`.
+
+    Sin coste en reposo: 2 M de tokens al mes gratis por proyecto y 0,10 $ por millón después
+    (prompts y respuestas evaluados)."""
+
+    # Id de la plantilla (output `guardrails_env`). Vacío = el escudo `gcp` no se puede usar.
+    template: str = ""
+    # Región de la plantilla y de su endpoint regional. Vacío = GCP__REGION.
+    location: str = ""
+    # Tiempo máximo por llamada: el escudo está en el camino de cada turno.
+    timeout_seconds: float = Field(default=5.0, gt=0)
 
 
 class Settings(BaseSettings):
@@ -573,6 +588,7 @@ class Settings(BaseSettings):
     guardrails: GuardrailsSettings = GuardrailsSettings()
     content_safety: ContentSafetySettings = ContentSafetySettings()
     bedrock_guardrail: BedrockGuardrailSettings = BedrockGuardrailSettings()
+    gcp_model_armor: GcpModelArmorSettings = GcpModelArmorSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
     telemetry: TelemetrySettings = TelemetrySettings()
     scale_redis: ScaleRedisSettings = ScaleRedisSettings()

@@ -233,6 +233,15 @@ de 7 sabores con `mini`).
 - [x] Tests de ataque con modelo real (`rag_evals.attacks --mode llm`): con harness, 0 invariantes en los 7 sabores. El harness ahora convierte el filtro de contenido del proveedor en un bloqueo.
 - [ ] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques (fase 12).
 
+<a id="fase-8-gcp"></a>
+
+### GCP (pasada 8.G)
+
+Coste estimado: 0 dentro de la cuota gratuita de Model Armor (2 M de tokens al mes por proyecto;
+los 24 textos son unos pocos miles).
+
+- [ ] **Model Armor frente al heurístico** (8.G1; requiere la plantilla de `model_armor.tf`, 8.G3): `uv run python -m rag_evals.shields --shield gcp` con `GCP_MODEL_ARMOR__TEMPLATE` (informe en `evals/reports/gcp/`). Comprobar: detección y falsos positivos sobre los 24 textos frente a Prompt Shields (7/12, 0 FP) y en capas con el heurístico; latencia p50 desde local con endpoint regional; la forma real de `filter_results` (claves del mapa, `rai_filter_type_results`, `invocation_result` con los textos de menos de 3 palabras) para reemplazar los dobles de `test_model_armor.py`; que `roles/modelarmor.user` basta para `sanitize*`.
+
 ## Fase 9 · Multi-agente ([doc](fase-9-multiagente.md))
 
 - [ ] Eval multi-agente con modelo real: `uv run python -m rag_evals.multiagent --mode llm --budget-usd 0.20` (precisión del triaje del modelo, que en modo guionizado no se mide). Ampliar el dataset con emails sintéticos reales (`data/synthetic/support_emails.jsonl` trae `expected_intent`).

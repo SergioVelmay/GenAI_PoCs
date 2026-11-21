@@ -74,8 +74,8 @@ verificado en los siete sabores, también en los que ejecutan tools en tareas pr
 | SQL seguro | `check_sql` + rol de solo lectura | Fabric Data Agent / NL2SQL | Bedrock KB con datos estructurados | `SQLDatabaseToolkit` (revisa con otro LLM, no con un parser) |
 | Human-in-the-loop | Tabla `approval_requests` + backend ejecuta | Aprobación de tools MCP en Agent Service | Return of control / confirmación en Bedrock Agents | `interrupt()` + `Command(resume=…)` |
 
-El escudo es un puerto (`ContentShieldPort`): `GUARDRAILS__SHIELD=heuristic|azure|bedrock` cambia
-de proveedor sin tocar el harness. Terraform de ambos, desactivado por defecto
+El escudo es un puerto (`ContentShieldPort`): `GUARDRAILS__SHIELD=heuristic|azure|bedrock|gcp`
+cambia de proveedor sin tocar el harness (GCP: Model Armor, [§9](#9-gcp-pasada-8g)). Terraform de ambos, desactivado por defecto
 (`content_safety_enabled`, `bedrock_guardrail_enabled`).
 
 ## 5. Tests de ataque (8.6)
@@ -177,7 +177,71 @@ ataques directos, inyecciones en documentos y textos legítimos parecidos a un a
 - Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para los tests de ataque
   (fase 12).
 
-## 9. Checkpoint de entrevista
+## 9. GCP (pasada 8.G)
+
+**Objetivo:** que el harness use los servicios de seguridad de GCP detrás de los mismos puertos:
+**Model Armor** como escudo (`GUARDRAILS__SHIELD=gcp`) y **Sensitive Data Protection** como
+detector de PII (`GUARDRAILS__PII=gcp`), con su Terraform y los ataques con Gemini. Coste 0:
+todo con dobles; lo real, en [pendientes](pendientes-cloud.md#fase-8-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 8.G1 | (este commit) | Escudo `ModelArmorShield` y `rag_evals.shields` con Bedrock y Model Armor |
+| 8.G2 | | Detector de PII con Sensitive Data Protection |
+| 8.G3 | | Terraform `model_armor.tf` (plantilla, *floor setting*, plantilla de inspección de SDP) |
+| 8.G4 | | Ataques con Gemini (informes por nube) y doc a tres nubes |
+
+### Verificación previa (21-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| `google-cloud-modelarmor` 0.7.5 y `google-cloud-dlp` 3.40 | Últimas versiones, ya en el extra `gcp` desde la 0.G1 | Sin cambios en el lock |
+| API instalada de Model Armor | `sanitize_user_prompt` / `sanitize_model_response`; `filter_results` es un mapa con un resultado por filtro (`pi_and_jailbreak`, `rai`, `sdp`, `malicious_uris`, `csam`) e `invocation_result` (`SUCCESS`, `PARTIAL`, `FAILURE`) | Veredicto filtro a filtro; sin `SUCCESS` y sin coincidencias, escudo no disponible |
+| [Regiones](https://docs.cloud.google.com/model-armor/locations) y [endpoints](https://docs.cloud.google.com/model-armor/data-residency) | `europe-west4` y `eu` admitidas; la plantilla solo se usa desde `modelarmor.<región>.rep.googleapis.com`; el endpoint global solo gestiona *floor settings* | Plantilla en `europe-west4` y cliente con endpoint regional |
+| [Límites](https://docs.cloud.google.com/security-command-center/docs/model-armor-overview) | Menos de 3 palabras → `NO_MATCH_FOUND` en inyección; no decodifica base64/hex; cada texto suelto, sin historial; español entre los 9 idiomas probados | El riesgo residual de codificaciones es el mismo que el del heurístico (12.4) |
+| [Integración con Gemini](https://docs.cloud.google.com/model-armor/model-armor-vertex-integration) (`model_armor_config` por petición) | Solo en `europe-west1/2/3` y dos regiones de Asia (no en `global`, donde servimos Gemini 4) y **falla abierto** si Model Armor no responde | **No se usa** (decidido con Sergio): el escudo propio falla cerrado; la *floor setting* (8.G3) queda como red de proyecto |
+| Bloqueo de Gemini | `BlockedReason.MODEL_ARMOR` existe en `google-genai` 2.34 y `GeminiLLM` ya convierte `block_reason` en `LLMContentFilterError` | Sin cambios: el harness lo trata como `provider_content_filter` |
+| [Precio](https://cloud.google.com/security-command-center/pricing) | 2 M de tokens al mes gratis por proyecto, después 0,10 $ por millón (prompts y respuestas) | Sin coste en reposo: `model_armor_enabled` solo por orden |
+| [infoTypes de SDP](https://docs.cloud.google.com/sensitive-data-protection/docs/infotypes-reference) | `SPAIN_NIF_NUMBER`, `SPAIN_NIE_NUMBER`, `IBAN_CODE`, `CREDIT_CARD_NUMBER`, `PERSON_NAME`... en `ANY_LOCATION`; `PERSON_NAME` no recomendado con latencia ajustada; 3 $/GB con 1 GB gratis y mínimo de 1 KB por llamada | Detector de la 8.G2 con los mismos nombres de entidad que Presidio |
+| Provider `google` 8.11 (8.12 publicado) | `google_model_armor_template`, `google_model_armor_floorsetting`, `google_data_loss_prevention_inspect_template` en el provider GA | 8.G3 sin `google-beta` |
+| Orden del harness | Las guardas de entrada corren **antes** de redactar la PII | El SDP de la plantilla solo bloquea datos de pago (tarjeta, IBAN), como Bedrock; el contacto lo redacta el filtro de PII |
+
+### 8.G1 · Escudo Model Armor
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_model_armor.py evals/tests/test_shields.py
+uv run python -m rag_evals.shields --shield gcp   # con coste (cuota gratuita): pendientes
+```
+
+`adapters/model_armor.py` (`ModelArmorShield`) implementa `ContentShieldPort`:
+
+| Método del puerto | Llamada | Qué cuenta |
+|---|---|---|
+| `scan_prompt` | `sanitizeUserPrompt` | `pi_and_jailbreak` → `attack`; RAI, SDP, URL y CSAM → categorías |
+| `scan_documents` | `sanitizeUserPrompt` por documento, en paralelo | Igual: Model Armor no tiene modo documento (Prompt Shields sí) |
+| `scan_output` | `sanitizeModelResponse` | Igual |
+
+- **Categorías normalizadas** con los nombres de los otros escudos donde hay equivalente
+  (`hate`, `sexual`, `harassment`, `dangerous`, `pii:<infotype>`, `malicious_uri`, `csam`), en
+  orden alfabético: los resultados llegan en mapas sin orden garantizado.
+- **Un bloqueo es definitivo; un "no encontré nada" solo vale si corrieron todos los filtros.**
+  Si un filtro se salta (p. ej., por pasarse de tokens) y nada coincide, `invocation_result` es
+  `PARTIAL` y el escudo lanza `ShieldUnavailableError`: el harness decide con
+  `GUARDRAILS__FAIL_OPEN` (por defecto, falla cerrado). Es la decisión contraria a la integración
+  de Gemini, que en ese caso deja pasar.
+- **Tope de tiempo** propio (`GCP_MODEL_ARMOR__TIMEOUT_SECONDS`, 5 s) con `asyncio.timeout`: el
+  escudo está en el camino de cada turno.
+- Composición: `build_shield` con `GUARDRAILS__SHIELD=gcp` abre un `ModelArmorAsyncClient` con
+  el endpoint regional y las credenciales de `gcp_credentials` (ADC o *impersonation*). La
+  plantilla es `projects/<GCP__PROJECT>/locations/<región>/templates/<GCP_MODEL_ARMOR__TEMPLATE>`.
+- `rag_evals.shields` admite ahora `--shield azure|bedrock|gcp` (Bedrock faltaba) con el informe
+  en la carpeta de la nube (`evals/reports/<nube>/shields.*`) y una sola nube por ejecución, así
+  uno no sobrescribe el de otra.
+- Tests con *protos* reales construidos desde la documentación: ataque y daño en una llamada,
+  documentos uno a uno, salida, errores de la API y *timeout* como no disponible, filtro saltado
+  sin coincidencias (no disponible) frente a coincidencia con otro filtro saltado (bloquea).
+
+## 10. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 8](preguntas-entrevista.md#fase-8).

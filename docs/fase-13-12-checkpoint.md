@@ -152,7 +152,11 @@ Plan original (antes del cambio):
 
 **8.G · Harness**
 
-- 8.G1: `adapters/model_armor.py` (`GUARDRAILS__SHIELD=gcp`), PII con Sensitive Data Protection (`GUARDRAILS__PII=gcp`), plantilla de Model Armor en Terraform, Gemini en `rag_evals.shields` y en los ataques con modelo real (aplazado).
+- ~~8.G1: `adapters/model_armor.py` (`GUARDRAILS__SHIELD=gcp`), PII con Sensitive Data Protection (`GUARDRAILS__PII=gcp`), plantilla de Model Armor en Terraform, Gemini en `rag_evals.shields` y en los ataques con modelo real (aplazado).~~ **Al empezar (21-11-2026)** se divide en cuatro (decidido con Sergio; verificación previa en la [fase 8](fase-8-harness.md#9-gcp-pasada-8g)): la integración de Model Armor en Gemini (`model_armor_config`) no existe en `global` y falla abierto, así que **no se usa**; el escudo propio falla cerrado y la *floor setting* queda como red de proyecto. Además, `attacks` y `agents --mode llm` escribían siempre en `evals/reports/azure/`.
+- 8.G1: `adapters/model_armor.py` (`ModelArmorShield`, endpoint regional, sin `SUCCESS` y sin coincidencias = no disponible), `GUARDRAILS__SHIELD=gcp` y `rag_evals.shields --shield azure|bedrock|gcp` con el informe en la carpeta de cada nube.
+- 8.G2: `harness/pii_gcp.py` con Sensitive Data Protection (`GUARDRAILS__PII=gcp`; posiciones en *codepoints*, mismos nombres de entidad que Presidio).
+- 8.G3: `model_armor.tf` (`model_armor_enabled`): plantilla de inspección de SDP, plantilla de Model Armor (SDP avanzado solo para datos de pago), *floor setting* de Agent Platform en *inspect only* e IAM.
+- 8.G4: `attacks --mode llm` con Gemini y el informe en `evals/reports/<nube>/llm/` (y `fix:` aparte para `agents`), doc de la fase 8 a tres nubes.
 
 **9.G · Multi-agente**
 

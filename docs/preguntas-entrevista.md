@@ -905,6 +905,18 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    escalaron a un analista: la seguridad funcionaba, pero la base transaccional no es el sitio.
    La propuesta a negocio: réplica de lectura o almacén con vistas agregadas antes de abrirlo.
 
+### GCP (pasada 8.G)
+
+**Técnicas**
+
+1. **Gemini puede aplicar Model Armor él solo con `model_armor_config`. ¿Por qué llamas tú a
+   Model Armor?** Por dos motivos. Esa integración solo existe en unas pocas regiones y no en el
+   endpoint `global`, donde sirvo Gemini 4. Y, sobre todo, **falla abierto**: si Model Armor no
+   responde, la petición sigue sin revisar. Mi escudo va detrás del mismo puerto que Prompt
+   Shields y Bedrock Guardrails y falla cerrado: si un filtro no se ejecutó y nada coincidió, no
+   lo doy por bueno. La integración del proyecto (*floor settings*) la dejo como red de seguridad,
+   no como control principal.
+
 <a id="checkpoint-8-9"></a>
 
 ## Checkpoint 8→9 · De local a la nube ([doc](fase-9-8-checkpoint.md))

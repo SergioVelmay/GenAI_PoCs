@@ -5,6 +5,7 @@ paths:
   - "packages/genaipocs_core/src/genaipocs_core/ports/sql.py"
   - "packages/genaipocs_core/src/genaipocs_core/adapters/azure_content_safety.py"
   - "packages/genaipocs_core/src/genaipocs_core/adapters/bedrock_guardrails.py"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/model_armor.py"
   - "services/booking_agent/src/booking_agent/guardrails.py"
   - "scripts/analytics_sql_demo.py"
 ---

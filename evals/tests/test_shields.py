@@ -1,8 +1,10 @@
 from collections.abc import Sequence
 
+import pytest
+
 from genaipocs_core.ports.guardrails import ShieldUnavailableError, ShieldVerdict
 from harness.security import HeuristicShield
-from rag_evals.shields import load_cases, render, scan, summarize
+from rag_evals.shields import load_cases, render, scan, shields_cloud, summarize
 
 
 def test_dataset_is_balanced_between_attacks_and_lookalikes() -> None:
@@ -33,3 +35,18 @@ async def test_unavailable_shield_is_counted_as_error_not_as_a_verdict() -> None
     cases = load_cases()[:3]
     summary = summarize("down", await scan(Down(), cases))
     assert summary.errors == 3 and summary.recall is None
+
+
+def test_one_cloud_per_run_and_report_in_its_folder() -> None:
+    assert shields_cloud(["heuristic"]) is None
+    assert shields_cloud(["heuristic", "gcp"]) == "gcp"
+    assert shields_cloud(["heuristic", "bedrock"]) == "aws"
+    with pytest.raises(ValueError, match="una sola nube"):
+        shields_cloud(["heuristic", "azure", "gcp"])
+
+
+def test_report_title_names_the_shields() -> None:
+    summaries = [summarize("heuristic", []), summarize("gcp", [])]
+    assert render(summaries, 0).startswith(
+        "# Escudos de contenido: heurístico frente a Model Armor\n"
+    )

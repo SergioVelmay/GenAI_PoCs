@@ -99,6 +99,24 @@ async def build_shield(settings: Settings) -> AsyncIterator[ContentShieldPort]:
             key = config.api_key
             auth = api_key_auth(key.get_secret_value()) if key else entra_id_auth(cred)
             yield AzureContentSafetyShield(client, endpoint=config.endpoint, auth=auth)
+    elif kind == "gcp":
+        from google.cloud.modelarmor_v1 import ModelArmorAsyncClient
+
+        from genaipocs_core.adapters.gcp_auth import gcp_credentials
+        from genaipocs_core.adapters.model_armor import (
+            ModelArmorShield,
+            model_armor_options,
+            template_name,
+        )
+
+        template = template_name(settings)
+        armor = settings.gcp_model_armor
+        location = armor.location or settings.gcp.region
+        async with ModelArmorAsyncClient(
+            credentials=gcp_credentials(settings.gcp),
+            client_options=model_armor_options(location),
+        ) as client:
+            yield ModelArmorShield(client, template=template, timeout_seconds=armor.timeout_seconds)
     else:
         import boto3
 
