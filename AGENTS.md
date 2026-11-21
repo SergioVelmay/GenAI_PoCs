@@ -81,7 +81,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 falta AWS; y GCP en todas). No escribir "asterisco".
 - Pasada GCP: subfases `N.G1`, `N.G2`... por fase (`feat: fase 3.G1 - ...`), con paridad total con Azure y AWS; cada una actualiza el doc de su fase y la columna GCP de la tabla de estado.
-- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre sin preguntar con `uv run python scripts/restore_latency_reports.py` (comprueba que solo cambian claves `*_ms` y, si no, no toca nada; `git restore` sigue en `ask`) y se informa; si cambian campos o resultados, entran en el commit.
+- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre sin preguntar con `uv run python scripts/restore_latency_reports.py` (JSON y Markdown: comprueba que solo cambian claves `*_ms` o columnas `ms` de las tablas y, si no, no toca nada; `git restore` sigue en `ask`) y se informa; si cambian campos o resultados, entran en el commit.
 
 ## Entorno y problemas conocidos
 
