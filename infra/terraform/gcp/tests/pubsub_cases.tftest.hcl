@@ -1,5 +1,6 @@
 # Fase 9.G3: plan simulado (sin credenciales, sin red, sin coste) de los temas del orquestador:
-# cinco temas con su DLQ, exactly-once y ack deadline de 600 s en las suscripciones de los workers.
+# seis temas con su DLQ (case.reviews desde la 9.G5), exactly-once y ack deadline de 600 s en
+# las suscripciones de los workers.
 #
 #   terraform test   (en infra/terraform/gcp; lo ejecuta la CI)
 
@@ -34,7 +35,7 @@ run "case_topics" {
   assert {
     condition = toset(keys(google_pubsub_subscription.cases_worker)) == toset([
       "support.emails", "case.triaged.refunds", "case.triaged.creative",
-      "case.triaged.knowledge", "case.outcomes",
+      "case.triaged.knowledge", "case.outcomes", "case.reviews",
     ])
     error_message = "Un tema por paso del flujo de casos, con los nombres lógicos de CaseTopics."
   }

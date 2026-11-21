@@ -55,6 +55,7 @@ variable "services" {
     "cloudtrace.googleapis.com",
     "discoveryengine.googleapis.com",
     "dlp.googleapis.com",
+    "eventarc.googleapis.com",
     "identitytoolkit.googleapis.com",
     "logging.googleapis.com",
     "modelarmor.googleapis.com",
@@ -64,6 +65,7 @@ variable "services" {
     "run.googleapis.com",
     "storage.googleapis.com",
     "vectorsearch.googleapis.com",
+    "workflows.googleapis.com",
   ]
 }
 
@@ -295,6 +297,34 @@ variable "a2a_max_instances" {
   validation {
     condition     = var.a2a_max_instances >= 1 && var.a2a_max_instances <= 10
     error_message = "Entre 1 y 10 (es una PoC)."
+  }
+}
+
+variable "case_review_workflow_enabled" {
+  description = "Espera humana con SLA en Workflows + disparador de Eventarc (9.G5). Pago por paso: ~0 $ en reposo."
+  type        = bool
+  default     = false
+}
+
+variable "review_sla_seconds" {
+  description = "Plazo para decidir un caso pendiente; al vencer, el dominio lo escala (12 h = defecto de await_callback)."
+  type        = number
+  default     = 43200
+
+  validation {
+    condition     = var.review_sla_seconds >= 60 && var.review_sla_seconds <= 2592000
+    error_message = "Entre 1 minuto y 30 días."
+  }
+}
+
+variable "case_reviewers" {
+  description = "Quién puede mandar la decisión al callback (workflows.callbacks.send): la consola de operaciones."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for m in var.case_reviewers : startswith(m, "serviceAccount:") || startswith(m, "group:")])
+    error_message = "serviceAccount: (la consola) o group: (operaciones); nunca usuarios sueltos ni clientes."
   }
 }
 

@@ -3,8 +3,8 @@
 **Objetivo:** el caso exacto de la oferta. Un email de un cliente entra en el agente de
 **Triaje**, que extrae la intención; el **dominio** elige el especialista (**Reembolsos**,
 **Creativo** o **Conocimiento**) y le traspasa un contexto mínimo. Mismo flujo con LangGraph,
-MAF y una cola, con los especialistas en proceso o como microservicios **A2A**, y con los
-guardrails y la aprobación humana de la fase 8.
+MAF, ADK (pasada GCP) y una cola, con los especialistas en proceso o como microservicios **A2A**,
+y con los guardrails y la aprobación humana de la fase 8. En Azure, AWS y GCP (sección 7).
 
 | Subfase | Commit | Qué |
 |---|---|---|
@@ -32,7 +32,7 @@ flowchart TB
     CHAT["booking_agent<br/>(fase 7)"]
   end
 
-  subgraph ORQ["Orquestador (LangGraph, MAF o cola)"]
+  subgraph ORQ["Orquestador (LangGraph, MAF, ADK o cola)"]
     TRI["Triaje<br/>LLM clasifica · dominio enruta"]
     HR["Revisión humana"]
   end
@@ -81,6 +81,9 @@ flowchart TB
 | Flujo asíncrono, workers, entrada y consola de casos | `orchestrator/async_flow.py`, `worker.py`, `intake.py`, `cases.py` |
 | Estado de los casos | `ports/cases.py`, `adapters/postgres/cases.py`, migración 0006 |
 | Evals | `evals/src/rag_evals/multiagent.py`, `evals/datasets/multiagent-v1.jsonl` |
+| ADK (9.G1–9.G2) y sesiones en PostgreSQL | `orchestrator/adk_workflow.py`, `checkpoints.py` |
+| Revisión por evento con SLA (9.G5) | `ReviewHandler` y `CaseReviewService.expire` en `async_flow.py`, `infra/workflows/case_review.yaml` |
+| Nube GCP (9.G3–9.G5) | `infra/terraform/gcp/{pubsub,a2a,workflows}.tf` |
 
 ## 2. Qué se construye
 
@@ -211,16 +214,16 @@ Hallazgos que dejaron test de regresión:
 | En la CI, una copia que llegaba con el caso ya `triaged` republicaba el traspaso y el especialista corría dos veces | Solo una reentrega (`delivery_count > 1`) republica; una copia se descarta |
 | Un `case_id` largo rompía el envío del Creativo (límite de 40) | Límite a 200 (los `Message-ID` reales son largos) |
 
-## 4. Comparativa Azure ↔ AWS ↔ framework
+## 4. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
 
-| Pieza | A. Gestionado (Azure / AWS) | B. SDK nativo | C. Framework |
-|---|---|---|---|
-| Orquestación | Foundry Agent Service (workflows, tool A2A) / AgentCore Runtime (A2A), Bedrock Agents (*multi-agent collaboration*) | Cola + `CaseStore` (coreografía) | LangGraph `StateGraph`; MAF `WorkflowBuilder` |
-| Revisión humana | Logic Apps / Step Functions (*wait for callback*) | `CaseReviewService` | `interrupt` / `request_info` |
-| Estado y checkpoints | Cosmos DB, PostgreSQL Flexible / DynamoDB, Aurora | `support_cases` (PostgreSQL) | `AsyncPostgresSaver` / `CheckpointStorage` |
-| Agente↔agente | A2A sobre Container Apps / AgentCore o ECS | `a2a-sdk` | MAF `agent-framework-a2a` (beta) |
-| Colas | Service Bus (*duplicate detection*) / SQS FIFO (deduplicación), SNS, EventBridge | `MessageBusPort` (RabbitMQ local) | — |
-| Identidad entre agentes | Entra ID (app roles, Managed Identity) / Cognito client credentials, IAM | JWT de servicio | — |
+| Pieza | Azure | AWS | GCP | Nuestro código (B) | Framework (C) |
+|---|---|---|---|---|---|
+| Orquestación gestionada (A) | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (A2A), Bedrock Agents (*multi-agent collaboration*) | Agent Runtime (A2A), Agent Gateway agente↔agente | Cola + `CaseStore` (coreografía) | LangGraph `StateGraph`; MAF `WorkflowBuilder`; ADK `Workflow` de grafo |
+| Revisión humana | Durable Functions / Logic Apps | Step Functions (`.waitForTaskToken`) | **Workflows** (`await_callback` con SLA, 9.G5) | `CaseReviewService` + `ReviewHandler` | `interrupt` / `request_info` / `RequestInput` |
+| Estado y checkpoints | Cosmos DB, PostgreSQL Flexible | DynamoDB, Aurora | Sessions de Agent Platform, Cloud SQL / AlloyDB | `support_cases` (PostgreSQL) | `AsyncPostgresSaver` / `CheckpointStorage` / `DatabaseSessionService` |
+| Agente↔agente | A2A sobre Container Apps | A2A sobre AgentCore o ECS | A2A sobre **Cloud Run** (9.G4) o Agent Runtime | `a2a-sdk` | MAF `agent-framework-a2a` (beta), ADK `RemoteA2aAgent` |
+| Colas | Service Bus (*duplicate detection*) | SQS FIFO (deduplicación), SNS, EventBridge | **Pub/Sub** (*exactly-once*: solo reentregas), Eventarc | `MessageBusPort` (RabbitMQ local) | — |
+| Identidad entre agentes | Entra ID (app roles, Managed Identity) | Cognito client credentials, IAM | **ID tokens de Google** + `roles/run.invoker` (sin scope) | JWT de servicio, `CallerPolicy` | — |
 
 ## 5. Decisiones y límites (para defenderlos)
 
@@ -236,26 +239,35 @@ Hallazgos que dejaron test de regresión:
   *transactional outbox*); dos copias concurrentes de un evento de especialista pueden ejecutarlo dos veces (las
   aprobaciones son idempotentes, el coste no); MAF sin reintentos por nodo; preferencias en
   memoria del proceso en los contenedores.
+- **(9.G) Cuatro motores, un contrato.** ADK no es más que otro motor detrás de
+  `SpecialistAgent` y del mismo dataset; en producción se elige uno (el de la nube donde se
+  despliegue el carril A) y se documenta por qué.
+- **(9.G) Exactly-once no sustituye a la idempotencia.** Solo evita reentregas; los duplicados al
+  publicar y los `ack` fuera de plazo siguen llegando. La garantía es el `CaseStore`.
+- **(9.G) El SLA de revisión lo decide el dominio, no Workflows.** Workflows es un temporizador
+  duradero y un relé; qué significa que venza (caducar sin ejecutar y escalar) está en
+  `CaseReviewService.expire`, probado sin nube. Una decisión que llega tarde se descarta.
 
 ## 6. Pendiente con coste
 
 Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 9): eval con modelo real
-(precisión del triaje), A2A con identidad de nube, carril A (Foundry / AgentCore) y colas en SQS
-y Service Bus.
+(precisión del triaje), A2A con identidad de nube, carril A (Foundry / AgentCore / Agent
+Runtime) y colas en SQS, Service Bus y Pub/Sub; en GCP, además, Cloud Run con ID tokens reales
+y Workflows con callback y SLA.
 
 ## 7. GCP (pasada 9.G)
 
 **Objetivo:** el mismo flujo con las piezas de GCP detrás de los mismos contratos: **ADK** como
 cuarto motor, **Pub/Sub** (*exactly-once*) en el flujo asíncrono, **A2A con ID tokens de Google**
 entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y dobles; lo real, en
-[pendientes](pendientes-cloud.md).
+[pendientes](pendientes-cloud.md#fase-9-gcp).
 
 | Subfase | Commit | Qué |
 |---|---|---|
 | 9.G1 | `850cf5c` | ADK como cuarto motor (`AdkCaseWorkflow`); antes, `ccfcca5` (`fix:` del informe de `multiagent --mode llm` por nube) |
 | 9.G2 | `7ec458c` | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
 | 9.G3 | `496181b` | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
-| 9.G4 | — | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
+| 9.G4 | `1f9d139` | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
 | 9.G5 | — | Workflows como espera humana con SLA, rol `review` y doc a tres nubes |
 
 ### Verificación previa (21-11-2026)
@@ -421,6 +433,60 @@ cd infra/terraform/gcp ; terraform test      # a2a.tftest.hcl: plan simulado, si
   token; y el orquestador elige ID tokens con `identity=gcp`. `terraform test` con tres `run`.
 - `orchestrator` declara ya `google-adk` (lo importa desde la 9.G1; antes llegaba por
   `booking-agent`). El lock solo reordena bloques: mismas versiones.
+
+### 9.G5 · Workflows: espera humana con SLA
+
+```powershell
+uv run pytest services/orchestrator/tests/test_review_events.py services/orchestrator/tests/test_case_review_workflow.py
+uv run pytest packages/harness/tests/test_harness_approvals.py
+cd infra/terraform/gcp ; terraform test      # workflows.tftest.hcl
+uv run python -m orchestrator.worker review  # rol que aplica case.reviews (sin LLM)
+```
+
+```mermaid
+flowchart LR
+  OUT[["case.outcomes"]] -->|"Eventarc"| WF["Workflows<br/>case_review"]
+  WF -->|"callback + aviso"| REQ[["case.review_requests"]]
+  REQ --> OPS["Operaciones"]
+  OPS -->|"POST al callback"| WF
+  WF -->|"decisión o sla_expired"| REV[["case.reviews"]]
+  REV --> RH["Rol review<br/>(dominio)"]
+```
+
+- **Qué aporta frente a la 9.6**: el caso ya esperaba sin proceso (en el `CaseStore`), pero nada
+  vigilaba el plazo. Ahora cada caso pendiente tiene un **SLA**: si nadie decide en
+  `review_sla_seconds` (12 h por defecto), la solicitud de aprobación **caduca sin ejecutarse** y
+  el caso pasa a `escalated` con el código `review_sla_expired`. KPI: casos pendientes más
+  antiguos que el SLA = 0; tiempo hasta la decisión.
+- **Workflows no decide nada** (regla 6): crea un callback, avisa en `case.review_requests` (la
+  consola de operaciones muestra el borrador), espera con `events.await_callback` y publica en
+  `case.reviews` la decisión tal cual o `{"kind": "sla_expired"}`. El `TimeoutError` lleva al
+  paso del SLA; cualquier otro error se relanza, no se disfraza de plazo vencido.
+- **El dominio aplica**: `ReviewHandler` (rol `review` del worker, sin LLM) valida y llama a
+  `CaseReviewService.review` o `.expire`. `ApprovalService.expire` (nuevo en el harness) pasa la
+  solicitud de `pending` a `expired` sin ejecutar nada y no deshace una decisión ya tomada.
+  Carreras resueltas con compare-and-set: decisión justo antes del plazo → gana la decisión;
+  decisión que llega tarde → se descarta sin error; decisión repetida → idempotente; el propio
+  cliente como revisor, tipo desconocido o campos inválidos → DLQ.
+- `case_review.yaml` en `infra/workflows/` (YAML versionado; Terraform lo despliega con
+  `file()`). **Hallazgo del test de contrato**: las expresiones `${...}` con `": "` (mapas de
+  `json.encode`) no son YAML válido sin comillas; el despliegue habría fallado.
+  `test_case_review_workflow.py` comprueba que el YAML habla el idioma de `ReviewHandler` (tipos,
+  campos, estado, tema) y que sus variables las declara Terraform.
+- `workflows.tf` (`case_review_workflow_enabled`): workflow con su cuenta de servicio (publicar
+  en dos temas, logs), `call_log_level = LOG_ERRORS_ONLY` (el borrador no va a los logs),
+  disparador de Eventarc sobre `case.outcomes` (crea su propia suscripción; los resultados que no
+  están pendientes terminan en el primer paso) y `roles/workflows.invoker` solo para
+  `case_reviewers` (grupos o la cuenta de la consola). `case.reviews` se suma a los temas del
+  orquestador en `pubsub.tf`, con DLQ y exactly-once. APIs nuevas: `run`, `workflows`, `eventarc`.
+- Equivalentes: Step Functions con `.waitForTaskToken` y `TimeoutSeconds` (AWS) y Durable
+  Functions con `WaitForExternalEvent` y un temporizador (Azure). En las dos nubes no está
+  implementado (solo en la comparativa): queda como idea, no como pendiente.
+- Tests: 6 del rol `review` (decisión, SLA, decisión tardía, decisión justo antes, duplicado,
+  DLQ), 4 de contrato del YAML, 2 de `ApprovalService.expire` y 2 `run` de `terraform test`.
+- Límite: quién decide lo declara el cuerpo del callback (`reviewer`), protegido por IAM
+  (`workflows.callbacks.send`); en la fase 15, la consola de operaciones detrás de IAP pondrá la
+  identidad verificada.
 
 ## 8. Checkpoint de entrevista
 

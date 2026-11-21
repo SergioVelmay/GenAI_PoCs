@@ -8,6 +8,7 @@ Cada rol es un consumidor independiente: se escala con más procesos del rol con
     uv run python -m orchestrator.worker triage        # solo el triaje
     uv run python -m orchestrator.worker refunds knowledge
     uv run python -m orchestrator.worker relay         # solo el relay del outbox (fase 10.5)
+    uv run python -m orchestrator.worker review        # decisiones de case.reviews (9.G5)
     ORCHESTRATOR__SPECIALISTS=a2a uv run python -m orchestrator.worker   # especialistas A2A
 """
 
@@ -25,20 +26,20 @@ from genaipocs_core.application.orchestration import SpecialistAgent, TriageAgen
 from genaipocs_core.application.outbox import OutboxRelay
 from genaipocs_core.config import get_settings
 from genaipocs_core.domain import Specialist
-from orchestrator.async_flow import subscribe_workers
+from orchestrator.async_flow import CaseReviewService, subscribe_workers
 from orchestrator.bootstrap import open_outbox, open_remote_specialists, open_specialist_deps
 from orchestrator.settings import OrchestratorSettings
-from orchestrator.specialists import build_specialist
+from orchestrator.specialists import build_approval_service, build_specialist
 
 logger = logging.getLogger("orchestrator.worker")
-ROLES = ("triage", *(s.value for s in Specialist), "relay")
+ROLES = ("triage", *(s.value for s in Specialist), "review", "relay")
 
 
 async def run(roles: list[str]) -> None:
     settings = get_settings()
     setup_observability(settings, service_name="orchestrator_worker")
     config = OrchestratorSettings()
-    wanted = [Specialist(r) for r in roles if r not in ("triage", "relay")]
+    wanted = [Specialist(r) for r in roles if r not in ("triage", "review", "relay")]
     agents = [r for r in roles if r != "relay"]
     local = config.specialists == "inprocess"
     knowledge = local and any(s is not Specialist.CREATIVE for s in wanted)
@@ -66,6 +67,10 @@ async def run(roles: list[str]) -> None:
                 cases,
                 triage=TriageAgent(deps.llm) if "triage" in roles else None,
                 specialists=specialists,
+                # La revisión no llama al LLM: decide una persona (o vence el SLA).
+                review=CaseReviewService(cases, build_approval_service(deps))
+                if "review" in roles
+                else None,
             )
             logger.info(
                 "Escuchando %s en %s (especialistas %s).", topics, config.broker, config.specialists

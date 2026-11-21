@@ -35,6 +35,11 @@ output "a2a_env" {
   }
 }
 
+output "case_review_workflow" {
+  description = "Workflow de la espera humana con SLA (null sin case_review_workflow_enabled)."
+  value       = var.case_review_workflow_enabled ? google_workflows_workflow.case_review[0].name : null
+}
+
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
 }

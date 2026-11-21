@@ -1057,6 +1057,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    no la imponga el framework. El contrato `SpecialistAgent` y el dataset son los mismos; si
    Genaipocs desplegara en GCP con Agent Runtime, el motor nativo es ADK y ya está probado con
    las mismas evals. En producción elegiría uno y documentaría por qué.
+2. **Un caso de reembolso lleva dos días pendiente de aprobación: ¿cómo lo evitas y qué le
+   cuentas a operaciones?** Con un SLA de revisión: Workflows espera la decisión con un callback y
+   un plazo (12 h por defecto); si vence, el dominio caduca la solicitud **sin ejecutar** el
+   reembolso y escala el caso a una persona con prioridad. A operaciones le enseñaría "casos
+   pendientes más antiguos que el SLA" (objetivo: 0) y el tiempo hasta la decisión. Workflows no
+   decide nada: es un temporizador; si el SLA cambia por cliente o importe, cambia el dominio.
 
 <a id="fase-10"></a>
 

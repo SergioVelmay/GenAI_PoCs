@@ -1,0 +1,93 @@
+# Fase 9.G5: espera humana con SLA para los casos pendientes de aprobación (Workflows).
+#
+#   case.outcomes ─Eventarc─▶ este workflow ─▶ ¿pendiente? ─no─▶ fin
+#                                                  │ sí
+#        callback + aviso en case.review_requests ─┤
+#                                                  ▼
+#        await_callback (SLA) ──decisión──▶ case.reviews {kind: decision, ...}
+#                             └─plazo────▶ case.reviews {kind: sla_expired}
+#
+# Workflows NO decide nada (regla 6): es un temporizador duradero y un relé. La decisión la
+# toma una persona (callback) y lo que pasa al vencer el plazo lo decide el dominio
+# (`CaseReviewService.expire`: la aprobación caduca sin ejecutarse y el caso se escala).
+# Equivalentes: Step Functions con `.waitForTaskToken` y `HeartbeatSeconds`/`TimeoutSeconds`
+# (AWS) y Durable Functions con `WaitForExternalEvent` + temporizador (Azure).
+#
+# Variables (user_env_vars de `workflows.tf`): REVIEWS_TOPIC, REQUESTS_TOPIC y
+# REVIEW_SLA_SECONDS. El callback exige `workflows.callbacks.send` (roles/workflows.invoker) a
+# quien decide: la consola de operaciones, nunca el cliente.
+#
+# Las expresiones `${...}` que contienen `: ` (mapas de json.encode, textos) van entre comillas
+# simples: sin ellas no es YAML válido y el despliegue falla (lo comprueba
+# `test_case_review_workflow.py`).
+
+main:
+  params: [event]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - reviews_topic: ${"projects/" + project + "/topics/" + sys.get_env("REVIEWS_TOPIC")}
+          - requests_topic: ${"projects/" + project + "/topics/" + sys.get_env("REQUESTS_TOPIC")}
+          - sla_seconds: ${int(sys.get_env("REVIEW_SLA_SECONDS"))}
+          # Evento de Eventarc (CloudEvent): el mensaje de Pub/Sub va en base64.
+          - outcome: ${json.decode(text.decode(base64.decode(event.data.message.data)))}
+    - only_pending_cases:
+        switch:
+          - condition: ${outcome.status != "pending_approval"}
+            return: '${"sin revisión: " + outcome.status}'
+    - create_callback:
+        call: events.create_callback_endpoint
+        args:
+          http_callback_method: POST
+        result: callback
+    - notify_reviewers:
+        # La consola de operaciones (o un aviso por email/chat) lee case.review_requests y
+        # muestra el borrador; decidir es un POST con {reviewer, approve, note} al callback.
+        call: googleapis.pubsub.v1.projects.topics.publish
+        args:
+          topic: ${requests_topic}
+          body:
+            messages:
+              - data: '${base64.encode(json.encode({"case_id": outcome.case_id, "specialist": outcome.specialist, "callback_url": callback.url, "sla_seconds": sla_seconds}))}'
+                attributes:
+                  correlation_id: ${outcome.case_id}
+    - wait_for_decision:
+        try:
+          call: events.await_callback
+          args:
+            callback: ${callback}
+            timeout: ${sla_seconds}
+          result: decision
+        except:
+          as: e
+          steps:
+            - sla_or_error:
+                switch:
+                  - condition: ${"TimeoutError" in e.tags}
+                    next: sla_expired
+            - unexpected:
+                raise: ${e}
+    - publish_decision:
+        # Se reenvía tal cual: valida el dominio (ReviewHandler + CaseReviewService), no esto.
+        call: googleapis.pubsub.v1.projects.topics.publish
+        args:
+          topic: ${reviews_topic}
+          body:
+            messages:
+              - data: '${base64.encode(json.encode({"kind": "decision", "case_id": outcome.case_id, "reviewer": decision.http_request.body.reviewer, "approve": decision.http_request.body.approve, "note": default(map.get(decision.http_request.body, "note"), "")}))}'
+                attributes:
+                  correlation_id: ${outcome.case_id}
+    - decided:
+        return: '${"decisión publicada: " + outcome.case_id}'
+    - sla_expired:
+        call: googleapis.pubsub.v1.projects.topics.publish
+        args:
+          topic: ${reviews_topic}
+          body:
+            messages:
+              - data: '${base64.encode(json.encode({"kind": "sla_expired", "case_id": outcome.case_id}))}'
+                attributes:
+                  correlation_id: ${outcome.case_id}
+    - escalated:
+        return: '${"SLA vencido: " + outcome.case_id}'

@@ -147,6 +147,34 @@ async def test_rejection_and_expiry_never_execute() -> None:
     assert uow.refunds.items == []
 
 
+async def test_expire_closes_a_pending_request_without_executing_it() -> None:
+    """SLA de revisión vencido (9.G5): caducar no es aprobar, y es idempotente."""
+    executor, service, _, uow, _ = _world()
+    await executor.execute(REFUND, ANA)
+    [pending] = await service.pending()
+
+    expired = await service.expire(pending.id, reason="review_sla_expired")
+    again = await service.expire(pending.id, reason="review_sla_expired")
+
+    assert expired.status is again.status is ApprovalStatus.EXPIRED
+    assert expired.note == "review_sla_expired" and expired.reviewer is None
+    assert uow.refunds.items == []
+    with pytest.raises(ApprovalError, match="estado 'expired'"):
+        await service.decide(pending.id, reviewer="ops-1", approve=True)
+
+
+async def test_expire_does_not_undo_a_decision_already_taken() -> None:
+    executor, service, _, uow, _ = _world()
+    await executor.execute(REFUND, ANA)
+    [pending] = await service.pending()
+    await service.decide(pending.id, reviewer="ops-1", approve=True)
+
+    late = await service.expire(pending.id, reason="review_sla_expired")
+
+    assert late.status is ApprovalStatus.EXECUTED
+    assert len(uow.refunds.items) == 1
+
+
 async def test_requester_cannot_approve_their_own_action() -> None:
     executor, service, _, _, _ = _world()
     await executor.execute(REFUND, ANA)

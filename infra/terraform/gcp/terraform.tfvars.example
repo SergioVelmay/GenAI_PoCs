@@ -54,6 +54,12 @@ agent_gateway_region  = "europe-west1"
 a2a_enabled = false
 a2a_image   = "" # europe-west4-docker.pkg.dev/<proyecto>/agents/orchestrator:<tag>
 
+# Espera humana con SLA en Workflows + Eventarc sobre case.outcomes (9.G5): pago por paso, ~0 $
+# en reposo. Al vencer el plazo, el dominio caduca la aprobación y escala el caso.
+case_review_workflow_enabled = false
+review_sla_seconds           = 43200 # 12 h; 120 para probarlo
+case_reviewers               = []    # ["group:<operaciones>"]: quién manda la decisión al callback
+
 # Agente en Agent Runtime (7.G4). true = motor standalone con Sessions + Memory Bank (pago por
 # uso, sin coste por hora; output agent_platform_env). Con imagen, además el agente en un
 # contenedor con Agent Identity (vCPU-hora activa, escala a cero; la imagen llega en la fase 15).

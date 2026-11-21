@@ -121,6 +121,7 @@ resource "google_pubsub_subscription_iam_member" "app_read_policy" {
 # Fase 9.G3: flujo asíncrono de casos del orquestador (ORCHESTRATOR__BROKER=pubsub).
 #
 #   support.emails → triaje → case.triaged.<especialista> → especialista → case.outcomes
+#   case.reviews (9.G5): decisión de la persona o SLA vencido, desde Workflows → rol `review`
 #
 # Mismo patrón que la cola de indexación (tema, DLQ con su suscripción, `<tema>.worker`), con dos
 # diferencias:
@@ -143,6 +144,9 @@ locals {
     "case.triaged.creative",
     "case.triaged.knowledge",
     "case.outcomes",
+    # 9.G5: decisiones de revisión (o SLA vencido) que publica Workflows; las aplica el rol
+    # `review` del worker.
+    "case.reviews",
   ])
 }
 
