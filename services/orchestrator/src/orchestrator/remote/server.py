@@ -36,10 +36,12 @@ from genaipocs_core.application.orchestration import (
     outcome_to_payload,
 )
 from genaipocs_core.domain import ROUTES, Specialist
-from orchestrator.remote.auth import BearerAuthMiddleware
+from orchestrator.remote.auth import BearerAuthMiddleware, CallerPolicy
 from orchestrator.remote.tracing import TraceContextMiddleware
 
 logger = logging.getLogger(__name__)
+# Política local por defecto (emisor de desarrollo): `sub` en la lista y scope `cases:handle`.
+DEV_POLICY = CallerPolicy(frozenset({"svc-orchestrator"}))
 
 RPC_PATH = "/a2a"
 JSON = "application/json"
@@ -143,8 +145,7 @@ def create_specialist_app(
     *,
     public_url: str,
     verifier: JWTVerifier | None,
-    scope: str = "cases:handle",
-    allowed_callers: tuple[str, ...] = ("svc-orchestrator",),
+    policy: CallerPolicy = DEV_POLICY,
     task_store: TaskStore | None = None,
 ) -> Starlette:
     """`verifier=None` solo para tests en proceso: en un contenedor siempre hay token."""
@@ -167,8 +168,7 @@ def create_specialist_app(
         app.add_middleware(
             BearerAuthMiddleware,
             verifier=verifier,
-            scope=scope,
-            allowed_callers=allowed_callers,
+            policy=policy,
         )
     # El último añadido es el más externo: el span cubre también la validación del token.
     app.add_middleware(

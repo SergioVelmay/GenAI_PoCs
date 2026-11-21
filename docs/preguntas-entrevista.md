@@ -1044,6 +1044,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    Además, el `ack` puede fallar si el turno del LLM supera el plazo, y el mensaje vuelve. Es una
    primera capa más débil que SQS FIFO; la garantía es el alta única por email y las
    transiciones CAS. En AWS: SQS FIFO con `MessageDeduplicationId` (ventana de 5 min).
+4. **¿Cómo autentica el orquestador a los especialistas en Cloud Run si los ID tokens de Google
+   no llevan scope?** Con dos capas: Cloud Run solo deja pasar a quien tiene `roles/run.invoker`
+   (la cuenta del orquestador) y el especialista vuelve a verificar el token contra el JWKS de
+   Google, su *custom audience* y que el `email` verificado esté en su lista. El token va en
+   `Authorization`, porque en `X-Serverless-Authorization` llega sin firma. En AWS sería Cognito
+   client credentials con scope o IAM SigV4; en Azure, Managed Identity con app roles.
 
 **Negocio y stakeholders**
 

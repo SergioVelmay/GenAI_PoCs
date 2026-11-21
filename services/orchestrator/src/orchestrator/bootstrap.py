@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 
 from booking_agent.guardrails import build_pii_detector, build_shield
+from genaipocs_core.adapters.gcp_auth import google_id_token
 from genaipocs_core.adapters.llm_factory import build_gateway
 from genaipocs_core.adapters.memory import InMemoryCheckpointStore, InMemoryPreferenceStore
 from genaipocs_core.adapters.online_eval_factory import build_agent_evaluator
@@ -27,7 +28,13 @@ from genaipocs_core.domain import Specialist
 from genaipocs_core.ports.cases import CaseStore
 from genaipocs_mcp.auth import DevTokenIssuer
 from harness.rules.case_reply import SendCaseReplyArgs
-from orchestrator.remote import BearerAuth, RemoteSpecialist, dev_token_source
+from orchestrator.remote import (
+    BearerAuth,
+    RemoteSpecialist,
+    TokenSource,
+    dev_token_source,
+    google_id_token_source,
+)
 from orchestrator.settings import OrchestratorSettings
 from orchestrator.specialists import SpecialistDeps
 from retrieval.bootstrap import build_runtime
@@ -125,17 +132,28 @@ async def running_agent_evaluator(
         await task
 
 
+def a2a_token_source(settings: Settings, specialist: Specialist) -> TokenSource:
+    """Token del orquestador para un especialista: dev (emisor local) o gcp (ID token)."""
+    config = settings.a2a
+    audience = config.audience(specialist.value)
+    if config.identity == "gcp":
+        gcp = settings.gcp
+        return google_id_token_source(audience, lambda aud: google_id_token(gcp, aud))
+    issuer = DevTokenIssuer.load_or_create(Path(config.dev_private_key_file), issuer=config.issuer)
+    return dev_token_source(issuer, config, specialist.value)
+
+
 @asynccontextmanager
 async def open_remote_specialists(
     settings: Settings, specialists: Iterable[Specialist]
 ) -> AsyncIterator[dict[Specialist, SpecialistAgent]]:
-    """Clientes A2A con el token de servicio del orquestador (emisor de desarrollo en local)."""
+    """Clientes A2A con el token de servicio del orquestador (emisor de desarrollo en local, ID
+    token de Google con `A2A__IDENTITY=gcp`)."""
     config = settings.a2a
-    issuer = DevTokenIssuer.load_or_create(Path(config.dev_private_key_file), issuer=config.issuer)
     remotes: dict[Specialist, SpecialistAgent] = {}
     async with AsyncExitStack() as stack:
         for specialist in specialists:
-            auth = BearerAuth(dev_token_source(issuer, config, specialist.value))
+            auth = BearerAuth(a2a_token_source(settings, specialist))
             url = config.urls[specialist.value]
             http = await stack.enter_async_context(
                 httpx.AsyncClient(base_url=url, auth=auth, timeout=config.timeout_s)

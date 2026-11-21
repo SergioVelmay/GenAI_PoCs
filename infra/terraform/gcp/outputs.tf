@@ -27,6 +27,14 @@ output "case_topics" {
   value       = sort([for t in google_pubsub_topic.cases : t.name])
 }
 
+output "a2a_env" {
+  description = "Variables del orquestador para llamar a los especialistas en Cloud Run (vacío sin a2a_enabled)."
+  value = length(local.a2a_urls) == 0 ? {} : {
+    A2A__IDENTITY = "gcp"
+    A2A__URLS     = jsonencode(local.a2a_urls)
+  }
+}
+
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
 }

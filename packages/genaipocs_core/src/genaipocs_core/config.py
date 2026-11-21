@@ -493,6 +493,9 @@ class A2ASettings(BaseModel):
     cliente. La identidad del cliente viaja en el traspaso, que solo acepta llamantes de la lista.
     """
 
+    # dev: JWT de servicio del emisor local (scope `cases:handle`, `sub` en la lista).
+    # gcp (9.G4): ID tokens de Google (sin scope; `email` de la cuenta de servicio en la lista).
+    identity: Literal["dev", "gcp"] = "dev"
     issuer: str = "https://auth.genaipocs.local"
     jwks_uri: str = ""
     public_key_file: str = ""

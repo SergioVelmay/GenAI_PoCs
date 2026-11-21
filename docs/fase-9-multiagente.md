@@ -254,7 +254,7 @@ entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y do
 |---|---|---|
 | 9.G1 | `850cf5c` | ADK como cuarto motor (`AdkCaseWorkflow`); antes, `ccfcca5` (`fix:` del informe de `multiagent --mode llm` por nube) |
 | 9.G2 | `7ec458c` | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
-| 9.G3 | — | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
+| 9.G3 | `496181b` | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
 | 9.G4 | — | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
 | 9.G5 | — | Workflows como espera humana con SLA, rol `review` y doc a tres nubes |
 
@@ -379,6 +379,48 @@ uv run pytest packages/genaipocs_core/tests/test_pubsub_adapter.py
 - **Límite conocido** (de los tres adaptadores de nube, no solo Pub/Sub): ninguno renueva el plazo
   (*lease*) mientras el handler trabaja. Se cubre con un plazo largo; la renovación automática es
   del *streaming pull* de la librería de alto nivel (candidata a la 10.G con los worker pools).
+
+### 9.G4 · A2A con ID tokens de Google y Cloud Run
+
+```powershell
+uv run pytest services/orchestrator/tests/test_remote_gcp.py services/orchestrator/tests/test_remote.py
+cd infra/terraform/gcp ; terraform test      # a2a.tftest.hcl: plan simulado, sin nube
+# Orquestador → especialistas en Cloud Run (coste por petición; fase 15):
+#   A2A__IDENTITY=gcp  A2A__URLS=<output a2a_env>  GCP__IMPERSONATE_SERVICE_ACCOUNT=<app>
+```
+
+| Pieza | Local (9.5) | Azure | AWS | GCP (9.G4) |
+|---|---|---|---|---|
+| Token | JWT del emisor de desarrollo | Entra ID (client credentials / Managed Identity) | Cognito client credentials | **ID token de Google** de la cuenta de servicio |
+| Audience | `api://genaipocs-agents/<esp>` | App ID URI | Resource server | *Custom audience* de Cloud Run (mismo valor) |
+| Autorización | Scope `cases:handle` + lista de `sub` | App roles | Scope | `roles/run.invoker` en Cloud Run **+** lista de `email` |
+| Quién lo verifica | El especialista | El especialista (o Easy Auth) | El especialista | Cloud Run **y** el especialista |
+
+- `A2A__IDENTITY=gcp` cambia las dos puntas sin tocar el protocolo ni `RemoteSpecialist`:
+  - **Orquestador**: `a2a_token_source` pide un ID token por especialista
+    (`gcp_auth.google_id_token`): en Cloud Run, al servidor de metadatos; en local, por
+    *impersonation* de la cuenta de la aplicación con `include_email=True` (sin él, el token no
+    lleva `email` y el especialista lo rechaza; un usuario de ADC no puede emitirlo). Se cachea
+    hasta un minuto antes de caducar (duran 1 h).
+  - **Especialista**: `build_verifier` confía solo en Google (`iss` `accounts.google.com`, JWKS
+    público) y en su propio audience; `CallerPolicy(claim="email", scope=None)` exige `email`
+    verificado y en `A2A__ALLOWED_CALLERS` (emails de cuentas de servicio; si no, no arranca).
+- **Los ID tokens de Google no llevan scope**. La autorización fina pasa a la lista de llamantes y
+  a IAM: solo la cuenta del orquestador tiene `roles/run.invoker` en los tres servicios.
+- **`Authorization`, no `X-Serverless-Authorization`**: con la segunda cabecera, Cloud Run valida
+  el token y lo pasa al contenedor **sin firma**, y el especialista ya no podría verificarlo
+  (defensa en profundidad perdida).
+- `a2a.tf` (`a2a_enabled` + `a2a_image`, sin imagen no se crea nada): un servicio Cloud Run por
+  especialista con su cuenta de servicio (`roles/aiplatform.user`), *custom audience*, IAM
+  obligatorio, escala a cero, CPU solo durante las peticiones y `A2A__IDENTITY=gcp`. El output
+  `a2a_env` da al orquestador `A2A__URLS` (URL deterministas `run.app`). Arrancar de verdad
+  necesita PostgreSQL, ticketing y retrieval en la nube: fase 15.
+- Tests: 10 sin red con tokens "tipo Google" firmados en local (mismos claims que uno real: `iss`
+  de Google, `sub` numérico, `email`, `email_verified`, sin `scope`): aceptado; audience de otro
+  especialista o emisor ajeno → 401; otra cuenta, sin `email` o sin verificar → 403; caché del
+  token; y el orquestador elige ID tokens con `identity=gcp`. `terraform test` con tres `run`.
+- `orchestrator` declara ya `google-adk` (lo importa desde la 9.G1; antes llegaba por
+  `booking-agent`). El lock solo reordena bloques: mismas versiones.
 
 ## 8. Checkpoint de entrevista
 

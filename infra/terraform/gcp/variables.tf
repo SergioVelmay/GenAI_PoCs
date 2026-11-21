@@ -61,6 +61,7 @@ variable "services" {
     "monitoring.googleapis.com",
     "networkservices.googleapis.com",
     "pubsub.googleapis.com",
+    "run.googleapis.com",
     "storage.googleapis.com",
     "vectorsearch.googleapis.com",
   ]
@@ -268,6 +269,34 @@ variable "agent_platform_egress_hosts" {
 }
 
 # ---------- Guardrails (model_armor.tf, 8.G3) ----------
+
+variable "a2a_enabled" {
+  description = "Especialistas A2A en Cloud Run (9.G4): pago por petición y escala a cero. Necesita a2a_image."
+  type        = bool
+  default     = false
+}
+
+variable "a2a_image" {
+  description = "Imagen de services/orchestrator/Dockerfile en Artifact Registry (fase 15). Vacío = sin servicios."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.a2a_image == "" || can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/", var.a2a_image))
+    error_message = "Cloud Run despliega aquí imágenes de Artifact Registry (<región>-docker.pkg.dev/...)."
+  }
+}
+
+variable "a2a_max_instances" {
+  description = "Tope de instancias por especialista (el mínimo es 0: escala a cero)."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.a2a_max_instances >= 1 && var.a2a_max_instances <= 10
+    error_message = "Entre 1 y 10 (es una PoC)."
+  }
+}
 
 variable "model_armor_enabled" {
   description = "Plantilla de Model Armor del harness y plantillas de inspección de SDP. Sin coste en reposo: se paga lo evaluado (output guardrails_env)."

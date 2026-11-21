@@ -49,6 +49,11 @@ mcp_server_urls = {
 agent_gateway_enabled = false
 agent_gateway_region  = "europe-west1"
 
+# Especialistas A2A en Cloud Run (9.G4): pago por petición y escala a cero. Necesitan la imagen
+# de services/orchestrator/Dockerfile en Artifact Registry (fase 15); output a2a_env.
+a2a_enabled = false
+a2a_image   = "" # europe-west4-docker.pkg.dev/<proyecto>/agents/orchestrator:<tag>
+
 # Agente en Agent Runtime (7.G4). true = motor standalone con Sessions + Memory Bank (pago por
 # uso, sin coste por hora; output agent_platform_env). Con imagen, además el agente en un
 # contenedor con Agent Identity (vCPU-hora activa, escala a cero; la imagen llega en la fase 15).
