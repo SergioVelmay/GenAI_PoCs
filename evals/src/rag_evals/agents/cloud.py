@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from genaipocs_core.application.agent_judge import AgentJudge, LLMAgentJudge
 from genaipocs_core.ports import LLMPort
 from rag_evals.metering import CostMeter
+from rag_evals.retrieval_eval import Cloud, llm_cloud
 
 if TYPE_CHECKING:
     from genaipocs_core.config import Settings
@@ -22,6 +23,9 @@ class CloudModels:
     meter: CostMeter
     agent: LLMPort | None
     judge: AgentJudge | None
+    # Nube del proveedor (`LLM_PROVIDER`): carpeta de los informes con coste, así una ejecución
+    # con Gemini no sobrescribe la de Azure (fase 8.G4).
+    cloud: Cloud
 
 
 def with_model(settings: Settings, model: str | None) -> Settings:
@@ -54,4 +58,5 @@ def build_cloud_models(
         agent=build_gateway(settings, tracer=meter) if agent else None,
         # Fijo y fuera del router: nunca el mismo modelo que genera.
         judge=LLMAgentJudge(build_judge_llm(settings, tracer=meter)) if judge else None,
+        cloud=llm_cloud(settings.llm_provider),
     )

@@ -285,11 +285,8 @@ def cloud_reports_dir(cloud: Cloud) -> Path:
     return REPORTS_DIR / cloud
 
 
-def llm_reports_dir(provider: LLMProvider) -> Path:
-    """Carpeta de los informes con LLM real (generacion y jueces): la de la nube del proveedor.
-
-    Asi una calibracion con Gemini no sobrescribe la de Azure (mismos nombres de fichero).
-    """
+def llm_cloud(provider: LLMProvider) -> Cloud:
+    """La nube de un proveedor de LLM real (el simulado no genera informes con coste)."""
     if provider is LLMProvider.SIMULATED:
         raise ValueError("El proveedor simulado no genera informes de evals con coste")
     clouds: dict[LLMProvider, Cloud] = {
@@ -297,7 +294,15 @@ def llm_reports_dir(provider: LLMProvider) -> Path:
         LLMProvider.AWS: "aws",
         LLMProvider.GCP: "gcp",
     }
-    return cloud_reports_dir(clouds[provider])
+    return clouds[provider]
+
+
+def llm_reports_dir(provider: LLMProvider) -> Path:
+    """Carpeta de los informes con LLM real (generacion y jueces): la de la nube del proveedor.
+
+    Asi una calibracion con Gemini no sobrescribe la de Azure (mismos nombres de fichero).
+    """
+    return cloud_reports_dir(llm_cloud(provider))
 
 
 def cloud_settings(corpus: Path, engine: Engine) -> RetrievalSettings:

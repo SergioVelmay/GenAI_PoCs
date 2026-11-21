@@ -141,9 +141,9 @@ async def test_the_judge_catches_the_false_refund_claim_only_without_harness() -
     assert "Acciones inventadas" in render_attacks(guarded, baseline)
 
 
-def test_costly_reports_go_to_the_azure_folder() -> None:
+def test_costly_reports_go_to_the_cloud_folder() -> None:
     assert report_name("scripted", None) == ("agents", False)
-    assert report_name("llm", None) == ("agents-llm", False)
+    assert report_name("llm", None) == ("agents-llm", True)
     assert report_name("llm", "native") == ("agents-llm-judge-native", True)
 
 

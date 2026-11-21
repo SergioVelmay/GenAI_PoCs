@@ -6,8 +6,9 @@
 
 Por defecto `--mode scripted`: modelo guionizado, coste 0, mide el harness de cada framework.
 `--mode llm` usa el gateway real y EXIGE `--budget-usd` (el CostMeter corta antes de cada llamada).
-Informe en evals/reports/agents.{md,json} (agents-llm.* en modo llm). `--judge native` (fase 12.2)
-añade el LLM-juez de las respuestas (fijo, fuera del router) y escribe en evals/reports/azure/.
+Informe en evals/reports/agents.{md,json}; con coste, en la carpeta de la nube de `LLM_PROVIDER`
+(evals/reports/<nube>/agents-llm.*). `--judge native` (fase 12.2) añade el LLM-juez de las
+respuestas (fijo, fuera del router) y escribe también en la carpeta de la nube.
 
 `--check` (solo `scripted`) falla si algún invariante no es 0 o algún escenario falla fuera de
 los huecos conocidos de `evals/baselines/agent-scenarios-v1.json` (con sus fallos exactos).
@@ -224,10 +225,10 @@ def write_report(report: AgentReport, out_dir: Path, name: str) -> tuple[Path, P
 
 
 def report_name(mode: str, judge: str | None) -> tuple[str, bool]:
-    """Nombre del informe y si va a `reports/azure/` (con coste: juez o modelo real)."""
+    """Nombre del informe y si va a la carpeta de la nube (con coste: juez o modelo real)."""
     if judge:
         return f"agents-{mode}-judge-{judge}", True
-    return ("agents", False) if mode == "scripted" else ("agents-llm", False)
+    return ("agents", False) if mode == "scripted" else ("agents-llm", True)
 
 
 def main() -> None:
@@ -269,7 +270,8 @@ def main() -> None:
         )
     )
     name, costly = report_name(args.mode, args.judge)
-    json_path, md_path = write_report(report, args.out / "azure" if costly else args.out, name)
+    out = args.out / cloud.cloud if costly and cloud is not None else args.out
+    json_path, md_path = write_report(report, out, name)
     print(f"Informe: {md_path} y {json_path}")
     if cloud is not None:
         print(f"Coste: {cloud.meter.snapshot().cost_usd} USD")
