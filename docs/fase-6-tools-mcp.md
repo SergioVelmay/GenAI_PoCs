@@ -210,7 +210,8 @@ Google y los gateways gestionados de GCP. Coste 0: todo con dobles; lo real, en
 |---|---|---|
 | 6.G1 | `4428442` | Bucle de tools y `support_agent` con Gemini de punta a punta |
 | 6.G2 | `10fac9a` | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
-| 6.G3 | (este commit) | Agent Gateway + Agent Registry y Apigee en Terraform; cierre |
+| 6.G3 | `8214d2b` | Agent Gateway + Agent Registry y Apigee en Terraform |
+| Cierre | (este commit) | Estado, índice y lecciones |
 
 ### Verificación previa (20-11-2026)
 
