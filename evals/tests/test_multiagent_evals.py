@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from genaipocs_core.config import LLMProvider
 from genaipocs_core.domain import ROUTES, Specialist, SupportIntent
 from rag_evals.multiagent import (
     ENGINES,
@@ -9,11 +10,20 @@ from rag_evals.multiagent import (
     check,
     load_scenarios,
     render_markdown,
+    report_dir,
     run_case,
     run_suite,
     script_responses,
     write_report,
 )
+
+
+def test_llm_report_goes_to_the_cloud_of_the_provider(tmp_path: Path) -> None:
+    """Heredado de la 8.G4: con Gemini, el informe con coste no pisa el de Azure."""
+    assert report_dir("scripted", tmp_path, LLMProvider.GCP) == tmp_path
+    assert report_dir("llm", tmp_path, LLMProvider.AZURE) == tmp_path / "azure"
+    assert report_dir("llm", tmp_path, LLMProvider.AWS) == tmp_path / "aws"
+    assert report_dir("llm", tmp_path, LLMProvider.GCP) == tmp_path / "gcp"
 
 
 def test_dataset_covers_every_specialist_and_category() -> None:

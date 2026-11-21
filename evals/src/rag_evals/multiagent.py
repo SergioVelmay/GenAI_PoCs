@@ -44,6 +44,7 @@ from genaipocs_core.application.orchestration import (
     email_to_payload,
     outcome_from_payload,
 )
+from genaipocs_core.config import LLMProvider
 from genaipocs_core.domain import (
     CaseOutcome,
     CaseStatus,
@@ -62,7 +63,7 @@ from orchestrator.specialists import build_approval_service, build_specialists
 from orchestrator.supervisor import SupervisorGraph
 from orchestrator.testing import CUSTOMER, NOW, ORDER, LocalWorld, local_world
 from rag_evals.metering import CostMeter
-from rag_evals.retrieval_eval import REPORTS_DIR
+from rag_evals.retrieval_eval import REPORTS_DIR, llm_cloud
 
 DATASET_PATH = Path(__file__).resolve().parents[2] / "datasets" / "multiagent-v1.jsonl"
 ENGINES: tuple[Literal["langgraph", "maf", "async"], ...] = ("langgraph", "maf", "async")
@@ -545,6 +546,17 @@ def write_report(report: MultiAgentReport, out_dir: Path) -> Path:
     return md_path
 
 
+def report_dir(mode: str, out: Path, provider: LLMProvider | None = None) -> Path:
+    """Guionizado: `out`. Con modelo real: la carpeta de la nube del proveedor (no pisar Azure)."""
+    if mode == "scripted":
+        return out
+    if provider is None:
+        from genaipocs_core.config import Settings
+
+        provider = Settings().llm_provider
+    return out / llm_cloud(provider)
+
+
 def _gateway(budget: Decimal) -> tuple[LLMPort, CostMeter]:
     from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
     from genaipocs_core.config import Settings
@@ -570,8 +582,7 @@ def main() -> None:
     llm, meter = _gateway(args.budget_usd) if args.mode == "llm" else (None, None)
     engines: list[Engine] = args.engine or list(ENGINES)
     report = asyncio.run(run_suite(engines, args.dataset, llm=llm, meter=meter))
-    out = args.out if args.mode == "scripted" else args.out / "azure"
-    md_path = write_report(report, out)
+    md_path = write_report(report, report_dir(args.mode, args.out))
     for s in report.engines:
         print(
             f"{s.engine:<10} {s.passed}/{s.scenarios} OK, invariantes {sum(s.invariants.values())}"
