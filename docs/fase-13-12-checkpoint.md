@@ -184,9 +184,11 @@ Plan original (antes del cambio):
 - 10.G3: calibración de la caché con `embed_query` (lo que usa en ejecución), `semantic_cache --embeddings gcp|bedrock` con el informe en la carpeta de cada nube y registro compartido de cachés explícitas de Gemini en Valkey (ninguna réplica borra lo que usan las demás).
 - 10.G4: `queue_workers.tf` de GCP (worker pool `MANUAL` + CREMA con el escalador `prometheus` desde Parameter Manager, IAM) y `edge_armor.tf` (ALB externo, *serverless NEG*, `throttle` y `rate_based_ban`), desactivados.
 - 10.G5: `load_test.tf` (Cloud Run job con Locust `--processes` y CSV en Cloud Storage), comparativa de cuotas de tokens (Agent Gateway / Apigee `LLMTokenQuota`) y doc de la fase 10 a tres nubes.
+- **Hecha (21-11-2026)**: las cinco, más el `fix:` `9d82f8b` (validación de Mermaid sin `npx`: herramienta fijada en `tools/mermaid` y paso de la CI). **Heredado para la 11.G:** las alertas de backlog en Cloud Monitoring usan la misma consulta que `pubsub_backlog_promql()`; y para las fases 13/14, el latido del plazo en SQS y Service Bus.
 
 **11.G · Observabilidad**
 
+- **Heredado de la 10.G:** las alertas de backlog de Pub/Sub en Cloud Monitoring con la misma PromQL que `pubsub_backlog_promql()` (fuente única del adaptador y de CREMA), y las del latido (`lease_failures`, `ack_failures`, `expired_ack_deadlines_count`).
 - 11.G1: `infra/otel/collector-gcp.yaml` validado en la CI, propagación de `traceparent` por atributos de Pub/Sub (test con el emulador) y `observability.tf` (políticas de alerta en PromQL, canal de notificación, retención y exclusiones de logs).
 
 **12.G · Evals de agentes y LLMOps**

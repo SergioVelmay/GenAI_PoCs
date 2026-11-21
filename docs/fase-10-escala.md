@@ -297,7 +297,7 @@ lanza desde un **Cloud Run job**. Coste 0: emulador, Valkey en Docker y dobles; 
 | 10.G2 | `a0af72e` | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
 | 10.G3 | `e692050` | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
 | 10.G4 | `4e38d50` | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
-| 10.G5 | | Carga desde un Cloud Run job, cuotas de tokens y doc a tres nubes |
+| 10.G5 | `e19e519` | Carga desde un Cloud Run job, cuotas de tokens y doc a tres nubes |
 
 ### Verificación previa (21-11-2026)
 

@@ -47,9 +47,9 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Token de usuario hacia una API propia (OBO) | Entra On-Behalf-Of | AgentCore Identity (token exchange RFC 8693) | Sin OBO nativo: el gateway firma con `signJwt` de IAM (sin claves); Agent Identity (3LO) para terceros |
 | Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge | Pub/Sub (temas + suscripciones, *dead-letter topic*), Eventarc |
 | Emulador local de colas | Emulador de Service Bus (EULA + SQL Server) | ElasticMQ, LocalStack | Emulador oficial de Pub/Sub (perfil `pubsub`) |
-| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (cuotas), Cloud Armor (*rate limiting*), Memorystore (Valkey) |
-| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS | Worker pools de Cloud Run, KEDA `gcp-pubsub` en GKE |
-| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS | Locust en GKE o Cloud Run jobs (sin servicio propio) |
+| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (`LLMTokenQuota`), Cloud Armor (`throttle`, `rate_based_ban`; solo tras un ALB), Memorystore for Valkey (búsqueda vectorial sin `TEXT` ni `SORTBY`; IAM auth) |
+| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS | Worker pools de Cloud Run + CREMA (KEDA como servicio; escalador `prometheus`: el `gcp-pubsub` está obsoleto). El backlog solo está en Cloud Monitoring (1-3 min de retraso) |
+| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS | Locust en un Cloud Run job con `--processes` (sin servicio propio; sin red entre instancias) o en GKE Autopilot |
 | Multi-agente gestionado | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (protocolo A2A), Bedrock Agents (*multi-agent collaboration*) | Agent Runtime con A2A, multi-agente de ADK |
 | Flujo durable con espera humana | Durable Functions, Logic Apps | Step Functions (*wait for callback*) | Workflows (*callbacks*) |
 | Cómputo | Functions, Container Apps, AKS | Lambda, ECS Fargate / App Runner, EKS | Cloud Run functions, Cloud Run, GKE |
