@@ -311,6 +311,13 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
 - [ ] Portar el resto de alertas de SLO a la nube (KQL / Metrics Insights) o usar Managed Prometheus / Amazon Managed Prometheus con las mismas reglas generadas.
 - [ ] Langfuse v4 (o Langfuse Cloud) y comparar con Arize Phoenix sobre la misma traza OTLP.
 
+<a id="fase-11-gcp"></a>
+
+### GCP (pasada 11.G)
+
+- [ ] `observability_enabled = true` y el collector `infra/otel/collector-gcp.yaml` como sidecar de Cloud Run (imagen `otelcol-google`, configuración en Secret Manager, `container-dependencies` y *startup probe* al :13133) con la cuenta de la aplicación. Servicios con `TELEMETRY__EXPORTER=otlp`. Comprobar la traza asíncrona completa en el Trace Explorer, con los `gen_ai.*` buscables, y las métricas en Metrics Explorer con PromQL (`sum(rate(genaipocs_llm_cost_USD_total[5m]))`).
+- [ ] Comprobar que las exclusiones de logs (sondas y DEBUG) quitan ingesta en *Logs Storage* y medir los GiB/mes y las muestras de Prometheus con la demo, para fijar el muestreo.
+
 ## Fase 12 · Evals de agentes, red teaming y LLMOps ([doc](fase-12-evals-llmops.md))
 
 - [ ] Etiquetar a ciegas `evals/calibration/agents-labels-v1.csv` (Sergio, coste 0) leyendo `agents-v1.md`.

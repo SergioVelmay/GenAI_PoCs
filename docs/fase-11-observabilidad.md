@@ -223,6 +223,91 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 11):
 - evaluación online con juez real y coste medido;
 - coste de ingesta y portar el resto de alertas.
 
-## 7. Checkpoint de entrevista
+## 7. GCP (pasada 11.G)
+
+**Objetivo:** el tercer destino del mismo collector. Las trazas van a **Cloud Trace** y los logs a
+**Cloud Logging**, los dos por la Telemetry API (OTLP). Las métricas van a **Managed Service for
+Prometheus**, y las alertas de **Cloud Monitoring** se escriben en PromQL. El código de los
+servicios no cambia. Coste 0: validación del collector, un Cloud Monitoring falso y `terraform
+test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 11.G1 | — | `collector-gcp.yaml`, nombres de las métricas comprobados con el collector real y `observability.tf` |
+
+### Verificación previa (22-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| [Telemetry API](https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/overview) | OTLP nativo para trazas, métricas y logs en `telemetry.googleapis.com`. Es la vía recomendada desde 2025: admite 1.024 atributos por span y la API propietaria de Cloud Trace solo 32. Rol `roles/telemetry.writer` | Trazas y logs por OTLP, igual que en X-Ray. Se habilita `telemetry.googleapis.com` |
+| [Métricas por OTLP](https://docs.cloud.google.com/stackdriver/docs/otlp-metrics/overview) | Se guardan como series de Prometheus, pero **conservan los puntos** del nombre (`genaipocs.llm.cost`) | Las 77 reglas generadas no valdrían tal cual. Las métricas van por el exporter `googlemanagedprometheus`, que traduce como el Prometheus local |
+| [Collector en Cloud Run](https://docs.cloud.google.com/stackdriver/docs/instrumentation/opentelemetry-collector-cloud-run) | Sidecar con la imagen de Google (`otelcol-google`), `googleclientauth`, `health_check` obligatorio y detector `gcp` | Mismo diseño. La CI valida con la imagen contrib ya fijada, que trae esos componentes |
+| [Alertas PromQL](https://cloud.google.com/monitoring/promql/create-promql-alerts) | Una condición por política y sin *recording rules*. Gratis hasta el 01-09-2027 ([coste](https://docs.cloud.google.com/monitoring/alerts/cost-control)) | La 11.G2 genera las alertas con los SLI expandidos dentro de cada consulta |
+| ADK 2.14 (telemetría instalada) | `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=true` por defecto, y usa el proveedor global de OTel, que fijamos nosotros | Fuga de prompts en `gcp.vertex.agent.*` hacia Jaeger o Cloud Trace: se corrige en la 11.G3 |
+
+### 11.G1 · Collector de GCP y Terraform
+
+```powershell
+docker run --rm -v ${PWD}/infra/otel:/cfg:ro -e GOOGLE_CLOUD_PROJECT=genaipocs-dev -e ENVIRONMENT=dev `
+  otel/opentelemetry-collector-contrib:0.163.1 validate --config=/cfg/collector-gcp.yaml
+uv run python scripts/check_collector_gcp.py     # collector real contra un Cloud Monitoring falso (~15 s)
+cd infra/terraform/gcp ; terraform fmt -check -recursive ; terraform validate ; terraform test
+```
+
+**El collector** (`infra/otel/collector-gcp.yaml`) es el local con otro destino:
+
+- **Lo que no cambia:** receptor OTLP, `memory_limiter`, `batch` y `attributes/no-content`.
+- **Trazas y logs:** `otlp_http/telemetry` a `https://telemetry.googleapis.com` con el token de
+  `googleclientauth` (la cuenta adjunta; el proyecto de cuota va en `x-goog-user-project`).
+  `resource/gcp_project_id` añade `gcp.project_id`, que es lo que usa la API para saber a qué
+  proyecto va cada span.
+- **Métricas:** `googlemanagedprometheus`. Como en local, solo el entorno se convierte en
+  etiqueta; `service.name` ya va en `job`.
+
+Paralelo con las otras nubes:
+
+| | Azure | AWS | GCP |
+|---|---|---|---|
+| Trazas | `azuremonitor` | OTLP a X-Ray con `sigv4auth` | OTLP a la Telemetry API con `googleclientauth` |
+| Métricas | `azuremonitor` | `awsemf` con dimensiones declaradas | `googlemanagedprometheus` (los mismos nombres que en local) |
+| Identidad | Identidad gestionada (`azureauth`) | Rol de la tarea | Cuenta de servicio adjunta (ADC) |
+
+**Por qué se comprueban los nombres con el collector real.** Si el exporter tradujera distinto,
+las alertas de la 11.G2 consultarían series que no existen y **no saltarían nunca, sin dar ningún
+error**. `scripts/check_collector_gcp.py` monta la prueba así:
+
+1. Levanta en el propio proceso un servidor gRPC que imita `MetricService.CreateTimeSeries`.
+2. Arranca el collector de GCP en Docker. Unos `--config=yaml:` le apuntan las métricas a ese
+   servidor (`use_insecure`) y mandan las trazas a `debug`, así que no hace falta ninguna
+   credencial.
+3. Emite un punto de cada métrica de `CATALOG` y compara cada `metric.type` recibido con el que
+   espera `prometheus.metric`.
+
+Resultado: **23 de 23** iguales, por ejemplo
+`prometheus.googleapis.com/genaipocs_llm_cost_USD_total/counter`. La comprobación corre en la CI
+(job `quality`).
+
+**Hallazgo: Cloud Monitoring descarta los puntos acumulados de duración cero** (inicio = fin).
+- En el primer intento solo llegó el gauge: con un único envío justo después de crear el
+  instrumento, los contadores y los histogramas tenían duración cero.
+- La prueba ahora emite dos veces, separadas por más de un intervalo de exportación.
+- En producción le pasaría lo mismo a un **Cloud Run job** que emite una vez y termina (como la
+  carga de la 10.G5): perdería sus contadores sin ningún error.
+
+**Terraform** (`observability.tf`, desactivado con `observability_enabled`):
+
+- Roles del collector para la cuenta de la aplicación: `roles/telemetry.writer` (trazas y logs) y
+  `roles/monitoring.metricWriter` (métricas).
+- Bucket `_Default` de Cloud Logging con 30 días de retención, que van incluidos en el precio. Es
+  el paralelo de Log Analytics, pero **no se activa `enable_analytics`**: no se puede desactivar
+  después.
+- **Exclusiones**: las sondas `/health`, `/ready` y `/ping` de Cloud Run y los logs DEBUG. Lo
+  excluido no se ingiere ni se cobra. Es lo más cercano al tope diario de Log Analytics: GCP no
+  corta la ingesta, solo deja filtrarla antes.
+- Canal de guardia por correo, separado del del presupuesto.
+- `tests/observability.tftest.hcl` comprueba los dos estados: desactivado no crea nada; activado,
+  crea los roles, la retención, las exclusiones y el canal.
+
+## 8. Checkpoint de entrevista
 
 Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-11).
