@@ -338,7 +338,7 @@ equivalente o alternativa.
 | `llama-index-core` | Framework centrado en **datos/RAG**: ingesta, índices, retrievers, también agentes. | Carril C de indexación y retrieval (fases 3–4) y un sabor del agente. | LangChain retrievers, Haystack. |
 | `agent-framework-core` (MAF) | Microsoft Agent Framework: sucesor de Semantic Kernel + AutoGen; agentes y workflows tipados. | Sabor del agente y motor alternativo del orquestador. | LangGraph. |
 | `strands-agents` | SDK de agentes de AWS, *model-driven* (el modelo decide el bucle), muy ligero. | Sabor del agente; candidato natural en AWS con AgentCore. | Bedrock Agents, LangGraph. |
-| `google-adk` (ADK) | Agent Development Kit de Google: agentes, multi-agente y despliegue en Agent Runtime. | Sabor `adk` (7.G1) y cuarto motor del orquestador (9.G1); en el lock desde la 0.G1. | Strands, MAF. |
+| `google-adk` (ADK) | Agent Development Kit de Google: agentes, multi-agente y despliegue en Agent Runtime. | Sabor `adk` (7.G2) y cuarto motor del orquestador (9.G1); en el lock desde la 0.G1. | Strands, MAF. |
 
 <a id="l3"></a>
 

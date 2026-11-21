@@ -9,6 +9,8 @@ sobre el mismo núcleo en:
 
 Todos pasan la **misma suite** (`evals/datasets/agent-scenarios-v1.jsonl`, 14 escenarios) con el
 mismo modelo guionizado, así que las diferencias que aparecen son del framework, no del modelo.
+La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
+[GCP (pasada 7.G)](#10-gcp-pasada-7g).
 
 ## 1. Piezas
 
@@ -215,8 +217,71 @@ servicio real ([informe](../evals/reports/azure/context-growth.md)):
 Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md): suite con LLM real
 (`--mode llm --budget-usd`), agente en Foundry (`--apply`), imagen del Runtime en ECR (fase 13) con
 `agentcore_enabled=true`, y estrategias de extracción de AgentCore Memory frente a la tool explícita.
+GCP: [pendientes de la 7.G](pendientes-cloud.md#fase-7-gcp).
 
-## 10. Checkpoint de entrevista
+## 10. GCP (pasada 7.G)
+
+**Objetivo:** los dos sabores de GCP, `adk` (carril C) y `agentplatform` (carril A: Agent
+Runtime + Sessions + Memory Bank), con la misma suite, y que los siete sabores existentes
+funcionen con Gemini. Coste 0: todo con dobles; lo real, en
+[pendientes](pendientes-cloud.md#fase-7-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 7.G1 | (este commit) | *Thought signatures* de Gemini a través de los puentes y política al compactar |
+| 7.G2 | | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
+| 7.G3 | | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
+| 7.G4 | | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
+| 7.G5 | | *Spike* de la Managed Agents API, 9 sabores en informes y ataques, cierre |
+
+### Verificación previa (21-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| `google-adk` | 2.14 en el lock (desde la 0.G1); 2.15 publicada el 20-11, sigue con `google-genai<3` y activa por defecto `DYNAMIC_INSTRUCTION_ROUTING` (mueve instrucciones dinámicas a un mensaje de usuario) | Se queda en 2.14: nada de lo que usamos cambia y la 2.15 alteraría el orden del prompt |
+| API instalada de ADK | `BaseLlm.generate_content_async(LlmRequest)`, `BaseTool.run_async(args, tool_context)`, `Runner`, `RunConfig.max_llm_calls`, `EventsCompactionConfig`, `VertexAiSessionService`, `VertexAiMemoryBankService` | El puente sigue el patrón de Strands (7.G2) |
+| `agentplatform` (con `google-cloud-aiplatform` 2.7) | `Client().runtimes`, `.sessions`, `.memory_banks` | Sin dependencias nuevas (7.G3) |
+| [Contrato de Agent Runtime](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/runtime/runtime-contract) | Contenedor propio en `:8080`, `POST /api/reasoning_engine` con `{class_method, input}`; no impone `user_id`; `europe-west4`; 0,085 $/vCPU-h | Se prueba como AgentCore: la app en proceso (ASGI) con el mismo contrato |
+| [Sessions](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/sessions) y [Memory Bank](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank) | Cuelgan de un Agent Runtime (puede ser *standalone*, sin código); Memory Bank admite `memories.create` directo, *topics* propios y scope por usuario; facturan desde el 01-09-2026 | `remember_preference` escribe directo, como en AgentCore; la extracción por *topics*, como contraste |
+| Provider `google` 8.11 (8.12 publicado) | `google_vertex_ai_reasoning_engine` (`container_spec`, `memory_bank_config`, `identity_type=AGENT_IDENTITY`, `agent_gateway_config`), `google_iam_project_access_policy`, `google_iam_projects_policy_binding` | La herencia de la 6.G3 se hace con el provider GA (7.G4) |
+| [Managed Agents API](https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/managed-agents) | Pre-GA, solo `global`, prohíbe datos confidenciales y **no admite *function tools* ejecutadas en el cliente** | No puede ser sabor (las tools deben pasar por el harness): *spike* documental (7.G5) |
+| Firmas en los puentes (heredado de la 2.G) | LangChain, LlamaIndex, MAF y Strands reconstruían `ToolCall` **sin firma** | Se arregla en la 7.G1 |
+| `prefix_mismatch_behavior="DROP"` (heredado de la 2.G) | Ya no está en la [documentación de firmas](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking/thought-signatures) ni en ningún SDK; solo en un issue abierto de go-genai | **Cambio de plan** (decidido con Sergio): no se envía; al compactar se quitan las firmas |
+
+### 7.G1 · *Thought signatures* a través de los sabores
+
+```powershell
+uv run pytest evals/tests/test_agent_signatures.py services/booking_agent/tests/test_framework_bridges.py packages/genaipocs_core/tests/test_agent_context.py
+```
+
+Gemini 3/4 devuelve con la primera llamada a tool de cada paso una firma opaca de su
+razonamiento y exige recibirla de vuelta en el mismo sitio (si no, `400`). `GeminiLLM` la
+guarda en `ToolCall.signature` desde la 2.G1, pero cada framework reconstruye el historial con
+sus propios tipos, y ahí se perdía.
+
+| Puente | Dónde viaja la firma |
+|---|---|
+| Strands | `toolUse.reasoningSignature`: el campo **nativo** que usa el `GeminiModel` de Strands, y que su bucle copia del evento `contentBlockStart` al mensaje |
+| LangChain / LangGraph | `additional_kwargs["tool_call_signatures"]` = {id: firma}: el `ToolCall` de LangChain es un `TypedDict` cerrado |
+| LlamaIndex | Clave `signature` en cada `tool_calls` de `additional_kwargs` (el formato propio del puente) |
+| MAF | `additional_properties["signature"]` del `Content` de tipo `function_call` |
+
+- **Test de extremo a extremo por sabor** (`test_agent_signatures.py`): un `SigningLLM` envuelve
+  al `ScenarioLLM`, firma como Gemini (solo la primera llamada de cada paso) y comprueba en
+  cada petición de los 14 escenarios que cada firma vuelve intacta en `native`, `langgraph`,
+  `llamaindex`, `maf`, `strands` y `agentcore`. Se comprobó que caza la regresión: quitando la
+  firma del puente de Strands, falla en el primer escenario que encadena dos pasos con tools; sin
+  la sustitución de LangGraph al compactar, también.
+- **Compactación** (cambio de plan): en Gemini 4 la firma va ligada al prefijo con el que se
+  generó, y el resumen lo cambia. `ShortTermMemory.compact` devuelve el historial conservado
+  **sin firmas** (`without_signatures`) y `GeminiLLM` manda entonces el validador de *skip*
+  documentado. El coste: el modelo razona algo peor solo en el turno que compacta (con la
+  histéresis, pocas veces). LangGraph guarda el historial en el estado del grafo, así que al
+  compactar sustituye además cada mensaje conservado por su copia sin firmas (mismo `id`). El
+  test lo exige: en el hilo largo se quitan firmas y en ningún otro escenario.
+- `foundry` queda fuera: su historial es del servicio de Azure y nunca habla con Gemini.
+
+## 11. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 7](preguntas-entrevista.md#fase-7).

@@ -782,6 +782,30 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    errores bloqueados por las defensas (aquí, un reembolso ajeno que frenó el backend). Y un plan
    para medir mejor antes de decidir nada con ese dato.
 
+### GCP (pasada 7.G)
+
+**Técnicas**
+
+1. **Cambias el modelo a Gemini y el agente de LangGraph empieza a dar `400` en el segundo paso.
+   ¿Qué miras?** Las *thought signatures*: Gemini devuelve con la primera llamada a tool de cada
+   paso un estado opaco de su razonamiento y exige recibirlo de vuelta. Cada framework reconstruye
+   el historial con sus tipos y, si no tiene dónde guardarlo, lo pierde: en Strands hay un campo
+   nativo (`reasoningSignature`); en LangChain, LlamaIndex y MAF lo llevé en sus metadatos. Lo
+   cubre un test que firma como Gemini y comprueba la ida y vuelta en los 14 escenarios de cada sabor.
+2. **¿Y qué pasa con las firmas al compactar el historial?** En Gemini 4 la firma va ligada al
+   prefijo con el que se generó, y el resumen lo cambia. El parámetro que lo toleraba ya no está
+   documentado, así que no dependo de él: al compactar, el historial conservado va sin firmas y el
+   adaptador manda el validador de *skip* documentado. El coste es razonar algo peor solo en ese
+   turno, que con la histéresis ocurre pocas veces. Lo valido con el modelo real antes de darlo por bueno.
+
+**Negocio y stakeholders**
+
+1. **El equipo quiere probar Gemini en el agente de soporte "cambiando una variable". ¿Qué le
+   dices?** Que el gateway lo permite, pero que cambiar de proveedor no es gratis aunque el código
+   compile: cada modelo tiene contratos propios (aquí, las firmas de razonamiento) que rompen en
+   producción, no en local. Por eso pedí primero un test de contrato por framework y una prueba
+   con presupuesto acotado (céntimos) antes de enviarle tráfico real.
+
 <a id="fase-8"></a>
 
 ## Fase 8 · Agentic harness y guardrails ([doc](fase-8-harness.md))

@@ -1,7 +1,8 @@
 """`FunctionCallingLLM` de LlamaIndex sobre `LLMPort`.
 
 Convenciones del puente en `ChatMessage.additional_kwargs` de LlamaIndex:
-- ASSISTANT: `tool_calls` = [{"id", "name", "arguments"}] (arguments en JSON, como el proveedor).
+- ASSISTANT: `tool_calls` = [{"id", "name", "arguments", "signature"?}] (arguments en JSON, como
+  el proveedor; `signature`, la *thought signature* de Gemini, solo si la hay).
 - TOOL: `tool_call_id` (lo pone el propio `FunctionAgent`) e `is_error`.
 - Cualquiera: `cache_checkpoint`.
 """
@@ -54,7 +55,8 @@ def to_chat_messages(messages: Sequence[LIChatMessage]) -> list[ChatMessage]:
             raise TypeError(f"Rol de LlamaIndex no soportado: {m.role}")
         extra = m.additional_kwargs
         calls = tuple(
-            ToolCall(c["id"], c["name"], c["arguments"]) for c in extra.get("tool_calls", [])
+            ToolCall(c["id"], c["name"], c["arguments"], c.get("signature"))
+            for c in extra.get("tool_calls", [])
         )
         converted.append(
             ChatMessage(
@@ -77,7 +79,9 @@ def to_llama_messages(messages: Sequence[ChatMessage]) -> list[LIChatMessage]:
             extra[CACHE_CHECKPOINT] = True
         if m.tool_calls:
             extra["tool_calls"] = [
-                {"id": c.id, "name": c.name, "arguments": c.arguments} for c in m.tool_calls
+                {"id": c.id, "name": c.name, "arguments": c.arguments}
+                | ({"signature": c.signature} if c.signature is not None else {})
+                for c in m.tool_calls
             ]
         if m.tool_call_id is not None:
             extra["tool_call_id"] = m.tool_call_id

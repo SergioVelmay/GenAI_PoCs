@@ -20,6 +20,7 @@ Doc: `docs/fase-7-agentes.md`.
 - `native` (`ToolLoop`) · `langgraph` (`StateGraph` prepare→agent⇄tools→fallback, `InMemorySaver`, `context_schema=ToolContext`) · `llamaindex` (`FunctionAgent`, `streaming=False`, `max_iterations` = N + 1) · `maf` (`Agent` + `GatewayChatClient` por capas, `HistoryProvider` sobre `CheckpointStore`) · `strands` (`GatewayModel` Converse con `cachePoint`, `JournaledTool`, `NullConversationManager`; amplía la lista `messages` en sitio).
 - Puentes (`booking_agent/bridges/`): `GatewayChatModel` (`BaseChatModel` de LangChain; `bind_tools` traduce formato OpenAI → `ToolSpec` con `strict`) y `GatewayFunctionLLM` (`FunctionCallingLLM` de LlamaIndex; `tool_calls`/`cache_checkpoint` en `additional_kwargs`).
 - JSON inválido del modelo viaja crudo hasta el ejecutor (en MAF y Strands, envuelto en `__raw_arguments__`) para que el error tipado vuelva al modelo.
+- *Thought signatures* de Gemini (`ToolCall.signature`, 7.G1): todo puente las conserva de ida y vuelta (Strands `toolUse.reasoningSignature`; LangChain `additional_kwargs["tool_call_signatures"]`; LlamaIndex `tool_calls[].signature`; MAF `additional_properties["signature"]`). Al compactar, el historial conservado va sin firmas (`without_signatures`; en LangGraph se sustituye cada mensaje en el estado del grafo). Un sabor nuevo entra en `evals/tests/test_agent_signatures.py`.
 
 ## Context engineering (`genaipocs_core/application/agents/`)
 

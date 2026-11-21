@@ -81,7 +81,7 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
     que usa el repo.
   - **GCP**: los emuladores de `gcloud` (además del de Pub/Sub, que ya usamos) y otros módulos
     oficiales: qué hay para Firestore/Datastore, Bigtable, Spanner, Cloud Storage y lo que usa el
-    repo (Agent Runtime tiene emulador propio desde la 7.G2).
+    repo (Agent Runtime tiene emulador propio desde la 7.G3).
 - **Entregables:** tabla por nube "servicio que usa Genaipocs → emulador oficial (sí/no, estado,
   licencia, imagen) → qué permite probar y qué no"; decisión de cuáles se adoptan (perfiles de
   `docker compose`, tests de contrato e integración como los de colas, arranque en la CI); y

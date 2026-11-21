@@ -129,9 +129,24 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **7.G · Agentes** (la más grande: dos sesiones)
 
-- 7.G1: puente `bridges/adk.py` (un `BaseLlm` de ADK que llama a nuestro `LLMPort`, tools por `JournaledExecutor`) y sabor `adk`: 14 escenarios, paridad de tools, invariantes y context engineering (compactación propia frente a la de ADK). **Heredado de la 2.G:** que los puentes de los sabores (LangChain, LlamaIndex, MAF, Strands) conserven `ToolCall.signature` al reconstruir el historial, y que la compactación con Gemini 4 envíe `prefix_mismatch_behavior="DROP"` (el SDK 2.34 no lo expone: `extra_body`).
-- 7.G2: sabor `agentplatform` (Agent Runtime con emulador local que **avisa** cuando no toca la nube) y `adapters/memory_bank.py` (`CheckpointStore` con Sessions y `PreferenceStore` con Memory Bank); Terraform `agent_platform.tf`. **Heredado de la 6.G3:** política de acceso de IAM v3 (`egressViaIAP` por servidor y tool) para el principal de Agent Identity del agente y, si aplica, `google_agent_registry_binding` con un auth provider.
-- 7.G3: *spike* de la Managed Agents API; baselines, informes y ataques con **9 sabores**.
+**Al empezar (21-11-2026)** cambió el plan (decidido con Sergio; verificación previa en la
+[fase 7](fase-7-agentes.md#10-gcp-pasada-7g)): se divide en **cinco** subfases (7.G1–7.G3 en la
+primera sesión, 7.G4–7.G5 en la segunda); `prefix_mismatch_behavior` ya no está documentado, así
+que al compactar se quitan las firmas del historial conservado; ADK se queda en 2.14 (la 2.15
+cambia el orden del prompt por defecto); `agentplatform` aloja el sabor `adk`, como AgentCore
+aloja `strands`; y la Managed Agents API no admite *function tools* del cliente, así que no será sabor.
+
+- 7.G1: *thought signatures* en los puentes de LangChain, LlamaIndex, MAF y Strands, test de ida y vuelta por sabor y firmas fuera del historial conservado al compactar.
+- 7.G2: puente `bridges/adk.py` y sabor `adk` (14 escenarios, paridad, invariantes, compactación propia frente a `EventsCompactionConfig`).
+- 7.G3: sabor `agentplatform` (contrato de Agent Runtime en proceso alojando `adk`, cliente real y emulador que avisa) y `adapters/memory_bank.py` (Sessions y Memory Bank) con dobles.
+- 7.G4: `agent_platform.tf` (Agent Runtime *standalone* con Memory Bank y Runtime con contenedor, desactivados), Agent Identity y la política de IAM v3 por tool heredada de la 6.G3.
+- 7.G5: *spike* documental de la Managed Agents API, informes y ataques con 9 sabores, doc de la fase 7 a tres nubes.
+
+Plan original (antes del cambio):
+
+- ~~7.G1: puente `bridges/adk.py` (un `BaseLlm` de ADK que llama a nuestro `LLMPort`, tools por `JournaledExecutor`) y sabor `adk`: 14 escenarios, paridad de tools, invariantes y context engineering (compactación propia frente a la de ADK). **Heredado de la 2.G:** que los puentes de los sabores (LangChain, LlamaIndex, MAF, Strands) conserven `ToolCall.signature` al reconstruir el historial, y que la compactación con Gemini 4 envíe `prefix_mismatch_behavior="DROP"` (el SDK 2.34 no lo expone: `extra_body`).~~
+- ~~7.G2: sabor `agentplatform` (Agent Runtime con emulador local que **avisa** cuando no toca la nube) y `adapters/memory_bank.py` (`CheckpointStore` con Sessions y `PreferenceStore` con Memory Bank); Terraform `agent_platform.tf`.~~ **Heredado de la 6.G3** (pasa a la 7.G4): política de acceso de IAM v3 (`egressViaIAP` por servidor y tool) para el principal de Agent Identity del agente y, si aplica, `google_agent_registry_binding` con un auth provider.
+- ~~7.G3: *spike* de la Managed Agents API; baselines, informes y ataques con **9 sabores**.~~
 
 **8.G · Harness**
 

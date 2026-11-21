@@ -10,8 +10,10 @@ from llama_index.core.tools import FunctionTool
 from booking_agent.bridges.langchain import (
     GatewayChatModel,
     spec_to_openai,
+    to_ai_message,
     to_chat_messages,
     with_cache_checkpoint,
+    without_signatures,
 )
 from booking_agent.bridges.llamaindex import (
     RAW_ARGUMENTS,
@@ -29,7 +31,7 @@ from booking_agent.bridges.strands import (
 )
 from booking_agent.bridges.strands import to_chat_messages as from_strands
 from genaipocs_core.adapters.memory import FakeLLM
-from genaipocs_core.ports import ChatMessage, Role, ToolCall
+from genaipocs_core.ports import ChatMessage, LLMResponse, Role, TokenUsage, ToolCall
 from genaipocs_core.ports.llm import ToolSpec
 
 SPEC = ToolSpec(
@@ -165,3 +167,50 @@ async def test_strands_model_streams_the_gateway_response() -> None:
     deltas = [e["contentBlockDelta"]["delta"] for e in events if "contentBlockDelta" in e]
     assert deltas == [{"toolUse": {"input": '{"__raw_arguments__": "{roto"}'}}]
     assert events[-2] == {"messageStop": {"stopReason": "tool_use"}}
+
+
+# *Thought signatures* de Gemini (7.G1): como en un paso paralelo real, solo la primera llamada
+# lleva firma. Perderla en un puente es un 400 en la nube.
+SIGNED_CALLS = (
+    ToolCall("c1", "get_order", '{"order_id": "o1"}', signature="c2lnLTE="),
+    ToolCall("c2", "get_order", '{"order_id": "o2"}'),
+)
+SIGNED_HISTORY = [
+    ChatMessage(Role.USER, "hola"),
+    ChatMessage(Role.ASSISTANT, "", tool_calls=SIGNED_CALLS),
+    ChatMessage(Role.TOOL, '{"id": "o1"}', tool_call_id="c1"),
+    ChatMessage(Role.TOOL, '{"id": "o2"}', tool_call_id="c2"),
+]
+
+
+def test_bridges_round_trip_thought_signatures() -> None:
+    assert from_llama(to_llama_messages(SIGNED_HISTORY)) == SIGNED_HISTORY
+    assert from_maf(to_maf_messages(SIGNED_HISTORY)) == SIGNED_HISTORY
+    assert from_strands(to_strands_messages(SIGNED_HISTORY)) == SIGNED_HISTORY
+    reply = to_ai_message(LLMResponse("", "gemini", TokenUsage(1, 1), tool_calls=SIGNED_CALLS))
+    assert to_chat_messages([reply])[0].tool_calls == SIGNED_CALLS
+    # Sin firmas no se añade nada: los mensajes de Azure y AWS quedan como estaban.
+    assert to_ai_message(LLMResponse("", "gpt", TokenUsage(1, 1))).additional_kwargs == {}
+    assert without_signatures(reply).additional_kwargs == {}
+    assert without_signatures(reply).id == reply.id
+
+
+async def test_bridge_replies_carry_the_signature_to_the_framework() -> None:
+    def signed() -> FakeLLM:
+        return FakeLLM([list(SIGNED_CALLS)])
+
+    lc = await GatewayChatModel(gateway=signed()).bind_tools([spec_to_openai(SPEC)]).ainvoke("x")
+    assert isinstance(lc, AIMessage) and to_chat_messages([lc])[0].tool_calls == SIGNED_CALLS
+
+    llama = await GatewayFunctionLLM(signed(), [SPEC]).achat([])
+    assert from_llama([llama.message])[0].tool_calls == SIGNED_CALLS
+
+    maf = await GatewayChatClient(signed(), [SPEC])._inner_get_response(
+        messages=[], stream=False, options={}
+    )
+    assert from_maf(maf.messages)[0].tool_calls == SIGNED_CALLS
+
+    events = [e async for e in GatewayModel(signed(), [SPEC]).stream([], [tool_spec(SPEC)])]
+    starts = [e["contentBlockStart"]["start"] for e in events if "contentBlockStart" in e]
+    uses = [u for s in starts if (u := s.get("toolUse")) is not None]
+    assert [u.get("reasoningSignature") for u in uses] == ["c2lnLTE=", None]
