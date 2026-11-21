@@ -4,7 +4,8 @@
 sea el framework que lo orquesta. El modelo **propone**; el código determinista **decide**.
 
 Todo vive en el paquete reutilizable `packages/harness` (módulo `harness`), que depende de
-`genaipocs_core` y nunca al revés. Los siete sabores de la fase 7 lo usan sin cambiar una línea:
+`genaipocs_core` y nunca al revés. Los sabores de la fase 7 (siete, nueve con los de GCP de la
+7.G) lo usan sin cambiar una línea:
 el harness se engancha en los dos contratos que ya compartían (`ToolExecutor` y `AgentRuntime`).
 
 ## 1. Arquitectura: tres puntos de intercepción
@@ -61,22 +62,26 @@ verificado en los siete sabores, también en los que ejecutan tools en tareas pr
 | Promesa falsa al cliente | Prompt | `refund_claims_grounded` (afirmación sin tool aprobada, importes inventados) | Escalado: la respuesta no sale |
 | Email dañino a un partner | Plantilla por construcción | Validadores + juez de tono | Cuatro ojos antes de enviar |
 
-## 4. Comparativa Azure ↔ AWS ↔ framework
+## 4. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
 
-| Capacidad | Nuestro harness | Azure | AWS | Frameworks |
-|---|---|---|---|---|
-| Salida validada + reintento | `generate_validated` | Structured outputs (forma) | Tool use forzado en Converse (forma) | `max_retries` (Instructor, Pydantic AI), nodos de reflexión (LangGraph) |
-| Guardas de tools | `GuardedExecutor` | Políticas de tools en Foundry Agent Service | Cedar en AgentCore Gateway | Middleware (MAF), hooks (Strands), `interrupt` (LangGraph) |
-| Inyección directa | `prompt_guard` + escudo | Prompt Shields (`userPrompt`) | Guardrails `PROMPT_ATTACK` (solo entrada) | NeMo Guardrails, Guardrails AI |
-| Inyección indirecta | `DocumentShield` | Prompt Shields (`documents[]`, diseñado para ello) | `ApplyGuardrail` por documento (no es su foco) | — |
-| PII | Regex con checksum / Presidio | Azure AI Language (API aparte) | Guardrails: anonimiza o bloquea en la misma llamada | Presidio |
-| Temas vetados | — | Categorías personalizadas | `topic_policy` | NeMo (rails de diálogo) |
-| SQL seguro | `check_sql` + rol de solo lectura | Fabric Data Agent / NL2SQL | Bedrock KB con datos estructurados | `SQLDatabaseToolkit` (revisa con otro LLM, no con un parser) |
-| Human-in-the-loop | Tabla `approval_requests` + backend ejecuta | Aprobación de tools MCP en Agent Service | Return of control / confirmación en Bedrock Agents | `interrupt()` + `Command(resume=…)` |
+| Capacidad | Nuestro harness | Azure | AWS | GCP | Frameworks |
+|---|---|---|---|---|---|
+| Salida validada + reintento | `generate_validated` | Structured outputs (forma) | Tool use forzado en Converse (forma) | Salida estructurada de Gemini (forma) | `max_retries` (Instructor, Pydantic AI), nodos de reflexión (LangGraph) |
+| Guardas de tools | `GuardedExecutor` | Políticas de tools en Foundry Agent Service | Cedar en AgentCore Gateway | Política de acceso de IAM v3 por tool en Agent Gateway (7.G4) | Middleware (MAF), hooks (Strands), `interrupt` (LangGraph), callbacks (ADK) |
+| Inyección directa | `prompt_guard` + escudo | Prompt Shields (`userPrompt`) | Guardrails `PROMPT_ATTACK` (solo entrada) | Model Armor `pi_and_jailbreak` | NeMo Guardrails, Guardrails AI |
+| Inyección indirecta | `DocumentShield` | Prompt Shields (`documents[]`, diseñado para ello) | `ApplyGuardrail` por documento (no es su foco) | `sanitizeUserPrompt` por documento (sin modo documento) | — |
+| PII | Regex con checksum / Presidio / SDP | Azure AI Language (API aparte) | Guardrails: anonimiza o bloquea en la misma llamada | Sensitive Data Protection (API aparte) y SDP dentro de Model Armor | Presidio |
+| Contenido dañino | Escudo | `text:analyze` (severidad 0-6) | Filtros de contenido | Filtros RAI (umbral de confianza) | — |
+| URL maliciosas | — | — | — | Model Armor `malicious_uris` | — |
+| Temas vetados | — | Categorías personalizadas | `topic_policy` | — (categorías RAI fijas) | NeMo (rails de diálogo) |
+| Red de proyecto | — | Filtro de contenido del despliegue | — | *Floor setting* de Model Armor | — |
+| SQL seguro | `check_sql` + rol de solo lectura | Fabric Data Agent / NL2SQL | Bedrock KB con datos estructurados | — (no explorado) | `SQLDatabaseToolkit` (revisa con otro LLM, no con un parser) |
+| Human-in-the-loop | Tabla `approval_requests` + backend ejecuta | Aprobación de tools MCP en Agent Service | Return of control / confirmación en Bedrock Agents | Confirmación de tools de ADK (`require_confirmation`, 9.G) | `interrupt()` + `Command(resume=…)` |
 
 El escudo es un puerto (`ContentShieldPort`): `GUARDRAILS__SHIELD=heuristic|azure|bedrock|gcp`
-cambia de proveedor sin tocar el harness (GCP: Model Armor, [§9](#9-gcp-pasada-8g)). Terraform de ambos, desactivado por defecto
-(`content_safety_enabled`, `bedrock_guardrail_enabled`).
+cambia de proveedor sin tocar el harness (GCP: Model Armor, [§9](#9-gcp-pasada-8g)); el detector
+de PII, otro (`GUARDRAILS__PII=regex|presidio|gcp`). Terraform de los tres, desactivado por
+defecto (`content_safety_enabled`, `bedrock_guardrail_enabled`, `model_armor_enabled`).
 
 ## 5. Tests de ataque (8.6)
 
@@ -87,7 +92,7 @@ El modelo guionizado de la fase 7 hace de **modelo comprometido**: obedece al at
 el peor caso, no la prudencia del modelo. El mismo dataset corre:
 
 - **sin harness** (sabor nativo): demuestra que los ataques funcionan;
-- **con harness** en los siete sabores: todos deben contenerse y ningún control benigno debe
+- **con harness** en los nueve sabores: todos deben contenerse y ningún control benigno debe
   bloquearse (falsos positivos).
 
 | Escenario | Vector | Sin harness | Con harness |
@@ -101,7 +106,7 @@ el peor caso, no la prudencia del modelo. El mismo dataset corre:
 | `benign-*` (4) | Peticiones legítimas parecidas a un ataque | — | Ninguna se bloquea |
 
 Resultado actual: **sin harness 0/6 ataques contenidos; con harness 6/6 y 4/4 controles en los
-siete sabores, invariantes a 0**. La CI ejecuta `--check` en el job `evals` y bloquea si cambia.
+nueve sabores, invariantes a 0**. La CI ejecuta `--check` en el job `evals` y bloquea si cambia.
 
 Invariantes nuevos en la suite de agentes (además de los de la fase 7):
 `payload_to_model` (cargas de inyección o PII que llegan al modelo) y `unapproved_irreversible`
@@ -118,7 +123,7 @@ Invariantes nuevos en la suite de agentes (además de los de la fase 7):
 - Límites conocidos:
   - El escudo heurístico es fácil de esquivar por un atacante decidido; es la primera capa (y la
     que corre en CI), no la única. La comparativa con Prompt Shields sobre los mismos ataques
-    ya está hecha (§7); la de Bedrock Guardrails queda pendiente (coste).
+    ya está hecha (§7); las de Bedrock Guardrails y Model Armor quedan pendientes (coste).
   - Con un turno bloqueado, el hilo del framework conserva la respuesta descartada; el turno queda
     marcado para revisión.
   - Si el proceso cae entre `APPROVED` y `EXECUTED`, la solicitud se concilia (no se reejecuta).
@@ -174,6 +179,8 @@ ataques directos, inyecciones en documentos y textos legítimos parecidos a un a
 ## 8. Pendiente con coste
 
 - Lo mismo con Bedrock y Bedrock Guardrails (`bedrock_guardrail_enabled=true`).
+- GCP: Model Armor, Sensitive Data Protection, la *floor setting* y los ataques con Gemini
+  ([pendientes](pendientes-cloud.md#fase-8-gcp)).
 - Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para los tests de ataque
   (fase 12).
 
@@ -188,8 +195,8 @@ todo con dobles; lo real, en [pendientes](pendientes-cloud.md#fase-8-gcp).
 |---|---|---|
 | 8.G1 | `60f0312` | Escudo `ModelArmorShield` y `rag_evals.shields` con Bedrock y Model Armor |
 | 8.G2 | `4bbf29b` | Detector de PII con Sensitive Data Protection y caída a patrones |
-| 8.G3 | (este commit) | Terraform `model_armor.tf` (plantillas de SDP y de Model Armor, *floor setting*, IAM) |
-| 8.G4 | | Ataques con Gemini (informes por nube) y doc a tres nubes |
+| 8.G3 | `16793d9` | Terraform `model_armor.tf` (plantillas de SDP y de Model Armor, *floor setting*, IAM) |
+| 8.G4 | (este commit) | Ataques con Gemini (informes por nube) y doc a tres nubes; antes, `47704ba` (`fix:` de los informes de `agents`) |
 
 ### Verificación previa (21-11-2026)
 
@@ -307,6 +314,27 @@ Dos variables, desactivadas por defecto (sin coste en reposo; se paga lo evaluad
 - `tests/model_armor.tftest.hcl` (plan y apply simulados): nada sin la variable, región de las
   plantillas, SDP de Model Armor solo con datos de pago, umbrales, sin registros del texto y
   *floor setting* en `INSPECT_ONLY`.
+
+### 8.G4 · Ataques con Gemini y doc a tres nubes
+
+```powershell
+uv run python -m rag_evals.attacks --check                                    # coste 0 (CI)
+uv run python -m rag_evals.attacks --mode llm --budget-usd 0.20               # con LLM_PROVIDER=gcp
+```
+
+- **Informes con coste por nube**: `attacks --mode llm|--judge` escribía siempre en
+  `evals/reports/azure/`; ahora va a la carpeta de la nube de `LLM_PROVIDER`
+  (`evals/reports/gcp/llm/attacks.*` con Gemini) y el encabezado nombra el modelo de esa nube.
+  `CloudModels.cloud` (la nube del proveedor) lo resuelve igual para `agents` y `attacks`.
+- **Arreglo aparte** (`47704ba`): `agents --mode llm` escribía `evals/reports/agents-llm.*` y
+  `--judge`, siempre en `azure/`; una ejecución con Gemini (pendiente de la 7.G) habría
+  sobrescrito la de Azure de la fase 7, que además es la fuente de las respuestas reales de la
+  calibración del juez (12.2). Ahora también por nube, y el informe de Azure se movió a `azure/`.
+- Quedan con `azure/` fijo los informes con coste de fases posteriores (`multiagent`,
+  `semantic_cache`, experimentos de LLMOps y `agent_calibration judge`): se arreglan en sus
+  pasadas (9.G, 10.G y 12.G), apuntado en el plan.
+- Doc a tres nubes: comparativa con columna GCP (§4), nueve sabores en los ataques (§5) y
+  pendientes de GCP (§8).
 
 ## 10. Checkpoint de entrevista
 

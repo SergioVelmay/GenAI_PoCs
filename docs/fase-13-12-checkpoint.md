@@ -160,11 +160,13 @@ Plan original (antes del cambio):
 
 **9.G · Multi-agente**
 
+- **Heredado de la 8.G4:** `multiagent --mode llm` escribe siempre en `evals/reports/azure/`: a la carpeta de la nube de `LLM_PROVIDER` (`CloudModels.cloud` / `llm_reports_dir`), como `agents` y `attacks`.
 - 9.G1: ADK como cuarto motor del orquestador (triaje con tabla del dominio, especialistas, revisión humana con confirmación de tools de ADK) con test de paridad frente a LangGraph, MAF y cola.
 - 9.G2: `ORCHESTRATOR__BROKER=pubsub` con el outbox y *exactly-once delivery* como primera capa de deduplicación; A2A con ID tokens de Google (audience por especialista) en `remote/auth.py`; Terraform de Cloud Run y Workflows.
 
 **10.G · Escala**
 
+- **Heredado de la 8.G4:** `semantic_cache --embeddings azure` escribe en `evals/reports/azure/`; con embeddings de Gemini, a `gcp/`.
 - 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).
 - 10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.
 
@@ -174,6 +176,7 @@ Plan original (antes del cambio):
 
 **12.G · Evals de agentes y LLMOps**
 
+- **Heredado de la 8.G4:** los experimentos de LLMOps (`--mode llm`) y `agent_calibration judge` escriben siempre en `evals/reports/azure/`: a la carpeta de la nube del juez.
 - 12.G1: juez de agentes con Gemini, métricas de trayectoria del Evaluation Service como contraste de la 12.1, promptfoo y PyRIT contra Gemini (aplazado).
 - 12.G2: publicación de prompts en la gestión de prompts de Agent Platform (dry-run), `VertexExperimentTracker` junto a MLflow, reglas de drift en Managed Service for Prometheus.
 - 12.G3: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.

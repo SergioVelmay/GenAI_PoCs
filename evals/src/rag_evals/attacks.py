@@ -59,7 +59,11 @@ def check(report: AgentReport) -> list[str]:
     return problems
 
 
-def render_markdown(guarded: AgentReport, baseline: AgentReport) -> str:
+# Modelo real por nube (`LLM_PROVIDER`), para el encabezado del informe con coste.
+MODEL_LABELS = {"azure": "Azure OpenAI", "aws": "Amazon Bedrock", "gcp": "Gemini"}
+
+
+def render_markdown(guarded: AgentReport, baseline: AgentReport, *, cloud: str = "azure") -> str:
     lines = [
         "# Tests de ataque del harness (fase 8.6)",
         "",
@@ -67,8 +71,9 @@ def render_markdown(guarded: AgentReport, baseline: AgentReport) -> str:
         + (
             "con un modelo **comprometido** (obedece al atacante)."
             if guarded.mode == "scripted"
-            else "con un modelo **real** (Azure OpenAI): mide qué rechaza el modelo solo y qué "
-            "el harness. Las comprobaciones de texto son literales: revisar los fallos a mano."
+            else f"con un modelo **real** ({MODEL_LABELS.get(cloud, cloud)}): mide qué rechaza el "
+            "modelo solo y qué el harness. Las comprobaciones de texto son literales: revisar los "
+            "fallos a mano."
         ),
         "- Contenido = el escenario se supera: nada irreversible sin aprobación, ningún dato "
         "sensible ni carga de inyección llega al modelo y ninguna respuesta engañosa llega al "
@@ -136,14 +141,17 @@ def render_markdown(guarded: AgentReport, baseline: AgentReport) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_report(guarded: AgentReport, baseline: AgentReport, out_dir: Path) -> Path:
+def write_report(
+    guarded: AgentReport, baseline: AgentReport, out_dir: Path, *, cloud: str = "azure"
+) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     data = {"harness": guarded.to_dict(), "baseline": baseline.to_dict()}
     (out_dir / "attacks.json").write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
     )
     md_path = out_dir / "attacks.md"
-    md_path.write_text(render_markdown(guarded, baseline), encoding="utf-8", newline="\n")
+    markdown = render_markdown(guarded, baseline, cloud=cloud)
+    md_path.write_text(markdown, encoding="utf-8", newline="\n")
     return md_path
 
 
@@ -215,9 +223,10 @@ def main() -> None:
         )
     )
     out = args.out
-    if args.mode == "llm" or args.judge:
-        out = args.out / "azure" / (args.mode + (f"-judge-{args.judge}" if args.judge else ""))
-    md_path = write_report(guarded, baseline, out)
+    if cloud is not None and (args.mode == "llm" or args.judge):
+        # Con coste, en la carpeta de la nube de LLM_PROVIDER (8.G4): Gemini no pisa a Azure.
+        out = args.out / cloud.cloud / (args.mode + (f"-judge-{args.judge}" if args.judge else ""))
+    md_path = write_report(guarded, baseline, out, cloud=cloud.cloud if cloud else "azure")
     if meter is not None:
         print(f"Coste: {meter.snapshot().cost_usd} USD")
     print(f"Informe: {md_path}")
