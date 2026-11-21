@@ -1165,43 +1165,41 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    orden se hace en el cliente. Por eso los tests de integración corren contra los dos motores
    en la CI. En AWS, ElastiCache con Valkey tiene el mismo riesgo; en Azure, Managed Redis es
    Redis.
-4. **¿Por qué recalibraste el umbral de la caché al cambiar a Gemini, si el código no cambiaba?**
-   Porque el umbral depende del modelo de embeddings y de cómo se pide el vector. Gemini optimiza
-   el vector según la tarea: la calibración pedía vectores de "documento" y la caché, de
-   "consulta". Habría calibrado un umbral que no es el que se aplica. Ahora la eval embebe
-   exactamente como la caché y un test impide que vuelva a romperse. Sin umbral medido para un
-   modelo, la caché no se activa.
-5. **¿Por qué Cloud Armor y además un rate limiter en el edge?** Hacen cosas distintas. Cloud
+4. **¿Por qué Cloud Armor y además un rate limiter en el edge?** Hacen cosas distintas. Cloud
    Armor, en el balanceador, corta inundaciones por IP o por token antes de que lleguen a Cloud Run
    (y a la factura), pero no sabe el plan del usuario: va dentro del JWT. El edge aplica el límite
    fino por plan con GCRA en Valkey y devuelve el `Retry-After` exacto. Los umbrales de Cloud Armor
    son holgados (detrás de un NAT hay mucha gente). En AWS: AWS WAF con *rate-based rules* delante
    del ALB; en Azure: Front Door WAF o APIM.
+5. **¿Cómo harías una prueba de carga en GCP si no hay un Azure Load Testing?** Con el mismo
+   locustfile en un Cloud Run job de 8 vCPU y `--processes -1`: un maestro y un worker por CPU
+   dentro del contenedor, porque el modo distribuido de Locust necesita red entre maestro y
+   workers, y las instancias de Cloud Run no se ven. Los CSV van a Cloud Storage y se genera el
+   mismo informe que en local. Por defecto apunta al edge tras Cloud Armor, así que prueba también
+   el perímetro. Para más carga, GKE Autopilot efímero. En AWS sería la solución *Distributed Load
+   Testing* o Locust en ECS.
 
 **Negocio y stakeholders**
 
-1. **¿Por qué importa el plazo de ack en la factura?** Porque cada reentrega de un caso repite
-   las llamadas al modelo. Con turnos de 15 s y un plazo de 10 s, cada caso largo se pagaba dos
-   veces y aparecía duplicado en las métricas. El latido cuesta una llamada barata cada pocos
-   segundos y quita ese gasto. Lo vigilaría con `expired_ack_deadlines_count` y los fallos de
-   `ack`.
-2. **¿Por qué no basta con "es compatible con Redis" para aprobar el cambio a Valkey?** Porque
-   el riesgo no está en el `GET`/`SET`, sino en la búsqueda vectorial, que es otro módulo. A
-   dirección le diría que el cambio abarata y quita licencias, pero que solo se aprueba con la
-   misma batería de tests en verde contra el motor nuevo. Esa batería encontró tres
-   incompatibilidades antes de tocar la nube, a coste cero.
-3. **Con 10 réplicas, ¿cuántas cachés explícitas de Gemini pagas por el mismo prompt?** Sin
+1. **Con 10 réplicas, ¿cuántas cachés explícitas de Gemini pagas por el mismo prompt?** Sin
    coordinación, 10: diez escrituras y diez almacenamientos por hora del mismo texto. Con un
    registro compartido en Valkey (`SET NX` con el TTL de la caché) se paga una: las demás la
    reutilizan y, si dos la crean a la vez, la perdedora borra la suya al momento. Lo que se acepta:
    que ninguna réplica borre al apagarse y que la caché viva hasta su TTL. En AWS y Azure no hace
    falta, porque la caché del prompt es implícita y del proveedor.
-4. **El autoescalador de GCP cuesta 40-50 $/mes aunque no haya tráfico: ¿merece la pena?** En Cloud
+2. **El autoescalador de GCP cuesta 40-50 $/mes aunque no haya tráfico: ¿merece la pena?** En Cloud
    Run, los worker pools no escalan solos, y CREMA es un servicio siempre encendido. Para el
    piloto, lo apago fuera de las ventanas de venta (Terraform, efímero). En producción, se compara
    con lo que ahorra: workers a 0 la mayor parte del día y, en un pico, hasta el techo de la cuota
    del modelo. Si el tráfico fuera constante, un mínimo fijo de instancias sin CREMA sería más
    barato y más simple.
+3. **¿Dónde pondrías el techo de tokens del modelo: en el gateway de la nube o en el nuestro?** En
+   el nuestro, porque es el único que conoce el plan del cliente, el coste estimado de cada llamada
+   y la alternativa (degradar a una respuesta extractiva en lugar de devolver 429). Las políticas
+   gestionadas (token policies del Agent Gateway, en *preview*; `llm-token-limit` de APIM) las
+   usaría como red de seguridad por proyecto, para que un error de configuración no dispare la
+   factura. A dirección se lo contaría así: el freno fino lo pone la aplicación y el de emergencia,
+   la nube.
 
 <a id="fase-11"></a>
 

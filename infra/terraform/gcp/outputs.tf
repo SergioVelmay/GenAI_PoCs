@@ -158,3 +158,17 @@ output "edge_url" {
     local.edge_https == 1 ? "https://${var.edge_domain}" : "http://${google_compute_global_address.edge[0].address}"
   ) : null
 }
+
+output "load_test" {
+  description = "Cómo lanzar la prueba de carga y bajar los CSV (null sin load_test_enabled)."
+  value = local.load_test == 1 ? {
+    run      = "gcloud run jobs execute ${google_cloud_run_v2_job.load_test[0].name} --region ${var.region} --wait"
+    results  = "gcloud storage cp -r gs://${google_storage_bucket.load_results[0].name}/<ejecución> evals/reports/load/gcp/"
+    host     = local.load_test_host
+    peak     = var.load_test_peak
+    profile  = var.load_test_profile
+    vcpu     = var.load_test_cpu
+    report   = "uv run python scripts/load_report.py evals/reports/load/gcp/<ejecución>/${var.load_test_profile} --out evals/reports/load/gcp/README.md"
+    see_also = "docs/fase-10-escala.md (10.G5)"
+  } : null
+}

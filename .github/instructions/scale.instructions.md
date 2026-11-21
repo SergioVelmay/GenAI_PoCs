@@ -55,7 +55,7 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - Informe: `scripts/load_report.py <prefijos> --out evals/reports/load/README.md`. Se versionan `_stats.csv`, `_failures.csv`, `_ready.json` y el informe; no el histórico ni el HTML.
 - **Un bulkhead por ruta**: `/cases` tiene su compartimento (`EDGE__CASES_CAPACITY`, `AdmissionController.bulkhead()`) con el mismo rate limit por usuario.
 - **Degradación**: con el modelo saturado antes del primer trozo, `RagAssistant` responde en modo extractivo con `degraded=true` (no se cachea). `EDGE__DEGRADE_ON_SATURATION`. En el edge, `LLM_GATEWAY__MAX_QUEUE_SECONDS` corto (2 s): lo interactivo no espera cuota 10 s.
-- La carga y el edge en la misma máquina comparten CPU (Locust avisa): las colas largas de p99 en local son en parte del generador. Para cifras finales, Azure Load Testing con el mismo locustfile.
+- La carga y el edge en la misma máquina comparten CPU (Locust avisa): las colas largas de p99 en local son en parte del generador. Para cifras finales, Azure Load Testing con el mismo locustfile; en GCP (10.G5), sin servicio gestionado, un Cloud Run job con la imagen de `loadtests/Dockerfile` (Locust del lock + `edge_api`, `--processes -1` en 8 vCPU: el modo distribuido no funciona sin red entre instancias), CSV en Cloud Storage y clave de firma de los tokens de prueba desde Secret Manager (`infra/terraform/gcp/load_test.tf`).
 
 ## Edge (`services/edge_api`)
 

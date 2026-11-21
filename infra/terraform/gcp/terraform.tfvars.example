@@ -98,3 +98,9 @@ model_armor_enabled = false
 # Floor setting de Gemini en todo el proyecto (INSPECT_ONLY): cada llamada a Gemini consume
 # tokens de Model Armor. true solo para medirlo.
 model_armor_floor_setting_enabled = false
+
+# Generador de carga en un Cloud Run job (10.G5): pago solo mientras corre. Imagen de
+# loadtests/Dockerfile; sin load_test_host, va al edge tras Cloud Armor; output load_test.
+load_test_enabled            = false
+load_test_image              = "" # europe-west4-docker.pkg.dev/<proyecto>/load/genaipocs-load:<tag>
+load_test_signing_key_secret = "" # secret con la clave privada de los tokens de prueba

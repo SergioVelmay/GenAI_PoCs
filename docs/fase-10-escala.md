@@ -37,7 +37,7 @@ flowchart LR
     FB["Fallback"] --> BR["Circuit breaker"] --> BH["Bulkhead"] --> Q["Cuota compartida<br/>(espera acotada)"]
   end
 
-  AS --> GW --> M["Azure OpenAI / Bedrock<br/>(o proveedor simulado)"]
+  AS --> GW --> M["Azure OpenAI / Bedrock / Gemini<br/>(o proveedor simulado)"]
   M -->|"trozos"| SSE
 
   R[("Redis 8<br/>GCRA + índice vectorial")]
@@ -48,7 +48,7 @@ flowchart LR
   EDGE -->|"POST /cases (202)"| PG[("PostgreSQL<br/>caso + outbox en una transacción")]
   PG --> RELAY["OutboxRelay"] --> MQ[["Cola support.emails"]]
   MQ --> W["Workers (fase 9)"]
-  AUTO["QueueAutoscaler<br/>(KEDA / ECS target tracking)"] -.->|"réplicas = f(cola)"| W
+  AUTO["QueueAutoscaler<br/>(KEDA / ECS target tracking / CREMA)"] -.->|"réplicas = f(cola)"| W
   MQ -.->|"longitud"| AUTO
 ```
 
@@ -65,7 +65,9 @@ flowchart LR
 | Edge (rutas, identidad, SSE, caché, casos, degradación) | `services/edge_api/` |
 | Proveedor simulado para carga | `adapters/simulated_llm.py` (`LLM_PROVIDER=simulated`) |
 | Carga e informe | `loadtests/locustfile.py`, `loadtests/run_edge.ps1`, `scripts/load_report.py` |
-| Nube (desactivado por defecto) | `infra/terraform/{azure,aws}/queue_workers.tf` |
+| Nube (desactivado por defecto) | `infra/terraform/{azure,aws,gcp}/queue_workers.tf`; en GCP, además, `memorystore.tf`, `edge_armor.tf` y `load_test.tf` |
+| GCP: backlog de Pub/Sub, latido del plazo, cliente de Valkey/Memorystore, registro de cachés de Gemini | `adapters/queue_metrics.py`, `adapters/pubsub.py`, `adapters/redis_client.py`, `adapters/redis_gemini_cache.py` |
+| Imagen del generador de carga | `loadtests/Dockerfile` |
 
 ## 2. Qué se construye
 
@@ -235,17 +237,20 @@ Límites que quedan (y su siguiente paso):
 | Plan de capacidad (150 K TPM, 4.000 tokens por caso) | Techo de 38 casos/min: más de 2 réplicas solo producen 429 |
 | Proveedor simulado con cuota de 3 RPM y 10 peticiones a la vez por el gateway completo | 3 respuestas; el breaker deja como mucho 2 429 del proveedor |
 
-## 4. Comparativa Azure ↔ AWS ↔ framework
+## 4. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
 
-| Pieza | A. Gestionado (Azure / AWS) | B. Propio (este repo) | C. Framework / librería |
+| Pieza | A. Gestionado (Azure / AWS / GCP) | B. Propio (este repo) | C. Framework / librería |
 |---|---|---|---|
-| Rate limiting y cuotas | APIM `rate-limit-by-key`, `llm-token-limit` / API Gateway *usage plans*, WAF *rate-based rules* | `RedisRateLimiter` (GCRA en Lua) + `AdmissionController` | `slowapi`, `limits`; LiteLLM proxy (TPM/RPM por clave) |
-| Caché semántica | APIM `azure-openai-semantic-cache-lookup/store` + Managed Redis / ElastiCache (Valkey vectorial) | `SemanticCache` + guarda de facetas | LangChain `RedisSemanticCache`, GPTCache |
-| Resiliencia del cliente | APIM *backend circuit breaker* / SDK con reintentos (`botocore` *adaptive*) | `CircuitBreakerLLM`, bulkhead, `time_budget` | `tenacity`, `aiobreaker`, LiteLLM *router* (cooldowns) |
-| Streaming | Container Apps / ALB con SSE | `POST /ask/stream` (SSE con *priming* y latidos) | `sse-starlette` |
-| Outbox | Cosmos DB *change feed* / DynamoDB Streams, EventBridge Pipes | `outbox_events` + `OutboxRelay` | Debezium (CDC), MassTransit |
-| Autoescalado por cola | KEDA en ACA/AKS (`azure-servicebus`) / ECS *target tracking* sobre SQS, KEDA en EKS | `QueueAutoscaler` + `DockerComposeScaler` | KEDA `ScaledObject` |
-| Carga | Azure Load Testing (JMeter, Locust) / *Distributed Load Testing on AWS* | `loadtests/locustfile.py` + proveedor simulado | Locust, k6 |
+| Rate limiting y cuotas | APIM `rate-limit-by-key`, `llm-token-limit` / API Gateway *usage plans*, WAF *rate-based rules* / Cloud Armor `throttle` y `rate_based_ban` (10.G4), token policies del Agent Gateway (*preview*) | `RedisRateLimiter` (GCRA en Lua, Redis o Valkey) + `AdmissionController` | `slowapi`, `limits`; LiteLLM proxy (TPM/RPM por clave) |
+| Caché semántica | APIM `azure-openai-semantic-cache-lookup/store` + Managed Redis / ElastiCache (Valkey vectorial) / Memorystore for Valkey (10.G2) | `SemanticCache` + guarda de facetas | LangChain `RedisSemanticCache`, GPTCache |
+| Caché del prompt entre réplicas | Implícita del proveedor (Azure OpenAI, Bedrock `cachePoint`) / caché explícita de Gemini compartida en Valkey (10.G3) | `ExplicitCache` + `RedisCacheRegistry` | — |
+| Resiliencia del cliente | APIM *backend circuit breaker* / SDK con reintentos (`botocore` *adaptive*) / el gateway propio (el SDK de Gemini no reintenta) | `CircuitBreakerLLM`, bulkhead, `time_budget` | `tenacity`, `aiobreaker`, LiteLLM *router* (cooldowns) |
+| Streaming | Container Apps / ALB / Cloud Run tras el ALB con SSE | `POST /ask/stream` (SSE con *priming* y latidos) | `sse-starlette` |
+| Outbox | Cosmos DB *change feed* / DynamoDB Streams, EventBridge Pipes / Datastream o Eventarc | `outbox_events` + `OutboxRelay` | Debezium (CDC), MassTransit |
+| Métrica de cola | Service Bus (al momento) / SQS `ApproximateNumberOf*` (al momento) / Cloud Monitoring con PromQL (1-3 min de retraso, 10.G1) | `QueueMetricsPort` (`RabbitMQManagementMetrics`, `SqsQueueMetrics`, `PubSubBacklogMetrics`) | KEDA (escaladores `azure-servicebus`, `aws-sqs-queue`, `prometheus`) |
+| Autoescalado por cola | KEDA en ACA/AKS (`azure-servicebus`) / ECS *target tracking* sobre SQS, KEDA en EKS / worker pool de Cloud Run + CREMA (10.G4) | `QueueAutoscaler` + `DockerComposeScaler` | KEDA `ScaledObject` |
+| Plazo del mensaje en proceso | `renew_message_lock` / `ChangeMessageVisibility` / `modifyAckDeadline` (latido, 10.G1) | `PubSubMessageBus` con latido (`PUBSUB__MAX_LEASE_S`) | *Lease management* de las librerías de alto nivel |
+| Carga | Azure Load Testing (JMeter, Locust) / *Distributed Load Testing on AWS* / sin servicio gestionado: Locust en un Cloud Run job (10.G5) | `loadtests/locustfile.py` + proveedor simulado + `loadtests/Dockerfile` | Locust, k6 |
 
 ## 5. Decisiones y límites (para defenderlos)
 
@@ -258,6 +263,11 @@ Límites que quedan (y su siguiente paso):
 - **Proveedor simulado para la carga.** Una prueba de carga contra el modelo real cuesta dinero y choca con la cuota antes de medir el resto. El simulado reproduce lo que importa (latencia, cuota compartida, 429), y la validación real se hace aparte y pequeña.
 - **Locust frente a k6.** Python como el resto del repo, escenarios con lógica (Zipf, doble clic, SSE) y compatible con Azure Load Testing. k6 escala mejor por generador, pero añade otro lenguaje.
 - **Límites conocidos:** las cifras son de una sola máquina; el *single-flight* es por réplica; la degradación espera 2 s; no se ha medido con varias réplicas del edge ni con el modelo real.
+- **GCP: la misma consulta en todas partes** (10.G1, 10.G4). El backlog de Pub/Sub solo existe en Cloud Monitoring. Una sola PromQL (`pubsub_backlog_promql()`) la usan el adaptador local, CREMA y, en la 11.G, las alertas; un test comprueba que Terraform no se desvía.
+- **GCP: un hueco en la métrica no es "cola vacía"** (10.G1). Con 1-3 min de retraso y huecos reconocidos, leer "0" bajaría los workers a cero en mitad de un pico. Ni el adaptador ni CREMA (`ignoreNullValues = false`) lo hacen.
+- **GCP: código portable a Valkey antes que dos adaptadores** (10.G2). El mismo `RedisSemanticCache` sirve para Redis 8 y Valkey limitándose a lo que admiten los dos (TAG + VECTOR, orden en el cliente, RESP2), y la CI lo prueba contra los dos motores.
+- **GCP: worker pools + CREMA frente a GKE + KEDA** (10.G4). Sin clúster que mantener y con el pool a cero, pero CREMA tiene coste fijo (una instancia siempre encendida). GKE solo compensaría con muchos workers o si ya hubiera un clúster.
+- **GCP: dos capas de rate limiting** (10.G4). Cloud Armor (grueso, por IP o token, antes de pagar Cloud Run) y el edge (fino, por plan, con `Retry-After`). Cloud Armor no ve el plan: va dentro del JWT.
 
 ## 6. Pendiente con coste
 
@@ -268,7 +278,10 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 10):
 - APIM / API Gateway frente al edge;
 - streaming real;
 - autoescalado en Container Apps y ECS;
-- carga con Azure Load Testing y una prueba pequeña contra Azure OpenAI para ver los 429 reales.
+- carga con Azure Load Testing y una prueba pequeña contra Azure OpenAI para ver los 429 reales;
+- GCP ([sección propia](pendientes-cloud.md#fase-10-gcp)): backlog real de Pub/Sub, latido,
+  Memorystore, umbral con Gemini y Titan, registro compartido, CREMA, Cloud Armor y carga desde
+  un Cloud Run job.
 
 ## 7. GCP (pasada 10.G)
 
@@ -283,7 +296,7 @@ lanza desde un **Cloud Run job**. Coste 0: emulador, Valkey en Docker y dobles; 
 | 10.G1 | `5f25ec6` | Backlog de Pub/Sub con PromQL para el autoescalador y latido del plazo de ack (heredado de la 9.G3) |
 | 10.G2 | `a0af72e` | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
 | 10.G3 | `e692050` | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
-| 10.G4 | | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
+| 10.G4 | `4e38d50` | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
 | 10.G5 | | Carga desde un Cloud Run job, cuotas de tokens y doc a tres nubes |
 
 ### Verificación previa (21-11-2026)
@@ -547,6 +560,44 @@ Parameter Manager (CremaConfig) ──▶ CREMA (Cloud Run) ─────┘
   regla + 0,75 $ por millón de peticiones. Efímero.
 - **Cuotas de tokens del Agent Gateway**: no hay Terraform (*early preview*). Se comparan en la
   10.G5.
+
+### 10.G5 · Carga desde la nube, cuotas de tokens y cierre a tres nubes
+
+```powershell
+docker build -f loadtests/Dockerfile -t genaipocs-load:local .     # Locust del lock + edge_api
+cd infra/terraform/gcp ; terraform test                             # load_test.tftest.hcl
+# En la nube (fase 15): terraform output load_test → gcloud run jobs execute ... --wait
+```
+
+**Generador de carga en un Cloud Run job** (`load_test.tf`, `load_test_enabled = false`). GCP no
+tiene un servicio gestionado como Azure Load Testing, y su guía de Locust en GKE está obsoleta.
+
+- `loadtests/Dockerfile`: el mismo locustfile, con Locust y `edge_api` en las versiones del
+  lock (Locust es un grupo del proyecto raíz: se exporta con `uv export --only-group load`).
+  Los tokens de prueba se firman con una clave montada desde Secret Manager, nunca en la imagen.
+- **Una tarea con 8 vCPU y `--processes -1`** (un maestro y un worker por CPU dentro del
+  contenedor). El modo distribuido de Locust necesita red entre maestro y workers (ZeroMQ), y en
+  Cloud Run las instancias no se ven. Para más carga, GKE Autopilot efímero.
+- Por defecto va contra el edge tras Cloud Armor, así que prueba también el perímetro. Los CSV de
+  cada ejecución se guardan en Cloud Storage (`<ejecución>/<perfil>_*.csv`) y `load_report.py`
+  genera el mismo informe que en local. `max_retries = 0`: una prueba fallida no se repite sola.
+- **Probado en local** con la imagen contra el edge (`LOAD_PEAK=10`, proveedor simulado): el pico
+  completo con un proceso por CPU, CSV y `_ready.json` escritos, y los dos abusadores frenados con
+  5.464 respuestas 429 sin fallos en el resto de perfiles.
+
+**Cuotas de tokens: dónde se pone el techo del modelo**
+
+| Opción | Estado (21-11-2026) | Qué limita | Encaje en Genaipocs |
+|---|---|---|---|
+| `SharedQuota` del gateway propio (10.1) en Redis/Valkey | Nuestro, probado | TPM y RPM por despliegue, con reserva y espera acotada (`MAX_QUEUE_SECONDS`) | El que manda: conoce el coste estimado de cada llamada y degrada antes de esperar |
+| Token policies del **Agent Gateway** (`TokenBudgetPolicy`, `TokenAggregationPolicy`) | *Early preview* con alta previa; sin Terraform | Presupuesto de tokens por proyecto, app, agente, modelo o cabecera, por hora o día; alerta o 429; con peticiones concurrentes se puede pasar | Contraste para agentes desplegados en Agent Runtime; no en el camino crítico |
+| Apigee `LLMTokenQuota` / `PromptTokenLimit` | Sin GA explícito; Apigee de evaluación (6.G3) | Cuota total exacta por clave / picos de tokens del prompt; 429 | Si la API de modelos se publicara a partners con Apigee |
+| APIM `llm-token-limit` (Azure) | GA | TPM por clave | Equivalente directo de la 10.1 en Azure |
+| API Gateway *usage plans* (AWS) | GA | Peticiones, no tokens | Necesita el gateway propio para contar tokens |
+
+La cuota de tokens se queda en el gateway de la aplicación: es el único sitio que conoce el plan,
+el coste estimado y la alternativa (degradar). Las políticas gestionadas sirven de red de
+seguridad a nivel de proyecto, como la *floor setting* de Model Armor en la 8.G.
 
 ## 8. Checkpoint de entrevista
 

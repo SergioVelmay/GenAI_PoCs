@@ -67,6 +67,7 @@ variable "services" {
     "parametermanager.googleapis.com",
     "pubsub.googleapis.com",
     "run.googleapis.com",
+    "secretmanager.googleapis.com",
     "storage.googleapis.com",
     "vectorsearch.googleapis.com",
     "workflows.googleapis.com",
@@ -530,4 +531,53 @@ variable "edge_authenticated_per_minute" {
   description = "Tope por token (holgado: el edge aplica el límite fino por plan)."
   type        = number
   default     = 600
+}
+
+# ---------- Generador de carga (load_test.tf, 10.G5) ----------
+
+variable "load_test_enabled" {
+  description = "Cloud Run job de Locust contra el edge (pago solo mientras corre). Necesita load_test_image."
+  type        = bool
+  default     = false
+}
+
+variable "load_test_image" {
+  description = "Imagen de loadtests/Dockerfile en Artifact Registry (fase 15)."
+  type        = string
+  default     = ""
+}
+
+variable "load_test_host" {
+  description = "URL del edge a probar. Vacío = el edge tras Cloud Armor (edge_url) si edge_armor_enabled."
+  type        = string
+  default     = ""
+}
+
+variable "load_test_profile" {
+  description = "Nombre del perfil del edge que se prueba (prefijo de los CSV): ingenuo, sin_cache, protegido."
+  type        = string
+  default     = "protegido"
+}
+
+variable "load_test_peak" {
+  description = "Usuarios en el pico (LOAD_PEAK de la forma FestivalOnSale)."
+  type        = number
+  default     = 200
+}
+
+variable "load_test_cpu" {
+  description = "vCPU del job (= procesos de Locust con --processes -1); la memoria, 1 GiB por vCPU."
+  type        = number
+  default     = 8
+
+  validation {
+    condition     = contains([1, 2, 4, 6, 8], var.load_test_cpu)
+    error_message = "Cloud Run admite 1, 2, 4, 6 u 8 vCPU por instancia."
+  }
+}
+
+variable "load_test_signing_key_secret" {
+  description = "Secret de Secret Manager con la clave privada de los tokens de prueba (vacío = sin montar)."
+  type        = string
+  default     = ""
 }
