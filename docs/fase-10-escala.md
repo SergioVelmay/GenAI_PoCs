@@ -282,7 +282,7 @@ lanza desde un **Cloud Run job**. Coste 0: emulador, Valkey en Docker y dobles; 
 |---|---|---|
 | 10.G1 | `5f25ec6` | Backlog de Pub/Sub con PromQL para el autoescalador y latido del plazo de ack (heredado de la 9.G3) |
 | 10.G2 | `a0af72e` | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
-| 10.G3 | | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
+| 10.G3 | `e692050` | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
 | 10.G4 | | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
 | 10.G5 | | Carga desde un Cloud Run job, cuotas de tokens y doc a tres nubes |
 
@@ -485,6 +485,68 @@ el pendiente pedía "repetir con Titan".
 - Probado: 5 tests unitarios con dos réplicas sobre un registro doble, y 3 de integración contra
   Redis 8 y Valkey. En estos, 10 réplicas que registran a la vez acaban todas con la misma caché;
   también se prueba la caducidad con la caché y que una caché ya caducada no se registra.
+
+### 10.G4 · Workers escalados por backlog y perímetro con Cloud Armor
+
+```powershell
+cd infra/terraform/gcp ; terraform test        # queue_workers y edge_armor, sin coste
+uv run pytest packages/genaipocs_core/tests/test_pubsub_backlog.py -k terraform
+```
+
+**`queue_workers.tf`** (`queue_workers_enabled = false`; necesita `queue_worker_image`, de la
+fase 15):
+
+```text
+Pub/Sub support.emails.worker ──(métrica, 1-3 min)──▶ Cloud Monitoring
+                                                           │ PromQL
+Parameter Manager (CremaConfig) ──▶ CREMA (Cloud Run) ─────┘
+                                       │ Admin API: manual_instance_count
+                                       ▼
+                         worker pool "triage-worker" (0..4 instancias)
+```
+
+- **Worker pool** `MANUAL`, arranca en 0 y con `ignore_changes` sobre el número de instancias:
+  quien lo mueve es CREMA, y un `apply` posterior no debe devolverlo a 0. Mismo rol que en Azure
+  y AWS (`orchestrator.worker triage relay`), con la identidad de la aplicación, que ya consume
+  y publica los temas del orquestador (`pubsub.tf`).
+- **CREMA** es KEDA empaquetado como servicio de Cloud Run:
+  - lee su `CremaConfig` de una versión de Parameter Manager (el id es el hash del contenido:
+    cambiar la política redespliega CREMA con la nueva);
+  - usa el escalador **`prometheus`** contra Managed Prometheus con la **misma consulta** que
+    `pubsub_backlog_promql()`. Un test de Python compara la de Terraform con la del adaptador;
+  - política: `threshold` de 8 mensajes por instancia y de 0 a 4 instancias, como en Azure.
+    Sube como mucho 4 instancias por minuto y baja tras una ventana de 300 s (la métrica llega
+    tarde). Con `ignoreNullValues = false`, un hueco no se lee como cola vacía.
+- **Mínimo privilegio de CREMA**: lee su configuración y la métrica (`monitoring.viewer`),
+  publica las métricas del escalador y solo tiene `run.developer` sobre **este** worker pool,
+  más `serviceAccountUser` sobre la identidad que usa.
+- **Coste:** el pool con 0 instancias no cuesta nada. CREMA sí: una instancia con CPU siempre
+  asignada, del orden de 40–50 $/mes si se deja encendido. Efímero, como AI Search.
+
+**`edge_armor.tf`** (`edge_armor_enabled = false`; necesita `edge_image`):
+
+- El edge en Cloud Run con ingress `INTERNAL_LOAD_BALANCER`: solo entra tráfico del balanceador,
+  así que la URL `run.app` no se salta Cloud Armor. Es invocable sin IAM porque la identidad es
+  el JWT del edge. Con Memorystore activo, sale a su VPC (Direct VPC egress) con
+  `SCALE_REDIS__AUTH=gcp_iam`.
+- **ALB externo** (`EXTERNAL_MANAGED`) con *serverless NEG*. Con `edge_domain`, HTTPS con
+  certificado gestionado; sin él, HTTP en el 80 solo para validar. Salida `edge_url`.
+- **Cloud Armor**, la capa gruesa del perímetro, con tres reglas y 429 como el edge:
+
+| Prioridad | Regla | Clave | Por defecto |
+|---:|---|---|---|
+| 100 | `rate_based_ban` | IP | más de 1.200/min → fuera 5 min (los abusadores de la 10.7 iban a 20/s) |
+| 200 | `throttle` sin `Authorization` | IP | 120/min (holgado: detrás de un NAT hay muchos usuarios) |
+| 300 | `throttle` con `Authorization` | la cabecera (el token) | 600/min |
+
+- **Por qué dos capas.** Cloud Armor corta inundaciones antes de que lleguen a Cloud Run y a la
+  factura, pero no conoce el plan: va dentro del JWT firmado y Cloud Armor no lo valida. El
+  límite fino por plan (5, 20 y 120 por minuto) con su `Retry-After` exacto sigue en el edge
+  (GCRA en Valkey).
+- **Coste:** regla de reenvío ~18 $/mes, Cloud Armor Standard ~5 $ por política y mes + 1 $ por
+  regla + 0,75 $ por millón de peticiones. Efímero.
+- **Cuotas de tokens del Agent Gateway**: no hay Terraform (*early preview*). Se comparan en la
+  10.G5.
 
 ## 8. Checkpoint de entrevista
 

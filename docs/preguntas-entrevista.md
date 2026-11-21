@@ -1171,6 +1171,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    "consulta". Habría calibrado un umbral que no es el que se aplica. Ahora la eval embebe
    exactamente como la caché y un test impide que vuelva a romperse. Sin umbral medido para un
    modelo, la caché no se activa.
+5. **¿Por qué Cloud Armor y además un rate limiter en el edge?** Hacen cosas distintas. Cloud
+   Armor, en el balanceador, corta inundaciones por IP o por token antes de que lleguen a Cloud Run
+   (y a la factura), pero no sabe el plan del usuario: va dentro del JWT. El edge aplica el límite
+   fino por plan con GCRA en Valkey y devuelve el `Retry-After` exacto. Los umbrales de Cloud Armor
+   son holgados (detrás de un NAT hay mucha gente). En AWS: AWS WAF con *rate-based rules* delante
+   del ALB; en Azure: Front Door WAF o APIM.
 
 **Negocio y stakeholders**
 
@@ -1190,6 +1196,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    reutilizan y, si dos la crean a la vez, la perdedora borra la suya al momento. Lo que se acepta:
    que ninguna réplica borre al apagarse y que la caché viva hasta su TTL. En AWS y Azure no hace
    falta, porque la caché del prompt es implícita y del proveedor.
+4. **El autoescalador de GCP cuesta 40-50 $/mes aunque no haya tráfico: ¿merece la pena?** En Cloud
+   Run, los worker pools no escalan solos, y CREMA es un servicio siempre encendido. Para el
+   piloto, lo apago fuera de las ventanas de venta (Terraform, efímero). En producción, se compara
+   con lo que ahorra: workers a 0 la mayor parte del día y, en un pico, hasta el techo de la cuota
+   del modelo. Si el tráfico fuera constante, un mínimo fijo de instancias sin CREMA sería más
+   barato y más simple.
 
 <a id="fase-11"></a>
 

@@ -141,3 +141,20 @@ output "memorystore_server_ca" {
   description = "CA del servidor de Memorystore en PEM (pública): terraform output -raw memorystore_server_ca > memorystore-server-ca.pem"
   value       = var.memorystore_enabled ? join("\n", flatten([for ca in try(google_memorystore_instance.scale[0].managed_server_ca[0].ca_certs, []) : ca.certificates])) : ""
 }
+
+output "queue_workers" {
+  description = "Worker pool de triaje, servicio de CREMA y su configuración (null sin queue_workers_enabled)."
+  value = local.queue_workers == 1 ? {
+    worker_pool    = google_cloud_run_v2_worker_pool.triage[0].name
+    crema_service  = google_cloud_run_v2_service.crema[0].name
+    crema_config   = google_parameter_manager_parameter_version.crema[0].id
+    backlog_promql = local.queue_backlog_query
+  } : null
+}
+
+output "edge_url" {
+  description = "URL pública del edge tras el balanceador con Cloud Armor (null sin edge_armor_enabled)."
+  value = local.edge_armor == 1 ? (
+    local.edge_https == 1 ? "https://${var.edge_domain}" : "http://${google_compute_global_address.edge[0].address}"
+  ) : null
+}

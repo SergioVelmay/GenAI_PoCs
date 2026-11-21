@@ -7,7 +7,9 @@ en la nube (pendientes-cloud.md, fase 10).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -160,3 +162,13 @@ def test_the_emulator_has_no_backlog_metric() -> None:
 def test_cloud_without_project_fails_loudly() -> None:
     with pytest.raises(ValueError, match="GCP__PROJECT"):
         PubSubBacklogMetrics.from_settings(PubSubSettings(), GcpSettings(), project="")
+
+
+def test_crema_in_terraform_uses_the_same_promql() -> None:
+    """Fuente única (10.G4): CREMA escala con la misma consulta que lee el adaptador local."""
+    tf = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "gcp" / "queue_workers.tf"
+    match = re.search(r'queue_backlog_query = "(.*)"\n', tf.read_text(encoding="utf-8"))
+
+    assert match is not None
+    in_terraform = match.group(1).replace('\\"', '"').replace("${var.project_id}", PROJECT)
+    assert in_terraform == pubsub_backlog_promql(PROJECT, "support.emails.worker")

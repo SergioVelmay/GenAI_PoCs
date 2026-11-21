@@ -64,6 +64,17 @@ case_reviewers               = []    # ["group:<operaciones>"]: quién manda la 
 # nodo y hora, efímero. VPC + PSC, IAM auth y TLS; outputs scale_redis_env y memorystore_server_ca.
 memorystore_enabled = false
 
+# Workers de triaje en un worker pool de Cloud Run, escalados por CREMA según el backlog de
+# Pub/Sub (10.G4). CREMA tiene coste fijo (una instancia con CPU siempre asignada): efímero.
+queue_workers_enabled = false
+queue_worker_image    = "" # europe-west4-docker.pkg.dev/<proyecto>/agents/orchestrator:<tag>
+
+# Edge en Cloud Run tras un ALB externo con Cloud Armor (10.G4): coste fijo del balanceador.
+# Sin edge_domain, HTTP en el 80 solo para validar; output edge_url.
+edge_armor_enabled = false
+edge_image         = "" # europe-west4-docker.pkg.dev/<proyecto>/edge/edge-api:<tag>
+edge_domain        = ""
+
 # Agente en Agent Runtime (7.G4). true = motor standalone con Sessions + Memory Bank (pago por
 # uso, sin coste por hora; output agent_platform_env). Con imagen, además el agente en un
 # contenedor con Agent Identity (vCPU-hora activa, escala a cero; la imagen llega en la fase 15).

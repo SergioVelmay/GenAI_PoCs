@@ -129,9 +129,10 @@ resource "google_pubsub_subscription_iam_member" "app_read_policy" {
 #   reentregas (cada triaje o especialista es una llamada al LLM, con coste). No elimina los
 #   duplicados al publicar (otro `message_id`): la deduplicación de verdad sigue en el CaseStore.
 #   Solo con *pull* y en una región; añade latencia.
-# - **Ack deadline de 600 s** (el máximo): un turno del agente con tools puede pasar del minuto, y
-#   el adaptador no renueva el plazo. Con exactly-once, un `ack` fuera de plazo falla y el
-#   mensaje vuelve (lo absorbe el CaseStore, pero se paga otra vez el modelo).
+# - **Ack deadline de 600 s** (el máximo): un turno del agente con tools puede pasar del minuto.
+#   Desde la 10.G1 el adaptador además renueva el plazo mientras el handler trabaja (latido,
+#   PUBSUB__MAX_LEASE_S). Con exactly-once, un `ack` fuera de plazo falla y el mensaje vuelve
+#   (lo absorbe el CaseStore, pero se paga otra vez el modelo).
 #
 # `case.outcomes` no tiene consumidor en el orquestador: su suscripción `.worker` la leerán las
 # notificaciones y la espera humana de Workflows (9.G5). Sin suscripción, el mensaje se perdería.

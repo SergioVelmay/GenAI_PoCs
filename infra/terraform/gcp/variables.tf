@@ -64,6 +64,7 @@ variable "services" {
     "monitoring.googleapis.com",
     "networkconnectivity.googleapis.com",
     "networkservices.googleapis.com",
+    "parametermanager.googleapis.com",
     "pubsub.googleapis.com",
     "run.googleapis.com",
     "storage.googleapis.com",
@@ -447,4 +448,86 @@ variable "memorystore_zone_suffix" {
   description = "Zona de la instancia (sin réplicas, una sola zona): <región>-<sufijo>."
   type        = string
   default     = "a"
+}
+
+# ---------- Workers con autoescalado por backlog (queue_workers.tf, 10.G4) ----------
+
+variable "queue_workers_enabled" {
+  description = "Worker pool de triaje + CREMA (autoescalado por el backlog de Pub/Sub). Necesita queue_worker_image."
+  type        = bool
+  default     = false
+}
+
+variable "queue_worker_image" {
+  description = "Imagen del orquestador (services/orchestrator/Dockerfile) en Artifact Registry (fase 15)."
+  type        = string
+  default     = ""
+}
+
+variable "queue_worker_max_instances" {
+  description = "Techo de instancias: el que permite la cuota TPM del modelo (scripts/capacity_plan.py)."
+  type        = number
+  default     = 4
+}
+
+variable "queue_worker_messages_per_instance" {
+  description = "Mensajes sin confirmar por instancia antes de añadir otra (threshold del escalador)."
+  type        = number
+  default     = 8
+}
+
+variable "crema_image" {
+  description = "Imagen de CREMA publicada por Google (comprobar la etiqueta vigente antes del apply)."
+  type        = string
+  default     = "us-central1-docker.pkg.dev/cloud-run-oss-images/crema-v1/autoscaler:1.0"
+}
+
+# ---------- Edge tras un balanceador con Cloud Armor (edge_armor.tf, 10.G4) ----------
+
+variable "edge_armor_enabled" {
+  description = "Edge en Cloud Run tras un ALB externo con Cloud Armor. Coste fijo del balanceador: efímero."
+  type        = bool
+  default     = false
+}
+
+variable "edge_image" {
+  description = "Imagen del edge (services/edge_api) en Artifact Registry (fase 15)."
+  type        = string
+  default     = ""
+}
+
+variable "edge_domain" {
+  description = "Dominio del certificado gestionado (HTTPS). Vacío = HTTP en el 80, solo para validar."
+  type        = string
+  default     = ""
+}
+
+variable "edge_max_instances" {
+  description = "Instancias máximas del edge en Cloud Run."
+  type        = number
+  default     = 10
+}
+
+variable "edge_ban_per_minute" {
+  description = "Peticiones por minuto y IP a partir de las que Cloud Armor banea temporalmente."
+  type        = number
+  default     = 1200
+}
+
+variable "edge_ban_seconds" {
+  description = "Duración del baneo temporal por IP."
+  type        = number
+  default     = 300
+}
+
+variable "edge_anonymous_per_minute" {
+  description = "Tope por IP sin token (holgado: el edge aplica 5/min por usuario anónimo)."
+  type        = number
+  default     = 120
+}
+
+variable "edge_authenticated_per_minute" {
+  description = "Tope por token (holgado: el edge aplica el límite fino por plan)."
+  type        = number
+  default     = 600
 }
