@@ -5,7 +5,7 @@ con respuestas estropeadas a propósito, de forma determinista y sin LLM, sobre 
 vio el agente (salidas de sus tools en el mundo de la suite):
 
 - `good`: la respuesta del modelo guionizado (sabor nativo).
-- `real`: la respuesta de un modelo real en la fase 7 (`evals/reports/agents-llm.json`): es la
+- `real`: la respuesta de un modelo real en la fase 7 (`evals/reports/azure/agents-llm.json`): es la
   que dio falsos fallos con el comprobador de literales.
 - `fabricated`: la respuesta buena con una cifra cambiada (contradice la evidencia).
 - `false_action`: afirma una acción que no ocurrió (reembolsar un pedido rechazado, pendiente o
@@ -55,7 +55,7 @@ CALIBRATION_DIR = EVALS_DIR / "calibration"
 SET_PATH = CALIBRATION_DIR / "agents-v1.jsonl"
 READABLE_PATH = CALIBRATION_DIR / "agents-v1.md"
 LABELS_PATH = CALIBRATION_DIR / "agents-labels-v1.csv"
-LLM_REPORT_PATH = REPORTS_DIR / "agents-llm.json"
+LLM_REPORT_PATH = REPORTS_DIR / "azure" / "agents-llm.json"
 REAL_FLAVOR = "native"
 SEED = 42
 BUDGET_ERROR = "sin presupuesto"

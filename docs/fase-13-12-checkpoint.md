@@ -152,15 +152,21 @@ Plan original (antes del cambio):
 
 **8.G · Harness**
 
-- 8.G1: `adapters/model_armor.py` (`GUARDRAILS__SHIELD=gcp`), PII con Sensitive Data Protection (`GUARDRAILS__PII=gcp`), plantilla de Model Armor en Terraform, Gemini en `rag_evals.shields` y en los ataques con modelo real (aplazado).
+- ~~8.G1: `adapters/model_armor.py` (`GUARDRAILS__SHIELD=gcp`), PII con Sensitive Data Protection (`GUARDRAILS__PII=gcp`), plantilla de Model Armor en Terraform, Gemini en `rag_evals.shields` y en los ataques con modelo real (aplazado).~~ **Al empezar (21-11-2026)** se divide en cuatro (decidido con Sergio; verificación previa en la [fase 8](fase-8-harness.md#9-gcp-pasada-8g)): la integración de Model Armor en Gemini (`model_armor_config`) no existe en `global` y falla abierto, así que **no se usa**; el escudo propio falla cerrado y la *floor setting* queda como red de proyecto. Además, `attacks` y `agents --mode llm` escribían siempre en `evals/reports/azure/`.
+- 8.G1: `adapters/model_armor.py` (`ModelArmorShield`, endpoint regional, sin `SUCCESS` y sin coincidencias = no disponible), `GUARDRAILS__SHIELD=gcp` y `rag_evals.shields --shield azure|bedrock|gcp` con el informe en la carpeta de cada nube.
+- 8.G2: `harness/pii_gcp.py` con Sensitive Data Protection (`GUARDRAILS__PII=gcp`; posiciones en *codepoints*, mismos nombres de entidad que Presidio).
+- 8.G3: `model_armor.tf` (`model_armor_enabled`): plantilla de inspección de SDP, plantilla de Model Armor (SDP avanzado solo para datos de pago), *floor setting* de Agent Platform en *inspect only* e IAM.
+- 8.G4: `attacks --mode llm` con Gemini y el informe en `evals/reports/<nube>/llm/` (y `fix:` aparte para `agents`), doc de la fase 8 a tres nubes.
 
 **9.G · Multi-agente**
 
+- **Heredado de la 8.G4:** `multiagent --mode llm` escribe siempre en `evals/reports/azure/`: a la carpeta de la nube de `LLM_PROVIDER` (`CloudModels.cloud` / `llm_reports_dir`), como `agents` y `attacks`.
 - 9.G1: ADK como cuarto motor del orquestador (triaje con tabla del dominio, especialistas, revisión humana con confirmación de tools de ADK) con test de paridad frente a LangGraph, MAF y cola.
 - 9.G2: `ORCHESTRATOR__BROKER=pubsub` con el outbox y *exactly-once delivery* como primera capa de deduplicación; A2A con ID tokens de Google (audience por especialista) en `remote/auth.py`; Terraform de Cloud Run y Workflows.
 
 **10.G · Escala**
 
+- **Heredado de la 8.G4:** `semantic_cache --embeddings azure` escribe en `evals/reports/azure/`; con embeddings de Gemini, a `gcp/`.
 - 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).
 - 10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.
 
@@ -170,6 +176,7 @@ Plan original (antes del cambio):
 
 **12.G · Evals de agentes y LLMOps**
 
+- **Heredado de la 8.G4:** los experimentos de LLMOps (`--mode llm`) y `agent_calibration judge` escriben siempre en `evals/reports/azure/`: a la carpeta de la nube del juez.
 - 12.G1: juez de agentes con Gemini, métricas de trayectoria del Evaluation Service como contraste de la 12.1, promptfoo y PyRIT contra Gemini (aplazado).
 - 12.G2: publicación de prompts en la gestión de prompts de Agent Platform (dry-run), `VertexExperimentTracker` junto a MLflow, reglas de drift en Managed Service for Prometheus.
 - 12.G3: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.

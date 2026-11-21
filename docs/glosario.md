@@ -169,7 +169,10 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Jailbreak** | Técnica para saltarse las políticas de seguridad del modelo. | Estrategias de promptfoo y conversores de PyRIT (fase 12). |
 | **PII** (*Personally Identifiable Information*) | Datos personales (email, teléfono, tarjeta, DNI). RGPD. | Redacción con regex con checksum + Presidio; nunca en trazas ni métricas. |
 | **Redacción / anonimización** | Sustituir la PII por marcadores (`<EMAIL_ADDRESS>`) antes de enviarla al proveedor o a logs. | Bug encontrado en red teaming: tarjeta precedida de otro número. |
-| **Content Safety / Prompt Shields ↔ Bedrock Guardrails** | Servicios gestionados de filtrado (odio, violencia, inyección, PII, temas vetados). | Content Safety detectó 7/12; con el heurístico propio, 9/12. |
+| **Content Safety / Prompt Shields ↔ Bedrock Guardrails ↔ Model Armor** | Servicios gestionados de filtrado (odio, violencia, inyección, PII, temas vetados; Model Armor añade URL maliciosas). | Content Safety detectó 7/12; con el heurístico propio, 9/12. Model Armor, detrás del mismo puerto (8.G1). |
+| **Floor setting** | Mínimo de Model Armor para todo un proyecto de GCP: se aplica a cualquier llamada a Gemini, también a las que no pasan por el harness. | Red de seguridad en `INSPECT_ONLY` (`model_armor_floor_setting_enabled`, 8.G3). |
+| **Sensitive Data Protection (SDP) / infoType** | Servicio de GCP (antes Cloud DLP) que detecta datos sensibles por tipos predefinidos (`SPAIN_NIF_NUMBER`, `PERSON_NAME`...). | Detector de PII `gcp` del harness (8.G2); si no responde, se redacta con patrones (`pii_fallback`). |
+| **Fallar cerrado / abierto** | Qué hace un control cuando no puede decidir: bloquear (cerrado) o dejar pasar (abierto). | El harness falla cerrado (`GUARDRAILS__FAIL_OPEN=false`); la integración de Model Armor en Gemini falla abierto, por eso no se usa (8.G). |
 | **HITL** (*Human-in-the-loop*) | Una persona aprueba antes de una acción irreversible. | `ApprovalGate`: argumentos congelados, cuatro ojos, compare-and-set. |
 | **Cuatro ojos** | Quien solicita no puede aprobar. | Aprobaciones de reembolsos y emails a partners. |
 | **Allow-list** | Lista de lo permitido (todo lo demás, prohibido). Más segura que una lista negra. | SQL: solo `SELECT` sobre vistas y columnas permitidas. |

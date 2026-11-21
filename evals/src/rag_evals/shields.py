@@ -1,13 +1,18 @@
-"""Escudos de contenido frente a frente: heurístico local y Azure AI Content Safety (fase 8).
+"""Escudos de contenido frente a frente: heurístico local y el de una nube (fase 8 y 8.G1).
 
 Mismo conjunto etiquetado (`shield-cases-v1.jsonl`): ataques directos (jailbreak en el prompt)
 e indirectos (instrucciones dentro de documentos), y textos legítimos que se parecen a un
 ataque ("olvida lo que te dije", "instrucciones para llegar"). Mide detección (recall), falsos
-positivos y latencia. El escudo de Azure usa Prompt Shields (F0, sin coste hasta la cuota).
+positivos y latencia. Escudos de nube: Azure AI Content Safety (Prompt Shields, F0 sin coste
+hasta la cuota), Amazon Bedrock Guardrails y Model Armor (2 M de tokens al mes gratis). Una
+ejecución compara el heurístico con escudos de **una sola nube**: el informe va a su carpeta
+(`evals/reports/<nube>/shields.*`), así uno no sobrescribe el de otra.
 
 Uso:
     uv run python -m rag_evals.shields                     # solo heurístico (coste 0)
     uv run python -m rag_evals.shields --shield azure      # y Content Safety (perfil de az)
+    uv run python -m rag_evals.shields --shield bedrock    # y Bedrock Guardrails
+    uv run python -m rag_evals.shields --shield gcp        # y Model Armor (ADC aislado)
 """
 
 from __future__ import annotations
@@ -26,10 +31,17 @@ from pydantic import BaseModel, ConfigDict
 
 from genaipocs_core.ports.guardrails import ContentShieldPort, ShieldUnavailableError
 from rag_evals import EVALS_DIR
-from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR, REPORTS_DIR
+from rag_evals.retrieval_eval import REPORTS_DIR, Cloud, cloud_reports_dir
 
 DATASET = EVALS_DIR / "datasets" / "shield-cases-v1.jsonl"
-ShieldName = Literal["heuristic", "azure"]
+ShieldName = Literal["heuristic", "azure", "bedrock", "gcp"]
+SHIELD_CLOUD: dict[str, Cloud] = {"azure": "azure", "bedrock": "aws", "gcp": "gcp"}
+SHIELD_TITLES = {
+    "heuristic": "heurístico",
+    "azure": "Azure AI Content Safety",
+    "bedrock": "Amazon Bedrock Guardrails",
+    "gcp": "Model Armor",
+}
 
 
 class ShieldCase(BaseModel):
@@ -113,9 +125,18 @@ def summarize(shield: str, results: Sequence[CaseResult]) -> ShieldSummary:
     )
 
 
+def shields_cloud(shields: Sequence[str]) -> Cloud | None:
+    """La nube de los escudos pedidos (None = solo el heurístico). Un informe, una nube."""
+    clouds = {SHIELD_CLOUD[name] for name in shields if name in SHIELD_CLOUD}
+    if len(clouds) > 1:
+        raise ValueError("Una ejecución compara escudos de una sola nube")
+    return clouds.pop() if clouds else None
+
+
 def render(summaries: Sequence[ShieldSummary], cases: int) -> str:
+    names = " frente a ".join(SHIELD_TITLES.get(s.shield, s.shield) for s in summaries)
     lines = [
-        "# Escudos de contenido: heurístico frente a Azure AI Content Safety",
+        f"# Escudos de contenido: {names}",
         "",
         f"- Conjunto `shield-cases-v1` ({cases} textos): ataques directos en el prompt, "
         "inyecciones indirectas en documentos y textos legítimos parecidos a un ataque.",
@@ -154,11 +175,18 @@ async def run(shields: Sequence[ShieldName]) -> tuple[list[ShieldSummary], list[
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--shield", action="append", choices=["heuristic", "azure"])
+    parser.add_argument("--shield", action="append", choices=sorted(SHIELD_TITLES))
     args = parser.parse_args()
-    shields: list[ShieldName] = ["heuristic", *(s for s in args.shield or [] if s != "heuristic")]
+    shields: list[ShieldName] = [
+        "heuristic",
+        *dict.fromkeys(s for s in args.shield or [] if s != "heuristic"),
+    ]
+    try:
+        cloud = shields_cloud(shields)
+    except ValueError as exc:
+        parser.error(str(exc))
     summaries, details = asyncio.run(run(shields))
-    out_dir = CLOUD_REPORTS_DIR if "azure" in shields else REPORTS_DIR
+    out_dir = cloud_reports_dir(cloud) if cloud else REPORTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     markdown = render(summaries, len(load_cases()))
     (out_dir / "shields.md").write_text(markdown, encoding="utf-8", newline="\n")

@@ -65,3 +65,10 @@ agent_platform_mcp_tools = {
 # bundles: uv run python -m genaipocs_mcp.apigee --signer <mcp_gateway_service_account>
 apigee_enabled   = false
 apigee_hostnames = ["mcp.genaipocs.internal"]
+
+# Guardrails (8.G3): plantilla de Model Armor y plantillas de inspección de SDP. Sin coste en
+# reposo; se paga lo evaluado (2 M de tokens al mes gratis en Model Armor). Output guardrails_env.
+model_armor_enabled = false
+# Floor setting de Gemini en todo el proyecto (INSPECT_ONLY): cada llamada a Gemini consume
+# tokens de Model Armor. true solo para medirlo.
+model_armor_floor_setting_enabled = false

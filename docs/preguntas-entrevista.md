@@ -905,6 +905,38 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    escalaron a un analista: la seguridad funcionaba, pero la base transaccional no es el sitio.
    La propuesta a negocio: réplica de lectura o almacén con vistas agregadas antes de abrirlo.
 
+### GCP (pasada 8.G)
+
+**Técnicas**
+
+1. **Gemini puede aplicar Model Armor él solo con `model_armor_config`. ¿Por qué llamas tú a
+   Model Armor?** Por dos motivos. Esa integración solo existe en unas pocas regiones y no en el
+   endpoint `global`, donde sirvo Gemini 4. Y, sobre todo, **falla abierto**: si Model Armor no
+   responde, la petición sigue sin revisar. Mi escudo va detrás del mismo puerto que Prompt
+   Shields y Bedrock Guardrails y falla cerrado: si un filtro no se ejecutó y nada coincidió, no
+   lo doy por bueno. La integración del proyecto (*floor settings*) la dejo como red de seguridad,
+   no como control principal.
+2. **Tu detector de PII es un servicio en la nube. ¿Qué pasa si se cae?** El filtro no manda el
+   texto sin redactar ni devuelve un error al cliente: cae a los patrones locales con checksum
+   (tarjetas, NIF/NIE, IBAN, email, teléfono) y marca el turno con `pii_fallback`. Lo que se pierde
+   en ese rato son los nombres de persona, y queda medido. Lo mismo si la respuesta no es fiable:
+   hallazgos truncados o una posición fuera del texto cuentan como caída, no como "sin PII".
+3. **¿Para qué quieres una *floor setting* si ya tienes el escudo en el harness?** Para lo que no
+   pasa por el harness: un notebook, una prueba o un servicio nuevo que llame a Gemini directamente.
+   Es el mínimo del proyecto, como la política de contenido de un despliegue en Azure. La activo
+   primero en modo solo inspección con registros, para medir falsos positivos y coste en tokens
+   antes de bloquear; los registros del texto evaluado los dejo apagados en la plantilla del
+   harness porque llevan PII.
+
+**Negocio y stakeholders**
+
+1. **Seguridad pide pasar toda la PII por el servicio gestionado de GCP. ¿Qué preguntas antes?**
+   Tres: latencia (es una llamada más en cada turno, y Google desaconseja el detector de nombres
+   donde la latencia importa), coste (se cobra por bytes con un mínimo de 1 KB por llamada, así
+   que cada mensaje corto cuenta como 1 KB) y falsos positivos (en un marketplace de eventos, un
+   nombre de artista no es un dato personal del cliente). Lo decidiría con una prueba sobre
+   mensajes reales anonimizados frente a la regex y Presidio, no por catálogo.
+
 <a id="checkpoint-8-9"></a>
 
 ## Checkpoint 8→9 · De local a la nube ([doc](fase-9-8-checkpoint.md))

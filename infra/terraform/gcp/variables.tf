@@ -267,6 +267,20 @@ variable "agent_platform_egress_hosts" {
   default     = []
 }
 
+# ---------- Guardrails (model_armor.tf, 8.G3) ----------
+
+variable "model_armor_enabled" {
+  description = "Plantilla de Model Armor del harness y plantillas de inspección de SDP. Sin coste en reposo: se paga lo evaluado (output guardrails_env)."
+  type        = bool
+  default     = false
+}
+
+variable "model_armor_floor_setting_enabled" {
+  description = "Floor setting de Model Armor para Gemini en todo el proyecto (INSPECT_ONLY con logging). Cada llamada a Gemini consume tokens de Model Armor."
+  type        = bool
+  default     = false
+}
+
 # ---------- Presupuesto (budget.tf) ----------
 
 variable "budget_email" {

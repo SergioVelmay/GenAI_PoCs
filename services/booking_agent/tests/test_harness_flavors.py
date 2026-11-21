@@ -235,3 +235,32 @@ async def test_provider_content_filter_becomes_a_guardrail_not_a_crash() -> None
     assert turn.stop_reason == "guardrail"
     assert turn.guardrails == (PROVIDER_FILTER,)
     assert "No puedo ayudarte" in turn.answer
+
+
+async def test_gcp_shield_requires_the_model_armor_template() -> None:
+    from booking_agent.guardrails import build_shield
+    from genaipocs_core.config import (
+        GcpModelArmorSettings,
+        GcpSettings,
+        GuardrailsSettings,
+        Settings,
+    )
+
+    settings = Settings(
+        _env_file=None,
+        guardrails=GuardrailsSettings(shield="gcp"),
+        gcp=GcpSettings(project="genaipocs-dev"),
+        gcp_model_armor=GcpModelArmorSettings(),
+    )
+    with pytest.raises(ValueError, match="GCP_MODEL_ARMOR__TEMPLATE"):
+        async with build_shield(settings):
+            pass
+
+
+def test_gcp_pii_detector_requires_the_project() -> None:
+    from booking_agent.guardrails import build_pii_detector
+    from genaipocs_core.config import GcpSettings, GuardrailsSettings, Settings
+
+    settings = Settings(_env_file=None, guardrails=GuardrailsSettings(pii="gcp"), gcp=GcpSettings())
+    with pytest.raises(ValueError, match="GCP__PROJECT"):
+        build_pii_detector(settings)

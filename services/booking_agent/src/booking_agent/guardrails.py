@@ -73,6 +73,26 @@ def build_pii_detector(settings: Settings) -> PiiDetector:
         from harness.pii_presidio import PresidioPiiDetector
 
         return PresidioPiiDetector()
+    if settings.guardrails.pii == "gcp":
+        from google.cloud.dlp_v2 import DlpServiceClient
+
+        from genaipocs_core.adapters.gcp_auth import gcp_credentials
+        from harness.pii_gcp import SensitiveDataProtectionPiiDetector, location_parent
+
+        gcp, sdp = settings.gcp, settings.gcp_sensitive_data
+        if not gcp.project:
+            raise ValueError("Falta GCP__PROJECT.")
+        parent = location_parent(gcp.project, sdp.location or gcp.region)
+        template = (
+            f"{parent}/inspectTemplates/{sdp.inspect_template}" if sdp.inspect_template else ""
+        )
+        return SensitiveDataProtectionPiiDetector(
+            DlpServiceClient(credentials=gcp_credentials(gcp)),
+            parent=parent,
+            min_likelihood=sdp.min_likelihood,
+            inspect_template=template,
+            timeout_seconds=sdp.timeout_seconds,
+        )
     return RegexPiiDetector()
 
 
@@ -99,6 +119,24 @@ async def build_shield(settings: Settings) -> AsyncIterator[ContentShieldPort]:
             key = config.api_key
             auth = api_key_auth(key.get_secret_value()) if key else entra_id_auth(cred)
             yield AzureContentSafetyShield(client, endpoint=config.endpoint, auth=auth)
+    elif kind == "gcp":
+        from google.cloud.modelarmor_v1 import ModelArmorAsyncClient
+
+        from genaipocs_core.adapters.gcp_auth import gcp_credentials
+        from genaipocs_core.adapters.model_armor import (
+            ModelArmorShield,
+            model_armor_options,
+            template_name,
+        )
+
+        template = template_name(settings)
+        armor = settings.gcp_model_armor
+        location = armor.location or settings.gcp.region
+        async with ModelArmorAsyncClient(
+            credentials=gcp_credentials(settings.gcp),
+            client_options=model_armor_options(location),
+        ) as client:
+            yield ModelArmorShield(client, template=template, timeout_seconds=armor.timeout_seconds)
     else:
         import boto3
 

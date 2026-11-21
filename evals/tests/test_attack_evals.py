@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -76,3 +77,13 @@ async def test_attack_report_compares_with_and_without_harness(tmp_path: Path) -
     assert "| native | no | 0/6 | 3/4 |" in markdown
     assert "| native | sí | 6/6 | 4/4 | 0 |" in markdown
     assert (tmp_path / "attacks.json").exists()
+
+
+async def test_costly_report_names_the_model_of_its_cloud(tmp_path: Path) -> None:
+    guarded, baseline = await run_attacks(["native"])
+    guarded = replace(guarded, mode="llm")
+
+    md_path = write_report(guarded, baseline, tmp_path / "gcp" / "llm", cloud="gcp")
+
+    assert md_path == tmp_path / "gcp" / "llm" / "attacks.md"
+    assert "con un modelo **real** (Gemini)" in md_path.read_text(encoding="utf-8")

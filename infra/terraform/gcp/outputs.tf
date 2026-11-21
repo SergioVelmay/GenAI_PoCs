@@ -95,3 +95,12 @@ output "rag_corpora" {
   description = "GCP_RAG_ENGINE__PUBLIC_CORPUS e INTERNAL_CORPUS ({} mientras rag_engine_enabled = false)."
   value       = { for acl, corpus in google_vertex_ai_rag_corpus.knowledge : acl => corpus.name }
 }
+
+output "guardrails_env" {
+  description = "Plantillas del harness con GUARDRAILS__SHIELD=gcp y GUARDRAILS__PII=gcp (vacías mientras model_armor_enabled = false)."
+  value = {
+    GCP_MODEL_ARMOR__TEMPLATE            = one(google_model_armor_template.harness[*].template_id)
+    GCP_MODEL_ARMOR__LOCATION            = one(google_model_armor_template.harness[*].location)
+    GCP_SENSITIVE_DATA__INSPECT_TEMPLATE = one(google_data_loss_prevention_inspect_template.pii[*].template_id)
+  }
+}
