@@ -208,6 +208,27 @@ class ApprovalService:
             return decided
         return await self._execute(decided)
 
+    async def expire(self, approval_id: str, *, reason: str) -> ApprovalRequest:
+        """Caduca una solicitud pendiente sin ejecutarla (p. ej. SLA de revisión vencido, 9.G5).
+
+        Idempotente: si ya no está pendiente (alguien decidió antes o ya caducó), devuelve su
+        estado actual sin tocarla. Nunca ejecuta nada: caducar no es aprobar.
+        """
+        request = await self._store.get(approval_id)
+        if request is None:
+            raise ApprovalError(f"No existe la solicitud {approval_id}.")
+        if request.status is not ApprovalStatus.PENDING:
+            return request
+        expired = replace(
+            request, status=ApprovalStatus.EXPIRED, note=reason, decided_at=self._clock()
+        )
+        if await self._store.transition(approval_id, ApprovalStatus.PENDING, expired):
+            logger.info("Aprobación %s caducada: %s", approval_id, reason)
+            return expired
+        current = await self._store.get(approval_id)
+        assert current is not None
+        return current
+
     async def _execute(self, request: ApprovalRequest) -> ApprovalRequest:
         execution = await self._executor.execute(
             ToolCall(request.id, request.tool, request.arguments),

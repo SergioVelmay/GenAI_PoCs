@@ -12,6 +12,9 @@ dependencies = [
     "booking-agent",
     # OAuth entre agentes con el mismo validador de JWT y emisor de desarrollo que MCP (fase 6).
     "mcp-servers",
+    # Cuarto motor (9.G1) y su sesión en PostgreSQL (9.G2); ya venía con booking-agent, se
+    # declara porque el orquestador lo importa directamente. Trae `google-auth` (ID tokens, 9.G4).
+    "google-adk>=2.14,<3",
     "langgraph>=1.2,<2",
     "langgraph-checkpoint-postgres>=3.2,<4",
     "psycopg[binary]>=3.2",

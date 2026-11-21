@@ -254,6 +254,20 @@ los 24 textos son unos pocos miles).
 - [ ] Carril A: especialistas en AgentCore Runtime con protocolo A2A y workflow multi-agente de Foundry Agent Service con el mismo dataset.
 - [ ] Flujo asíncrono en la nube: colas `support-emails`, `case-triaged-*` y `case-outcomes` con su DLQ en SQS (Terraform, fase 13) y Service Bus (fase 14), y workers con `ORCHESTRATOR__BROKER=sqs|servicebus`. Valorar la deduplicación del broker (SQS FIFO `MessageDeduplicationId`, *duplicate detection* de Service Bus) como primera capa antes del `CaseStore`.
 
+<a id="fase-9-gcp"></a>
+
+### GCP (pasada 9.G)
+
+Coste estimado: céntimos. Pub/Sub, Workflows y Eventarc dentro de sus cuotas gratuitas con unos
+pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos con `--budget-usd`.
+
+- [ ] **Eval multi-agente con Gemini** (9.G1–9.G2, céntimos; requiere el [modelo de la 2.G](#fase-2-gcp)): `uv run python -m rag_evals.multiagent --mode llm --budget-usd 0.20` con `LLM_PROVIDER=gcp` (informe en `evals/reports/gcp/`). Comparar la precisión del triaje con la de Azure y que el motor `adk` da los mismos estados que los otros tres con el modelo real.
+- [ ] **ADK con Sessions de Agent Platform** (9.G2, pago por uso): `AdkCaseWorkflow(session_service=VertexAiSessionService(...))` sobre el motor *standalone* de `agent_platform.tf` (7.G4). Comprobar: que pausar con `RequestInput` y reanudar desde otro proceso funciona igual que con `DatabaseSessionService` (el `state` y la `invocation_id` sobreviven) y la latencia por evento añadido a la sesión.
+- [ ] **Flujo asíncrono en Pub/Sub real** (9.G3, ~0 $ en reposo): `terraform apply` de `pubsub.tf` (seis temas del orquestador con *exactly-once*) y workers con `ORCHESTRATOR__BROKER=pubsub` sin `PUBSUB__EMULATOR_HOST`. Medir: latencia de publicación a entrega con y sin *exactly-once* (la doc avisa de que es "significativamente" mayor), `subscription/exactly_once_warning_count`, `ack_failures` del adaptador con un turno más largo que el plazo (bajar `ack_deadline_seconds` para provocarlo) y que el `CaseStore` absorbe la reentrega.
+- [ ] **Especialistas en Cloud Run con ID tokens** (9.G4, fase 15: imagen en Artifact Registry y Cloud SQL): `a2a_enabled = true` + `a2a_image`, `terraform output a2a_env` al orquestador y `GCP__IMPERSONATE_SERVICE_ACCOUNT` en local. Comprobar: 403 de Cloud Run sin `roles/run.invoker`; que el token llega intacto en `Authorization` (y sin firma con `X-Serverless-Authorization`); claims reales (`email`, `email_verified`, `azp`) para reemplazar los tokens "tipo Google" de `test_remote_gcp.py`; latencia del primer arranque (escala a cero).
+- [ ] **Workflows con callback y SLA** (9.G5, ~0 $): `case_review_workflow_enabled = true`, `review_sla_seconds = 120` y `case_reviewers` con tu usuario o grupo; un caso de reembolso hasta `pending_approval`. Comprobar: el formato real del evento de Eventarc (`event.data.message.data`), que llega el aviso a `case.review_requests.ops`, un POST al `callback_url` con `{reviewer, approve, note}` y token (`gcloud auth print-access-token`) → `case.reviews` → caso `resolved`; y otro caso sin decidir → `sla_expired` → `escalated` con la aprobación `expired`. Ver que los resultados no pendientes terminan en el primer paso (pasos facturados).
+- [ ] **Carril A en GCP**: especialistas desplegados en Agent Runtime con protocolo A2A y Agent Gateway en el tráfico agente↔agente, con el mismo dataset.
+
 ## Fase 10 · Escala ([doc](fase-10-escala.md))
 
 - [ ] Calibrar el umbral de la caché semántica con embeddings reales: `uv run python -m rag_evals.semantic_cache --embeddings azure --budget-usd 0.01` (~0,00003 $). Añadir el umbral resultante a `CALIBRATED_THRESHOLDS` (`azure`); hasta entonces, con embeddings de Azure la caché no se activa. Repetir con Titan (`bedrock`).

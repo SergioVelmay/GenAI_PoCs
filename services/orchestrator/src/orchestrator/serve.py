@@ -6,7 +6,8 @@
 Dependencias reales: LLM por el gateway (fase 2), API de ticketing por HTTP, aprobaciones en
 PostgreSQL (compartidas con el orquestador, que es quien revisa) y conocimiento del servicio de
 retrieval (RETRIEVAL__*), solo en los especialistas que lo usan. Siempre con OAuth: sin
-`A2A__PUBLIC_KEY_FILE` o `A2A__JWKS_URI` el servicio no arranca.
+`A2A__PUBLIC_KEY_FILE` o `A2A__JWKS_URI` el servicio no arranca. En Cloud Run (9.G4),
+`A2A__IDENTITY=gcp`: ID tokens de Google y `A2A__ALLOWED_CALLERS` con el email del orquestador.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from genaipocs_core.adapters.otel import setup_observability
 from genaipocs_core.config import Settings, get_settings
 from genaipocs_core.domain import Specialist
 from orchestrator.bootstrap import open_specialist_deps
-from orchestrator.remote import build_verifier, create_specialist_app
+from orchestrator.remote import build_verifier, caller_policy, create_specialist_app
 from orchestrator.specialists import build_specialist
 
 
@@ -41,8 +42,7 @@ async def specialist_app(
             build_specialist(specialist, deps),
             public_url=public_url,
             verifier=verifier,
-            scope=settings.a2a.scope,
-            allowed_callers=tuple(settings.a2a.allowed_callers),
+            policy=caller_policy(settings.a2a),
         )
 
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
+from google.api_core import exceptions
 from google.pubsub_v1 import PublisherAsyncClient, SubscriberAsyncClient
 from google.pubsub_v1.types import (
     DeadLetterPolicy,
@@ -16,6 +17,7 @@ from google.pubsub_v1.types import (
     ReceivedMessage,
     Subscription,
 )
+from google.rpc.error_details_pb2 import ErrorInfo  # type: ignore[import-untyped]
 
 from genaipocs_core.adapters.messaging_factory import MESSAGING_SYSTEMS
 from genaipocs_core.adapters.pubsub import PubSubMessageBus, subscription_path, topic_path
@@ -123,3 +125,75 @@ async def test_transient_failure_nacks_and_reports_the_attempt() -> None:
 
     assert attempts == [3]
     assert calls == ["deadline a1=0"]
+
+
+def _ack_failure(kind: str) -> exceptions.InvalidArgument:
+    # Forma del error real (comprobada con el emulador): motivo y un valor por `ack_id`.
+    info = ErrorInfo(
+        reason="EXACTLY_ONCE_ACKID_FAILURE",
+        domain="pubsub.googleapis.com",
+        metadata={"projects/p/subscriptions/s:1": kind},
+    )
+    return exceptions.InvalidArgument("ack fallido", error_info=info)  # type: ignore[no-untyped-call]
+
+
+class FailingSubscriber(FakeSubscriber):
+    def __init__(self, calls: list[str], errors: list[Exception]) -> None:
+        super().__init__(calls, Subscription())
+        self.errors = errors
+
+    async def acknowledge(self, *, subscription: str, ack_ids: list[str]) -> None:
+        self.calls.append(f"ack {ack_ids[0]}")
+        if self.errors:
+            raise self.errors.pop(0)
+
+
+def make_failing_bus(errors: list[Exception]) -> tuple[PubSubMessageBus, list[str]]:
+    calls: list[str] = []
+    bus = PubSubMessageBus(
+        cast(PublisherAsyncClient, FakePublisher(calls)),
+        cast(SubscriberAsyncClient, FailingSubscriber(calls, errors)),
+        project=PROJECT,
+    )
+    return bus, calls
+
+
+async def _ok(message: Message) -> None: ...
+
+
+async def test_expired_ack_with_exactly_once_is_counted_and_does_not_break_the_loop() -> None:
+    """Exactly-once (9.G3): un ack caducado falla; el mensaje puede volver, el bucle sigue."""
+    bus, calls = make_failing_bus([_ack_failure("PERMANENT_FAILURE_INVALID_ACK_ID")])
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), _ok)
+
+    assert calls == ["ack a1"]  # Un fallo permanente no se reintenta.
+    assert bus.ack_failures == 1
+
+
+async def test_transient_ack_failure_is_retried() -> None:
+    bus, calls = make_failing_bus([_ack_failure("TRANSIENT_FAILURE_UNORDERED_ACK_ID")])
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), _ok)
+
+    assert calls == ["ack a1", "ack a1"]
+    assert bus.ack_failures == 0
+
+
+async def test_ack_lost_by_the_network_is_counted_too() -> None:
+    lost = exceptions.ServiceUnavailable("red")  # type: ignore[no-untyped-call]
+    bus, calls = make_failing_bus([lost])
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), _ok)
+
+    assert calls == ["ack a1"]
+    assert bus.ack_failures == 1
+
+
+async def test_emulator_topology_carries_exactly_once() -> None:
+    # Los canales grpc.aio necesitan un bucle en marcha: test asíncrono, sin conectar.
+    settings = PubSubSettings(emulator_host="127.0.0.1:8085", exactly_once=True)
+    bus = PubSubMessageBus.from_settings(settings, GcpSettings(), project="")
+
+    assert bus._topology is not None and bus._topology.exactly_once is True
+    await bus.close()

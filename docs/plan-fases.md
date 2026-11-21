@@ -180,5 +180,6 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   con el bucle `requires_action` → `function_result` como `foundry`, si la prueba de *custom
   functions* en Agent Platform sale bien ([pendientes](pendientes-cloud.md#fase-7-gcp)) y deja de
   ser Pre-GA.
+- **Espera humana con SLA en Azure y AWS** (de la 9.G5): en GCP la hace Workflows (`await_callback` con plazo → `case.reviews`); el dominio (`ReviewHandler`, `CaseReviewService.expire`) ya es común. Faltan Step Functions con `.waitForTaskToken` y `TimeoutSeconds` y Durable Functions con `WaitForExternalEvent` y un temporizador: candidatas a las fases 13 y 14.
 - Fijar la versión de `uv` en la CI (`version:` de `setup-uv` o `required-version`), igual que los
   Dockerfiles fijan `uv:0.12.17`.

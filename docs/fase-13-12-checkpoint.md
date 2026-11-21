@@ -160,13 +160,19 @@ Plan original (antes del cambio):
 
 **9.G · Multi-agente**
 
-- **Heredado de la 8.G4:** `multiagent --mode llm` escribe siempre en `evals/reports/azure/`: a la carpeta de la nube de `LLM_PROVIDER` (`CloudModels.cloud` / `llm_reports_dir`), como `agents` y `attacks`.
-- 9.G1: ADK como cuarto motor del orquestador (triaje con tabla del dominio, especialistas, revisión humana con confirmación de tools de ADK) con test de paridad frente a LangGraph, MAF y cola.
-- 9.G2: `ORCHESTRATOR__BROKER=pubsub` con el outbox y *exactly-once delivery* como primera capa de deduplicación; A2A con ID tokens de Google (audience por especialista) en `remote/auth.py`; Terraform de Cloud Run y Workflows.
+- **Heredado de la 8.G4:** `multiagent --mode llm` escribe siempre en `evals/reports/azure/`: a la carpeta de la nube de `LLM_PROVIDER` (`CloudModels.cloud` / `llm_reports_dir`), como `agents` y `attacks`. Hecho en el `fix:` `ccfcca5`.
+- ~~9.G1: ADK como cuarto motor del orquestador (triaje con tabla del dominio, especialistas, revisión humana con confirmación de tools de ADK) con test de paridad frente a LangGraph, MAF y cola.~~
+- ~~9.G2: `ORCHESTRATOR__BROKER=pubsub` con el outbox y *exactly-once delivery* como primera capa de deduplicación; A2A con ID tokens de Google (audience por especialista) en `remote/auth.py`; Terraform de Cloud Run y Workflows.~~ **Al empezar (21-11-2026)** se divide en cinco (decidido con Sergio; verificación previa en la [fase 9](fase-9-multiagente.md#7-gcp-pasada-9g)): el motor es un workflow de grafo de ADK (`google.adk.workflow`) y la revisión, un `RequestInput` (la confirmación de tools es para tools de un `LlmAgent`); *exactly-once* solo evita reentregas (no duplicados al publicar) y el emulador lo admite; los ID tokens de Google no llevan `scope`; y Workflows se implementa de verdad (SLA de revisión con escalado), no solo en Terraform.
+- 9.G1: `AdkCaseWorkflow` (rutas del dominio con `ctx.route`, `RetryConfig`, revisión con `RequestInput`, estado en la sesión) con paridad frente a LangGraph y MAF.
+- 9.G2: motor `adk` en `rag_evals.multiagent` y en el gate de la CI (cuatro motores) y sesiones en PostgreSQL con `DatabaseSessionService` (test `integration`).
+- 9.G3: `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* en la topología (emulador y `pubsub.tf`), `ack` fallido tratado como confirmado, test `integration` con el emulador (duplicados, DLQ, CAS) y temas del orquestador en `pubsub.tf`.
+- 9.G4: A2A con ID tokens de Google (`A2A__IDENTITY=dev|gcp`: servidor de metadatos o *impersonation*; verificador con el JWKS de Google, `aud` por especialista y `email` en la lista) y `a2a.tf` (Cloud Run con *custom audiences* e *invoker* solo para el orquestador, `a2a_enabled`).
+- 9.G5: Workflows como espera humana (`case_review.yaml`: callback, aviso, `await_callback` con SLA y decisión en `case.reviews`), rol `review` del worker y `workflows.tf` (`case_review_workflow_enabled`); doc de la fase 9 a tres nubes.
 
 **10.G · Escala**
 
 - **Heredado de la 8.G4:** `semantic_cache --embeddings azure` escribe en `evals/reports/azure/`; con embeddings de Gemini, a `gcp/`.
+- **Heredado de la 9.G3:** ningún adaptador de cola en la nube (SQS, Service Bus, Pub/Sub) renueva el plazo de *ack*/visibilidad mientras el handler trabaja; hoy se cubre con un plazo de 600 s en las suscripciones del orquestador. Con los worker pools, valorar el *streaming pull* de la librería de alto nivel (renueva el *lease*) o un latido propio en el adaptador, y medir `ack_failures`.
 - 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).
 - 10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.
 

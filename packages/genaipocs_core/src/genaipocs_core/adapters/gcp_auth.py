@@ -29,3 +29,25 @@ def gcp_credentials(settings: GcpSettings) -> Credentials | None:
         target_principal=settings.impersonate_service_account,
         target_scopes=[CLOUD_PLATFORM_SCOPE],
     )
+
+
+def google_id_token(settings: GcpSettings, audience: str) -> str:
+    """ID token de Google (OIDC) para llamar a un servicio propio (A2A en Cloud Run, 9.G4).
+
+    Síncrono (`requests`). En Cloud Run, el servidor de metadatos con la cuenta de servicio
+    adjunta (`format=full`: incluye `email`). En local, *impersonation* de
+    `GCP__IMPERSONATE_SERVICE_ACCOUNT` con `include_email` (sin él, el token no trae `email` y
+    el especialista lo rechaza). Un usuario de ADC no puede emitir ID tokens con audience propio.
+    """
+    from google.auth.transport.requests import Request
+    from google.oauth2 import id_token
+
+    request = Request()
+    target = gcp_credentials(settings)
+    if target is None:
+        return str(id_token.fetch_id_token(request, audience))  # type: ignore[no-untyped-call]
+    credentials = impersonated_credentials.IDTokenCredentials(  # type: ignore[no-untyped-call]
+        target, target_audience=audience, include_email=True
+    )
+    credentials.refresh(request)
+    return str(credentials.token)

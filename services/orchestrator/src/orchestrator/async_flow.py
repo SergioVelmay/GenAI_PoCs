@@ -4,6 +4,7 @@
                                                                            │
           CaseReviewService (persona) ◀── pendiente de aprobación ◀───────┤
                      └────────────────────────────▶ case.outcomes ◀────────┘
+          ReviewHandler ◀── case.reviews ◀── Workflows (decisión o SLA vencido, 9.G5)
 
 Orquestación (fase 9.3/9.4) frente a coreografía (aquí): en el grafo un proceso conoce el flujo
 entero y guarda el estado en checkpoints; aquí cada worker reacciona a un evento, escala por
@@ -41,6 +42,7 @@ from genaipocs_core.application.orchestration import (
 )
 from genaipocs_core.domain import CaseOutcome, CaseStatus, Specialist, can_transition
 from genaipocs_core.ports import Message, MessageBusPort, PermanentMessageError
+from genaipocs_core.ports.approvals import ApprovalStatus
 from genaipocs_core.ports.cases import CaseRecord, CaseStore
 from genaipocs_core.ports.outbox import OutboxEvent
 from harness.approvals import ApprovalService
@@ -50,6 +52,12 @@ logger = logging.getLogger(__name__)
 
 SUPPORT_EMAILS = "support.emails"
 CASE_OUTCOMES = "case.outcomes"
+# 9.G5: decisiones de revisión que llegan por evento (Workflows con callback y SLA).
+CASE_REVIEWS = "case.reviews"
+REVIEW_DECISION = "decision"
+REVIEW_SLA_EXPIRED = "sla_expired"
+# Código del guardrail que deja un caso escalado por SLA vencido.
+SLA_EXPIRED_CODE = "review_sla_expired"
 
 type Clock = Callable[[], datetime]
 
@@ -71,6 +79,10 @@ class CaseTopics:
     @property
     def outcomes(self) -> str:
         return f"{self.prefix}{CASE_OUTCOMES}"
+
+    @property
+    def reviews(self) -> str:
+        return f"{self.prefix}{CASE_REVIEWS}"
 
     def triaged(self, specialist: Specialist) -> str:
         return f"{self.prefix}{triaged_topic(specialist)}"
@@ -213,6 +225,7 @@ async def subscribe_workers(
     *,
     triage: TriageAgent | None = None,
     specialists: Mapping[Specialist, SpecialistAgent] | None = None,
+    review: CaseReviewService | None = None,
     topics: CaseTopics = DEFAULT_TOPICS,
     clock: Clock = _utcnow,
 ) -> list[str]:
@@ -226,6 +239,9 @@ async def subscribe_workers(
         worker = SpecialistHandler(agent, cases, topics=topics, clock=clock)
         await bus.subscribe(worker.topic, worker)
         subscribed.append(worker.topic)
+    if review is not None:
+        await bus.subscribe(topics.reviews, ReviewHandler(review))
+        subscribed.append(topics.reviews)
     return subscribed
 
 
@@ -274,6 +290,9 @@ class CaseReviewService:
     async def pending(self, *, limit: int = 50) -> list[CaseRecord]:
         return await self._cases.list_cases(status=CaseStatus.PENDING_APPROVAL, limit=limit)
 
+    async def get(self, case_id: str) -> CaseRecord | None:
+        return await self._cases.get(case_id)
+
     async def review(
         self, case_id: str, *, reviewer: str, approve: bool, note: str = ""
     ) -> CaseRecord:
@@ -293,3 +312,69 @@ class CaseReviewService:
         current = await self._cases.get(case_id)
         assert current is not None
         return current
+
+    async def expire(self, case_id: str, *, reason: str = SLA_EXPIRED_CODE) -> CaseRecord:
+        """SLA de revisión vencido (9.G5): la solicitud caduca sin ejecutarse y el caso se escala.
+
+        Lo decide el dominio, no Workflows (que solo avisa del plazo). Idempotente: un caso que
+        ya no espera revisión se devuelve tal cual; si alguien decidió justo antes del plazo, su
+        decisión manda y el caso lo cierra su revisión.
+        """
+        record = await self._cases.get(case_id)
+        if record is None:
+            raise ReviewError(f"El caso {case_id} no existe.")
+        if record.status is not CaseStatus.PENDING_APPROVAL or record.outcome is None:
+            return record
+        outcome = outcome_from_payload(record.outcome)
+        if outcome.approval_id is not None:
+            request = await self._approvals.expire(outcome.approval_id, reason=reason)
+            if request.status is not ApprovalStatus.EXPIRED:
+                logger.info("[%s] decidido antes del SLA (%s)", case_id, request.status)
+                return record
+        escalated = replace(
+            outcome, status=CaseStatus.ESCALATED, guardrails=(*outcome.guardrails, reason)
+        )
+        await close_step(self._cases, record, escalated, self._clock(), self._topics.outcomes)
+        current = await self._cases.get(case_id)
+        assert current is not None
+        return current
+
+
+class ReviewHandler:
+    """Decisiones de revisión que llegan por evento (`case.reviews`, publicadas por Workflows).
+
+    `{"kind": "decision", "case_id", "reviewer", "approve", "note"}` o
+    `{"kind": "sla_expired", "case_id"}`. Idempotente: un caso ya revisado o escalado se
+    descarta (Workflows y Pub/Sub entregan al menos una vez). Una decisión inválida (p. ej. el
+    propio cliente como revisor) va a la DLQ: no se reintenta.
+    """
+
+    def __init__(self, review: CaseReviewService) -> None:
+        self._review = review
+
+    async def __call__(self, message: Message) -> None:
+        payload = message.payload
+        case_id = payload.get("case_id")
+        kind = payload.get("kind")
+        if not isinstance(case_id, str) or not case_id:
+            raise PermanentMessageError("Revisión sin case_id.")
+        if kind == REVIEW_SLA_EXPIRED:
+            record = await self._review.expire(case_id)
+            logger.info("[%s] SLA de revisión vencido: %s", case_id, record.status)
+            return
+        if kind != REVIEW_DECISION:
+            raise PermanentMessageError(f"Tipo de revisión desconocido: {kind!r}.")
+        reviewer, approve = payload.get("reviewer"), payload.get("approve")
+        if not isinstance(reviewer, str) or not isinstance(approve, bool):
+            raise PermanentMessageError("La decisión necesita reviewer (texto) y approve.")
+        try:
+            record = await self._review.review(
+                case_id, reviewer=reviewer, approve=approve, note=str(payload.get("note", ""))
+            )
+        except ReviewError as exc:
+            current = await self._review.get(case_id)
+            if current is not None and current.status is not CaseStatus.PENDING_APPROVAL:
+                logger.info("[%s] ya revisado (%s): se descarta", case_id, current.status)
+                return
+            raise PermanentMessageError(str(exc)) from exc
+        logger.info("[%s] revisado por %s: %s", case_id, reviewer, record.status)

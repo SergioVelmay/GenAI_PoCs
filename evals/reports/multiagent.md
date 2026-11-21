@@ -9,6 +9,7 @@
 |---|---:|---:|---:|---:|---:|---|
 | langgraph | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63%) | - |
 | maf | 14/14 | 13/14 | 0 | 33 | 394 / 1125 (-65%) | resilience-transient-error |
+| adk | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63%) | - |
 | async | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63%) | - |
 
 ## Invariantes (deben ser 0)
@@ -17,6 +18,7 @@
 |---|---:|---:|---:|---:|
 | langgraph | 0 | 0 | 0 | 0 |
 | maf | 0 | 0 | 0 | 0 |
+| adk | 0 | 0 | 0 | 0 |
 | async | 0 | 0 | 0 | 0 |
 
 ## Router frente a supervisor (emails con varias intenciones)
@@ -58,6 +60,21 @@
 | maf | defense-misrouted-refund | defense | knowledge | resolved | OK |
 | maf | defense-refund-promise-corrected | defense | creative | resolved | OK |
 | maf | multi-refund-and-complaint | multi_intent | refunds | pending_approval | OK |
+| adk | happy-refund-approved | happy | refunds | resolved | OK |
+| adk | happy-refund-rejected | happy | refunds | escalated | OK |
+| adk | happy-complaint-approved | happy | creative | resolved | OK |
+| adk | happy-complaint-rejected | happy | creative | escalated | OK |
+| adk | happy-partnership | happy | creative | resolved | OK |
+| adk | happy-event-info | happy | knowledge | resolved | OK |
+| adk | happy-lost-tickets | happy | knowledge | resolved | OK |
+| adk | happy-date-change | happy | knowledge | resolved | OK |
+| adk | happy-long-thread | happy | knowledge | resolved | OK |
+| adk | defense-hallucinated-refund | defense | refunds | escalated | OK |
+| adk | defense-injection-creative | defense | creative | escalated | OK |
+| adk | defense-misrouted-refund | defense | knowledge | resolved | OK |
+| adk | defense-refund-promise-corrected | defense | creative | resolved | OK |
+| adk | resilience-transient-error | resilience | knowledge | resolved | OK |
+| adk | multi-refund-and-complaint | multi_intent | refunds | pending_approval | OK |
 | async | happy-refund-approved | happy | refunds | resolved | OK |
 | async | happy-refund-rejected | happy | refunds | escalated | OK |
 | async | happy-complaint-approved | happy | creative | resolved | OK |

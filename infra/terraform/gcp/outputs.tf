@@ -22,6 +22,24 @@ output "knowledge_topic" {
   value       = google_pubsub_topic.knowledge.name
 }
 
+output "case_topics" {
+  description = "Temas del flujo de casos con ORCHESTRATOR__BROKER=pubsub (suscripciones <tema>.worker con exactly-once)."
+  value       = sort([for t in google_pubsub_topic.cases : t.name])
+}
+
+output "a2a_env" {
+  description = "Variables del orquestador para llamar a los especialistas en Cloud Run (vacío sin a2a_enabled)."
+  value = length(local.a2a_urls) == 0 ? {} : {
+    A2A__IDENTITY = "gcp"
+    A2A__URLS     = jsonencode(local.a2a_urls)
+  }
+}
+
+output "case_review_workflow" {
+  description = "Workflow de la espera humana con SLA (null sin case_review_workflow_enabled)."
+  value       = var.case_review_workflow_enabled ? google_workflows_workflow.case_review[0].name : null
+}
+
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
 }

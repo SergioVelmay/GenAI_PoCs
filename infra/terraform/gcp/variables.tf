@@ -55,14 +55,17 @@ variable "services" {
     "cloudtrace.googleapis.com",
     "discoveryengine.googleapis.com",
     "dlp.googleapis.com",
+    "eventarc.googleapis.com",
     "identitytoolkit.googleapis.com",
     "logging.googleapis.com",
     "modelarmor.googleapis.com",
     "monitoring.googleapis.com",
     "networkservices.googleapis.com",
     "pubsub.googleapis.com",
+    "run.googleapis.com",
     "storage.googleapis.com",
     "vectorsearch.googleapis.com",
+    "workflows.googleapis.com",
   ]
 }
 
@@ -268,6 +271,62 @@ variable "agent_platform_egress_hosts" {
 }
 
 # ---------- Guardrails (model_armor.tf, 8.G3) ----------
+
+variable "a2a_enabled" {
+  description = "Especialistas A2A en Cloud Run (9.G4): pago por petición y escala a cero. Necesita a2a_image."
+  type        = bool
+  default     = false
+}
+
+variable "a2a_image" {
+  description = "Imagen de services/orchestrator/Dockerfile en Artifact Registry (fase 15). Vacío = sin servicios."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.a2a_image == "" || can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/", var.a2a_image))
+    error_message = "Cloud Run despliega aquí imágenes de Artifact Registry (<región>-docker.pkg.dev/...)."
+  }
+}
+
+variable "a2a_max_instances" {
+  description = "Tope de instancias por especialista (el mínimo es 0: escala a cero)."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.a2a_max_instances >= 1 && var.a2a_max_instances <= 10
+    error_message = "Entre 1 y 10 (es una PoC)."
+  }
+}
+
+variable "case_review_workflow_enabled" {
+  description = "Espera humana con SLA en Workflows + disparador de Eventarc (9.G5). Pago por paso: ~0 $ en reposo."
+  type        = bool
+  default     = false
+}
+
+variable "review_sla_seconds" {
+  description = "Plazo para decidir un caso pendiente; al vencer, el dominio lo escala (12 h = defecto de await_callback)."
+  type        = number
+  default     = 43200
+
+  validation {
+    condition     = var.review_sla_seconds >= 60 && var.review_sla_seconds <= 2592000
+    error_message = "Entre 1 minuto y 30 días."
+  }
+}
+
+variable "case_reviewers" {
+  description = "Quién puede mandar la decisión al callback (workflows.callbacks.send): la consola de operaciones."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for m in var.case_reviewers : startswith(m, "serviceAccount:") || startswith(m, "group:")])
+    error_message = "serviceAccount: (la consola) o group: (operaciones); nunca usuarios sueltos ni clientes."
+  }
+}
 
 variable "model_armor_enabled" {
   description = "Plantilla de Model Armor del harness y plantillas de inspección de SDP. Sin coste en reposo: se paga lo evaluado (output guardrails_env)."
