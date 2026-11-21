@@ -53,13 +53,16 @@ variable "services" {
     "aiplatform.googleapis.com",
     "apigee.googleapis.com",
     "cloudtrace.googleapis.com",
+    "compute.googleapis.com",
     "discoveryengine.googleapis.com",
     "dlp.googleapis.com",
     "eventarc.googleapis.com",
     "identitytoolkit.googleapis.com",
     "logging.googleapis.com",
+    "memorystore.googleapis.com",
     "modelarmor.googleapis.com",
     "monitoring.googleapis.com",
+    "networkconnectivity.googleapis.com",
     "networkservices.googleapis.com",
     "pubsub.googleapis.com",
     "run.googleapis.com",
@@ -407,4 +410,41 @@ variable "ci_allowed_refs" {
   description = "Refs de Git cuyos workflows pueden obtener credenciales de GCP. Las PR no: código sin revisar."
   type        = list(string)
   default     = ["refs/heads/main"]
+}
+
+# ---------- Estado compartido del edge (memorystore.tf, 10.G2) ----------
+
+variable "memorystore_enabled" {
+  description = "Memorystore for Valkey (rate limiting y caché semántica) con su VPC y PSC. Coste por hora: efímero."
+  type        = bool
+  default     = false
+}
+
+variable "memorystore_node_type" {
+  description = "SHARED_CORE_NANO (1,4 GB, sin SLA) para validar; CUSTOM_PICO o mayor si hace falta SLA."
+  type        = string
+  default     = "SHARED_CORE_NANO"
+}
+
+variable "memorystore_engine_version" {
+  description = "Versión de Valkey: la misma que la imagen local valkey/valkey-bundle (9.0)."
+  type        = string
+  default     = "VALKEY_9_0"
+
+  validation {
+    condition     = startswith(var.memorystore_engine_version, "VALKEY_")
+    error_message = "Memorystore for Valkey: VALKEY_8_0, VALKEY_9_0, VALKEY_9_1..."
+  }
+}
+
+variable "memorystore_subnet_cidr" {
+  description = "Rango de la subred del edge donde Memorystore crea su endpoint PSC."
+  type        = string
+  default     = "10.20.0.0/24"
+}
+
+variable "memorystore_zone_suffix" {
+  description = "Zona de la instancia (sin réplicas, una sola zona): <región>-<sufijo>."
+  type        = string
+  default     = "a"
 }

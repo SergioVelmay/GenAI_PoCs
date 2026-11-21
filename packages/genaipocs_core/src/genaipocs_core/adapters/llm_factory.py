@@ -233,7 +233,7 @@ def shared_limiter(
     from genaipocs_core.adapters.redis_rate_limit import RedisRateLimiter
 
     return RedisRateLimiter.from_settings(
-        settings.scale_redis, key_prefix=settings.rate_limit.key_prefix
+        settings.scale_redis, key_prefix=settings.rate_limit.key_prefix, gcp=settings.gcp
     )
 
 

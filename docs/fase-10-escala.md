@@ -80,7 +80,7 @@ flowchart LR
 ### 10.2 · Admisión y rate limiting distribuido
 
 ```powershell
-docker compose --profile scale up -d                     # Redis 8 en 127.0.0.1:6380
+docker compose --profile scale up -d                     # Redis 8 en :6380 (y Valkey en :6381, 10.G2)
 $env:RATE_LIMIT__BACKEND = "redis"
 uv run uvicorn edge_api.app:create_app --factory --port 8200
 uv run python -m edge_api.tokens --user ops-ana --plan internal
@@ -280,7 +280,7 @@ lanza desde un **Cloud Run job**. Coste 0: emulador, Valkey en Docker y dobles; 
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 10.G1 | — | Backlog de Pub/Sub con PromQL para el autoescalador y latido del plazo de ack (heredado de la 9.G3) |
+| 10.G1 | `5f25ec6` | Backlog de Pub/Sub con PromQL para el autoescalador y latido del plazo de ack (heredado de la 9.G3) |
 | 10.G2 | | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
 | 10.G3 | | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
 | 10.G4 | | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
@@ -363,6 +363,73 @@ uv run python scripts/queue_autoscaler.py --broker pubsub --queue support.emails
   pool.
 - SQS y Service Bus siguen sin latido (el plazo largo de la cola lo cubre). Su equivalente
   (`ChangeMessageVisibility`, `renew_message_lock`) queda apuntado para las fases 13 y 14.
+
+### 10.G2 · Valkey: el mismo estado compartido en Memorystore
+
+```powershell
+docker compose --profile scale up -d redis-scale valkey-scale     # Redis 8 :6380, Valkey :6381
+uv run pytest -m integration -k "redis_rate_limit or redis_semantic"   # cada test, en los dos
+uv run pytest packages/genaipocs_core/tests/test_redis_client.py
+cd infra/terraform/gcp ; terraform test                                # memorystore.tftest.hcl
+```
+
+**Por qué Valkey en local.** Memorystore for Valkey usa el motor Valkey con su módulo de
+búsqueda, no Redis. El servicio `valkey-scale` (`valkey/valkey-bundle:9.0.8`, la misma versión
+que `VALKEY_9_0` en Memorystore) entra en el perfil `scale` y en la CI. Los tests del rate limiter
+y de la caché semántica se repiten contra los dos motores con un fixture parametrizado
+(`scale_redis[redis]`, `scale_redis[valkey]`).
+
+**Lo que destapó probarlo contra Valkey** (los tres, invisibles con Redis 8):
+
+| Síntoma con Valkey | Causa | Arreglo, válido en los dos motores |
+|---|---|---|
+| `PREFIX argument(s) must not contain a hash tag` al crear el índice | La caché usaba `{genaipocs-sc}` como prefijo, heredado del rate limiter | Prefijo sin llaves (`genaipocs-sc`). La caché no lo necesita: cada operación toca una clave y la búsqueda recorre todos los shards. El rate limiter **sí** conserva `{genaipocs-rl}`, porque su Lua usa varias claves |
+| `AttributeError: 'list' object has no attribute 'items'` en `FT.SEARCH` | redis-py 8 negocia RESP3; Redis 8 contesta con un mapa y Valkey con un array | El cliente compartido (`scale_redis_client`) fuerza `protocol=2` |
+| Índices de test que se quedaban en Valkey | `FT.DROPINDEX ... DD` no existe en Valkey (error silenciado en la limpieza) | `dropindex()` sin `DD`; las claves caducan solas |
+
+**Lo que Memorystore no admite y el código ya no usa** (verificación previa): campos `TEXT` (la
+pregunta solo se guardaba para devolverla), `SORTBY` y `AS` en el KNN. El índice declara solo
+`scope` (TAG) y `embedding` (VECTOR). Pregunta, facetas y respuesta son campos del hash que
+vuelven con `RETURN`. La distancia sale de `__embedding_score` y el adaptador ordena. Un test
+de integración nuevo comprueba ese orden en los dos motores.
+
+**Cliente compartido** (`adapters/redis_client.py`, usado por `RedisRateLimiter` y
+`RedisSemanticCache`): se mantiene fallar rápido (timeouts cortos y sin reintentos) y se añade lo
+que pide Memorystore:
+
+- `SCALE_REDIS__AUTH=gcp_iam`: un `CredentialProvider` de redis-py da el token de acceso de ADC (o
+  de la cuenta suplantada) como contraseña de `AUTH`. El token dura 1 h y el pool lo pide, o lo
+  renueva, al abrir cada conexión. Es el equivalente de Entra ID en Azure Managed Redis o de IAM
+  en ElastiCache. Sin contraseñas que rotar.
+- `SCALE_REDIS__TLS=true` + `SCALE_REDIS__TLS_CA_FILE`: la CA del servidor que publica la
+  instancia (salida `memorystore_server_ca`).
+
+**Prueba de extremo a extremo del edge sobre Valkey** (`SCALE_REDIS__PORT=6381`,
+`RATE_LIMIT__BACKEND=redis`, `SEMANTIC_CACHE__BACKEND=redis`, proveedor simulado):
+
+| Pregunta (personal interno) | `X-Cache` | `RateLimit-Remaining` |
+|---|---|---|
+| ¿A qué hora abren las puertas en Barcelona? | `MISS` | 119 |
+| ¿Cuándo abren las puertas en Barcelona? | `HIT` (paráfrasis) | 118 |
+| ¿A qué hora abren las puertas en Madrid? | `MISS` (otra ciudad: guarda de facetas) | 117 |
+| ¿A qué hora abren las puertas en Barcelona? | `HIT` | 117 (el cubo ya se rellenaba) |
+
+Índice resultante en Valkey: `idx:genaipocs-sc:1024`, con dos entradas.
+
+**`memorystore.tf`** (`memorystore_enabled = false`; `terraform test` con 3 casos):
+
+- Instancia `CLUSTER_DISABLED`, un shard sin réplicas, `SHARED_CORE_NANO` (1,4 GB, sin SLA) y
+  `VALKEY_9_0`. Autenticación `IAM_AUTH`, TLS `SERVER_AUTHENTICATION`, `volatile-lru` y sin
+  protección de borrado (efímera).
+- Red: VPC y subred propias con una *service connection policy* `gcp-memorystore`, porque
+  Memorystore crea su endpoint por PSC y no tiene IP pública. El edge en Cloud Run llegará por
+  Direct VPC egress en la fase 15.
+- `roles/memorystore.dbConnectionUser` para la cuenta de la aplicación. Salidas `scale_redis_env`
+  (variables del edge) y `memorystore_server_ca`. APIs nuevas: `compute`, `memorystore` y
+  `networkconnectivity`.
+- **Por qué `CLUSTER_DISABLED`:** el código usa un cliente simple, como con `redis:8`. Con
+  `CLUSTER` haría falta `RedisCluster` y que cada operación respete los slots. Que la búsqueda
+  vectorial funcione en este modo no está documentado: queda en los pendientes.
 
 ## 8. Checkpoint de entrevista
 

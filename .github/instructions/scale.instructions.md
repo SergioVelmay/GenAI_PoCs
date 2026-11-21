@@ -22,7 +22,9 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - El umbral depende del modelo de embeddings: `CALIBRATED_THRESHOLDS` (hashing 0,55). Un modelo sin calibrar no activa la caché. Calibrar: `uv run python -m rag_evals.semantic_cache [--embeddings azure --budget-usd 0.01]`; la CI ejecuta `--check` (0 falsos aciertos con guarda en todo el barrido, 0 personales guardadas, tasa mínima de aciertos).
 - Si el almacén cae, la caché se salta (`unavailable`), nunca tumba la petición. Un acierto sigue contando para el rate limit del usuario.
 - En el edge, `CachedAssistant` fusiona preguntas idénticas en curso (*single-flight*, por réplica) y expone `X-Cache: HIT|MISS|COALESCED|BYPASS`.
-- Redis: índice `idx:<prefijo>:<dimensiones>` (HNSW, coseno) sobre hashes `{genaipocs-sc}:<dim>:<id>` con `EXPIRE`. El campo de la respuesta se llama `answer` (`payload` choca con `Document` de redis-py).
+- Redis: índice `idx:<prefijo>:<dimensiones>` (HNSW, coseno) sobre hashes `genaipocs-sc:<dim>:<id>` con `EXPIRE`. El campo de la respuesta se llama `answer` (`payload` choca con `Document` de redis-py).
+- **Portable a Valkey** (10.G2, Memorystore for Valkey y ElastiCache): el índice solo declara `scope` (TAG) y `embedding` (VECTOR); nada de `TEXT`, `SORTBY` ni `AS` en el KNN (la distancia sale de `__embedding_score` y se ordena en el adaptador); el prefijo **sin hash tag** (Valkey rechaza `{...}` en el `PREFIX`; las llaves de un prefijo antiguo se quitan); `FT.DROPINDEX` sin `DD`. El cliente compartido (`adapters/redis_client.py`, `scale_redis_client`) fuerza **RESP2**: con RESP3, Valkey contesta a `FT.SEARCH` con un array y el parser de redis-py espera un mapa. Los tests de integración del rate limiter y de la caché se repiten contra Redis 8 (`:6380`) y `valkey-scale` (`valkey/valkey-bundle:9.0.8`, `:6381`), en local y en la CI.
+- Memorystore: `SCALE_REDIS__AUTH=gcp_iam` (token de acceso de Google como contraseña, pedido en cada conexión nueva; `roles/memorystore.dbConnectionUser`) y `SCALE_REDIS__TLS=true` + `SCALE_REDIS__TLS_CA_FILE`. Terraform en `infra/terraform/gcp/memorystore.tf` (`memorystore_enabled`, salida `scale_redis_env`).
 
 ## Streaming (10.4)
 
@@ -58,7 +60,7 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 ## Edge (`services/edge_api`)
 
 ```powershell
-docker compose --profile scale up -d                       # Redis 8 en 127.0.0.1:6380
+docker compose --profile scale up -d                       # Redis 8 en :6380 y Valkey en :6381
 $env:RATE_LIMIT__BACKEND = "redis"
 uv run uvicorn edge_api.app:create_app --factory --port 8200
 uv run python -m edge_api.tokens --user ops-ana --plan internal   # token de desarrollo

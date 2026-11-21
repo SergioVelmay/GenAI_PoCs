@@ -20,15 +20,23 @@ from genaipocs_core.domain import (
 SESSION_START = datetime(2026, 11, 20, 20, 0, tzinfo=UTC)
 
 
-@pytest.fixture
-def scale_redis() -> ScaleRedisSettings:
-    """Redis de la fase 10 (`docker compose --profile scale up -d`); si no está, el test se salta,
-    como los contratos de colas sin su emulador (antes fallaba con `CancelledError`)."""
+# Valkey con búsqueda (10.G2): servicio `valkey-scale` del perfil `scale` y de la CI.
+VALKEY_PORT = 6381
+
+
+@pytest.fixture(params=["redis", "valkey"])
+def scale_redis(request: pytest.FixtureRequest) -> ScaleRedisSettings:
+    """Redis de la fase 10 (`docker compose --profile scale up -d`), una vez con Redis 8 y otra
+    con Valkey (el motor de Memorystore). Si no está, el test se salta, como los contratos de
+    colas sin su emulador (antes fallaba con `CancelledError`)."""
     settings = Settings().scale_redis
+    if request.param == "valkey":
+        settings = settings.model_copy(update={"port": VALKEY_PORT})
     try:
         socket.create_connection((settings.host, settings.port), timeout=0.5).close()
     except OSError:
-        pytest.skip(f"Redis de escala no está arrancado en {settings.host}:{settings.port}")
+        where = f"{settings.host}:{settings.port}"
+        pytest.skip(f"{request.param} de escala no está arrancado en {where}")
     return settings
 
 

@@ -285,6 +285,15 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
 
 - [ ] **Backlog de Pub/Sub en Cloud Monitoring** (10.G1, ~0 $; con `pubsub.tf` aplicado): `uv run python scripts/queue_autoscaler.py --broker pubsub --queue support.emails --interval 30` en dry-run mientras se publica una ráfaga. Comprobar: que `pubsub_backlog_promql()` devuelve datos (nombre de la métrica en notación PromQL, `monitored_resource` y etiquetas `project_id`/`subscription_id`); el retraso real entre publicar y ver el backlog (la doc dice hasta 3 min) y si hay huecos con la suscripción vacía; capturar una respuesta real para `test_pubsub_backlog.py`; rol mínimo (`roles/monitoring.viewer`) y el coste de las lecturas de la API.
 - [ ] **Latido del plazo en Pub/Sub real** (10.G1, ~0 $): workers del orquestador con un turno más largo que el plazo (bajar `ack_deadline_seconds` a 10 en una suscripción de prueba). Ver que `lease_extensions` sube, que `ack_failures` se queda en 0 y que `subscription/expired_ack_deadlines_count` no se mueve; repetir con `PUBSUB__MAX_LEASE_S=0` como control.
+- [ ] **Memorystore for Valkey** (10.G2; coste por nodo y hora, efímero: confirmar el precio de `SHARED_CORE_NANO` en europe-west4 antes del `apply`): `memorystore_enabled = true`, `terraform output -raw memorystore_server_ca > memorystore-server-ca.pem` y `scale_redis_env` en el edge, desde una VM o Cloud Shell en la VPC `genaipocs-dev-scale`. Comprobar:
+  - que la búsqueda vectorial funciona en `CLUSTER_DISABLED` (la doc no lo dice);
+  - `FT.CREATE` y `FT.SEARCH` con la consulta del adaptador, y que una clave que caduca sale del índice;
+  - el GCRA (`EVAL` + `TIME`);
+  - IAM auth: el token como contraseña, qué pasa con una conexión abierta cuando el token caduca (1 h) y el rol mínimo;
+  - TLS con la CA de la instancia, y si `ssl_check_hostname` acepta la IP del endpoint PSC;
+  - latencia p50/p95 de `nearest` y de `acquire` frente al Redis local.
+
+  Destruir al terminar.
 
 ## Fase 11 · Observabilidad ([doc](fase-11-observabilidad.md))
 

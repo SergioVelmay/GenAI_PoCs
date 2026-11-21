@@ -1154,6 +1154,17 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    handler colgado no retenga el mensaje para siempre.
    - Lo medí con el emulador: con latido, 1 entrega; sin latido, 2.
    - En AWS es `ChangeMessageVisibility`; en Service Bus, `renew_message_lock`.
+3. **Pasas la caché semántica de Redis a un Valkey gestionado: ¿qué puede romperse?** La
+   compatibilidad de protocolo no cubre los módulos. Probándolo contra Valkey en local salieron
+   tres cosas que con Redis 8 no se veían:
+   - un *hash tag* en el prefijo del índice, que Valkey rechaza;
+   - RESP3, porque Valkey contesta a `FT.SEARCH` con otra forma: se fija RESP2;
+   - `DROPINDEX DD`, que Valkey no tiene.
+
+   Además, Memorystore no admite `TEXT` ni `SORTBY`: el índice se queda en TAG + VECTOR y el
+   orden se hace en el cliente. Por eso los tests de integración corren contra los dos motores
+   en la CI. En AWS, ElastiCache con Valkey tiene el mismo riesgo; en Azure, Managed Redis es
+   Redis.
 
 **Negocio y stakeholders**
 
@@ -1162,6 +1173,11 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    veces y aparecía duplicado en las métricas. El latido cuesta una llamada barata cada pocos
    segundos y quita ese gasto. Lo vigilaría con `expired_ack_deadlines_count` y los fallos de
    `ack`.
+2. **¿Por qué no basta con "es compatible con Redis" para aprobar el cambio a Valkey?** Porque
+   el riesgo no está en el `GET`/`SET`, sino en la búsqueda vectorial, que es otro módulo. A
+   dirección le diría que el cambio abarata y quita licencias, pero que solo se aprueba con la
+   misma batería de tests en verde contra el motor nuevo. Esa batería encontró tres
+   incompatibilidades antes de tocar la nube, a coste cero.
 
 <a id="fase-11"></a>
 

@@ -122,3 +122,22 @@ output "guardrails_env" {
     GCP_SENSITIVE_DATA__INSPECT_TEMPLATE = one(google_data_loss_prevention_inspect_template.pii[*].template_id)
   }
 }
+
+output "scale_redis_env" {
+  description = "Variables del edge para usar Memorystore (vacío sin memorystore_enabled). La CA, en memorystore_server_ca."
+  value = var.memorystore_enabled ? {
+    SCALE_REDIS__HOST = try(google_memorystore_instance.scale[0].endpoints[0].connections[0].psc_auto_connection[0].ip_address, "")
+    SCALE_REDIS__PORT = tostring(try(google_memorystore_instance.scale[0].endpoints[0].connections[0].psc_auto_connection[0].port, 6379))
+    SCALE_REDIS__AUTH = "gcp_iam"
+    SCALE_REDIS__TLS  = "true"
+    # Guardar la salida memorystore_server_ca en un fichero y apuntar aquí su ruta.
+    SCALE_REDIS__TLS_CA_FILE = "memorystore-server-ca.pem"
+    RATE_LIMIT__BACKEND      = "redis"
+    SEMANTIC_CACHE__BACKEND  = "redis"
+  } : {}
+}
+
+output "memorystore_server_ca" {
+  description = "CA del servidor de Memorystore en PEM (pública): terraform output -raw memorystore_server_ca > memorystore-server-ca.pem"
+  value       = var.memorystore_enabled ? join("\n", flatten([for ca in try(google_memorystore_instance.scale[0].managed_server_ca[0].ca_certs, []) : ca.certificates])) : ""
+}

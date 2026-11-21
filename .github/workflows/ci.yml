@@ -251,6 +251,17 @@ jobs:
           --health-interval 3s
           --health-timeout 5s
           --health-retries 10
+      # Valkey con búsqueda (10.G2, motor de Memorystore): los tests de Redis se repiten aquí.
+      # La imagen carga sus módulos con el comando por defecto.
+      valkey-scale:
+        image: valkey/valkey-bundle:9.0.8
+        ports:
+          - 6381:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 10
     env:
       POSTGRES__PASSWORD: genaipocs-ci
       RABBITMQ__PASSWORD: genaipocs-ci

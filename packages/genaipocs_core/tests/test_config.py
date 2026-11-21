@@ -242,6 +242,24 @@ def test_pubsub_max_lease(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
 
+def test_scale_redis_auth_and_tls(monkeypatch: pytest.MonkeyPatch) -> None:
+    defaults = Settings(_env_file=None).scale_redis
+    assert (defaults.auth, defaults.tls, defaults.tls_ca_file) == ("password", False, "")
+    # Sin hash tag: Valkey no lo admite en el PREFIX del índice (10.G2).
+    assert Settings(_env_file=None).semantic_cache.key_prefix == "genaipocs-sc"
+
+    monkeypatch.setenv("SCALE_REDIS__AUTH", "gcp_iam")
+    monkeypatch.setenv("SCALE_REDIS__TLS", "true")
+    monkeypatch.setenv("SCALE_REDIS__TLS_CA_FILE", "memorystore-server-ca.pem")
+    memorystore = Settings(_env_file=None).scale_redis
+    assert (memorystore.auth, memorystore.tls) == ("gcp_iam", True)
+    assert memorystore.tls_ca_file == "memorystore-server-ca.pem"
+
+    monkeypatch.setenv("SCALE_REDIS__AUTH", "entra")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GCP_VECTOR_SEARCH__COLLECTION", "knowledge-v2")
     monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "1")

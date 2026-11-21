@@ -34,8 +34,9 @@ async def store(scale_redis: ScaleRedisSettings) -> AsyncIterator[RedisSemanticC
     try:
         yield instance
     finally:
+        # Valkey no admite `DD` en FT.DROPINDEX: se borra solo el índice (las claves caducan).
         with contextlib.suppress(ResponseError):  # El test pudo no llegar a crear el índice.
-            await instance._client.ft(instance._index).dropindex(delete_documents=True)
+            await instance._client.ft(instance._index).dropindex()
         await instance.aclose()
 
 
@@ -65,6 +66,26 @@ async def test_entries_expire_with_their_ttl(store: RedisSemanticCache) -> None:
     assert len(await store.nearest(PUBLIC_ES.key(), embedding, limit=3)) == 1
     await asyncio.sleep(1.5)
     assert await store.nearest(PUBLIC_ES.key(), embedding, limit=3) == []
+
+
+async def test_nearest_first_without_sortby(store: RedisSemanticCache) -> None:
+    """Valkey no tiene SORTBY ni `AS` en el KNN: la distancia sale de `__embedding_score` y el
+    orden lo garantiza el adaptador (10.G2)."""
+    embeddings = HashingEmbedding(256)
+    texts = ["puertas Barcelona", "puertas Barcelona hora", "aparcamiento Madrid coche"]
+    for i, text in enumerate(texts):
+        vector = tuple(await embeddings.embed_query(text))
+        entry = CacheEntry(f"e{i}", PUBLIC_ES.key(), text, "{}", vector, f'{{"i": {i}}}')
+        await store.put(entry, ttl_seconds=60)
+
+    query = await embeddings.embed_query("puertas Barcelona")
+    candidates = await store.nearest(PUBLIC_ES.key(), query, limit=3)
+
+    similarities = [c.similarity for c in candidates]
+    assert candidates[0].entry.question == "puertas Barcelona"
+    assert similarities == sorted(similarities, reverse=True)
+    assert similarities[0] > 0.99
+    assert candidates[0].entry.payload == '{"i": 0}'
 
 
 async def test_wrong_dimensions_are_rejected(store: RedisSemanticCache) -> None:

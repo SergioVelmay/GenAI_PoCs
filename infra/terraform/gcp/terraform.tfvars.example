@@ -60,6 +60,10 @@ case_review_workflow_enabled = false
 review_sla_seconds           = 43200 # 12 h; 120 para probarlo
 case_reviewers               = []    # ["group:<operaciones>"]: quién manda la decisión al callback
 
+# Memorystore for Valkey para el rate limiting y la caché semántica del edge (10.G2): coste por
+# nodo y hora, efímero. VPC + PSC, IAM auth y TLS; outputs scale_redis_env y memorystore_server_ca.
+memorystore_enabled = false
+
 # Agente en Agent Runtime (7.G4). true = motor standalone con Sessions + Memory Bank (pago por
 # uso, sin coste por hora; output agent_platform_env). Con imagen, además el agente en un
 # contenedor con Agent Identity (vCPU-hora activa, escala a cero; la imagen llega en la fase 15).
