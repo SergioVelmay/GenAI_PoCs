@@ -173,8 +173,17 @@ Plan original (antes del cambio):
 
 - **Heredado de la 8.G4:** `semantic_cache --embeddings azure` escribe en `evals/reports/azure/`; con embeddings de Gemini, a `gcp/`.
 - **Heredado de la 9.G3:** ningún adaptador de cola en la nube (SQS, Service Bus, Pub/Sub) renueva el plazo de *ack*/visibilidad mientras el handler trabaja; hoy se cubre con un plazo de 600 s en las suscripciones del orquestador. Con los worker pools, valorar el *streaming pull* de la librería de alto nivel (renueva el *lease*) o un latido propio en el adaptador, y medir `ack_failures`.
-- 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).
-- 10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.
+- ~~10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).~~
+- ~~10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.~~ **Al empezar (21-11-2026)** cambió el plan (decidido con Sergio; verificación previa en la [fase 10](fase-10-escala.md#7-gcp-pasada-10g)). Pasa a **cinco** subfases por cuatro hallazgos:
+  - La búsqueda vectorial de Memorystore no admite `TEXT`, `SORTBY` ni `AS` en el KNN, así que `RedisSemanticCache` no funciona tal cual.
+  - El escalador `gcp-pubsub` de KEDA está obsoleto (MQL); se usa PromQL, la misma consulta en el adaptador, en CREMA y en las alertas.
+  - Los worker pools de Cloud Run no autoescalan solos: se usa CREMA, no GKE.
+  - Las cuotas de tokens del Agent Gateway están en *early preview* sin Terraform: quedan solo documentales.
+- 10.G1: `PubSubBacklogMetrics` (PromQL contra Managed Prometheus, hueco ≠ cola vacía, `value_if_null`) y `queue_autoscaler.py --broker pubsub`; latido de `modifyAckDeadline` en `PubSubMessageBus` (`PUBSUB__MAX_LEASE_S`) con test `integration` de dos workers en el emulador.
+- 10.G2: `RedisSemanticCache` portable a Valkey (sin `TEXT` ni `SORTBY`; `__embedding_score`), servicio `valkey-scale` (`valkey/valkey-bundle`) en el perfil `scale` con GCRA y caché probados contra Redis 8 y Valkey, `SCALE_REDIS__AUTH=gcp_iam` con TLS y `memorystore.tf` (`memorystore_enabled`).
+- 10.G3: calibración de la caché con `embed_query` (lo que usa en ejecución), `semantic_cache --embeddings gcp|bedrock` con el informe en la carpeta de cada nube y registro compartido de cachés explícitas de Gemini en Valkey (ninguna réplica borra lo que usan las demás).
+- 10.G4: `queue_workers.tf` de GCP (worker pool `MANUAL` + CREMA con el escalador `prometheus` desde Parameter Manager, IAM) y `edge_armor.tf` (ALB externo, *serverless NEG*, `throttle` y `rate_based_ban`), desactivados.
+- 10.G5: `load_test.tf` (Cloud Run job con Locust `--processes` y CSV en Cloud Storage), comparativa de cuotas de tokens (Agent Gateway / Apigee `LLMTokenQuota`) y doc de la fase 10 a tres nubes.
 
 **11.G · Observabilidad**
 

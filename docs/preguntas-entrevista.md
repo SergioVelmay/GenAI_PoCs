@@ -1135,6 +1135,34 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    Dejaría fuera el autoescalado fino y la caché multi-región. Antes de la venta pediría ampliar
    la cuota del modelo con el proveedor, porque es el techo que ninguna réplica supera.
 
+### GCP (pasada 10.G)
+
+**Técnicas**
+
+1. **¿Cómo escalas workers de Pub/Sub si su API no dice cuántos mensajes hay?** Con Cloud
+   Monitoring: `subscription/num_unacked_messages_by_region`, consultada con PromQL. Se muestrea
+   cada 60 s y aparece hasta 2 min después.
+   - En GCP, el escalador es CREMA, que es KEDA como servicio de Cloud Run, sobre un worker pool.
+   - En AWS, SQS da el número al momento por API. En Azure, KEDA lee Service Bus directamente.
+
+   Con ese retraso, el enfriamiento antes de bajar a cero tiene que ser mayor que el desfase. Y un
+   hueco en la métrica no se lee como "cola vacía": el controlador no toca las réplicas.
+2. **Un turno del agente tarda más que el plazo de ack: ¿qué pasa y cómo lo arreglas?** Pub/Sub
+   da el mensaje por perdido y se lo entrega a otra réplica: se paga el modelo dos veces y, con
+   *exactly-once*, el `ack` del primero falla. Lo arreglo con un latido de `modifyAckDeadline`
+   a mitad de cada plazo mientras el handler trabaja, con un techo (`max_lease`) para que un
+   handler colgado no retenga el mensaje para siempre.
+   - Lo medí con el emulador: con latido, 1 entrega; sin latido, 2.
+   - En AWS es `ChangeMessageVisibility`; en Service Bus, `renew_message_lock`.
+
+**Negocio y stakeholders**
+
+1. **¿Por qué importa el plazo de ack en la factura?** Porque cada reentrega de un caso repite
+   las llamadas al modelo. Con turnos de 15 s y un plazo de 10 s, cada caso largo se pagaba dos
+   veces y aparecía duplicado en las métricas. El latido cuesta una llamada barata cada pocos
+   segundos y quita ese gasto. Lo vigilaría con `expired_ack_deadlines_count` y los fallos de
+   `ack`.
+
 <a id="fase-11"></a>
 
 ## Fase 11 · Observabilidad de sistemas agénticos ([doc](fase-11-observabilidad.md))

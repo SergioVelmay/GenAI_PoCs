@@ -270,6 +270,100 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 10):
 - autoescalado en Container Apps y ECS;
 - carga con Azure Load Testing y una prueba pequeña contra Azure OpenAI para ver los 429 reales.
 
-## 7. Checkpoint de entrevista
+## 7. GCP (pasada 10.G)
+
+**Objetivo:** que el pico se absorba igual sobre GCP. El estado compartido (GCRA y caché
+semántica) va en **Memorystore for Valkey**. Los workers escalan según el **backlog de Pub/Sub**
+(worker pools de Cloud Run más CREMA). El perímetro lo protege **Cloud Armor**, y la carga se
+lanza desde un **Cloud Run job**. Coste 0: emulador, Valkey en Docker y dobles; lo real, en
+[pendientes](pendientes-cloud.md#fase-10-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 10.G1 | — | Backlog de Pub/Sub con PromQL para el autoescalador y latido del plazo de ack (heredado de la 9.G3) |
+| 10.G2 | | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
+| 10.G3 | | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
+| 10.G4 | | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
+| 10.G5 | | Carga desde un Cloud Run job, cuotas de tokens y doc a tres nubes |
+
+### Verificación previa (21-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| [Búsqueda vectorial de Memorystore for Valkey](https://docs.cloud.google.com/memorystore/docs/valkey/about-vector-search) | GA (22-04-2025). Campos `VECTOR`, `TAG` y `NUMERIC` sobre HASH. Ni `TEXT`, ni `SORTBY`, ni `AS` en el KNN: la puntuación vuelve como `__<campo>_score` | `RedisSemanticCache` no funciona tal cual; se hace portable y se prueba contra Valkey en local (10.G2) |
+| [Comandos de Memorystore](https://docs.cloud.google.com/memorystore/docs/valkey/supported-commands) | `EVAL`, `EVALSHA` y `TIME` admitidos; en modo clúster, multiclave solo en un mismo slot | El GCRA en Lua sirve tal cual (ya usa *hash tags*) |
+| [Backlog de Pub/Sub](https://docs.cloud.google.com/pubsub/docs/monitoring) | La API de Pub/Sub no da el número de mensajes. Cloud Monitoring sí (`num_unacked_messages_by_region`, recomendada frente a la global): muestras cada 60 s, visibles hasta 120 s después y con huecos | Adaptador sobre Cloud Monitoring. Un hueco no se lee como "cola vacía" |
+| [Escalador `gcp-pubsub` de KEDA](https://keda.sh/docs/latest/scalers/gcp-pub-sub/) | Obsoleto en KEDA 2.21 (usa MQL, sin soporte desde el 22-07-2025); se recomienda el escalador `prometheus` con PromQL | La **misma consulta PromQL** sirve al adaptador local, a CREMA (10.G4) y a las alertas (11.G) |
+| [Worker pools de Cloud Run](https://docs.cloud.google.com/run/docs/deploy-worker-pools) | GA (14-04-2026), sin autoescalado propio. [CREMA](https://docs.cloud.google.com/run/docs/configuring/workerpools/crema-autoscaling) es KEDA desplegado como servicio de Cloud Run, configurado desde Parameter Manager | Worker pool `MANUAL` y CREMA (10.G4), en lugar de GKE + KEDA |
+| [Cloud Armor](https://docs.cloud.google.com/armor/docs/rate-limiting-overview) | `throttle` y `rate_based_ban` por IP, cabecera, etc. Solo funciona detrás de un balanceador (ALB externo + *serverless NEG*) | `edge_armor.tf` desactivado; el ALB tiene coste fijo |
+| [Cuotas de tokens del Agent Gateway](https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/policies/token-management-overview) | *Early preview* con alta previa y sin Terraform | Solo documental, con Apigee `LLMTokenQuota` como contraste (10.G5) |
+| Pruebas de carga | GCP no tiene un servicio gestionado como Azure Load Testing. La guía de Locust en GKE está obsoleta | Cloud Run job con Locust `--processes` (10.G5) |
+| `gemini-embedding-001` | Admite `task_type` y 1024 dimensiones | La calibración de la caché embebía con `embed_texts` (`RETRIEVAL_DOCUMENT`) y la caché en ejecución usa `embed_query`: se alinea (10.G3) |
+
+### 10.G1 · Backlog de Pub/Sub y latido del plazo de ack
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_pubsub_backlog.py packages/genaipocs_core/tests/test_pubsub_adapter.py
+docker compose --profile pubsub up -d
+uv run pytest -m integration -k pubsub_lease          # ~35 s: dos turnos de 14 s
+# En la nube (dry-run, sin mover nada): backlog real de support.emails.worker
+uv run python scripts/queue_autoscaler.py --broker pubsub --queue support.emails --interval 30
+```
+
+**Backlog para el autoescalador** (`PubSubBacklogMetrics`, en `adapters/queue_metrics.py`):
+
+- Implementa el mismo `QueueMetricsPort` que RabbitMQ y SQS. La cola es el tema y se mide su
+  suscripción `<tema>.worker`.
+- La consulta vive en un solo sitio, `pubsub_backlog_promql()`:
+
+  ```promql
+  sum(pubsub_googleapis_com:subscription_num_unacked_messages_by_region{
+    monitored_resource="pubsub_subscription", project_id="…", subscription_id="support.emails.worker"})
+  ```
+
+  Se lanza contra la API de Managed Prometheus de Cloud Monitoring
+  (`/v1/projects/<p>/location/global/prometheus/api/v1/query`) con el token de ADC o de la cuenta
+  suplantada. Esa API no está en las librerías cliente, así que se llama por REST con `httpx`.
+- **Sin muestra o con una muestra de más de 5 min**, se lanza `QueueUnavailableError` y el
+  controlador no toca las réplicas. Si se quiere otro comportamiento, `value_if_null` hace lo
+  mismo que el `valueIfNull` de KEDA. Leer un hueco como "0 mensajes" bajaría los workers a cero
+  en mitad de un pico.
+- `ready` = sin confirmar. Monitoring no separa lo que espera de lo que un worker tiene en curso.
+  El total es lo mismo que cuenta la regla con RabbitMQ y SQS.
+- El emulador no publica métricas: `from_settings` falla con un mensaje claro si
+  `PUBSUB__EMULATOR_HOST` está definido.
+- La diferencia con SQS es el **retraso**. Pub/Sub ve el backlog con 1–3 min de retraso, SQS al
+  momento. Por eso, en Pub/Sub, el enfriamiento antes de bajar a 0 tiene que ser mayor que ese
+  retraso.
+
+**Latido del plazo de ack** (heredado de la 9.G3), en `PubSubMessageBus`:
+
+- **El problema.** Con *pull* unario nadie renovaba el plazo, así que un turno del LLM más largo
+  que `ack_deadline_seconds` se reentregaba a otro worker mientras el primero seguía. Se pagaba
+  el modelo dos veces y, con *exactly-once*, el `ack` del primero fallaba.
+- **El latido.** Mientras el handler trabaja, `modifyAckDeadline` renueva el plazo a mitad de
+  cada periodo. El plazo es el de la suscripción, leído en `subscribe`.
+  - El latido para antes del `ack`/`nack`, para que no compitan.
+  - Un rechazo permanente (*exactly-once*, `ack_id` caducado) detiene el latido. Uno transitorio
+    se reintenta en el siguiente periodo.
+  - Contadores: `lease_extensions` y `lease_failures`.
+- **El techo.** `PUBSUB__MAX_LEASE_S` (3.600 s por defecto, como `max_lease_duration` de la
+  librería de alto nivel; `0` = sin latido). Pasado ese máximo, el mensaje se deja caducar: un
+  handler colgado no lo retiene para siempre y otro worker lo reintenta.
+- **Medido con el emulador.** Plazo de 10 s, turno de 14 s, *exactly-once* y dos workers en la
+  misma suscripción:
+
+  | Caso | Entregas | `ack` rechazados | Renovaciones |
+  |---|---:|---:|---:|
+  | Con latido | 1 | 0 | ≥ 2 |
+  | Sin latido (control) | ≥ 2 (la segunda, al otro worker) | ≥ 1 | 0 |
+
+  El control destapó un detalle del adaptador: un worker no vuelve a pedir mensajes hasta acabar
+  su lote (`gather`). La reentrega solo la ve **otra réplica**, que es justo el caso de un worker
+  pool.
+- SQS y Service Bus siguen sin latido (el plazo largo de la cola lo cubre). Su equivalente
+  (`ChangeMessageVisibility`, `renew_message_lock`) queda apuntado para las fases 13 y 14.
+
+## 8. Checkpoint de entrevista
 
 Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-10).

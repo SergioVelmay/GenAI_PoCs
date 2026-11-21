@@ -141,6 +141,10 @@ class PubSubSettings(BaseModel):
     # tras un `ack` correcto, pero el `ack` puede fallar. En la nube lo fija `pubsub.tf` (activo
     # en las del orquestador).
     exactly_once: bool = False
+    # Latido del plazo de ack (10.G1): mientras el handler trabaja, el adaptador renueva el plazo
+    # a la mitad de cada periodo, hasta este máximo (como `max_lease_duration` de la librería de
+    # alto nivel). Un handler colgado deja caducar el mensaje y se reentrega. 0 = sin latido.
+    max_lease_s: int = Field(default=3600, ge=0, le=86400)
 
 
 class LLMGatewaySettings(BaseModel):

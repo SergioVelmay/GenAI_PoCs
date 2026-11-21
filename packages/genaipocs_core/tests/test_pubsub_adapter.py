@@ -6,6 +6,8 @@ El contrato completo (entrega, reintento, DLQ) está en
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable
 from typing import Any, cast
 
 import pytest
@@ -196,4 +198,164 @@ async def test_emulator_topology_carries_exactly_once() -> None:
     bus = PubSubMessageBus.from_settings(settings, GcpSettings(), project="")
 
     assert bus._topology is not None and bus._topology.exactly_once is True
+    await bus.close()
+
+
+# --- Latido del plazo de ack (10.G1) ---------------------------------------------------------
+
+
+async def _tick(_: float) -> None:
+    # Sin esperas reales: cada "periodo" del latido es una vuelta del bucle de eventos.
+    await asyncio.sleep(0)
+
+
+async def _spin(rounds: int = 50) -> None:
+    for _ in range(rounds):
+        await asyncio.sleep(0)
+
+
+async def _until(condition: Callable[[], bool]) -> None:
+    for _ in range(1000):
+        if condition():
+            return
+        await asyncio.sleep(0)
+    raise AssertionError("la condición no se cumplió")
+
+
+class LeaseSubscriber(FakeSubscriber):
+    def __init__(self, calls: list[str], errors: list[Exception]) -> None:
+        super().__init__(calls, Subscription())
+        self.errors = errors
+
+    async def modify_ack_deadline(
+        self, *, subscription: str, ack_ids: list[str], ack_deadline_seconds: int
+    ) -> None:
+        await super().modify_ack_deadline(
+            subscription=subscription, ack_ids=ack_ids, ack_deadline_seconds=ack_deadline_seconds
+        )
+        if self.errors:
+            raise self.errors.pop(0)
+
+
+def make_lease_bus(
+    errors: list[Exception] | None = None, **kwargs: Any
+) -> tuple[PubSubMessageBus, list[str]]:
+    calls: list[str] = []
+    bus = PubSubMessageBus(
+        cast(PublisherAsyncClient, FakePublisher(calls)),
+        cast(SubscriberAsyncClient, LeaseSubscriber(calls, errors or [])),
+        project=PROJECT,
+        sleep=_tick,
+        **kwargs,
+    )
+    return bus, calls
+
+
+async def test_lease_is_renewed_while_the_handler_works_and_stops_before_the_ack() -> None:
+    """Un turno más largo que el plazo no se reentrega a otro worker (heredado de la 9.G3)."""
+    bus, calls = make_lease_bus()
+
+    async def slow(message: Message) -> None:
+        await _until(lambda: calls.count("deadline a1=60") >= 2)
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), slow, ack_deadline_s=60)
+
+    # Se renueva con el plazo de la suscripción y el ack llega el último, ya sin latido.
+    assert calls[-1] == "ack a1"
+    assert set(calls[:-1]) == {"deadline a1=60"}
+    assert bus.lease_extensions == len(calls) - 1 >= 2
+    await _spin()
+    assert calls[-1] == "ack a1"  # El latido no sigue tras confirmar.
+
+
+async def test_failed_handler_stops_the_lease_and_nacks() -> None:
+    bus, calls = make_lease_bus()
+
+    async def broken(message: Message) -> None:
+        await _until(lambda: bool(calls))
+        raise ConnectionError("pasajero")
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), broken, ack_deadline_s=60)
+    await _spin()
+
+    assert calls[-1] == "deadline a1=0"  # El nack (plazo 0) es lo último.
+
+
+async def test_a_hung_handler_is_not_held_beyond_the_max_lease() -> None:
+    ticks = iter(range(0, 100_000, 1000))
+    bus, calls = make_lease_bus(max_lease_s=1500, clock=lambda: next(ticks))
+
+    async def hung(message: Message) -> None:
+        await _spin()
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), hung, ack_deadline_s=60)
+
+    # t=1000 renueva; t=2000 supera los 1500 s y se deja caducar.
+    assert calls == ["deadline a1=60", "ack a1"]
+
+
+async def test_lease_disabled_with_zero_max_lease() -> None:
+    bus, calls = make_lease_bus(max_lease_s=0)
+
+    async def slow(message: Message) -> None:
+        await _spin()
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), slow, ack_deadline_s=60)
+
+    assert calls == ["ack a1"]
+
+
+def _modify_failure(kind: str) -> exceptions.InvalidArgument:
+    return _ack_failure(kind)
+
+
+async def test_permanent_lease_failure_stops_renewing() -> None:
+    """Exactly-once: si el `ack_id` ya caducó, renovar no sirve; el mensaje volverá."""
+    bus, calls = make_lease_bus([_modify_failure("PERMANENT_FAILURE_INVALID_ACK_ID")])
+
+    async def slow(message: Message) -> None:
+        await _spin()
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), slow, ack_deadline_s=60)
+
+    assert calls == ["deadline a1=60", "ack a1"]
+    assert (bus.lease_failures, bus.lease_extensions) == (1, 0)
+
+
+async def test_transient_lease_failure_is_retried_next_period() -> None:
+    lost = exceptions.ServiceUnavailable("red")  # type: ignore[no-untyped-call]
+    bus, calls = make_lease_bus([lost])
+
+    async def slow(message: Message) -> None:
+        await _until(lambda: bus.lease_extensions >= 1)
+
+    await bus._handle("t", "s", DLQ, received(b"{}"), slow, ack_deadline_s=60)
+
+    assert bus.lease_failures == 1
+    assert bus.lease_extensions >= 1
+    assert calls[-1] == "ack a1"
+
+
+async def test_subscribe_reads_the_ack_deadline_of_the_subscription() -> None:
+    subscription = Subscription(
+        ack_deadline_seconds=120, dead_letter_policy=DeadLetterPolicy(dead_letter_topic=DLQ)
+    )
+    bus, _ = make_bus(subscription)
+    seen: list[int] = []
+
+    async def poll(*args: Any) -> None:
+        seen.append(args[-1])
+
+    bus._poll = poll  # type: ignore[method-assign,assignment]
+    await bus.subscribe("knowledge.documents", _ok)
+    await _spin()
+
+    assert seen == [120]
+
+
+async def test_settings_carry_the_max_lease() -> None:
+    settings = PubSubSettings(emulator_host="127.0.0.1:8085", max_lease_s=900)
+    bus = PubSubMessageBus.from_settings(settings, GcpSettings(), project="")
+
+    assert bus._max_lease_s == 900
     await bus.close()

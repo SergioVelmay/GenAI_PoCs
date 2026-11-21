@@ -231,6 +231,17 @@ def test_pubsub_rejects_fewer_than_five_delivery_attempts(
         Settings(_env_file=None)
 
 
+def test_pubsub_max_lease(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).pubsub.max_lease_s == 3600
+
+    monkeypatch.setenv("PUBSUB__MAX_LEASE_S", "0")
+    assert Settings(_env_file=None).pubsub.max_lease_s == 0
+
+    monkeypatch.setenv("PUBSUB__MAX_LEASE_S", "-1")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GCP_VECTOR_SEARCH__COLLECTION", "knowledge-v2")
     monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "1")

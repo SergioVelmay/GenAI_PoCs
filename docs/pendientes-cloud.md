@@ -277,6 +277,14 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
 - [ ] Comparar con el carril A: políticas `llm-token-limit` y `azure-openai-semantic-cache-lookup/store` de APIM y *usage plans* de API Gateway frente a `edge_api`.
 - [ ] Carga desde la nube con el mismo `loadtests/locustfile.py`: Azure Load Testing (admite Locust) contra el edge desplegado con varias réplicas, para separar el límite del edge del de un generador en la misma máquina. Repetir los tres perfiles y comparar con `evals/reports/load/README.md`. En AWS, *Distributed Load Testing on AWS* o Locust en ECS.
 - [ ] Prueba pequeña contra Azure OpenAI real (`LLM_PROVIDER=azure`, `LOAD_PEAK=20`, despliegue con poca cuota): ver los 429 reales, su `Retry-After` y que el breaker y la degradación se comportan como con el simulado. Presupuesto acordado antes (~0,50 $).
+- [ ] Latido del plazo en SQS (`ChangeMessageVisibility`) y Service Bus (`renew_message_lock`), como el de Pub/Sub de la 10.G1, si en las fases 13/14 un turno supera el plazo de la cola.
+
+<a id="fase-10-gcp"></a>
+
+### GCP (pasada 10.G)
+
+- [ ] **Backlog de Pub/Sub en Cloud Monitoring** (10.G1, ~0 $; con `pubsub.tf` aplicado): `uv run python scripts/queue_autoscaler.py --broker pubsub --queue support.emails --interval 30` en dry-run mientras se publica una ráfaga. Comprobar: que `pubsub_backlog_promql()` devuelve datos (nombre de la métrica en notación PromQL, `monitored_resource` y etiquetas `project_id`/`subscription_id`); el retraso real entre publicar y ver el backlog (la doc dice hasta 3 min) y si hay huecos con la suscripción vacía; capturar una respuesta real para `test_pubsub_backlog.py`; rol mínimo (`roles/monitoring.viewer`) y el coste de las lecturas de la API.
+- [ ] **Latido del plazo en Pub/Sub real** (10.G1, ~0 $): workers del orquestador con un turno más largo que el plazo (bajar `ack_deadline_seconds` a 10 en una suscripción de prueba). Ver que `lease_extensions` sube, que `ack_failures` se queda en 0 y que `subscription/expired_ack_deadlines_count` no se mueve; repetir con `PUBSUB__MAX_LEASE_S=0` como control.
 
 ## Fase 11 · Observabilidad ([doc](fase-11-observabilidad.md))
 
