@@ -172,6 +172,7 @@ Plan original (antes del cambio):
 **10.G · Escala**
 
 - **Heredado de la 8.G4:** `semantic_cache --embeddings azure` escribe en `evals/reports/azure/`; con embeddings de Gemini, a `gcp/`.
+- **Heredado de la 9.G3:** ningún adaptador de cola en la nube (SQS, Service Bus, Pub/Sub) renueva el plazo de *ack*/visibilidad mientras el handler trabaja; hoy se cubre con un plazo de 600 s en las suscripciones del orquestador. Con los worker pools, valorar el *streaming pull* de la librería de alto nivel (renueva el *lease*) o un latido propio en el adaptador, y medir `ack_failures`.
 - 10.G1: métrica de backlog de Pub/Sub para el autoescalador (`queue_metrics`), Memorystore para Valkey (rate limit y caché semántica; comprobar que su búsqueda vectorial cubre lo que usa `RedisSemanticCache`) y umbral de la caché para embeddings de Gemini (pendiente de calibrar). **Heredado de la 2.G3:** valorar compartir el registro de cachés explícitas de Gemini en Valkey (hoy cada réplica crea y paga la suya).
 - 10.G2: Terraform de workers (worker pools de Cloud Run o GKE + KEDA `gcp-pubsub`), Cloud Armor y cuotas de tokens; plan de carga con Locust en la nube.
 

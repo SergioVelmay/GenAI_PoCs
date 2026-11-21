@@ -268,7 +268,7 @@ entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y do
 | 9.G2 | `7ec458c` | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
 | 9.G3 | `496181b` | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
 | 9.G4 | `1f9d139` | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
-| 9.G5 | — | Workflows como espera humana con SLA, rol `review` y doc a tres nubes |
+| 9.G5 | `37dff05` | Workflows como espera humana con SLA, rol `review` y doc a tres nubes |
 
 ### Verificación previa (21-11-2026)
 
