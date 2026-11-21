@@ -1,13 +1,19 @@
-"""Caché semántica en Redis 8 (fase 10.3): Query Engine con índice vectorial HNSW.
+"""Caché semántica en Redis 8 o Valkey (fases 10.3 y 10.G2): índice vectorial HNSW.
 
-- Cada entrada es un hash `{genaipocs-sc}:<id>` con el espacio (TAG), el vector (FLOAT32) y la
-  respuesta; caduca sola (`EXPIRE`) y el índice la olvida al caducar.
+- Cada entrada es un hash `genaipocs-sc:<dimensiones>:<id>` con el espacio (TAG), el vector
+  (FLOAT32) y la respuesta; caduca sola (`EXPIRE`) y el índice la olvida al caducar.
 - La búsqueda es KNN filtrado por espacio: `(@scope:{<espacio>})=>[KNN k @embedding $vec]`.
   El espacio es un hash hexadecimal (`CacheScope.key()`): sin caracteres que escapar en un TAG.
 - Un índice por dimensión de embedding: cambiar de modelo de embeddings no mezcla vectores.
+- **Portable a Valkey** (10.G2): la búsqueda vectorial de Memorystore for Valkey solo admite
+  campos `VECTOR`, `TAG` y `NUMERIC` (sin `TEXT`), no tiene `SORTBY` y no acepta `AS` dentro del
+  KNN. Así que el índice solo declara lo que se filtra (espacio) y lo que se busca (vector); la
+  pregunta, las facetas y la respuesta son campos del hash que se devuelven con `RETURN` sin
+  indexarse; la distancia se lee de `__embedding_score` (el nombre por defecto en los dos
+  motores) y se ordena aquí. Se prueba contra Redis 8 y contra `valkey-bundle`.
 
 Es lo que hacen por debajo la política `azure-openai-semantic-cache-lookup` de APIM (con Azure
-Managed Redis) y ElastiCache (Valkey) con búsqueda vectorial en AWS.
+Managed Redis), ElastiCache (Valkey) en AWS y Memorystore for Valkey en GCP.
 """
 
 from __future__ import annotations
@@ -17,19 +23,21 @@ from collections.abc import Sequence
 from typing import Self
 
 from redis.asyncio import Redis
-from redis.asyncio.retry import Retry
-from redis.backoff import NoBackoff
-from redis.commands.search.field import TagField, TextField, VectorField
+from redis.commands.search.field import TagField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 from redis.exceptions import RedisError, ResponseError
 
-from genaipocs_core.config import ScaleRedisSettings
+from genaipocs_core.adapters.redis_client import scale_redis_client
+from genaipocs_core.config import GcpSettings, ScaleRedisSettings
 from genaipocs_core.ports.semantic_cache import (
     CacheCandidate,
     CacheEntry,
     SemanticCacheUnavailableError,
 )
+
+# Nombre que dan Redis y Valkey a la distancia del KNN cuando no se usa `AS`.
+SCORE_FIELD = "__embedding_score"
 
 
 def _pack(vector: Sequence[float]) -> bytes:
@@ -37,32 +45,28 @@ def _pack(vector: Sequence[float]) -> bytes:
 
 
 class RedisSemanticCache:
-    def __init__(
-        self, client: Redis, *, dimensions: int, key_prefix: str = "{genaipocs-sc}"
-    ) -> None:
+    def __init__(self, client: Redis, *, dimensions: int, key_prefix: str = "genaipocs-sc") -> None:
         self._client = client
         self._dimensions = dimensions
-        self._prefix = key_prefix
+        # Sin *hash tag*: Valkey rechaza un `PREFIX` de índice con `{...}` (medido en la 10.G2) y
+        # aquí no hace falta (cada operación toca una clave; en clúster, la búsqueda recorre
+        # todos los shards). Se quitan las llaves de un prefijo antiguo (`{genaipocs-sc}`).
+        self._prefix = key_prefix.strip("{}")
         # El nombre lleva el prefijo: dos cachés (o tests) con prefijos distintos no comparten
         # índice (un índice solo indexa las claves del prefijo con el que se creó).
-        self._index = f"idx:{key_prefix.strip('{}')}:{dimensions}"
+        self._index = f"idx:{self._prefix}:{dimensions}"
         self._ready = False
 
     @classmethod
     def from_settings(
-        cls, settings: ScaleRedisSettings, *, dimensions: int, key_prefix: str = "{genaipocs-sc}"
+        cls,
+        settings: ScaleRedisSettings,
+        *,
+        dimensions: int,
+        key_prefix: str = "genaipocs-sc",
+        gcp: GcpSettings | None = None,
     ) -> Self:
-        client = Redis(
-            host=settings.host,
-            port=settings.port,
-            db=settings.db,
-            password=settings.password.get_secret_value() or None,
-            socket_timeout=settings.timeout_seconds,
-            socket_connect_timeout=settings.timeout_seconds,
-            retry=Retry(NoBackoff(), 0),
-            max_connections=settings.max_connections,
-        )
-        return cls(client, dimensions=dimensions, key_prefix=key_prefix)
+        return cls(scale_redis_client(settings, gcp), dimensions=dimensions, key_prefix=key_prefix)
 
     async def ensure_index(self) -> None:
         if self._ready:
@@ -73,7 +77,6 @@ class RedisSemanticCache:
             await self._client.ft(self._index).create_index(
                 [
                     TagField("scope"),
-                    TextField("question", no_stem=True),
                     VectorField(
                         "embedding",
                         "HNSW",
@@ -95,9 +98,8 @@ class RedisSemanticCache:
     ) -> list[CacheCandidate]:
         self._check(embedding)
         query = (
-            Query(f"(@scope:{{{scope}}})=>[KNN {limit} @embedding $vec AS distance]")
-            .sort_by("distance")
-            .return_fields("distance", "scope", "question", "facets", "answer")
+            Query(f"(@scope:{{{scope}}})=>[KNN {limit} @embedding $vec]")
+            .return_fields(SCORE_FIELD, "scope", "question", "facets", "answer")
             .paging(0, limit)
             .dialect(2)
         )
@@ -119,8 +121,11 @@ class RedisSemanticCache:
                 embedding=(),
                 payload=_text(doc.answer),
             )
-            # Redis devuelve distancia coseno (1 - similitud).
-            candidates.append(CacheCandidate(entry, 1.0 - float(doc.distance)))
+            # Distancia coseno (1 - similitud).
+            distance = float(_text(getattr(doc, SCORE_FIELD)))
+            candidates.append(CacheCandidate(entry, 1.0 - distance))
+        # Sin `SORTBY` en Valkey: el orden (más parecido primero) se garantiza aquí.
+        candidates.sort(key=lambda candidate: candidate.similarity, reverse=True)
         return candidates
 
     async def put(self, entry: CacheEntry, *, ttl_seconds: int) -> None:

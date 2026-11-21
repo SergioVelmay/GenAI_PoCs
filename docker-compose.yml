@@ -154,6 +154,34 @@ services:
       timeout: 5s
       retries: 10
 
+  # Valkey con el módulo de búsqueda (10.G2): el motor de Memorystore for Valkey (VALKEY_9_0) y de
+  # ElastiCache con Valkey. Los tests de integración del rate limiter y de la caché semántica se
+  # repiten contra Redis 8 y contra este. El entrypoint del bundle añade los módulos
+  # (--loadmodule) aunque se cambie el comando. Mismo usuario y contraseña que redis-scale.
+  valkey-scale:
+    image: valkey/valkey-bundle:9.0.8
+    profiles: [scale]
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --requirepass
+      - ${SCALE_REDIS__PASSWORD}
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-lru
+    ports:
+      - "127.0.0.1:6381:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "${SCALE_REDIS__PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
   # Worker sintético de la demo de autoescalado (fase 10.6): sin LLM ni coste. Arranca con 0
   # réplicas; las mueve scripts/queue_autoscaler.py según la cola demo.jobs (como KEDA).
   queue-worker:

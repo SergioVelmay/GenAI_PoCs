@@ -13,7 +13,7 @@ from collections.abc import AsyncIterator
 import pytest
 
 from genaipocs_core.adapters.redis_rate_limit import RedisRateLimiter
-from genaipocs_core.config import ScaleRedisSettings, Settings
+from genaipocs_core.config import ScaleRedisSettings
 from genaipocs_core.ports import RateLimiterUnavailableError, RateLimitRequest, RateLimitRule
 
 pytestmark = pytest.mark.integration
@@ -34,11 +34,9 @@ async def limiter(scale_redis: ScaleRedisSettings) -> AsyncIterator[RedisRateLim
 
 
 async def test_concurrent_replicas_never_grant_more_than_the_limit(
-    limiter: RedisRateLimiter,
+    limiter: RedisRateLimiter, scale_redis: ScaleRedisSettings
 ) -> None:
-    other_replica = RedisRateLimiter.from_settings(
-        Settings().scale_redis, key_prefix=limiter._prefix
-    )
+    other_replica = RedisRateLimiter.from_settings(scale_redis, key_prefix=limiter._prefix)
     request = [RateLimitRequest("user:ana", RULE)]
     try:
         decisions = await asyncio.gather(

@@ -55,3 +55,6 @@ evals/reports/load/*.html
 .idea/
 .DS_Store
 Thumbs.db
+
+# mermaid-cli fijado para validar diagramas (scripts/validate_mermaid.py); se instala con npm ci
+tools/mermaid/node_modules/

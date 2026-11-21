@@ -391,6 +391,8 @@ uv run pytest packages/genaipocs_core/tests/test_pubsub_adapter.py
 - **Límite conocido** (de los tres adaptadores de nube, no solo Pub/Sub): ninguno renueva el plazo
   (*lease*) mientras el handler trabaja. Se cubre con un plazo largo; la renovación automática es
   del *streaming pull* de la librería de alto nivel (candidata a la 10.G con los worker pools).
+  **Resuelto para Pub/Sub en la [10.G1](fase-10-escala.md#7-gcp-pasada-10g)** con un latido de
+  `modifyAckDeadline` en el propio adaptador.
 
 ### 9.G4 · A2A con ID tokens de Google y Cloud Run
 

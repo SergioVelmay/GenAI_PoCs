@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from rag_evals.semantic_cache import (
     load_cases,
     lowest_safe,
     recommend,
+    report_dir,
     run_eval,
     write_report,
 )
@@ -82,8 +84,53 @@ def test_real_embeddings_cost_is_a_fraction_of_a_cent() -> None:
     assert estimated_cost(load_cases(DATASET_PATH)) < Decimal("0.0001")
 
 
-@pytest.mark.parametrize("backend", ["hashing", "azure"])
+@pytest.mark.parametrize("backend", ["hashing", "azure", "bedrock", "gcp"])
 def test_every_backend_has_a_floor(backend: str) -> None:
     from rag_evals.semantic_cache import MIN_HIT_RATE
 
     assert 0 < MIN_HIT_RATE[backend] <= 1
+
+
+class QueryOnlyEmbedding(HashingEmbedding):
+    """Como Gemini: documento y consulta dan vectores distintos. La calibración debe usar la
+    consulta, que es lo que embebe la caché en ejecución (10.G3)."""
+
+    def __init__(self) -> None:
+        super().__init__(1024)
+        self.queries = 0
+
+    async def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
+        raise AssertionError("la caché no embebe documentos: falsearía el umbral")
+
+    async def embed_query(self, text: str) -> list[float]:
+        self.queries += 1
+        return await super().embed_query(text)
+
+
+async def test_calibration_embeds_like_the_cache_at_runtime() -> None:
+    cases = load_cases(DATASET_PATH)
+    embeddings = QueryOnlyEmbedding()
+
+    report = await run_eval(cases, embeddings, backend="hashing", dataset="v1")
+
+    texts = {text for case in cases for text in (case.seed, case.probe)}
+    assert embeddings.queries == len(texts)  # Una vez por texto, aunque se barran 11 umbrales.
+    assert report.recommended is not None
+
+
+@pytest.mark.parametrize(
+    ("backend", "folder"),
+    [("hashing", ""), ("azure", "azure"), ("bedrock", "aws"), ("gcp", "gcp")],
+)
+def test_reports_with_cost_go_to_the_folder_of_their_cloud(backend: str, folder: str) -> None:
+    """Heredado de la 8.G4: una calibración con Gemini no sobrescribe la de Azure."""
+    base = Path("evals/reports")
+
+    assert report_dir(base, backend) == (base / folder if folder else base)  # type: ignore[arg-type]
+
+
+def test_gemini_embeddings_cost_more_but_still_a_fraction_of_a_cent() -> None:
+    cases = load_cases(DATASET_PATH)
+
+    assert estimated_cost(cases, "gcp") > estimated_cost(cases, "azure")
+    assert estimated_cost(cases, "gcp") < Decimal("0.001")

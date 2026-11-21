@@ -8,6 +8,13 @@ de docker compose. Por defecto en *dry-run* (solo informa); `--apply` mueve rép
     uv run python scripts/queue_autoscaler.py --apply --duration 210 \
         --report evals/reports/autoscaling.md
     uv run python -m orchestrator.load_worker --publish 1200   # en otra terminal: la ráfaga
+
+Con `--broker pubsub` (10.G1) lee el backlog de la suscripción `<cola>.<sufijo>` en Cloud
+Monitoring (PromQL; el emulador no publica métricas): sirve en dry-run para ajustar la política
+con el tráfico real de Pub/Sub antes de dárselo a CREMA (`queue_workers.tf` de GCP). La métrica
+llega con 1-3 min de retraso: el intervalo corto no la hace más fresca.
+
+    uv run python scripts/queue_autoscaler.py --broker pubsub --queue support.emails --interval 30
 """
 
 from __future__ import annotations
@@ -22,10 +29,22 @@ import time
 from pathlib import Path
 
 from genaipocs_core.adapters.compose_scaler import DockerComposeScaler
-from genaipocs_core.adapters.queue_metrics import RabbitMQManagementMetrics
+from genaipocs_core.adapters.queue_metrics import (
+    PubSubBacklogMetrics,
+    RabbitMQManagementMetrics,
+)
 from genaipocs_core.application.autoscaler import QueueAutoscaler, ScalingEvent, ScalingTarget
 from genaipocs_core.config import get_settings
 from genaipocs_core.domain.autoscaling import ScalingPolicy
+
+
+def build_metrics(broker: str) -> RabbitMQManagementMetrics | PubSubBacklogMetrics:
+    settings = get_settings()
+    if broker == "pubsub":
+        return PubSubBacklogMetrics.from_settings(
+            settings.pubsub, settings.gcp, project=settings.pubsub_project()
+        )
+    return RabbitMQManagementMetrics.from_settings(settings.rabbitmq)
 
 
 def render(events: list[ScalingEvent], policy: ScalingPolicy, started: float) -> str:
@@ -58,6 +77,12 @@ def render(events: list[ScalingEvent], policy: ScalingPolicy, started: float) ->
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--broker",
+        choices=["rabbitmq", "pubsub"],
+        default="rabbitmq",
+        help="De dónde sale la profundidad: API de gestión de RabbitMQ o Cloud Monitoring",
+    )
     parser.add_argument("--queue", default="demo.jobs")
     parser.add_argument("--service", default="queue-worker")
     parser.add_argument("--target", type=int, default=20, help="Mensajes por réplica")
@@ -85,7 +110,10 @@ async def main() -> None:
         scale_down_window_seconds=args.window,
         cooldown_seconds=args.cooldown,
     )
-    metrics = RabbitMQManagementMetrics.from_settings(get_settings().rabbitmq)
+    try:
+        metrics = build_metrics(args.broker)
+    except ValueError as exc:
+        parser.error(str(exc))
     controller = QueueAutoscaler(
         metrics,
         DockerComposeScaler(),

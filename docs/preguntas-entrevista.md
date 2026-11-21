@@ -47,9 +47,9 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Token de usuario hacia una API propia (OBO) | Entra On-Behalf-Of | AgentCore Identity (token exchange RFC 8693) | Sin OBO nativo: el gateway firma con `signJwt` de IAM (sin claves); Agent Identity (3LO) para terceros |
 | Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge | Pub/Sub (temas + suscripciones, *dead-letter topic*), Eventarc |
 | Emulador local de colas | Emulador de Service Bus (EULA + SQL Server) | ElasticMQ, LocalStack | Emulador oficial de Pub/Sub (perfil `pubsub`) |
-| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (cuotas), Cloud Armor (*rate limiting*), Memorystore (Valkey) |
-| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS | Worker pools de Cloud Run, KEDA `gcp-pubsub` en GKE |
-| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS | Locust en GKE o Cloud Run jobs (sin servicio propio) |
+| Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (`LLMTokenQuota`), Cloud Armor (`throttle`, `rate_based_ban`; solo tras un ALB), Memorystore for Valkey (búsqueda vectorial sin `TEXT` ni `SORTBY`; IAM auth) |
+| Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS | Worker pools de Cloud Run + CREMA (KEDA como servicio; escalador `prometheus`: el `gcp-pubsub` está obsoleto). El backlog solo está en Cloud Monitoring (1-3 min de retraso) |
+| Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS | Locust en un Cloud Run job con `--processes` (sin servicio propio; sin red entre instancias) o en GKE Autopilot |
 | Multi-agente gestionado | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (protocolo A2A), Bedrock Agents (*multi-agent collaboration*) | Agent Runtime con A2A, multi-agente de ADK |
 | Flujo durable con espera humana | Durable Functions, Logic Apps | Step Functions (*wait for callback*) | Workflows (*callbacks*) |
 | Cómputo | Functions, Container Apps, AKS | Lambda, ECS Fargate / App Runner, EKS | Cloud Run functions, Cloud Run, GKE |
@@ -1134,6 +1134,72 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 
    Dejaría fuera el autoescalado fino y la caché multi-región. Antes de la venta pediría ampliar
    la cuota del modelo con el proveedor, porque es el techo que ninguna réplica supera.
+
+### GCP (pasada 10.G)
+
+**Técnicas**
+
+1. **¿Cómo escalas workers de Pub/Sub si su API no dice cuántos mensajes hay?** Con Cloud
+   Monitoring: `subscription/num_unacked_messages_by_region`, consultada con PromQL. Se muestrea
+   cada 60 s y aparece hasta 2 min después.
+   - En GCP, el escalador es CREMA, que es KEDA como servicio de Cloud Run, sobre un worker pool.
+   - En AWS, SQS da el número al momento por API. En Azure, KEDA lee Service Bus directamente.
+
+   Con ese retraso, el enfriamiento antes de bajar a cero tiene que ser mayor que el desfase. Y un
+   hueco en la métrica no se lee como "cola vacía": el controlador no toca las réplicas.
+2. **Un turno del agente tarda más que el plazo de ack: ¿qué pasa y cómo lo arreglas?** Pub/Sub
+   da el mensaje por perdido y se lo entrega a otra réplica: se paga el modelo dos veces y, con
+   *exactly-once*, el `ack` del primero falla. Lo arreglo con un latido de `modifyAckDeadline`
+   a mitad de cada plazo mientras el handler trabaja, con un techo (`max_lease`) para que un
+   handler colgado no retenga el mensaje para siempre.
+   - Lo medí con el emulador: con latido, 1 entrega; sin latido, 2.
+   - En AWS es `ChangeMessageVisibility`; en Service Bus, `renew_message_lock`.
+3. **Pasas la caché semántica de Redis a un Valkey gestionado: ¿qué puede romperse?** La
+   compatibilidad de protocolo no cubre los módulos. Probándolo contra Valkey en local salieron
+   tres cosas que con Redis 8 no se veían:
+   - un *hash tag* en el prefijo del índice, que Valkey rechaza;
+   - RESP3, porque Valkey contesta a `FT.SEARCH` con otra forma: se fija RESP2;
+   - `DROPINDEX DD`, que Valkey no tiene.
+
+   Además, Memorystore no admite `TEXT` ni `SORTBY`: el índice se queda en TAG + VECTOR y el
+   orden se hace en el cliente. Por eso los tests de integración corren contra los dos motores
+   en la CI. En AWS, ElastiCache con Valkey tiene el mismo riesgo; en Azure, Managed Redis es
+   Redis.
+4. **¿Por qué Cloud Armor y además un rate limiter en el edge?** Hacen cosas distintas. Cloud
+   Armor, en el balanceador, corta inundaciones por IP o por token antes de que lleguen a Cloud Run
+   (y a la factura), pero no sabe el plan del usuario: va dentro del JWT. El edge aplica el límite
+   fino por plan con GCRA en Valkey y devuelve el `Retry-After` exacto. Los umbrales de Cloud Armor
+   son holgados (detrás de un NAT hay mucha gente). En AWS: AWS WAF con *rate-based rules* delante
+   del ALB; en Azure: Front Door WAF o APIM.
+5. **¿Cómo harías una prueba de carga en GCP si no hay un Azure Load Testing?** Con el mismo
+   locustfile en un Cloud Run job de 8 vCPU y `--processes -1`: un maestro y un worker por CPU
+   dentro del contenedor, porque el modo distribuido de Locust necesita red entre maestro y
+   workers, y las instancias de Cloud Run no se ven. Los CSV van a Cloud Storage y se genera el
+   mismo informe que en local. Por defecto apunta al edge tras Cloud Armor, así que prueba también
+   el perímetro. Para más carga, GKE Autopilot efímero. En AWS sería la solución *Distributed Load
+   Testing* o Locust en ECS.
+
+**Negocio y stakeholders**
+
+1. **Con 10 réplicas, ¿cuántas cachés explícitas de Gemini pagas por el mismo prompt?** Sin
+   coordinación, 10: diez escrituras y diez almacenamientos por hora del mismo texto. Con un
+   registro compartido en Valkey (`SET NX` con el TTL de la caché) se paga una: las demás la
+   reutilizan y, si dos la crean a la vez, la perdedora borra la suya al momento. Lo que se acepta:
+   que ninguna réplica borre al apagarse y que la caché viva hasta su TTL. En AWS y Azure no hace
+   falta, porque la caché del prompt es implícita y del proveedor.
+2. **El autoescalador de GCP cuesta 40-50 $/mes aunque no haya tráfico: ¿merece la pena?** En Cloud
+   Run, los worker pools no escalan solos, y CREMA es un servicio siempre encendido. Para el
+   piloto, lo apago fuera de las ventanas de venta (Terraform, efímero). En producción, se compara
+   con lo que ahorra: workers a 0 la mayor parte del día y, en un pico, hasta el techo de la cuota
+   del modelo. Si el tráfico fuera constante, un mínimo fijo de instancias sin CREMA sería más
+   barato y más simple.
+3. **¿Dónde pondrías el techo de tokens del modelo: en el gateway de la nube o en el nuestro?** En
+   el nuestro, porque es el único que conoce el plan del cliente, el coste estimado de cada llamada
+   y la alternativa (degradar a una respuesta extractiva en lugar de devolver 429). Las políticas
+   gestionadas (token policies del Agent Gateway, en *preview*; `llm-token-limit` de APIM) las
+   usaría como red de seguridad por proyecto, para que un error de configuración no dispare la
+   factura. A dirección se lo contaría así: el freno fino lo pone la aplicación y el de emergencia,
+   la nube.
 
 <a id="fase-11"></a>
 

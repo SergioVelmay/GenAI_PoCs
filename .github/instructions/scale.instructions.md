@@ -19,10 +19,12 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - La similitud solo **propone** candidatos; el dominio (`domain/semantic_cache.py`) exige además las mismas **facetas** (ciudades con alias, categorías, operación —reembolso, cambio de fecha, cesión—, IDs `evt_`/`ven_` y números). Sin guarda, la misma pregunta sobre otra ciudad es un falso acierto.
 - **Espacio** (`CacheScope.key()`): ACL del plan + idioma + `index_version` + modo. Subir `SEMANTIC_CACHE__INDEX_VERSION` invalida todo sin recorrer claves.
 - **Nunca** se busca, guarda ni fusiona lo personal (`ord_`, `cus_`, emails, "mi pedido", "my order"...). Solo se guardan respuestas con citas (no abstenciones).
-- El umbral depende del modelo de embeddings: `CALIBRATED_THRESHOLDS` (hashing 0,55). Un modelo sin calibrar no activa la caché. Calibrar: `uv run python -m rag_evals.semantic_cache [--embeddings azure --budget-usd 0.01]`; la CI ejecuta `--check` (0 falsos aciertos con guarda en todo el barrido, 0 personales guardadas, tasa mínima de aciertos).
+- El umbral depende del modelo de embeddings: `CALIBRATED_THRESHOLDS` (hashing 0,55). Un modelo sin calibrar no activa la caché. Calibrar: `uv run python -m rag_evals.semantic_cache [--embeddings azure|bedrock|gcp --budget-usd 0.01]`; la CI ejecuta `--check` (0 falsos aciertos con guarda en todo el barrido, 0 personales guardadas, tasa mínima de aciertos).
 - Si el almacén cae, la caché se salta (`unavailable`), nunca tumba la petición. Un acierto sigue contando para el rate limit del usuario.
 - En el edge, `CachedAssistant` fusiona preguntas idénticas en curso (*single-flight*, por réplica) y expone `X-Cache: HIT|MISS|COALESCED|BYPASS`.
-- Redis: índice `idx:<prefijo>:<dimensiones>` (HNSW, coseno) sobre hashes `{genaipocs-sc}:<dim>:<id>` con `EXPIRE`. El campo de la respuesta se llama `answer` (`payload` choca con `Document` de redis-py).
+- Redis: índice `idx:<prefijo>:<dimensiones>` (HNSW, coseno) sobre hashes `genaipocs-sc:<dim>:<id>` con `EXPIRE`. El campo de la respuesta se llama `answer` (`payload` choca con `Document` de redis-py).
+- **Portable a Valkey** (10.G2, Memorystore for Valkey y ElastiCache): el índice solo declara `scope` (TAG) y `embedding` (VECTOR); nada de `TEXT`, `SORTBY` ni `AS` en el KNN (la distancia sale de `__embedding_score` y se ordena en el adaptador); el prefijo **sin hash tag** (Valkey rechaza `{...}` en el `PREFIX`; las llaves de un prefijo antiguo se quitan); `FT.DROPINDEX` sin `DD`. El cliente compartido (`adapters/redis_client.py`, `scale_redis_client`) fuerza **RESP2**: con RESP3, Valkey contesta a `FT.SEARCH` con un array y el parser de redis-py espera un mapa. Los tests de integración del rate limiter y de la caché se repiten contra Redis 8 (`:6380`) y `valkey-scale` (`valkey/valkey-bundle:9.0.8`, `:6381`), en local y en la CI.
+- Memorystore: `SCALE_REDIS__AUTH=gcp_iam` (token de acceso de Google como contraseña, pedido en cada conexión nueva; `roles/memorystore.dbConnectionUser`) y `SCALE_REDIS__TLS=true` + `SCALE_REDIS__TLS_CA_FILE`. Terraform en `infra/terraform/gcp/memorystore.tf` (`memorystore_enabled`, salida `scale_redis_env`).
 
 ## Streaming (10.4)
 
@@ -42,9 +44,9 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 
 - Regla pura en `domain/autoscaling.py` (la de KEDA `queueLength`): `ceil(mensajes / objetivo)` entre mínimo y máximo, activación desde 0, subida limitada por paso (+N o el doble), bajada al máximo pedido en la ventana de estabilización y a 0 solo tras el enfriamiento. Se escala por la cola (listos + sin confirmar), no por CPU: un worker de LLM espera al modelo.
 - `CapacityPlan` (ley de Little + cuota TPM): el `max_replicas` sensato es el techo de la cuota (`max_useful_replicas`); por encima solo hay 429. `uv run python scripts/capacity_plan.py`.
-- Controlador `application/autoscaler.py` (`QueueAutoscaler`): dry-run por defecto; si no puede leer la cola, no toca nada. Métricas: `RabbitMQManagementMetrics` (API de gestión, puerto 15672) y `SqsQueueMetrics`; actuador `DockerComposeScaler` (`up -d --no-recreate --scale`, cuenta las réplicas que existen, como `spec.replicas`).
+- Controlador `application/autoscaler.py` (`QueueAutoscaler`): dry-run por defecto; si no puede leer la cola, no toca nada. Métricas: `RabbitMQManagementMetrics` (API de gestión, puerto 15672), `SqsQueueMetrics` y `PubSubBacklogMetrics` (10.G1: Cloud Monitoring con PromQL, `pubsub_backlog_promql()` es la fuente única de la consulta; 1-3 min de retraso; sin muestra = `QueueUnavailableError` salvo `value_if_null`; el emulador no tiene métricas; `queue_autoscaler.py --broker pubsub`); actuador `DockerComposeScaler` (`up -d --no-recreate --scale`, cuenta las réplicas que existen, como `spec.replicas`).
 - Demo sin coste: `queue-worker` (perfil `scale`, 0 réplicas, `orchestrator.load_worker`) + `scripts/queue_autoscaler.py --apply` + `python -m orchestrator.load_worker --publish N`. Informe en `evals/reports/autoscaling.md`.
-- Nube (Terraform, `queue_workers_enabled=false`): Container Apps con regla KEDA `azure-servicebus` e identidad (`queue_workers.tf` de Azure) y ECS Fargate con *target tracking* sobre mensajes por tarea (`queue_workers.tf` de AWS).
+- Nube (Terraform, `queue_workers_enabled=false`): Container Apps con regla KEDA `azure-servicebus` e identidad (`queue_workers.tf` de Azure) y ECS Fargate con *target tracking* sobre mensajes por tarea (`queue_workers.tf` de AWS). GCP (10.G4): worker pool de Cloud Run en `MANUAL` (`ignore_changes` sobre las instancias) escalado por **CREMA** (KEDA como servicio de Cloud Run, configuración en Parameter Manager) con el escalador `prometheus` y la **misma PromQL** que `pubsub_backlog_promql()` (un test de Python lo comprueba); y `edge_armor.tf`: edge en Cloud Run solo accesible por un ALB externo con Cloud Armor (baneo por IP, tope por IP sin token y por token), capa gruesa delante del GCRA fino del edge.
 
 ## Pruebas de carga (10.7)
 
@@ -53,12 +55,12 @@ description: "Escala: edge, admisión, rate limiting distribuido y resiliencia d
 - Informe: `scripts/load_report.py <prefijos> --out evals/reports/load/README.md`. Se versionan `_stats.csv`, `_failures.csv`, `_ready.json` y el informe; no el histórico ni el HTML.
 - **Un bulkhead por ruta**: `/cases` tiene su compartimento (`EDGE__CASES_CAPACITY`, `AdmissionController.bulkhead()`) con el mismo rate limit por usuario.
 - **Degradación**: con el modelo saturado antes del primer trozo, `RagAssistant` responde en modo extractivo con `degraded=true` (no se cachea). `EDGE__DEGRADE_ON_SATURATION`. En el edge, `LLM_GATEWAY__MAX_QUEUE_SECONDS` corto (2 s): lo interactivo no espera cuota 10 s.
-- La carga y el edge en la misma máquina comparten CPU (Locust avisa): las colas largas de p99 en local son en parte del generador. Para cifras finales, Azure Load Testing con el mismo locustfile.
+- La carga y el edge en la misma máquina comparten CPU (Locust avisa): las colas largas de p99 en local son en parte del generador. Para cifras finales, Azure Load Testing con el mismo locustfile; en GCP (10.G5), sin servicio gestionado, un Cloud Run job con la imagen de `loadtests/Dockerfile` (Locust del lock + `edge_api`, `--processes -1` en 8 vCPU: el modo distribuido no funciona sin red entre instancias), CSV en Cloud Storage y clave de firma de los tokens de prueba desde Secret Manager (`infra/terraform/gcp/load_test.tf`).
 
 ## Edge (`services/edge_api`)
 
 ```powershell
-docker compose --profile scale up -d                       # Redis 8 en 127.0.0.1:6380
+docker compose --profile scale up -d                       # Redis 8 en :6380 y Valkey en :6381
 $env:RATE_LIMIT__BACKEND = "redis"
 uv run uvicorn edge_api.app:create_app --factory --port 8200
 uv run python -m edge_api.tokens --user ops-ana --plan internal   # token de desarrollo

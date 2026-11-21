@@ -339,6 +339,8 @@ $env:LLM_GATEWAY__ENGINE="litellm"; uv run python scripts/llm_gateway_demo.py --
 - **Límite:** el registro vive en el proceso, así que cada réplica crea su propia caché del mismo
   prefijo. En producción se compartiría el nombre (p. ej. en Redis, como la cuota de la 10.1)
   para pagar un solo almacenamiento.
+  **Resuelto en la [10.G3](fase-10-escala.md#7-gcp-pasada-10g):** `GEMINI__CACHE_REGISTRY=redis`
+  comparte el registro en el Redis/Valkey de escala.
 
 ```powershell
 uv run python scripts/llm_cache_benchmark.py --provider gcp --tier cheap --gemini-cache implicit

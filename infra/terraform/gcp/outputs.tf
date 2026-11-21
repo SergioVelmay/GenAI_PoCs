@@ -122,3 +122,53 @@ output "guardrails_env" {
     GCP_SENSITIVE_DATA__INSPECT_TEMPLATE = one(google_data_loss_prevention_inspect_template.pii[*].template_id)
   }
 }
+
+output "scale_redis_env" {
+  description = "Variables del edge para usar Memorystore (vacío sin memorystore_enabled). La CA, en memorystore_server_ca."
+  value = var.memorystore_enabled ? {
+    SCALE_REDIS__HOST = try(google_memorystore_instance.scale[0].endpoints[0].connections[0].psc_auto_connection[0].ip_address, "")
+    SCALE_REDIS__PORT = tostring(try(google_memorystore_instance.scale[0].endpoints[0].connections[0].psc_auto_connection[0].port, 6379))
+    SCALE_REDIS__AUTH = "gcp_iam"
+    SCALE_REDIS__TLS  = "true"
+    # Guardar la salida memorystore_server_ca en un fichero y apuntar aquí su ruta.
+    SCALE_REDIS__TLS_CA_FILE = "memorystore-server-ca.pem"
+    RATE_LIMIT__BACKEND      = "redis"
+    SEMANTIC_CACHE__BACKEND  = "redis"
+  } : {}
+}
+
+output "memorystore_server_ca" {
+  description = "CA del servidor de Memorystore en PEM (pública): terraform output -raw memorystore_server_ca > memorystore-server-ca.pem"
+  value       = var.memorystore_enabled ? join("\n", flatten([for ca in try(google_memorystore_instance.scale[0].managed_server_ca[0].ca_certs, []) : ca.certificates])) : ""
+}
+
+output "queue_workers" {
+  description = "Worker pool de triaje, servicio de CREMA y su configuración (null sin queue_workers_enabled)."
+  value = local.queue_workers == 1 ? {
+    worker_pool    = google_cloud_run_v2_worker_pool.triage[0].name
+    crema_service  = google_cloud_run_v2_service.crema[0].name
+    crema_config   = google_parameter_manager_parameter_version.crema[0].id
+    backlog_promql = local.queue_backlog_query
+  } : null
+}
+
+output "edge_url" {
+  description = "URL pública del edge tras el balanceador con Cloud Armor (null sin edge_armor_enabled)."
+  value = local.edge_armor == 1 ? (
+    local.edge_https == 1 ? "https://${var.edge_domain}" : "http://${google_compute_global_address.edge[0].address}"
+  ) : null
+}
+
+output "load_test" {
+  description = "Cómo lanzar la prueba de carga y bajar los CSV (null sin load_test_enabled)."
+  value = local.load_test == 1 ? {
+    run      = "gcloud run jobs execute ${google_cloud_run_v2_job.load_test[0].name} --region ${var.region} --wait"
+    results  = "gcloud storage cp -r gs://${google_storage_bucket.load_results[0].name}/<ejecución> evals/reports/load/gcp/"
+    host     = local.load_test_host
+    peak     = var.load_test_peak
+    profile  = var.load_test_profile
+    vcpu     = var.load_test_cpu
+    report   = "uv run python scripts/load_report.py evals/reports/load/gcp/<ejecución>/${var.load_test_profile} --out evals/reports/load/gcp/README.md"
+    see_also = "docs/fase-10-escala.md (10.G5)"
+  } : null
+}

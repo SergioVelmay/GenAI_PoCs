@@ -37,7 +37,7 @@ from google.genai import Client, errors, types
 
 from genaipocs_core.adapters.gcp_auth import gcp_credentials
 from genaipocs_core.adapters.gemini_cache import CachePrefix, ExplicitCache
-from genaipocs_core.config import GcpSettings, GeminiSettings, ThinkingLevel
+from genaipocs_core.config import GcpSettings, GeminiSettings, ScaleRedisSettings, ThinkingLevel
 from genaipocs_core.ports import (
     ChatMessage,
     LLMContentFilterError,
@@ -351,13 +351,22 @@ class GeminiLLM:
         *,
         model: str,
         thinking_level: ThinkingLevel = "",
+        scale_redis: ScaleRedisSettings | None = None,
     ) -> Self:
         client = gemini_client(gcp, gemini)
-        explicit = (
-            ExplicitCache(client.aio.caches, ttl_seconds=gemini.cache_ttl_seconds)
-            if gemini.cache == "explicit"
-            else None
-        )
+        explicit = None
+        if gemini.cache == "explicit":
+            registry = None
+            if gemini.cache_registry == "redis":
+                # Registro compartido entre réplicas (10.G3): una sola caché por prefijo.
+                from genaipocs_core.adapters.redis_gemini_cache import RedisCacheRegistry
+
+                registry = RedisCacheRegistry.from_settings(
+                    scale_redis or ScaleRedisSettings(), gcp=gcp
+                )
+            explicit = ExplicitCache(
+                client.aio.caches, ttl_seconds=gemini.cache_ttl_seconds, registry=registry
+            )
         return cls(client.aio.models, model, thinking_level=thinking_level, explicit_cache=explicit)
 
     async def _request(

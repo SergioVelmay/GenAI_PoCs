@@ -53,6 +53,13 @@ jobs:
       - name: Reglas de agentes al día
         run: uv run python scripts/sync_agent_rules.py --check
 
+      # Diagramas Mermaid de docs/, README y AGENTS (10.G5): mermaid-cli fijado con lockfile en
+      # tools/mermaid (sin npx). Un diagrama que no renderiza no llega a main.
+      - name: Diagramas Mermaid
+        run: |
+          npm ci --prefix tools/mermaid --no-fund --no-audit
+          uv run python scripts/validate_mermaid.py
+
       - name: Generador de datos sintéticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
 
@@ -248,6 +255,17 @@ jobs:
           - 6380:6379
         options: >-
           --health-cmd "redis-cli ping"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 10
+      # Valkey con búsqueda (10.G2, motor de Memorystore): los tests de Redis se repiten aquí.
+      # La imagen carga sus módulos con el comando por defecto.
+      valkey-scale:
+        image: valkey/valkey-bundle:9.0.8
+        ports:
+          - 6381:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
           --health-interval 3s
           --health-timeout 5s
           --health-retries 10

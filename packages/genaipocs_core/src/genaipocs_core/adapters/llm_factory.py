@@ -46,6 +46,7 @@ def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTie
             gemini,
             model=gemini.cheap_chat_model if cheap else gemini.chat_model,
             thinking_level=gemini.cheap_thinking_level if cheap else gemini.thinking_level,
+            scale_redis=settings.scale_redis,
         )
 
     from genaipocs_core.adapters.bedrock import BedrockConverseLLM
@@ -216,7 +217,11 @@ def build_judge_provider_llm(settings: Settings, provider: LLMProvider) -> LLMPo
 
         gemini = settings.gemini
         return GeminiLLM.from_settings(
-            settings.gcp, gemini, model=judge, thinking_level=gemini.judge_thinking_level
+            settings.gcp,
+            gemini,
+            model=judge,
+            thinking_level=gemini.judge_thinking_level,
+            scale_redis=settings.scale_redis,
         )
 
     from genaipocs_core.adapters.bedrock import BedrockConverseLLM
@@ -233,7 +238,7 @@ def shared_limiter(
     from genaipocs_core.adapters.redis_rate_limit import RedisRateLimiter
 
     return RedisRateLimiter.from_settings(
-        settings.scale_redis, key_prefix=settings.rate_limit.key_prefix
+        settings.scale_redis, key_prefix=settings.rate_limit.key_prefix, gcp=settings.gcp
     )
 
 

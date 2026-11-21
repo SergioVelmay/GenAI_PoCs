@@ -62,6 +62,7 @@ docker compose --profile telemetry up -d                        # collector, Jae
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_evals.llmops.prompts check ; uv run python -m rag_evals.llmops.drift --check   # fase 12 (coste 0)
 uv run python scripts/sync_agent_rules.py [--check]             # regenera .claude/rules desde .github/instructions
+uv run python scripts/validate_mermaid.py [doc.md]              # diagramas Mermaid (antes: npm ci --prefix tools/mermaid); nunca npx
 ```
 
 Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-sync` evita que el siguiente `uv run` lo desinstale.
@@ -93,6 +94,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - **Azure CLI aislada**: el perfil por defecto de `az` tiene sesiones de otra organización. En este repo, cada comando de Azure, Terraform o scripts con Entra ID se ejecuta con `AZURE_CONFIG_DIR` = `%USERPROFILE%\.azure-genaipocs` (Claude Code lo recibe de `.claude/settings.local.json`), y antes se comprueba `az account show`. Nunca `az login`/`az account set` sin esa variable.
 - **gcloud aislado** (desde la 0.G): `CLOUDSDK_CONFIG` = `%USERPROFILE%\.gcloud-genaipocs` antes de cualquier comando de GCP, Terraform o scripts, y comprobar `gcloud config list`. Sin claves JSON de cuentas de servicio (ADC de usuario e *impersonation*).
 - Verificar con **los mismos comandos que la CI** (p. ej. `terraform fmt -check -recursive`).
+- **Si el modo automático bloquea una verificación inofensiva** (pasó tres veces con `npx` y Mermaid): no saltársela ni añadir otra regla de permisos; convertirla en herramienta del repo con versión fijada (`uv run ...`) y en paso de la CI, y apuntarlo en lecciones (10.G5).
 - Si aparecen ficheros con cambios que no son de esta sesión: no guardarlos ni descartarlos sin analizarlos con Sergio.
 - Más casos y su porqué: `docs/lecciones-aprendidas.md`.
 
@@ -111,11 +113,11 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 8 | Agentic harness y guardrails | ✅ Hecha* | ✅* | `docs/fase-8-harness.md` |
 | 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes de Azure de las fases 2–8 | ✅ Hecha | — | `docs/fase-9-8-checkpoint.md` |
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | ✅* | `docs/fase-9-multiagente.md` |
-| 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | ✅ Hecha* | 10.G | `docs/fase-10-escala.md` |
+| 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | ✅ Hecha* | ✅* | `docs/fase-10-escala.md` |
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G, 5.G, 6.G, 7.G, 8.G y 9.G; siguiente: **10.G**, rama `fase/10-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G, 5.G, 6.G, 7.G, 8.G, 9.G y 10.G; siguiente: **11.G**, rama `fase/11-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | G→13 | Checkpoint: emuladores locales oficiales de AWS, Azure y GCP (tras cerrar la pasada GCP) | | | `docs/plan-fases.md#checkpoint-g-13` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |

@@ -19,11 +19,10 @@ from collections.abc import Callable, Sequence
 from typing import Self
 
 from redis.asyncio import Redis
-from redis.asyncio.retry import Retry
-from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
 
-from genaipocs_core.config import ScaleRedisSettings
+from genaipocs_core.adapters.redis_client import scale_redis_client
+from genaipocs_core.config import GcpSettings, ScaleRedisSettings
 from genaipocs_core.ports import (
     RateLimitDecision,
     RateLimiterUnavailableError,
@@ -92,22 +91,16 @@ class RedisRateLimiter:
 
     @classmethod
     def from_settings(
-        cls, settings: ScaleRedisSettings, *, key_prefix: str, cooldown_seconds: float = 5.0
+        cls,
+        settings: ScaleRedisSettings,
+        *,
+        key_prefix: str,
+        cooldown_seconds: float = 5.0,
+        gcp: GcpSettings | None = None,
     ) -> Self:
-        client = Redis(
-            host=settings.host,
-            port=settings.port,
-            db=settings.db,
-            password=settings.password.get_secret_value() or None,
-            # Un limitador lento es peor que ninguno: si Redis no contesta pronto, el llamante
-            # decide (fail-open en el edge) en vez de colgar la petición.
-            socket_timeout=settings.timeout_seconds,
-            socket_connect_timeout=settings.timeout_seconds,
-            # Sin reintentos (redis-py reintenta 3 veces con backoff por defecto: ~7 s medidos
-            # con Redis parado). Para un limitador, fallar rápido y aplicar el plan B.
-            retry=Retry(NoBackoff(), 0),
-            max_connections=settings.max_connections,
-        )
+        # Un limitador lento es peor que ninguno: timeouts cortos y sin reintentos; si Redis no
+        # contesta pronto, el llamante decide (fail-open en el edge).
+        client = scale_redis_client(settings, gcp)
         return cls(client, key_prefix=key_prefix, cooldown_seconds=cooldown_seconds)
 
     async def acquire(self, requests: Sequence[RateLimitRequest]) -> RateLimitDecision:

@@ -231,6 +231,46 @@ def test_pubsub_rejects_fewer_than_five_delivery_attempts(
         Settings(_env_file=None)
 
 
+def test_pubsub_max_lease(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).pubsub.max_lease_s == 3600
+
+    monkeypatch.setenv("PUBSUB__MAX_LEASE_S", "0")
+    assert Settings(_env_file=None).pubsub.max_lease_s == 0
+
+    monkeypatch.setenv("PUBSUB__MAX_LEASE_S", "-1")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_scale_redis_auth_and_tls(monkeypatch: pytest.MonkeyPatch) -> None:
+    defaults = Settings(_env_file=None).scale_redis
+    assert (defaults.auth, defaults.tls, defaults.tls_ca_file) == ("password", False, "")
+    # Sin hash tag: Valkey no lo admite en el PREFIX del índice (10.G2).
+    assert Settings(_env_file=None).semantic_cache.key_prefix == "genaipocs-sc"
+
+    monkeypatch.setenv("SCALE_REDIS__AUTH", "gcp_iam")
+    monkeypatch.setenv("SCALE_REDIS__TLS", "true")
+    monkeypatch.setenv("SCALE_REDIS__TLS_CA_FILE", "memorystore-server-ca.pem")
+    memorystore = Settings(_env_file=None).scale_redis
+    assert (memorystore.auth, memorystore.tls) == ("gcp_iam", True)
+    assert memorystore.tls_ca_file == "memorystore-server-ca.pem"
+
+    monkeypatch.setenv("SCALE_REDIS__AUTH", "entra")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_gemini_cache_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).gemini.cache_registry == "local"
+
+    monkeypatch.setenv("GEMINI__CACHE_REGISTRY", "redis")
+    assert Settings(_env_file=None).gemini.cache_registry == "redis"
+
+    monkeypatch.setenv("GEMINI__CACHE_REGISTRY", "memcached")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GCP_VECTOR_SEARCH__COLLECTION", "knowledge-v2")
     monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "1")

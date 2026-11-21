@@ -60,6 +60,21 @@ case_review_workflow_enabled = false
 review_sla_seconds           = 43200 # 12 h; 120 para probarlo
 case_reviewers               = []    # ["group:<operaciones>"]: quién manda la decisión al callback
 
+# Memorystore for Valkey para el rate limiting y la caché semántica del edge (10.G2): coste por
+# nodo y hora, efímero. VPC + PSC, IAM auth y TLS; outputs scale_redis_env y memorystore_server_ca.
+memorystore_enabled = false
+
+# Workers de triaje en un worker pool de Cloud Run, escalados por CREMA según el backlog de
+# Pub/Sub (10.G4). CREMA tiene coste fijo (una instancia con CPU siempre asignada): efímero.
+queue_workers_enabled = false
+queue_worker_image    = "" # europe-west4-docker.pkg.dev/<proyecto>/agents/orchestrator:<tag>
+
+# Edge en Cloud Run tras un ALB externo con Cloud Armor (10.G4): coste fijo del balanceador.
+# Sin edge_domain, HTTP en el 80 solo para validar; output edge_url.
+edge_armor_enabled = false
+edge_image         = "" # europe-west4-docker.pkg.dev/<proyecto>/edge/edge-api:<tag>
+edge_domain        = ""
+
 # Agente en Agent Runtime (7.G4). true = motor standalone con Sessions + Memory Bank (pago por
 # uso, sin coste por hora; output agent_platform_env). Con imagen, además el agente en un
 # contenedor con Agent Identity (vCPU-hora activa, escala a cero; la imagen llega en la fase 15).
@@ -83,3 +98,9 @@ model_armor_enabled = false
 # Floor setting de Gemini en todo el proyecto (INSPECT_ONLY): cada llamada a Gemini consume
 # tokens de Model Armor. true solo para medirlo.
 model_armor_floor_setting_enabled = false
+
+# Generador de carga en un Cloud Run job (10.G5): pago solo mientras corre. Imagen de
+# loadtests/Dockerfile; sin load_test_host, va al edge tras Cloud Armor; output load_test.
+load_test_enabled            = false
+load_test_image              = "" # europe-west4-docker.pkg.dev/<proyecto>/load/genaipocs-load:<tag>
+load_test_signing_key_secret = "" # secret con la clave privada de los tokens de prueba

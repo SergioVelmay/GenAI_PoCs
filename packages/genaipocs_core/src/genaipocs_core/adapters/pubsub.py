@@ -23,6 +23,12 @@ Diferencias de semántica frente a las colas (RabbitMQ, SQS, Service Bus) y cóm
   `ack` o `nack` fallido nunca tumba el bucle: los fallos transitorios se reintentan y el resto
   se registra (`ack_failures`), porque el mensaje puede volver y lo absorbe la idempotencia del
   handler. No elimina los duplicados **al publicar** (llegan con otro `message_id`).
+- **Latido del plazo de ack** (10.G1): con *pull* unario nadie renueva el plazo, así que un turno
+  más largo que `ack_deadline_seconds` se reentregaba a otro worker mientras el primero seguía
+  (y con exactly-once, su `ack` fallaba). Mientras el handler trabaja, se llama a
+  `modifyAckDeadline` a mitad de cada plazo (el de la suscripción, leído al suscribirse) hasta
+  `max_lease_s`; pasado ese máximo se deja caducar: un handler colgado no retiene el mensaje
+  para siempre. Es lo que hace el *lease management* del streaming pull de la librería.
 """
 
 from __future__ import annotations
@@ -31,7 +37,8 @@ import asyncio
 import contextlib
 import json
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Self
@@ -91,6 +98,8 @@ class EmulatorTopology:
 EXACTLY_ONCE_ACK_FAILURE = "EXACTLY_ONCE_ACKID_FAILURE"
 TRANSIENT_ACK_FAILURE = "TRANSIENT_FAILURE"
 ACK_ATTEMPTS = 3
+# Plazo de ack por defecto de Pub/Sub si la suscripción no trae uno.
+DEFAULT_ACK_DEADLINE_S = 10
 
 
 class PubSubMessageBus:
@@ -104,6 +113,9 @@ class PubSubMessageBus:
         max_messages: int = 10,
         pull_timeout_s: float = 10.0,
         topology: EmulatorTopology | None = None,
+        max_lease_s: float = 3600.0,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._publisher = publisher
         self._subscriber = subscriber
@@ -112,10 +124,16 @@ class PubSubMessageBus:
         self._max_messages = max_messages
         self._pull_timeout_s = pull_timeout_s
         self._topology = topology
+        self._max_lease_s = max_lease_s
+        self._sleep = sleep
+        self._clock = clock
         self._declared: set[str] = set()
         self._tasks: set[asyncio.Task[None]] = set()
         # `ack`/`nack` que Pub/Sub no aceptó: el mensaje puede volver a entregarse.
         self.ack_failures = 0
+        # Renovaciones del plazo hechas y rechazadas (latido, 10.G1).
+        self.lease_extensions = 0
+        self.lease_failures = 0
 
     @classmethod
     def from_settings(
@@ -147,6 +165,7 @@ class PubSubMessageBus:
                     ack_deadline_s=settings.ack_deadline_s,
                     exactly_once=settings.exactly_once,
                 ),
+                max_lease_s=settings.max_lease_s,
             )
         if not project:
             raise ValueError("Falta GCP__PROJECT (o PUBSUB__PROJECT) para Pub/Sub en la nube.")
@@ -157,6 +176,7 @@ class PubSubMessageBus:
             project=project,
             subscription_suffix=settings.subscription_suffix,
             max_messages=max_messages,
+            max_lease_s=settings.max_lease_s,
         )
 
     async def publish(
@@ -189,8 +209,12 @@ class PubSubMessageBus:
     async def subscribe(self, topic: str, handler: MessageHandler) -> None:
         await self._declare(topic)
         subscription = subscription_path(self._project, topic, self._suffix)
-        dead_letter_topic = await self._dead_letter_topic(subscription)
-        task = asyncio.create_task(self._poll(topic, subscription, dead_letter_topic, handler))
+        config = await self._subscriber.get_subscription(subscription=subscription)
+        dead_letter_topic = _dead_letter_topic(subscription, config)
+        ack_deadline_s = config.ack_deadline_seconds or DEFAULT_ACK_DEADLINE_S
+        task = asyncio.create_task(
+            self._poll(topic, subscription, dead_letter_topic, handler, ack_deadline_s)
+        )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
@@ -203,7 +227,12 @@ class PubSubMessageBus:
         await self._subscriber.transport.close()  # type: ignore[no-untyped-call]
 
     async def _poll(
-        self, topic: str, subscription: str, dead_letter_topic: str, handler: MessageHandler
+        self,
+        topic: str,
+        subscription: str,
+        dead_letter_topic: str,
+        handler: MessageHandler,
+        ack_deadline_s: int,
     ) -> None:
         while True:
             try:
@@ -217,7 +246,14 @@ class PubSubMessageBus:
                 continue
             await asyncio.gather(
                 *(
-                    self._handle(topic, subscription, dead_letter_topic, raw, handler)
+                    self._handle(
+                        topic,
+                        subscription,
+                        dead_letter_topic,
+                        raw,
+                        handler,
+                        ack_deadline_s=ack_deadline_s,
+                    )
                     for raw in response.received_messages
                 )
             )
@@ -229,6 +265,8 @@ class PubSubMessageBus:
         dead_letter_topic: str,
         raw: ReceivedMessage,
         handler: MessageHandler,
+        *,
+        ack_deadline_s: int | None = None,
     ) -> None:
         # Con dead-letter policy, `delivery_attempt` empieza en 1 (es aproximado en la nube).
         attempt = raw.delivery_attempt or 1
@@ -246,18 +284,20 @@ class PubSubMessageBus:
             return
         published = attributes.get("published_at")
         try:
-            await handler(
-                Message(
-                    topic=topic,
-                    payload=payload,
-                    id=message_id,
-                    published_at=datetime.fromisoformat(published)
-                    if published
-                    else raw.message.publish_time or datetime.now(UTC),
-                    delivery_count=attempt,
-                    headers=propagated_headers(attributes),
+            # El latido se para antes de confirmar: el `ack` nunca compite con una renovación.
+            async with self._lease(subscription, raw, message_id, ack_deadline_s):
+                await handler(
+                    Message(
+                        topic=topic,
+                        payload=payload,
+                        id=message_id,
+                        published_at=datetime.fromisoformat(published)
+                        if published
+                        else raw.message.publish_time or datetime.now(UTC),
+                        delivery_count=attempt,
+                        headers=propagated_headers(attributes),
+                    )
                 )
-            )
         except PermanentMessageError as exc:
             await self._dead_letter(subscription, dead_letter_topic, raw, message_id, exc)
         except Exception:
@@ -267,6 +307,59 @@ class PubSubMessageBus:
             await self._nack(subscription, raw, message_id)
         else:
             await self._ack(subscription, raw, message_id)
+
+    @contextlib.asynccontextmanager
+    async def _lease(
+        self,
+        subscription: str,
+        raw: ReceivedMessage,
+        message_id: str,
+        ack_deadline_s: int | None,
+    ) -> AsyncIterator[None]:
+        """Renueva el plazo de ack mientras dura el bloque (sin plazo conocido, no hace nada)."""
+        if not ack_deadline_s or self._max_lease_s <= 0:
+            yield
+            return
+        task = asyncio.create_task(self._keep_lease(subscription, raw, message_id, ack_deadline_s))
+        try:
+            yield
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    async def _keep_lease(
+        self, subscription: str, raw: ReceivedMessage, message_id: str, ack_deadline_s: int
+    ) -> None:
+        # A mitad del plazo: deja margen para una renovación lenta o un reintento.
+        interval = ack_deadline_s / 2
+        started = self._clock()
+        while True:
+            await self._sleep(interval)
+            if self._clock() - started >= self._max_lease_s:
+                logger.warning(
+                    "%s supera el latido máximo (%.0f s): se deja caducar y se reentregará.",
+                    message_id,
+                    self._max_lease_s,
+                )
+                return
+            try:
+                await self._subscriber.modify_ack_deadline(
+                    subscription=subscription,
+                    ack_ids=[raw.ack_id],
+                    ack_deadline_seconds=ack_deadline_s,
+                )
+            except exceptions.GoogleAPICallError as exc:
+                self.lease_failures += 1
+                if exc.reason == EXACTLY_ONCE_ACK_FAILURE and not _transient_ack_failure(exc):
+                    # El `ack_id` ya no vale (caducó antes del latido): renovar no sirve, el
+                    # mensaje volverá y lo absorbe la idempotencia del handler.
+                    logger.warning("Latido de %s rechazado (%s): se deja.", message_id, exc.reason)
+                    return
+                # Transitorio (red, TRANSIENT_FAILURE_*): se reintenta en el siguiente periodo.
+                logger.warning("Latido de %s fallido (%s): se reintenta.", message_id, exc)
+            else:
+                self.lease_extensions += 1
 
     async def _ack(self, subscription: str, raw: ReceivedMessage, message_id: str) -> None:
         await self._settle(
@@ -325,16 +418,6 @@ class PubSubMessageBus:
         # la DLQ (at-least-once), nunca se pierde.
         await self._ack(subscription, raw, message_id)
 
-    async def _dead_letter_topic(self, subscription: str) -> str:
-        config = await self._subscriber.get_subscription(subscription=subscription)
-        topic = config.dead_letter_policy.dead_letter_topic
-        if not topic:
-            raise ValueError(
-                f"La suscripción {subscription} no tiene dead-letter policy: sin ella, los "
-                "mensajes envenenados se reintentan para siempre."
-            )
-        return topic
-
     async def _declare(self, topic: str) -> None:
         """Emulador: tema, DLQ con su suscripción y suscripción de los workers (idempotente)."""
         if self._topology is None or topic in self._declared:
@@ -374,6 +457,16 @@ class PubSubMessageBus:
     async def _ignore_existing(call: Awaitable[object]) -> None:
         with contextlib.suppress(exceptions.AlreadyExists):
             await call
+
+
+def _dead_letter_topic(subscription: str, config: Subscription) -> str:
+    topic = config.dead_letter_policy.dead_letter_topic
+    if not topic:
+        raise ValueError(
+            f"La suscripción {subscription} no tiene dead-letter policy: sin ella, los "
+            "mensajes envenenados se reintentan para siempre."
+        )
+    return topic
 
 
 def _transient_ack_failure(exc: exceptions.GoogleAPICallError) -> bool:

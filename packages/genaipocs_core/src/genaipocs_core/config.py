@@ -120,6 +120,10 @@ class GeminiSettings(BaseModel):
     cache: Literal["implicit", "explicit"] = "implicit"
     # Vida de cada caché explícita: acota lo que se paga de almacenamiento si nadie la borra.
     cache_ttl_seconds: int = Field(default=600, ge=60)
+    # Dónde se apunta qué caché explícita sirve a cada prefijo (10.G3). local: por réplica (cada
+    # una paga la suya). redis: compartido en el Redis/Valkey de escala (`SCALE_REDIS__*`); las
+    # réplicas reutilizan la misma y ninguna la borra al cerrar (caduca por su TTL).
+    cache_registry: Literal["local", "redis"] = "local"
 
 
 class PubSubSettings(BaseModel):
@@ -141,6 +145,10 @@ class PubSubSettings(BaseModel):
     # tras un `ack` correcto, pero el `ack` puede fallar. En la nube lo fija `pubsub.tf` (activo
     # en las del orquestador).
     exactly_once: bool = False
+    # Latido del plazo de ack (10.G1): mientras el handler trabaja, el adaptador renueva el plazo
+    # a la mitad de cada periodo, hasta este máximo (como `max_lease_duration` de la librería de
+    # alto nivel). Un handler colgado deja caducar el mensaje y se reentrega. 0 = sin latido.
+    max_lease_s: int = Field(default=3600, ge=0, le=86400)
 
 
 class LLMGatewaySettings(BaseModel):
@@ -195,7 +203,11 @@ class RabbitMQSettings(BaseModel):
 
 
 class ScaleRedisSettings(BaseModel):
-    """Redis de la fase 10 (rate limiting y caché semántica), distinto del de Langfuse."""
+    """Redis de la fase 10 (rate limiting y caché semántica), distinto del de Langfuse.
+
+    Sirve igual para Redis 8 y para Valkey (Memorystore for Valkey en GCP, 10.G2; ElastiCache
+    con Valkey en AWS): el código se limita a lo que admiten los dos.
+    """
 
     host: str = "127.0.0.1"
     port: int = 6380
@@ -203,6 +215,12 @@ class ScaleRedisSettings(BaseModel):
     password: SecretStr = SecretStr("")
     timeout_seconds: float = 0.25
     max_connections: int = 64
+    # password: `AUTH` con `password` (Redis/Valkey en Docker). gcp_iam: Memorystore con IAM
+    # auth; la contraseña es un token de acceso de Google (1 h), pedido en cada conexión nueva.
+    auth: Literal["password", "gcp_iam"] = "password"
+    # TLS en tránsito (Memorystore con `SERVER_AUTHENTICATION`): CA del servidor en PEM.
+    tls: bool = False
+    tls_ca_file: str = ""
 
 
 class RateLimitSettings(BaseModel):
@@ -227,7 +245,8 @@ class SemanticCacheSettings(BaseModel):
     candidates: int = 5
     # Subirla (al reindexar o cambiar una política) invalida toda la caché sin recorrerla.
     index_version: str = "v1"
-    key_prefix: str = "{genaipocs-sc}"
+    # Sin *hash tag* (a diferencia del rate limiter): Valkey no lo admite en el prefijo del índice.
+    key_prefix: str = "genaipocs-sc"
 
 
 class LangfuseSettings(BaseModel):

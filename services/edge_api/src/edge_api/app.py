@@ -125,7 +125,9 @@ def build_controller(settings: Settings, edge: EdgeSettings) -> AdmissionControl
     if limits.backend == "redis":
         from genaipocs_core.adapters.redis_rate_limit import RedisRateLimiter
 
-        limiter = RedisRateLimiter.from_settings(settings.scale_redis, key_prefix=limits.key_prefix)
+        limiter = RedisRateLimiter.from_settings(
+            settings.scale_redis, key_prefix=limits.key_prefix, gcp=settings.gcp
+        )
     return AdmissionController(
         limiter,
         rules=plan_rules(
@@ -247,7 +249,10 @@ def build_semantic_cache(
         from genaipocs_core.adapters.redis_semantic_cache import RedisSemanticCache
 
         store = RedisSemanticCache.from_settings(
-            settings.scale_redis, dimensions=embeddings.dimensions, key_prefix=config.key_prefix
+            settings.scale_redis,
+            dimensions=embeddings.dimensions,
+            key_prefix=config.key_prefix,
+            gcp=settings.gcp,
         )
     return SemanticCache(
         store,

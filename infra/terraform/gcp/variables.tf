@@ -53,16 +53,21 @@ variable "services" {
     "aiplatform.googleapis.com",
     "apigee.googleapis.com",
     "cloudtrace.googleapis.com",
+    "compute.googleapis.com",
     "discoveryengine.googleapis.com",
     "dlp.googleapis.com",
     "eventarc.googleapis.com",
     "identitytoolkit.googleapis.com",
     "logging.googleapis.com",
+    "memorystore.googleapis.com",
     "modelarmor.googleapis.com",
     "monitoring.googleapis.com",
+    "networkconnectivity.googleapis.com",
     "networkservices.googleapis.com",
+    "parametermanager.googleapis.com",
     "pubsub.googleapis.com",
     "run.googleapis.com",
+    "secretmanager.googleapis.com",
     "storage.googleapis.com",
     "vectorsearch.googleapis.com",
     "workflows.googleapis.com",
@@ -407,4 +412,172 @@ variable "ci_allowed_refs" {
   description = "Refs de Git cuyos workflows pueden obtener credenciales de GCP. Las PR no: código sin revisar."
   type        = list(string)
   default     = ["refs/heads/main"]
+}
+
+# ---------- Estado compartido del edge (memorystore.tf, 10.G2) ----------
+
+variable "memorystore_enabled" {
+  description = "Memorystore for Valkey (rate limiting y caché semántica) con su VPC y PSC. Coste por hora: efímero."
+  type        = bool
+  default     = false
+}
+
+variable "memorystore_node_type" {
+  description = "SHARED_CORE_NANO (1,4 GB, sin SLA) para validar; CUSTOM_PICO o mayor si hace falta SLA."
+  type        = string
+  default     = "SHARED_CORE_NANO"
+}
+
+variable "memorystore_engine_version" {
+  description = "Versión de Valkey: la misma que la imagen local valkey/valkey-bundle (9.0)."
+  type        = string
+  default     = "VALKEY_9_0"
+
+  validation {
+    condition     = startswith(var.memorystore_engine_version, "VALKEY_")
+    error_message = "Memorystore for Valkey: VALKEY_8_0, VALKEY_9_0, VALKEY_9_1..."
+  }
+}
+
+variable "memorystore_subnet_cidr" {
+  description = "Rango de la subred del edge donde Memorystore crea su endpoint PSC."
+  type        = string
+  default     = "10.20.0.0/24"
+}
+
+variable "memorystore_zone_suffix" {
+  description = "Zona de la instancia (sin réplicas, una sola zona): <región>-<sufijo>."
+  type        = string
+  default     = "a"
+}
+
+# ---------- Workers con autoescalado por backlog (queue_workers.tf, 10.G4) ----------
+
+variable "queue_workers_enabled" {
+  description = "Worker pool de triaje + CREMA (autoescalado por el backlog de Pub/Sub). Necesita queue_worker_image."
+  type        = bool
+  default     = false
+}
+
+variable "queue_worker_image" {
+  description = "Imagen del orquestador (services/orchestrator/Dockerfile) en Artifact Registry (fase 15)."
+  type        = string
+  default     = ""
+}
+
+variable "queue_worker_max_instances" {
+  description = "Techo de instancias: el que permite la cuota TPM del modelo (scripts/capacity_plan.py)."
+  type        = number
+  default     = 4
+}
+
+variable "queue_worker_messages_per_instance" {
+  description = "Mensajes sin confirmar por instancia antes de añadir otra (threshold del escalador)."
+  type        = number
+  default     = 8
+}
+
+variable "crema_image" {
+  description = "Imagen de CREMA publicada por Google (comprobar la etiqueta vigente antes del apply)."
+  type        = string
+  default     = "us-central1-docker.pkg.dev/cloud-run-oss-images/crema-v1/autoscaler:1.0"
+}
+
+# ---------- Edge tras un balanceador con Cloud Armor (edge_armor.tf, 10.G4) ----------
+
+variable "edge_armor_enabled" {
+  description = "Edge en Cloud Run tras un ALB externo con Cloud Armor. Coste fijo del balanceador: efímero."
+  type        = bool
+  default     = false
+}
+
+variable "edge_image" {
+  description = "Imagen del edge (services/edge_api) en Artifact Registry (fase 15)."
+  type        = string
+  default     = ""
+}
+
+variable "edge_domain" {
+  description = "Dominio del certificado gestionado (HTTPS). Vacío = HTTP en el 80, solo para validar."
+  type        = string
+  default     = ""
+}
+
+variable "edge_max_instances" {
+  description = "Instancias máximas del edge en Cloud Run."
+  type        = number
+  default     = 10
+}
+
+variable "edge_ban_per_minute" {
+  description = "Peticiones por minuto y IP a partir de las que Cloud Armor banea temporalmente."
+  type        = number
+  default     = 1200
+}
+
+variable "edge_ban_seconds" {
+  description = "Duración del baneo temporal por IP."
+  type        = number
+  default     = 300
+}
+
+variable "edge_anonymous_per_minute" {
+  description = "Tope por IP sin token (holgado: el edge aplica 5/min por usuario anónimo)."
+  type        = number
+  default     = 120
+}
+
+variable "edge_authenticated_per_minute" {
+  description = "Tope por token (holgado: el edge aplica el límite fino por plan)."
+  type        = number
+  default     = 600
+}
+
+# ---------- Generador de carga (load_test.tf, 10.G5) ----------
+
+variable "load_test_enabled" {
+  description = "Cloud Run job de Locust contra el edge (pago solo mientras corre). Necesita load_test_image."
+  type        = bool
+  default     = false
+}
+
+variable "load_test_image" {
+  description = "Imagen de loadtests/Dockerfile en Artifact Registry (fase 15)."
+  type        = string
+  default     = ""
+}
+
+variable "load_test_host" {
+  description = "URL del edge a probar. Vacío = el edge tras Cloud Armor (edge_url) si edge_armor_enabled."
+  type        = string
+  default     = ""
+}
+
+variable "load_test_profile" {
+  description = "Nombre del perfil del edge que se prueba (prefijo de los CSV): ingenuo, sin_cache, protegido."
+  type        = string
+  default     = "protegido"
+}
+
+variable "load_test_peak" {
+  description = "Usuarios en el pico (LOAD_PEAK de la forma FestivalOnSale)."
+  type        = number
+  default     = 200
+}
+
+variable "load_test_cpu" {
+  description = "vCPU del job (= procesos de Locust con --processes -1); la memoria, 1 GiB por vCPU."
+  type        = number
+  default     = 8
+
+  validation {
+    condition     = contains([1, 2, 4, 6, 8], var.load_test_cpu)
+    error_message = "Cloud Run admite 1, 2, 4, 6 u 8 vCPU por instancia."
+  }
+}
+
+variable "load_test_signing_key_secret" {
+  description = "Secret de Secret Manager con la clave privada de los tokens de prueba (vacío = sin montar)."
+  type        = string
+  default     = ""
 }
