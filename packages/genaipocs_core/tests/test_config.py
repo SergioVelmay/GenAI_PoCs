@@ -47,6 +47,32 @@ def test_a2a_settings_have_one_audience_per_specialist(monkeypatch: pytest.Monke
     assert settings.allowed_callers == ["svc-orchestrator"]
 
 
+def test_mcp_gateway_is_local_by_default_and_gcp_overrides_its_inbound_idp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    default = Settings(_env_file=None).mcp
+    assert (default.exchanger, default.authorization_server) == ("dev", "")
+    assert default.gateway_auth.require_scopes
+    assert default.gateway_customer_claim == "sub"
+
+    monkeypatch.setenv("MCP__EXCHANGER", "gcp")
+    monkeypatch.setenv("MCP__SIGNER_SERVICE_ACCOUNT", "gw@genaipocs-dev.iam.gserviceaccount.com")
+    monkeypatch.setenv("MCP__GATEWAY_AUTH__AUDIENCE", "genaipocs-dev")
+    monkeypatch.setenv("MCP__GATEWAY_AUTH__CUSTOMER_CLAIM", "customer_id")
+    monkeypatch.setenv("MCP__GATEWAY_AUTH__REQUIRE_SCOPES", "false")
+
+    settings = Settings(_env_file=None).mcp
+
+    assert settings.exchanger == "gcp"
+    assert settings.gateway_auth.audience == "genaipocs-dev"
+    assert not settings.gateway_auth.require_scopes
+    # El claim del cliente solo cambia en la entrada del gateway; los servidores siguen con `sub`.
+    assert (settings.gateway_customer_claim, settings.customer_claim) == ("customer_id", "sub")
+    monkeypatch.setenv("MCP__EXCHANGE_TTL_S", str(13 * 3600))
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gateway_resilience_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     defaults = Settings(_env_file=None).llm_gateway
     assert defaults.max_queue_seconds == 10.0

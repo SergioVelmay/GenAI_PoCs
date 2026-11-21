@@ -52,6 +52,7 @@ variable "services" {
     "cloudtrace.googleapis.com",
     "discoveryengine.googleapis.com",
     "dlp.googleapis.com",
+    "identitytoolkit.googleapis.com",
     "logging.googleapis.com",
     "modelarmor.googleapis.com",
     "monitoring.googleapis.com",
@@ -125,6 +126,20 @@ variable "agent_search_location" {
     condition     = contains(["global", "us", "eu"], var.agent_search_location)
     error_message = "Agent Search solo admite las ubicaciones global, us y eu."
   }
+}
+
+# ---------- MCP Gateway (mcp_gateway.tf) ----------
+
+variable "identity_platform_enabled" {
+  description = "Identity Platform como IdP de los clientes (6.G2). Gratis hasta 50 000 MAU, pero activarlo NO se deshace: false hasta la validación."
+  type        = bool
+  default     = false
+}
+
+variable "identity_platform_authorized_domains" {
+  description = "Dominios autorizados para las redirecciones OAuth de Identity Platform."
+  type        = list(string)
+  default     = ["localhost"]
 }
 
 # ---------- Presupuesto (budget.tf) ----------

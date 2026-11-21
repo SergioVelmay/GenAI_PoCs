@@ -1,7 +1,8 @@
 """OAuth 2.1 en MCP: cada servidor es un *resource server* que valida bearer tokens (JWT).
 
-- El authorization server es externo: Entra ID (Azure) o Cognito (AWS). En local, `DevTokenIssuer`
-  firma tokens con una clave RSA de desarrollo (nunca en la nube).
+- El authorization server es externo: Entra ID (Azure) o Cognito (AWS). En GCP, el gateway firma
+  el token de cada servidor con su cuenta de servicio (`genaipocs_mcp.gcp`, fase 6.G2). En local,
+  `DevTokenIssuer` firma tokens con una clave RSA de desarrollo (nunca en la nube).
 - Se valida firma, `iss`, `exp`, `aud` (uno por servidor: sin *token passthrough*) y scopes.
 - La identidad del cliente sale de un claim del token, nunca de los argumentos de la tool.
 - Los metadatos RFC 9728 (`/.well-known/oauth-protected-resource/mcp`) dicen a los clientes
@@ -62,9 +63,36 @@ def jwt_auth(
     )
     return RemoteAuthProvider(
         verifier,
-        authorization_servers=[AnyHttpUrl(settings.issuer)],
+        authorization_servers=[AnyHttpUrl(settings.authorization_server or settings.issuer)],
         base_url=public_url,
         resource_name=f"genaipocs-{server}",
+    )
+
+
+def gateway_auth(settings: McpSettings, *, public_url: str) -> AuthProvider:
+    """Valida el token del usuario en el gateway. Sin `MCP__GATEWAY_AUTH__*`, con el mismo IdP
+    que los servidores (Entra ID, Cognito, emisor local); en GCP, con Identity Platform."""
+    inbound = settings.gateway_auth
+    overridden = bool(inbound.issuer or inbound.jwks_uri)
+    if overridden and not (inbound.issuer and inbound.jwks_uri):
+        raise ValueError("MCP__GATEWAY_AUTH__ISSUER y MCP__GATEWAY_AUTH__JWKS_URI van juntos.")
+    scopes = GATEWAY_SCOPES if inbound.require_scopes else []
+    if not overridden:
+        if inbound.audience:
+            raise ValueError("MCP__GATEWAY_AUTH__AUDIENCE solo con un IdP de entrada propio.")
+        return jwt_auth(settings, "gateway", public_url=public_url, scopes=scopes)
+    verifier = JWTVerifier(
+        jwks_uri=inbound.jwks_uri,
+        issuer=inbound.issuer,
+        audience=inbound.audience or settings.audience("gateway"),
+        algorithm="RS256",
+        required_scopes=scopes,
+    )
+    return RemoteAuthProvider(
+        verifier,
+        authorization_servers=[AnyHttpUrl(inbound.issuer)],
+        base_url=public_url,
+        resource_name="genaipocs-gateway",
     )
 
 

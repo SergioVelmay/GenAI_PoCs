@@ -195,8 +195,8 @@ Google y los gateways gestionados de GCP. Coste 0: todo con dobles; lo real, en
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 6.G1 | (este commit) | Bucle de tools y `support_agent` con Gemini de punta a punta |
-| 6.G2 | — | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
+| 6.G1 | `4428442` | Bucle de tools y `support_agent` con Gemini de punta a punta |
+| 6.G2 | (este commit) | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
 | 6.G3 | — | Agent Gateway + Agent Registry + Agent Identity y Apigee en Terraform; cierre |
 
 ### Verificación previa (20-11-2026)
@@ -234,6 +234,70 @@ $env:LLM_PROVIDER="gcp"; $env:MCP__AUTH="jwt"; uv run python -m support_agent --
   cual como `parameters_json_schema` (sin reescribirlos) y el reembolso se completa con
   identidad del token. Usan `pattern`, `anyOf` con `null`, `minimum`/`maximum` y
   `additionalProperties: false`; que Gemini los acepte todos solo se ve en la nube (pendiente).
+
+### 6.G2 · Token por servidor con `signJwt` e Identity Platform
+
+```mermaid
+sequenceDiagram
+    participant U as Cliente (app)
+    participant IP as Identity Platform
+    participant GW as MCP Gateway
+    participant IAM as IAM Credentials
+    participant S as Servidor MCP
+    U->>IP: login (correo y contraseña)
+    IP-->>U: ID token (aud = proyecto, claim customer_id)
+    U->>GW: MCP + ID token
+    GW->>GW: valida firma, iss, aud y exp con el JWKS de Identity Platform
+    GW->>IAM: signJwt(cuenta del gateway, aud y scope del servidor, sub = cliente, act = gateway)
+    IAM-->>GW: JWT firmado con la clave gestionada por Google
+    GW->>S: MCP + JWT del servidor
+    S->>S: valida con el JWKS público de la cuenta del gateway
+```
+
+```powershell
+uv run pytest services/mcp_servers/tests/test_gcp_token_exchange.py packages/genaipocs_core/tests/test_config.py
+terraform -chdir=infra/terraform/gcp validate
+# Con nube (pendientes-cloud.md): apply y después
+terraform -chdir=infra/terraform/gcp output mcp_env   # variables del gateway y de los servidores
+$env:MCP__AUTH="jwt"; $env:MCP__EXCHANGER="gcp"; $env:GCP__IMPERSONATE_SERVICE_ACCOUNT="<mcp_gateway_service_account>"
+uv run python -m genaipocs_mcp gateway
+```
+
+| Pieza | Qué hace | Código |
+|---|---|---|
+| `GcpTokenExchanger` | `TokenExchanger` de GCP: claims (`iss` = cuenta del gateway, `sub` = cliente, `aud` y `scope` del servidor, `exp` corto, `jti`, `act`) firmados con `signJwt` | [gcp.py](../services/mcp_servers/src/genaipocs_mcp/gcp.py) |
+| `IamCredentialsSigner` | `POST projects/-/serviceAccounts/{cuenta}:signJwt` con `httpx` y el token de ADC (sin SDK nuevo); errores tipados (`TokenExchangeError`) | [gcp.py](../services/mcp_servers/src/genaipocs_mcp/gcp.py) |
+| `gateway_auth` | Token de entrada del gateway con su propio IdP (`MCP__GATEWAY_AUTH__*`); sin ellas, el mismo que los servidores (Entra, Cognito, local) | [auth.py](../services/mcp_servers/src/genaipocs_mcp/auth.py) |
+| `MCP__EXCHANGER=dev\|gcp` | Elige el STS al arrancar el gateway; el de desarrollo, solo en local | [\_\_main\_\_.py](../services/mcp_servers/src/genaipocs_mcp/__main__.py) |
+| `mcp_gateway.tf` | Cuenta `genaipocs-dev-mcp-gw`, rol propio con **solo** `iam.serviceAccounts.signJwt` sobre sí misma, suplantación para desarrolladores, Identity Platform (`identity_platform_enabled`) y salida `mcp_env` | [mcp_gateway.tf](../infra/terraform/gcp/mcp_gateway.tf) |
+
+Decisiones y hallazgos:
+
+- **Por qué `signJwt` y no STS.** Google STS solo cambia un token externo por un *access token*
+  de Google (para llamar a APIs de Google). Nuestros servidores necesitan un JWT con **su**
+  audience y **su** scope, que es lo que hacen Entra OBO y AgentCore Identity. Con `signJwt`, el
+  gateway es el STS, pero **sin claves**: la privada la custodia Google, rota sola y cada firma
+  queda en los registros de auditoría de IAM.
+- **`act` en el token** (RFC 8693 §4.1): el servidor ve quién actúa (el gateway) y en nombre de
+  quién (el cliente). En el 3LO del *auth manager* de Agent Identity, esa cadena depende de qué
+  proveedor se configuró, no está en el propio token.
+- **Identity Platform autentica, no autoriza.** Sus ID tokens llevan `aud` = proyecto y ningún
+  scope: el gateway exige un usuario válido de **ese** proyecto
+  (`MCP__GATEWAY_AUTH__REQUIRE_SCOPES=false`) y decide él qué scope recibe cada servidor. Con
+  Entra o Cognito, el scope ya viene en el token de entrada.
+- **El `customer_id` como *custom claim*** (`MCP__GATEWAY_AUTH__CUSTOMER_CLAIM=customer_id`): el
+  backend lo fija una vez con el Admin SDK al dar de alta al cliente. Resuelve lo que quedó abierto
+  con Entra (mapear `oid` → cliente). Un usuario sin ese claim no recibe ningún token de servidor.
+- **Metadatos RFC 9728**: el `iss` de `signJwt` es el correo de la cuenta, no una URL, así que
+  los servidores anuncian Identity Platform como authorization server
+  (`MCP__AUTHORIZATION_SERVER`), que es donde se autentica el usuario.
+- **Mínimo privilegio**: un rol propio con solo `signJwt`. `roles/iam.serviceAccountTokenCreator`
+  daría además `getAccessToken` y `signBlob`, es decir, actuar como la cuenta en todo Google Cloud.
+- **Identity Platform no se apaga**: activarlo en un proyecto no se deshace ni con `destroy`; por
+  eso va detrás de `identity_platform_enabled = false`.
+- Tests sin red: un firmador con clave RSA local hace de IAM Credentials (misma forma de JWT, con
+  `kid`) y los JWKS se sirven desde memoria con las URLs reales de Google; servidores y gateway
+  validan con el `JWTVerifier` de verdad (audience cruzado, otro proyecto, caducado, sin claim).
 
 ## 10. Checkpoint de entrevista
 

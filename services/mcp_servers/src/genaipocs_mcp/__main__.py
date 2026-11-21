@@ -9,6 +9,10 @@ Modos (MCP__AUTH):
       $env:MCP__AUTH="jwt"; $env:MCP__PUBLIC_KEY_FILE=".secrets/mcp-dev-key.pub"
   En la nube, MCP__JWKS_URI + MCP__ISSUER de Entra ID o Cognito.
 - "none": identidad fija MCP__DEV_CUSTOMER_ID. Solo se admite con ENVIRONMENT=local.
+
+Gateway en GCP (fase 6.G2): MCP__EXCHANGER=gcp firma el token de cada servidor con
+MCP__SIGNER_SERVICE_ACCOUNT (`signJwt`) y MCP__GATEWAY_AUTH__* valida el ID token de Identity
+Platform del usuario (ver `genaipocs_mcp.gcp`).
 """
 
 from __future__ import annotations
@@ -26,25 +30,35 @@ from genaipocs_core.adapters.otel import setup_observability
 from genaipocs_core.adapters.ticketing_http import HttpTicketingClient
 from genaipocs_core.config import Settings, get_settings
 from genaipocs_mcp.adapter import anonymous, fixed_identity
-from genaipocs_mcp.auth import GATEWAY_SCOPES, DevTokenIssuer, jwt_auth, token_identity
-from genaipocs_mcp.gateway import DevTokenExchanger, create_gateway
+from genaipocs_mcp.auth import DevTokenIssuer, gateway_auth, jwt_auth, token_identity
+from genaipocs_mcp.gateway import DevTokenExchanger, TokenExchanger, create_gateway
 from genaipocs_mcp.servers import create_server
 
 DEFAULT_PORTS = {"gateway": 8100, "catalog": 8101, "ticketing": 8102, "refunds": 8103}
 
 
-def _gateway(settings: Settings, public_url: str) -> FastMCP[Any]:
-    if settings.mcp.auth != "jwt" or settings.environment != "local":
-        raise SystemExit("El gateway local exige MCP__AUTH=jwt y ENVIRONMENT=local (dev STS).")
+def _exchanger(settings: Settings) -> TokenExchanger:
+    if settings.mcp.exchanger == "gcp":
+        from genaipocs_mcp.gcp import GcpTokenExchanger
+
+        return GcpTokenExchanger.from_settings(settings.mcp, settings.gcp)
+    if settings.environment != "local":
+        raise SystemExit("El STS de desarrollo solo existe en local (en GCP, MCP__EXCHANGER=gcp).")
     issuer = DevTokenIssuer.load_or_create(
         Path(settings.mcp.dev_private_key_file), issuer=settings.mcp.issuer
     )
+    return DevTokenExchanger(issuer)
+
+
+def _gateway(settings: Settings, public_url: str) -> FastMCP[Any]:
+    if settings.mcp.auth != "jwt":
+        raise SystemExit("El gateway exige MCP__AUTH=jwt.")
     return create_gateway(
         list(settings.mcp.servers),
         settings=settings.mcp,
         connect=lambda name, token: Client(settings.mcp.servers[name], auth=token),
-        exchanger=DevTokenExchanger(issuer),
-        auth=jwt_auth(settings.mcp, "gateway", public_url=public_url, scopes=GATEWAY_SCOPES),
+        exchanger=_exchanger(settings),
+        auth=gateway_auth(settings.mcp, public_url=public_url),
     )
 
 

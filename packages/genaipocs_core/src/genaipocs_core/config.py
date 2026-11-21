@@ -408,6 +408,24 @@ class TicketingApiSettings(BaseModel):
     timeout_s: float = 5.0
 
 
+class McpGatewayAuthSettings(BaseModel):
+    """Token de entrada del gateway cuando no lo emite el IdP que firma los de los servidores.
+
+    En Azure y AWS el mismo IdP (Entra ID, Cognito) emite el token del usuario y el de cada
+    servidor. En GCP (fase 6.G2) el usuario llega con un ID token de Identity Platform y cada
+    servidor recibe un JWT firmado por la cuenta de servicio del gateway (`signJwt`). Vacío = lo
+    mismo que los servidores.
+    """
+
+    issuer: str = ""
+    jwks_uri: str = ""
+    audience: str = ""
+    customer_claim: str = ""
+    # Identity Platform autentica (CIAM) pero no emite scopes: con `false` el gateway solo exige
+    # un usuario válido y es él quien decide qué scope recibe cada servidor.
+    require_scopes: bool = True
+
+
 class McpSettings(BaseModel):
     """Servidores MCP (fase 6) como resource servers OAuth 2.1 y URLs que usa el agente."""
 
@@ -419,6 +437,10 @@ class McpSettings(BaseModel):
     issuer: str = "https://auth.genaipocs.local"
     jwks_uri: str = ""
     public_key_file: str = ""
+    # Authorization server que anuncian los metadatos RFC 9728. Vacío = `issuer`. En GCP el
+    # `iss` es el correo de la cuenta del gateway (no una URL) y el usuario se autentica con
+    # Identity Platform: https://securetoken.google.com/<proyecto>.
+    authorization_server: str = ""
     # Un audience por servidor: un token de `ticketing` no sirve en `refunds`.
     audience_template: str = "api://genaipocs-mcp/{server}"
     customer_claim: str = "sub"
@@ -431,9 +453,20 @@ class McpSettings(BaseModel):
         "refunds": "http://127.0.0.1:8103/mcp",
     }
     gateway_url: str = "http://127.0.0.1:8100/mcp"
+    # Token por servidor en el gateway: "dev" (emisor local, solo ENVIRONMENT=local) o "gcp"
+    # (`signJwt` con la cuenta de servicio `signer_service_account`, fase 6.G2).
+    exchanger: Literal["dev", "gcp"] = "dev"
+    signer_service_account: str = ""
+    # Vida del token por servidor: corta, se pide uno nuevo en cada conexión del gateway.
+    exchange_ttl_s: int = Field(default=300, ge=60, le=3600)
+    gateway_auth: McpGatewayAuthSettings = McpGatewayAuthSettings()
 
     def audience(self, server: str) -> str:
         return self.audience_template.format(server=server)
+
+    @property
+    def gateway_customer_claim(self) -> str:
+        return self.gateway_auth.customer_claim or self.customer_claim
 
 
 class A2ASettings(BaseModel):

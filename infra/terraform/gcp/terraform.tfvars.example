@@ -30,3 +30,8 @@ rag_engine_enabled = false
 # Agent Search del carril A (4.G3): pago por consulta (Enterprise + respuestas generativas), sin
 # coste por hora; aun así, false al terminar (borra el índice; se reimporta con FULL).
 agent_search_enabled = false
+
+# Identity Platform como IdP de los clientes del MCP Gateway (6.G2). Gratis hasta 50 000 MAU,
+# pero activarlo en el proyecto NO se deshace (ni con destroy): true solo al validar el gateway.
+identity_platform_enabled            = false
+identity_platform_authorized_domains = ["localhost"]

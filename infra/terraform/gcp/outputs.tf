@@ -36,6 +36,27 @@ output "rag_docs_bucket" {
   value       = google_storage_bucket.rag_docs.name
 }
 
+output "mcp_gateway_service_account" {
+  description = "MCP__SIGNER_SERVICE_ACCOUNT del gateway y MCP__ISSUER de los servidores (6.G2)."
+  value       = google_service_account.mcp_gateway.email
+}
+
+output "mcp_env" {
+  description = "Variables de los servidores MCP y del gateway con MCP__EXCHANGER=gcp (6.G2)."
+  value = {
+    MCP__ISSUER                       = google_service_account.mcp_gateway.email
+    MCP__JWKS_URI                     = "https://www.googleapis.com/service_accounts/v1/metadata/jwk/${google_service_account.mcp_gateway.email}"
+    MCP__AUTHORIZATION_SERVER         = "https://securetoken.google.com/${var.project_id}"
+    MCP__GATEWAY_AUTH__ISSUER         = "https://securetoken.google.com/${var.project_id}"
+    MCP__GATEWAY_AUTH__JWKS_URI       = "https://www.googleapis.com/service_accounts/v1/metadata/jwk/securetoken@system.gserviceaccount.com"
+    MCP__GATEWAY_AUTH__AUDIENCE       = var.project_id
+    MCP__GATEWAY_AUTH__REQUIRE_SCOPES = "false"
+    MCP__GATEWAY_AUTH__CUSTOMER_CLAIM = "customer_id"
+    MCP__EXCHANGER                    = "gcp"
+    MCP__SIGNER_SERVICE_ACCOUNT       = google_service_account.mcp_gateway.email
+  }
+}
+
 output "agent_search_engine" {
   description = "GCP_AGENT_SEARCH__ENGINE (null mientras agent_search_enabled = false)."
   value       = var.agent_search_enabled ? google_discovery_engine_search_engine.knowledge[0].engine_id : null
