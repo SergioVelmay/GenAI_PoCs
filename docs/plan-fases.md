@@ -59,6 +59,39 @@ El objetivo original de cada una sigue en su doc; aquí solo el resumen y los ca
 Azure AI Search: el plan decía tier Free; se pasó a **Basic efímero** (Free no admite identidad
 gestionada ni Semantic Ranker, y solo hay uno gratuito por suscripción).
 
+<a id="checkpoint-g-13"></a>
+
+## Checkpoint G→13 · Emuladores locales de AWS, Azure y GCP
+
+Añadido el 21-11-2026 (petición de Sergio al cerrar la 6.G). Va **después de cerrar la pasada
+GCP** (12.G, con los sabores de GCP de la 7.G ya documentados) y **antes de los despliegues**
+(fases 13, 14 y 15), como paso propio con su sesión (`iniciar-fase`).
+
+**Objetivo:** ejecutar en local, sin coste, el máximo de servicios de las tres nubes con
+emuladores oficiales, para aprender cómo se comportan, probar la IaC y los adaptadores antes de
+desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
+
+- **Investigar** (solo documentación y fuentes oficiales de cada proveedor, con fecha):
+  - **AWS**: analizar el emulador que presenta
+    [este artículo del blog de AWS](https://aws.amazon.com/blogs/aws/test-your-applications-against-aws-locally-with-aws-emulator/)
+    (qué servicios cubre, licencia y coste, cómo se arranca, si sirve en Docker y en la CI, si
+    acepta Terraform y los SDK sin cambios) y otros emuladores oficiales de AWS.
+  - **Azure**: Azurite (Storage) y el resto de emuladores oficiales (además del de Service Bus,
+    que ya usamos con su EULA): qué hay para Cosmos DB, Event Hubs, Functions y otros servicios
+    que usa el repo.
+  - **GCP**: los emuladores de `gcloud` (además del de Pub/Sub, que ya usamos) y otros módulos
+    oficiales: qué hay para Firestore/Datastore, Bigtable, Spanner, Cloud Storage y lo que usa el
+    repo (Agent Runtime tiene emulador propio desde la 7.G2).
+- **Entregables:** tabla por nube "servicio que usa Genaipocs → emulador oficial (sí/no, estado,
+  licencia, imagen) → qué permite probar y qué no"; decisión de cuáles se adoptan (perfiles de
+  `docker compose`, tests de contrato e integración como los de colas, arranque en la CI); y
+  comparativa con lo que ya usamos (ElasticMQ, emulador de Service Bus, emulador de Pub/Sub,
+  dobles en memoria). Lo que el emulador no cubra sigue en `pendientes-cloud.md`.
+- **Reglas que aplican:** pedir confirmación antes de instalar software o aceptar licencias
+  (EULA) de cualquier emulador; nada con coste; contenedores parados al terminar.
+- **Cubre:** "local y sin coste primero" (regla 5), testing de integración y equivalencia de
+  nubes (cómo se prueba en local cada una).
+
 ## Fase 13 · Despliegue en AWS (producción principal)
 
 **Objetivo:** llevar todo a la nube de Genaipocs con IaC y CI/CD.

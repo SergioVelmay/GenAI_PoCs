@@ -181,7 +181,8 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 Una sesión por fase con la skill `iniciar-fase` ("vamos a por la 0.G"): 0.G → 2.G → 3.G → 4.G → 5.G →
 6.G → 7.G (dos sesiones) → 8.G → 9.G → 10.G → 11.G → 12.G. Unas 13 sesiones, coste 0. Al terminar,
-se retoma la fase 13 (AWS), después la 14 (Azure) y la 15 (GCP).
+el [checkpoint G→13](plan-fases.md#checkpoint-g-13) (emuladores locales oficiales de las tres nubes,
+añadido el 21-11-2026) y después la fase 13 (AWS), la 14 (Azure) y la 15 (GCP).
 
 ## 4. Cierre
 
