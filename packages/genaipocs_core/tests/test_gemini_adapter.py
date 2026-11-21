@@ -13,7 +13,7 @@ from pydantic import SecretStr
 
 from genaipocs_core.adapters.gemini import SKIP_SIGNATURE, GeminiLLM, to_llm_error
 from genaipocs_core.adapters.gemini_cache import ExplicitCache
-from genaipocs_core.config import GcpSettings, GeminiSettings
+from genaipocs_core.config import GcpSettings, GeminiSettings, ScaleRedisSettings
 from genaipocs_core.ports import (
     ChatMessage,
     LLMContentFilterError,
@@ -516,3 +516,24 @@ def test_settings_turn_the_explicit_cache_on() -> None:
         ).explicit_cache
         is None
     )
+
+
+async def test_settings_share_the_explicit_cache_registry_in_redis() -> None:
+    from genaipocs_core.adapters.redis_gemini_cache import RedisCacheRegistry
+
+    gemini = GeminiSettings(cache="explicit", cache_registry="redis")
+    scale = ScaleRedisSettings(port=6399)
+
+    llm = GeminiLLM.from_settings(
+        GcpSettings(project="genaipocs-dev"), gemini, model=CHEAP, scale_redis=scale
+    )
+
+    assert llm.explicit_cache is not None
+    registry = llm.explicit_cache._registry
+    assert isinstance(registry, RedisCacheRegistry)
+    assert registry._client.connection_pool.connection_kwargs["port"] == 6399
+    local = GeminiLLM.from_settings(
+        GcpSettings(project="genaipocs-dev"), GeminiSettings(cache="explicit"), model=CHEAP
+    )
+    assert local.explicit_cache is not None and local.explicit_cache._registry is None
+    await registry.aclose()

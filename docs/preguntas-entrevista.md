@@ -1165,6 +1165,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    orden se hace en el cliente. Por eso los tests de integración corren contra los dos motores
    en la CI. En AWS, ElastiCache con Valkey tiene el mismo riesgo; en Azure, Managed Redis es
    Redis.
+4. **¿Por qué recalibraste el umbral de la caché al cambiar a Gemini, si el código no cambiaba?**
+   Porque el umbral depende del modelo de embeddings y de cómo se pide el vector. Gemini optimiza
+   el vector según la tarea: la calibración pedía vectores de "documento" y la caché, de
+   "consulta". Habría calibrado un umbral que no es el que se aplica. Ahora la eval embebe
+   exactamente como la caché y un test impide que vuelva a romperse. Sin umbral medido para un
+   modelo, la caché no se activa.
 
 **Negocio y stakeholders**
 
@@ -1178,6 +1184,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    dirección le diría que el cambio abarata y quita licencias, pero que solo se aprueba con la
    misma batería de tests en verde contra el motor nuevo. Esa batería encontró tres
    incompatibilidades antes de tocar la nube, a coste cero.
+3. **Con 10 réplicas, ¿cuántas cachés explícitas de Gemini pagas por el mismo prompt?** Sin
+   coordinación, 10: diez escrituras y diez almacenamientos por hora del mismo texto. Con un
+   registro compartido en Valkey (`SET NX` con el TTL de la caché) se paga una: las demás la
+   reutilizan y, si dos la crean a la vez, la perdedora borra la suya al momento. Lo que se acepta:
+   que ninguna réplica borre al apagarse y que la caché viva hasta su TTL. En AWS y Azure no hace
+   falta, porque la caché del prompt es implícita y del proveedor.
 
 <a id="fase-11"></a>
 

@@ -4,7 +4,12 @@ import httpx
 import pytest
 from google.genai import errors, types
 
-from genaipocs_core.adapters.gemini_cache import CachePrefix, ExplicitCache
+from genaipocs_core.adapters.gemini_cache import (
+    CachePrefix,
+    CacheRegistryUnavailableError,
+    ExplicitCache,
+    SharedCache,
+)
 
 MODEL = "gemini-3.5-flash-lite"
 
@@ -148,3 +153,99 @@ async def test_aclose_deletes_live_caches_and_records_how_long_they_were_stored(
     leftover = ExplicitCache(FakeCaches(), ttl_seconds=600, clock=clock)
     await leftover.lookup_or_create(_prefix())
     assert leftover.created[0].stored_seconds(clock.now + 5000) == 600.0
+
+
+# --- Registro compartido entre réplicas (10.G3) ---------------------------------------------
+
+
+class SharedRegistry:
+    """Doble del registro en Redis: `put_if_absent` como `SET NX`."""
+
+    def __init__(self, *, down: bool = False) -> None:
+        self.entries: dict[str, SharedCache] = {}
+        self.down = down
+
+    async def get(self, key: str) -> SharedCache | None:
+        if self.down:
+            raise CacheRegistryUnavailableError("sin conexión")
+        return self.entries.get(key)
+
+    async def put_if_absent(self, key: str, cache: SharedCache) -> SharedCache:
+        if self.down:
+            raise CacheRegistryUnavailableError("sin conexión")
+        return self.entries.setdefault(key, cache)
+
+
+def _replica(
+    registry: SharedRegistry, clock: FakeClock, caches: FakeCaches | None = None
+) -> tuple[ExplicitCache, FakeCaches]:
+    caches = caches or FakeCaches()
+    cache = ExplicitCache(caches, ttl_seconds=600, clock=clock, registry=registry, wall_clock=clock)
+    return cache, caches
+
+
+async def test_a_second_replica_reuses_the_cache_of_the_first() -> None:
+    """Heredado de la 2.G3: sin registro compartido, cada réplica pagaba su propia caché."""
+    registry, clock = SharedRegistry(), FakeClock()
+    first, first_caches = _replica(registry, clock)
+    second, second_caches = _replica(registry, clock)
+
+    created = await first.lookup_or_create(_prefix())
+    reused = await second.lookup_or_create(_prefix())
+
+    assert created is not None and reused is not None
+    assert reused.name == created.name and reused.write_tokens == 0
+    assert len(first_caches.created) == 1 and second_caches.created == []
+
+
+async def test_the_loser_of_a_race_deletes_its_copy_and_uses_the_winner() -> None:
+    registry, clock = SharedRegistry(), FakeClock()
+    loser, loser_caches = _replica(registry, clock)
+    key = _prefix().key()
+    # Otra réplica registró la suya entre el `get` y el `put_if_absent` de esta.
+    original_get = registry.get
+
+    async def get_then_lose(k: str) -> SharedCache | None:
+        found = await original_get(k)
+        registry.entries[key] = SharedCache("cachedContents/winner", clock.now + 600)
+        return found
+
+    registry.get = get_then_lose  # type: ignore[method-assign,assignment]
+    hit = await loser.lookup_or_create(_prefix())
+
+    assert hit is not None and hit.name == "cachedContents/winner"
+    assert hit.write_tokens == 5000  # La escritura de la copia sí se pagó.
+    assert loser_caches.deleted == ["cachedContents/1"]  # El almacenamiento, no.
+    assert loser.created[0].deleted_at == clock.now
+
+
+async def test_shared_caches_are_left_to_expire_on_close() -> None:
+    registry, clock = SharedRegistry(), FakeClock()
+    replica, caches = _replica(registry, clock)
+    await replica.lookup_or_create(_prefix())
+
+    await replica.aclose()
+
+    assert caches.deleted == []  # Otra réplica puede estar usándola.
+
+
+async def test_an_expiring_shared_entry_is_not_borrowed() -> None:
+    registry, clock = SharedRegistry(), FakeClock()
+    registry.entries[_prefix().key()] = SharedCache("cachedContents/old", clock.now + 10)
+    replica, caches = _replica(registry, clock)
+
+    hit = await replica.lookup_or_create(_prefix())
+
+    assert hit is not None and hit.name == "cachedContents/1"
+    assert len(caches.created) == 1
+
+
+async def test_registry_down_falls_back_to_a_cache_per_replica() -> None:
+    registry, clock = SharedRegistry(down=True), FakeClock()
+    replica, caches = _replica(registry, clock)
+
+    first = await replica.lookup_or_create(_prefix())
+    second = await replica.lookup_or_create(_prefix())
+
+    assert first is not None and second is not None and first.name == second.name
+    assert len(caches.created) == 1

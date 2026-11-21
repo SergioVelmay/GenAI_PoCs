@@ -294,6 +294,8 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
   - latencia p50/p95 de `nearest` y de `acquire` frente al Redis local.
 
   Destruir al terminar.
+- [ ] **Umbral de la caché con Gemini y Titan** (10.G3, ~0,0002 $ y ~0,00003 $): `uv run python -m rag_evals.semantic_cache --embeddings gcp --budget-usd 0.01` y `--embeddings bedrock` (informes en `evals/reports/gcp/` y `aws/`). Añadir los umbrales a `CALIBRATED_THRESHOLDS` (`gcp`, `bedrock`). Comparar con Azure la separación entre paráfrasis y trampas; si Gemini con `RETRIEVAL_QUERY` separa peor, probar `SEMANTIC_SIMILARITY` (cuesta un segundo embedding por pregunta).
+- [ ] **Registro compartido de cachés explícitas** (10.G3, céntimos; requiere la [2.G3](#fase-2-gcp) y Memorystore o el Valkey local): dos procesos con `GEMINI__CACHE=explicit`, `GEMINI__CACHE_REGISTRY=redis` y el modelo barato, con el mismo prefijo. Comprobar: un solo `CachedContent` en `client.caches.list()`, que el segundo proceso lee con `cached_content_token_count` y sin escritura, y que al cerrar el primero el segundo sigue usándola hasta el TTL.
 
 ## Fase 11 · Observabilidad ([doc](fase-11-observabilidad.md))
 

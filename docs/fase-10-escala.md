@@ -281,7 +281,7 @@ lanza desde un **Cloud Run job**. Coste 0: emulador, Valkey en Docker y dobles; 
 | Subfase | Commit | Qué |
 |---|---|---|
 | 10.G1 | `5f25ec6` | Backlog de Pub/Sub con PromQL para el autoescalador y latido del plazo de ack (heredado de la 9.G3) |
-| 10.G2 | | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
+| 10.G2 | `a0af72e` | Valkey: caché semántica portable, IAM auth y `memorystore.tf` |
 | 10.G3 | | Caché semántica con embeddings de Gemini y registro compartido de cachés explícitas |
 | 10.G4 | | `queue_workers.tf` (worker pool + CREMA) y `edge_armor.tf` (Cloud Armor) |
 | 10.G5 | | Carga desde un Cloud Run job, cuotas de tokens y doc a tres nubes |
@@ -430,6 +430,61 @@ que pide Memorystore:
 - **Por qué `CLUSTER_DISABLED`:** el código usa un cliente simple, como con `redis:8`. Con
   `CLUSTER` haría falta `RedisCluster` y que cada operación respete los slots. Que la búsqueda
   vectorial funcione en este modo no está documentado: queda en los pendientes.
+
+### 10.G3 · Caché semántica con Gemini y registro compartido de cachés explícitas
+
+```powershell
+uv run python -m rag_evals.semantic_cache --check                                   # CI, coste 0
+uv run python -m rag_evals.semantic_cache --embeddings gcp --budget-usd 0.01        # ~0,0002 $
+uv run python -m rag_evals.semantic_cache --embeddings bedrock --budget-usd 0.01    # ~0,00003 $
+uv run pytest -m integration -k redis_gemini                                         # Redis y Valkey
+```
+
+**La calibración mide lo que se ejecuta.** El edge busca en la caché con `embed_query`
+(`SemanticCache.lookup`), pero la calibración precalculaba los vectores con `embed_texts`. Con
+Azure y Titan da igual porque el vector no depende del uso. Con `gemini-embedding-001` sí:
+`embed_texts` usa `RETRIEVAL_DOCUMENT` y `embed_query` `RETRIEVAL_QUERY`, así que el umbral
+calibrado no habría sido el que se aplica en producción.
+
+- Ahora cada texto se embebe con `embed_query`, una vez y con 8 peticiones a la vez.
+- Un test con un doble que falla si se llama a `embed_texts` lo fija.
+- Se comparan **consulta con consulta**, igual que la caché. `SEMANTIC_SIMILARITY`, la tarea
+  pensada para comparar textos, obligaría a un segundo embedding por pregunta (el de retrieval ya
+  es `RETRIEVAL_QUERY`). Se descarta mientras la calibración con `RETRIEVAL_QUERY` no salga peor.
+
+**Tres nubes en la eval.** `--embeddings azure|bedrock|gcp`: Titan no existía en la eval, aunque
+el pendiente pedía "repetir con Titan".
+
+- El informe va a `evals/reports/<nube>/` (heredado de la 8.G4): una calibración con Gemini no
+  sobrescribe la de Azure.
+- Presupuesto con el precio de cada modelo: `gemini-embedding-001` cuesta 0,15 $ por millón de
+  tokens, frente a 0,02 $ de los otros dos. El suelo de aciertos es 0,7 en las tres.
+- Hasta calibrar con la nube, `CALIBRATED_THRESHOLDS` solo tiene `hashing` y la caché no se
+  activa con embeddings reales (por diseño: sin umbral medido, sin caché).
+
+**Registro compartido de cachés explícitas** (heredado de la 2.G3), con
+`GEMINI__CACHE=explicit` y `GEMINI__CACHE_REGISTRY=redis`:
+
+- **El problema.** Cada réplica creaba y pagaba su propio `CachedContent` del mismo prefijo. Con
+  N réplicas: N escrituras y N almacenamientos por hora del mismo texto.
+- **La solución.** `RedisCacheRegistry` (`adapters/redis_gemini_cache.py`) guarda en el
+  Redis/Valkey de escala qué caché sirve a cada prefijo, con el mismo TTL que la caché: cuando
+  caduca en Gemini, desaparece también del registro.
+
+| Situación | Qué hace `ExplicitCache` |
+|---|---|
+| Otra réplica ya la registró | La reutiliza (`write_tokens = 0`), sin crear nada |
+| Dos réplicas la crean a la vez | `SET NX`: gana la primera; la otra **borra su copia** al momento y usa la ganadora (paga la escritura, no el almacenamiento) |
+| La entrada caduca en menos de 30 s | No la usa: crea una nueva |
+| El registro no responde | Caché por réplica, como antes |
+| La réplica se apaga | **No borra nada**: otras pueden estar usándola; caduca por su TTL |
+
+- Sin candados distribuidos: la peor carrera cuesta una escritura de más, no una espera.
+- La caducidad viaja en **reloj de pared**, porque los monotónicos de dos procesos no son
+  comparables.
+- Probado: 5 tests unitarios con dos réplicas sobre un registro doble, y 3 de integración contra
+  Redis 8 y Valkey. En estos, 10 réplicas que registran a la vez acaban todas con la misma caché;
+  también se prueba la caducidad con la caché y que una caché ya caducada no se registra.
 
 ## 8. Checkpoint de entrevista
 

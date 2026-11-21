@@ -120,6 +120,10 @@ class GeminiSettings(BaseModel):
     cache: Literal["implicit", "explicit"] = "implicit"
     # Vida de cada caché explícita: acota lo que se paga de almacenamiento si nadie la borra.
     cache_ttl_seconds: int = Field(default=600, ge=60)
+    # Dónde se apunta qué caché explícita sirve a cada prefijo (10.G3). local: por réplica (cada
+    # una paga la suya). redis: compartido en el Redis/Valkey de escala (`SCALE_REDIS__*`); las
+    # réplicas reutilizan la misma y ninguna la borra al cerrar (caduca por su TTL).
+    cache_registry: Literal["local", "redis"] = "local"
 
 
 class PubSubSettings(BaseModel):

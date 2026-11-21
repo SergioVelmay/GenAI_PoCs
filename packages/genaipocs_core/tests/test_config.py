@@ -260,6 +260,17 @@ def test_scale_redis_auth_and_tls(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
 
+def test_gemini_cache_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).gemini.cache_registry == "local"
+
+    monkeypatch.setenv("GEMINI__CACHE_REGISTRY", "redis")
+    assert Settings(_env_file=None).gemini.cache_registry == "redis"
+
+    monkeypatch.setenv("GEMINI__CACHE_REGISTRY", "memcached")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gcp_lane_b_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GCP_VECTOR_SEARCH__COLLECTION", "knowledge-v2")
     monkeypatch.setenv("GEMINI__EMBEDDING_BATCH_SIZE", "1")

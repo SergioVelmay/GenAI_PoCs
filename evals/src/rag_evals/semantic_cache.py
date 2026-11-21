@@ -2,6 +2,7 @@
 
     uv run python -m rag_evals.semantic_cache [--check]                          # coste 0
     uv run python -m rag_evals.semantic_cache --embeddings azure --budget-usd 0.01   # coste
+    uv run python -m rag_evals.semantic_cache --embeddings gcp|bedrock --budget-usd 0.01  # 10.G3
 
 Cada caso guarda la respuesta de `seed` en una caché vacía y pregunta `probe`:
 - `paraphrase`: debería reutilizarse (mide la tasa de aciertos, el ahorro).
@@ -12,6 +13,10 @@ Cada caso guarda la respuesta de `seed` en una caché vacía y pregunta `probe`:
 Se barre el umbral de similitud con y sin la guarda de facetas del dominio. El umbral
 recomendado es el de más aciertos con 0 falsos aciertos. Con `hashing` (bolsa de palabras) se
 valida el arnés, no la calidad semántica: el umbral real se calibra con los embeddings reales.
+
+Los vectores se piden con `embed_query`, lo mismo que hace la caché en ejecución (10.G3): con
+Gemini, `embed_texts` usa `RETRIEVAL_DOCUMENT` y `embed_query` `RETRIEVAL_QUERY`, y un umbral
+calibrado con unos no vale para los otros. El informe con coste va a la carpeta de su nube.
 """
 
 from __future__ import annotations
@@ -37,10 +42,24 @@ from rag_evals.retrieval_eval import REPORTS_DIR
 DATASET_PATH = Path(__file__).resolve().parents[2] / "datasets" / "semantic-cache-v1.jsonl"
 THRESHOLDS = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99)
 # Suelo de la tasa de aciertos en el umbral recomendado (gate de la CI con `hashing`).
-MIN_HIT_RATE = {"hashing": 0.45, "azure": 0.7}
-EMBEDDING_PRICE_PER_MILLION = Decimal("0.02")  # text-embedding-3-small
+MIN_HIT_RATE = {"hashing": 0.45, "azure": 0.7, "bedrock": 0.7, "gcp": 0.7}
+# USD por millón de tokens de entrada (cota del presupuesto, no factura).
+EMBEDDING_PRICE_PER_MILLION = {
+    "azure": Decimal("0.02"),  # text-embedding-3-small
+    "bedrock": Decimal("0.02"),  # Titan Text Embeddings v2
+    "gcp": Decimal("0.15"),  # gemini-embedding-001 (precio estándar, 21-11-2026)
+}
+# Peticiones de embeddings a la vez: una por texto (embed_query), sin pasarse de la cuota.
+EMBED_CONCURRENCY = 8
+DIMENSIONS = 1024
 
-type Backend = Literal["hashing", "azure"]
+type Backend = Literal["hashing", "azure", "bedrock", "gcp"]
+type CloudBackend = Literal["azure", "bedrock", "gcp"]
+CLOUD_OF: dict[CloudBackend, Literal["azure", "aws", "gcp"]] = {
+    "azure": "azure",
+    "bedrock": "aws",
+    "gcp": "gcp",
+}
 type Kind = Literal["paraphrase", "trap", "personal"]
 
 
@@ -218,7 +237,7 @@ async def run_eval(
     cases: Sequence[Case], embeddings: EmbeddingPort, *, backend: str, dataset: str
 ) -> CacheEvalReport:
     texts = sorted({text for case in cases for text in (case.seed, case.probe)})
-    vectors = dict(zip(texts, await embeddings.embed_texts(texts), strict=True))
+    vectors = dict(zip(texts, await embed_as_queries(embeddings, texts), strict=True))
     frozen = FrozenEmbedding(vectors, embeddings.dimensions)
     sweep: list[SweepPoint] = []
     by_point: dict[tuple[float, bool], list[CaseResult]] = {}
@@ -241,6 +260,17 @@ async def run_eval(
         similarities={c.id: cosine(vectors[c.seed], vectors[c.probe]) for c in cases},
         decisions=decisions,
     )
+
+
+async def embed_as_queries(embeddings: EmbeddingPort, texts: Sequence[str]) -> list[list[float]]:
+    """Cada texto como lo embebe la caché en ejecución (`SemanticCache.lookup`: `embed_query`)."""
+    limit = asyncio.Semaphore(EMBED_CONCURRENCY)
+
+    async def one(text: str) -> list[float]:
+        async with limit:
+            return await embeddings.embed_query(text)
+
+    return list(await asyncio.gather(*(one(text) for text in texts)))
 
 
 def check(report: CacheEvalReport) -> list[str]:
@@ -321,23 +351,41 @@ def write_report(report: CacheEvalReport, out_dir: Path) -> Path:
     return md_path
 
 
-def estimated_cost(cases: Sequence[Case]) -> Decimal:
+def estimated_cost(cases: Sequence[Case], backend: CloudBackend = "azure") -> Decimal:
     chars = sum(len(text) for text in {t for c in cases for t in (c.seed, c.probe)})
-    return Decimal(chars // 4 + 1) * EMBEDDING_PRICE_PER_MILLION / Decimal(1_000_000)
+    return Decimal(chars // 4 + 1) * EMBEDDING_PRICE_PER_MILLION[backend] / Decimal(1_000_000)
 
 
 def build_embeddings(backend: Backend) -> EmbeddingPort:
+    """Los mismos embeddings (y dimensiones) que el edge usa para la caché (`retrieval.cloud`)."""
     if backend == "hashing":
-        return HashingEmbedding(1024)
-    from genaipocs_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
+        return HashingEmbedding(DIMENSIONS)
     from genaipocs_core.config import Settings
 
-    return AzureOpenAIEmbedding.from_settings(Settings().azure_openai)
+    settings = Settings()
+    if backend == "gcp":
+        from genaipocs_core.adapters.gemini_embeddings import GeminiEmbedding
+
+        return GeminiEmbedding.from_settings(settings.gcp, settings.gemini, DIMENSIONS)
+    if backend == "bedrock":
+        from genaipocs_core.adapters.cloud_embeddings import BedrockTitanEmbedding
+
+        return BedrockTitanEmbedding.from_settings(settings.bedrock, DIMENSIONS)
+    from genaipocs_core.adapters.cloud_embeddings import AzureOpenAIEmbedding
+
+    return AzureOpenAIEmbedding.from_settings(settings.azure_openai, DIMENSIONS)
+
+
+def report_dir(base: Path, backend: Backend) -> Path:
+    """`hashing` en la raíz (lo regenera la CI); con coste, en la carpeta de la nube."""
+    return base if backend == "hashing" else base / CLOUD_OF[backend]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--embeddings", choices=["hashing", "azure"], default="hashing")
+    parser.add_argument(
+        "--embeddings", choices=["hashing", "azure", "bedrock", "gcp"], default="hashing"
+    )
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
     parser.add_argument("--out", type=Path, default=REPORTS_DIR)
     parser.add_argument("--check", action="store_true", help="Sale con 1 si algo falla")
@@ -347,8 +395,8 @@ def main() -> None:
     cost: Decimal | None = None
     if args.embeddings != "hashing":
         if args.budget_usd is None:
-            parser.error("--embeddings azure requiere --budget-usd (llamadas con coste)")
-        cost = estimated_cost(cases)
+            parser.error(f"--embeddings {args.embeddings} requiere --budget-usd (tiene coste)")
+        cost = estimated_cost(cases, args.embeddings)
         if cost > args.budget_usd:
             parser.error(f"Coste estimado {cost} USD por encima del presupuesto")
     report = asyncio.run(
@@ -360,7 +408,7 @@ def main() -> None:
         )
     )
     report.cost_usd = f"~{cost:.6f}" if cost is not None else None
-    out = args.out if args.embeddings == "hashing" else args.out / "azure"
+    out = report_dir(args.out, args.embeddings)
     md_path = write_report(report, out)
     rec = report.recommended
     if rec:
