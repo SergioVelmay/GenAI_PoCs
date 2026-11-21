@@ -196,7 +196,7 @@ todo con dobles; lo real, en [pendientes](pendientes-cloud.md#fase-8-gcp).
 | 8.G1 | `60f0312` | Escudo `ModelArmorShield` y `rag_evals.shields` con Bedrock y Model Armor |
 | 8.G2 | `4bbf29b` | Detector de PII con Sensitive Data Protection y caída a patrones |
 | 8.G3 | `16793d9` | Terraform `model_armor.tf` (plantillas de SDP y de Model Armor, *floor setting*, IAM) |
-| 8.G4 | (este commit) | Ataques con Gemini (informes por nube) y doc a tres nubes; antes, `47704ba` (`fix:` de los informes de `agents`) |
+| 8.G4 | `835be9b` | Ataques con Gemini (informes por nube) y doc a tres nubes; antes, `47704ba` (`fix:` de los informes de `agents`) |
 
 ### Verificación previa (21-11-2026)
 
