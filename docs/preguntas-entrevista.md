@@ -916,6 +916,20 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    Shields y Bedrock Guardrails y falla cerrado: si un filtro no se ejecutó y nada coincidió, no
    lo doy por bueno. La integración del proyecto (*floor settings*) la dejo como red de seguridad,
    no como control principal.
+2. **Tu detector de PII es un servicio en la nube. ¿Qué pasa si se cae?** El filtro no manda el
+   texto sin redactar ni devuelve un error al cliente: cae a los patrones locales con checksum
+   (tarjetas, NIF/NIE, IBAN, email, teléfono) y marca el turno con `pii_fallback`. Lo que se pierde
+   en ese rato son los nombres de persona, y queda medido. Lo mismo si la respuesta no es fiable:
+   hallazgos truncados o una posición fuera del texto cuentan como caída, no como "sin PII".
+
+**Negocio y stakeholders**
+
+1. **Seguridad pide pasar toda la PII por el servicio gestionado de GCP. ¿Qué preguntas antes?**
+   Tres: latencia (es una llamada más en cada turno, y Google desaconseja el detector de nombres
+   donde la latencia importa), coste (se cobra por bytes con un mínimo de 1 KB por llamada, así
+   que cada mensaje corto cuenta como 1 KB) y falsos positivos (en un marketplace de eventos, un
+   nombre de artista no es un dato personal del cliente). Lo decidiría con una prueba sobre
+   mensajes reales anonimizados frente a la regex y Presidio, no por catálogo.
 
 <a id="checkpoint-8-9"></a>
 

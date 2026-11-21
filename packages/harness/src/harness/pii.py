@@ -1,14 +1,16 @@
 """PII (RGPD): detectar y seudonimizar datos personales antes de que salgan de nuestro perímetro.
 
 `PiiDetector` es un puerto: `RegexPiiDetector` (determinista, sin dependencias, con validación
-de checksum en NIF/NIE y tarjetas) o `PresidioPiiDetector` (NER de spaCy para nombres, en el extra
-`pii`). Se redacta con marcadores tipados (`<EMAIL_ADDRESS>`) para que el texto siga teniendo
-sentido para el modelo sin contener el dato.
+de checksum en NIF/NIE y tarjetas), `PresidioPiiDetector` (NER de spaCy para nombres, en el extra
+`pii`) o `SensitiveDataProtectionPiiDetector` (servicio de GCP, 8.G2). Se redacta con
+marcadores tipados (`<EMAIL_ADDRESS>`) para que el texto siga teniendo sentido para el modelo
+sin contener el dato.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -21,11 +23,15 @@ from harness.rules.patterns import CONTACT_DATA
 type TextFilter = Callable[[str, ToolContext], Awaitable[tuple[str, tuple[str, ...]]]]
 
 PII_REDACTED = "pii_redacted"
+# El detector configurado no respondió y se redactó con los patrones (8.G2).
+PII_FALLBACK = "pii_fallback"
 _NIF_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
 _NIF = re.compile(r"\b(\d{8})-?([A-Za-z])\b")
 _NIE = re.compile(r"\b([XYZxyz])-?(\d{7})-?([A-Za-z])\b")
 _DIGIT_RUN = re.compile(r"(?<!\d)\d(?:[\s-]{0,3}\d){12,}(?!\d)")
 _CARD_MIN, _CARD_MAX = 13, 19
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +44,10 @@ class PiiSpan:
 
 class PiiDetector(Protocol):
     def analyze(self, text: str, language: str) -> list[PiiSpan]: ...
+
+
+class PiiUnavailableError(Exception):
+    """Un detector de servicio (Sensitive Data Protection) no respondió o respondió mal."""
 
 
 def _luhn(digits: str) -> bool:
@@ -133,14 +143,22 @@ def redact(text: str, spans: Sequence[PiiSpan]) -> str:
 
 
 def pii_filter(detector: PiiDetector, *, language: str = "es") -> TextFilter:
+    fallback = RegexPiiDetector()
+
     async def apply(text: str, _: ToolContext) -> tuple[str, tuple[str, ...]]:
         # Al modelo llega el texto saneado: sin invisibles y con lo escondido en etiquetas
         # Unicode a la vista (fase 12.4). Así tampoco puede leer lo que el filtro no ve.
         text = sanitize(text)
-        # Presidio es CPU (spaCy): fuera del bucle de eventos.
-        spans = await asyncio.to_thread(detector.analyze, text, language)
+        codes: tuple[str, ...] = ()
+        # Presidio es CPU (spaCy) y SDP, red síncrona: fuera del bucle de eventos.
+        try:
+            spans = await asyncio.to_thread(detector.analyze, text, language)
+        except PiiUnavailableError:
+            # Ni sin redactar ni un 500: los patrones con checksum son el suelo (8.G2).
+            logger.warning("Detector de PII no disponible: se redacta con patrones")
+            spans, codes = fallback.analyze(text, language), (PII_FALLBACK,)
         if not spans:
-            return text, ()
-        return redact(text, spans), (PII_REDACTED,)
+            return text, codes
+        return redact(text, spans), (*codes, PII_REDACTED)
 
     return apply

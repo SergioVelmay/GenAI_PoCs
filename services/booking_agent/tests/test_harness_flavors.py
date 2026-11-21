@@ -255,3 +255,12 @@ async def test_gcp_shield_requires_the_model_armor_template() -> None:
     with pytest.raises(ValueError, match="GCP_MODEL_ARMOR__TEMPLATE"):
         async with build_shield(settings):
             pass
+
+
+def test_gcp_pii_detector_requires_the_project() -> None:
+    from booking_agent.guardrails import build_pii_detector
+    from genaipocs_core.config import GcpSettings, GuardrailsSettings, Settings
+
+    settings = Settings(_env_file=None, guardrails=GuardrailsSettings(pii="gcp"), gcp=GcpSettings())
+    with pytest.raises(ValueError, match="GCP__PROJECT"):
+        build_pii_detector(settings)

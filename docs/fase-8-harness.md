@@ -186,8 +186,8 @@ todo con dobles; lo real, en [pendientes](pendientes-cloud.md#fase-8-gcp).
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 8.G1 | (este commit) | Escudo `ModelArmorShield` y `rag_evals.shields` con Bedrock y Model Armor |
-| 8.G2 | | Detector de PII con Sensitive Data Protection |
+| 8.G1 | `60f0312` | Escudo `ModelArmorShield` y `rag_evals.shields` con Bedrock y Model Armor |
+| 8.G2 | (este commit) | Detector de PII con Sensitive Data Protection y caída a patrones |
 | 8.G3 | | Terraform `model_armor.tf` (plantilla, *floor setting*, plantilla de inspección de SDP) |
 | 8.G4 | | Ataques con Gemini (informes por nube) y doc a tres nubes |
 
@@ -240,6 +240,39 @@ uv run python -m rag_evals.shields --shield gcp   # con coste (cuota gratuita): 
 - Tests con *protos* reales construidos desde la documentación: ataque y daño en una llamada,
   documentos uno a uno, salida, errores de la API y *timeout* como no disponible, filtro saltado
   sin coincidencias (no disponible) frente a coincidencia con otro filtro saltado (bloquea).
+
+### 8.G2 · PII con Sensitive Data Protection
+
+```powershell
+uv run pytest packages/harness/tests/test_pii_gcp.py
+```
+
+`harness/pii_gcp.py` (`SensitiveDataProtectionPiiDetector`) implementa `PiiDetector` con
+`inspect_content` en la región de `GCP_SENSITIVE_DATA__LOCATION` (vacía = `GCP__REGION`):
+
+| | Regex | Presidio | Sensitive Data Protection |
+|---|---|---|---|
+| Nombres de persona | No | NER de spaCy (`_sm`) | `PERSON_NAME` (desaconsejado con latencia ajustada) |
+| NIF/NIE, tarjetas, IBAN | Con checksum | Con checksum | `SPAIN_NIF/DNI/NIE_NUMBER`, `CREDIT_CARD_NUMBER`, `IBAN_CODE` |
+| Dónde corre | En proceso | En proceso (CPU, modelos `_sm` de spaCy) | Llamada de red regional |
+| Coste | 0 | 0 (CPU) | 3 $/GB, 1 GB gratis al mes, mínimo de 1 KB por llamada |
+| Si falla | — | — | `PiiUnavailableError` → patrones (`pii_fallback`) |
+
+- **Mismos marcadores que Presidio**: los infoTypes se traducen (`PERSON_NAME` → `<PERSON>`,
+  `SPAIN_NIF_NUMBER` → `<ES_NIF>`...), así el texto que ve el modelo no depende del detector.
+- **Posiciones en *codepoints*** (`codepoint_range`), no en bytes: con `byte_range`, una tilde o
+  un emoji antes del dato desplazaría la redacción (el test lo comprueba con los dos rangos).
+- **Sin el dato de vuelta** (`include_quote=False`) y sin idioma (SDP no lo recibe).
+- **Verosimilitud `LIKELY`** por defecto (`GCP_SENSITIVE_DATA__MIN_LIKELIHOOD`): con `POSSIBLE`,
+  `PERSON_NAME` marcaría nombres de artistas y de eventos. Se calibra en la nube. Con plantilla
+  (`GCP_SENSITIVE_DATA__INSPECT_TEMPLATE`, 8.G3), la plantilla decide infoTypes y umbral.
+- **Respuesta en la que no se puede confiar = no disponible**: error de la API, hallazgos
+  truncados (redactar solo algunos dejaría PII) o una posición fuera del texto.
+- **Caída a patrones** (cambio en `pii_filter`, vale para cualquier detector): si el detector lanza
+  `PiiUnavailableError`, se redacta con `RegexPiiDetector` y el turno lleva `pii_fallback`. Ni se
+  manda el texto sin redactar ni se tumba el turno: los patrones con checksum son el suelo
+  determinista (lo que se pierde son los nombres).
+- Como con Presidio, solo en la entrada: la salida sigue con patrones (`guarded_agent`).
 
 ## 10. Checkpoint de entrevista
 

@@ -73,6 +73,26 @@ def build_pii_detector(settings: Settings) -> PiiDetector:
         from harness.pii_presidio import PresidioPiiDetector
 
         return PresidioPiiDetector()
+    if settings.guardrails.pii == "gcp":
+        from google.cloud.dlp_v2 import DlpServiceClient
+
+        from genaipocs_core.adapters.gcp_auth import gcp_credentials
+        from harness.pii_gcp import SensitiveDataProtectionPiiDetector, location_parent
+
+        gcp, sdp = settings.gcp, settings.gcp_sensitive_data
+        if not gcp.project:
+            raise ValueError("Falta GCP__PROJECT.")
+        parent = location_parent(gcp.project, sdp.location or gcp.region)
+        template = (
+            f"{parent}/inspectTemplates/{sdp.inspect_template}" if sdp.inspect_template else ""
+        )
+        return SensitiveDataProtectionPiiDetector(
+            DlpServiceClient(credentials=gcp_credentials(gcp)),
+            parent=parent,
+            min_likelihood=sdp.min_likelihood,
+            inspect_template=template,
+            timeout_seconds=sdp.timeout_seconds,
+        )
     return RegexPiiDetector()
 
 

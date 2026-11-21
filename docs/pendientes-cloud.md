@@ -241,6 +241,7 @@ Coste estimado: 0 dentro de la cuota gratuita de Model Armor (2 M de tokens al m
 los 24 textos son unos pocos miles).
 
 - [ ] **Model Armor frente al heurístico** (8.G1; requiere la plantilla de `model_armor.tf`, 8.G3): `uv run python -m rag_evals.shields --shield gcp` con `GCP_MODEL_ARMOR__TEMPLATE` (informe en `evals/reports/gcp/`). Comprobar: detección y falsos positivos sobre los 24 textos frente a Prompt Shields (7/12, 0 FP) y en capas con el heurístico; latencia p50 desde local con endpoint regional; la forma real de `filter_results` (claves del mapa, `rai_filter_type_results`, `invocation_result` con los textos de menos de 3 palabras) para reemplazar los dobles de `test_model_armor.py`; que `roles/modelarmor.user` basta para `sanitize*`.
+- [ ] **Sensitive Data Protection frente a regex y Presidio** (8.G2, céntimos o 0 dentro de 1 GB): con `GUARDRAILS__PII=gcp`, los casos de PII de `attack-scenarios-v1` y de las mutaciones de la 12.4, más mensajes con nombres de artistas y de eventos. Comprobar: qué detecta `PERSON_NAME` en español con `LIKELY` y con `POSSIBLE` (falsos positivos en títulos), que `codepoint_range` coincide con el texto con tildes y emojis, la latencia de `inspect_content` en `europe-west4` con y sin `PERSON_NAME` (¿cabe en cada turno?), que `roles/dlp.user` basta y el coste real por mensaje corto (mínimo de 1 KB). Capturar una respuesta real para los dobles de `test_pii_gcp.py`.
 
 ## Fase 9 · Multi-agente ([doc](fase-9-multiagente.md))
 
