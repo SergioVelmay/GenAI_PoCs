@@ -2,11 +2,13 @@
 
 Cómo deja Genaipocs que un LLM consulte y modifique el backend de ticketing de forma segura: el
 modelo propone, el backend valida, autoriza, ejecuta y sanea. Las mismas tools se usan en proceso
-(bucle propio), por MCP (tres servidores FastMCP) y detrás de un gateway (propio, AgentCore o APIM).
+(bucle propio), por MCP (tres servidores FastMCP) y detrás de un gateway (propio, AgentCore, APIM,
+Apigee o Agent Gateway).
 
-> Estado: todo lo local está completo, probado (tests + contenedores) y en CI. La ejecución con
-> LLM real, el IdP en la nube (Entra ID / Cognito) y los gateways gestionados están **pendientes
-> de validación con coste** (ver el final).
+> Estado: todo lo local está completo, probado (tests + contenedores) y en CI, también lo de GCP
+> ([pasada 6.G](#9-gcp-pasada-6g)). La ejecución con LLM real en AWS y GCP, el IdP en la nube
+> (Entra ID / Cognito / Identity Platform) y los gateways gestionados están **pendientes de
+> validación con coste** (ver el final).
 
 ## 1. Piezas
 
@@ -21,7 +23,9 @@ modelo propone, el backend valida, autoriza, ejecuta y sanea. Las mismas tools s
 | OAuth 2.1 | Resource servers JWT (firma, `iss`, `exp`, `aud` por servidor, scopes), RFC 9728 | [auth.py](../services/mcp_servers/src/genaipocs_mcp/auth.py) |
 | MCP Gateway propio | Agregación, token exchange por servidor, rate limit y auditoría | [gateway.py](../services/mcp_servers/src/genaipocs_mcp/gateway.py) |
 | Agente mínimo | Descubre tools MCP y las usa con el mismo bucle | [support_agent](../services/support_agent/src/support_agent) |
-| Gateways gestionados (IaC) | AgentCore Gateway (AWS) y APIM (Azure), desactivados por defecto | [aws/mcp_gateway.tf](../infra/terraform/aws/mcp_gateway.tf), [azure/mcp_gateway.tf](../infra/terraform/azure/mcp_gateway.tf) |
+| Gateways gestionados (IaC) | AgentCore Gateway (AWS), APIM (Azure), Agent Gateway y Apigee (GCP), desactivados por defecto | [aws/mcp_gateway.tf](../infra/terraform/aws/mcp_gateway.tf), [azure/mcp_gateway.tf](../infra/terraform/azure/mcp_gateway.tf), [gcp/mcp_gateway.tf](../infra/terraform/gcp/mcp_gateway.tf) |
+| Token por servidor en GCP | `GcpTokenExchanger` (`signJwt`) e Identity Platform de entrada (6.G2) | [gcp.py](../services/mcp_servers/src/genaipocs_mcp/gcp.py) |
+| Proxies de Apigee | Un bundle por servidor generado desde su contrato (6.G3) | [apigee.py](../services/mcp_servers/src/genaipocs_mcp/apigee.py) |
 
 ## 2. El bucle de tools hecho a mano
 
@@ -107,18 +111,18 @@ flowchart LR
     GW -- "aud=refunds, refunds:write" --> R[refunds]
 ```
 
-| Capacidad | B · Gateway propio (FastMCP) | A · AgentCore Gateway (AWS) | A · API Management (Azure) |
-|---|---|---|---|
-| Endpoint para el agente | uno, con las tools de los tres | uno, con las tools de todos los *targets* | uno **por servidor** (`/genaipocs-{server}/mcp`) |
-| Autenticación de entrada | `JWTVerifier` (audience del gateway) | `CUSTOM_JWT` (OIDC discovery, audience, scopes, claims) | política `validate-jwt` |
-| Credencial hacia el servidor | token exchange (dev STS) | OAuth **token exchange (OBO)**, client credentials, API key o SigV4 | reenvía el token del propio servidor (APIM es su puerta) |
-| Token passthrough a MCP | no | **no admitido** para destinos MCP | no aplica (mismo audience) |
-| Descubrimiento | proxy en cada `tools/list` | `DEFAULT` (sincronizado) o `DYNAMIC` (en cada llamada) | passthrough del servidor |
-| Búsqueda semántica de tools | no | `search_type = SEMANTIC` (no compatible con `DYNAMIC`) | no |
-| Políticas | middleware: rate limit por usuario, auditoría | interceptores Lambda, *policy engine* Cedar | XML: `rate-limit-by-key`, cuotas, IP, caché, transformaciones |
-| Otros orígenes de tools | — | OpenAPI, Lambda, Smithy, API Gateway, conectores | REST API de APIM convertida en MCP |
-| Coste en reposo | 0 (un contenedor más) | ~0, pago por llamada | Developer ~50 $/mes (Consumption **no** admite MCP) |
-| IaC | código + compose | `aws_bedrockagentcore_gateway` (+ `_target`, `_oauth2_credential_provider`) | `azapi_resource` (`Microsoft.ApiManagement/service/apis@2025-09-01-preview`, `type = "mcp"`) |
+| Capacidad | B · Gateway propio (FastMCP) | A · AgentCore Gateway (AWS) | A · API Management (Azure) | A · Apigee (GCP) | A · Agent Gateway (GCP) |
+|---|---|---|---|---|---|
+| Endpoint para el agente | uno, con las tools de los tres | uno, con las tools de todos los *targets* | uno **por servidor** (`/genaipocs-{server}/mcp`) | uno **por servidor** (`/genaipocs-{server}`) | ninguno: gobierna la **salida** del agente hacia cada servidor registrado |
+| Autenticación de entrada | `JWTVerifier` (audience del gateway) | `CUSTOM_JWT` (OIDC discovery, audience, scopes, claims) | política `validate-jwt` | `VerifyJWT` (JWKS de la cuenta del gateway, `aud` y `scope` del servidor) | identidad del agente (Agent Identity, SPIFFE + mTLS) |
+| Credencial hacia el servidor | token exchange (dev STS; en GCP, `signJwt`) | OAuth **token exchange (OBO)**, client credentials, API key o SigV4 | reenvía el token del propio servidor (APIM es su puerta) | reenvía el token del propio servidor | auth providers de Agent Identity: API key, 2LO o **3LO** (consentimiento guardado, no OBO) |
+| Token passthrough a MCP | no | **no admitido** para destinos MCP | no aplica (mismo audience) | no aplica (mismo audience) | no aplica |
+| Descubrimiento | proxy en cada `tools/list` | `DEFAULT` (sincronizado) o `DYNAMIC` (en cada llamada) | passthrough del servidor | passthrough; con productos de API, `tools/list` filtrado | Agent Registry (toolspec declarado o registro automático de Cloud Run/GKE) |
+| Búsqueda semántica de tools | no | `search_type = SEMANTIC` (no compatible con `DYNAMIC`) | no | no | búsqueda en Agent Registry |
+| Políticas | middleware: rate limit por usuario, auditoría | interceptores Lambda, *policy engine* Cedar | XML: `rate-limit-by-key`, cuotas, IP, caché, transformaciones | XML: `ParsePayload` (MCP), lista de tools, `SpikeArrest`, cuotas por tool en productos | IAM v3 por agente, servidor, método o tool; Model Armor como extensión |
+| Otros orígenes de tools | — | OpenAPI, Lambda, Smithy, API Gateway, conectores | REST API de APIM convertida en MCP | OpenAPI → MCP (*MCP Discovery Proxy*) | servidores MCP de Google (registro automático) |
+| Coste en reposo | 0 (un contenedor más) | ~0, pago por llamada | Developer ~50 $/mes (Consumption **no** admite MCP) | evaluación gratis 60 días; pago por uso ~365 $/mes por entorno | no publicado (preview) |
+| IaC | código + compose | `aws_bedrockagentcore_gateway` (+ `_target`, `_oauth2_credential_provider`) | `azapi_resource` (`Microsoft.ApiManagement/service/apis@2025-09-01-preview`, `type = "mcp"`) | `google_apigee_*` + bundle generado (`genaipocs_mcp.apigee`) | `google_network_services_agent_gateway`, `google_agent_registry_service` |
 
 Lectura:
 
@@ -131,6 +135,13 @@ Lectura:
   streaming) y no admite *workspaces* ni prompts MCP.
 - **Propio**: sin coste y totalmente controlable; a cambio, hay que operar y securizar el STS y
   mantener las políticas en código. Útil como referencia y para entornos sin gateway gestionado.
+- **Apigee** es el APIM de GCP: un proxy por servidor, con la ventaja de entender MCP
+  (`ParsePayload` saca la tool del JSON-RPC y los productos de API filtran `tools/list` y ponen
+  cuotas por tool). Caro en reposo fuera de la evaluación.
+- **Agent Gateway** no es un endpoint que agrega: es la puerta de **salida** de agentes que corren
+  en Google Cloud, con registro obligatorio de destinos y permisos de IAM por agente y por tool.
+  Se parece más a un *egress proxy* con identidad que a AgentCore Gateway (detalle en la
+  [pasada 6.G](#9-gcp-pasada-6g)).
 
 Uso en local (sin coste):
 
@@ -141,16 +152,16 @@ $env:MCP__AUTH="jwt"; docker compose --profile mcp up -d --build              # 
 # Agente (tiene coste): uv run python -m support_agent --gateway --customer cus_0121338 "..."
 ```
 
-## 6. Equivalencias Azure ↔ AWS ↔ framework
+## 6. Equivalencias Azure ↔ AWS ↔ GCP ↔ framework
 
-| Concepto | Azure | AWS | Framework (fase 7) |
-|---|---|---|---|
-| Tool calling | Azure OpenAI `tools` | Bedrock Converse `toolConfig` | LangChain `bind_tools`, Strands `@tool`, MAF `AIFunction` |
-| Bucle de tools | Foundry Agent Service (gestionado) | AgentCore Runtime / Bedrock Agents | LangGraph `ToolNode`, Strands agent loop |
-| Servidor MCP alojado | Container Apps / Functions | AgentCore Runtime (MCP) / ECS | FastMCP |
-| Cliente MCP | tool `mcp` de Foundry | AgentCore Gateway / Strands `MCPClient` | `MultiServerMCPClient`, `McpToolset` (nuestro) |
-| MCP Gateway | API Management | AgentCore Gateway | gateway propio (FastMCP `ProxyProvider`) |
-| IdP / OBO | Entra ID On-Behalf-Of | Cognito + AgentCore Identity (token exchange) | `DevTokenIssuer` (solo local) |
+| Concepto | Azure | AWS | GCP | Framework (fase 7) |
+|---|---|---|---|---|
+| Tool calling | Azure OpenAI `tools` | Bedrock Converse `toolConfig` | Gemini `function_declarations` + *thought signatures* | LangChain `bind_tools`, Strands `@tool`, MAF `AIFunction`, ADK `FunctionTool` |
+| Bucle de tools | Foundry Agent Service (gestionado) | AgentCore Runtime / Bedrock Agents | Agent Runtime (7.G) | LangGraph `ToolNode`, Strands agent loop |
+| Servidor MCP alojado | Container Apps / Functions | AgentCore Runtime (MCP) / ECS | Cloud Run (`--functional-type=mcp-server` lo registra en Agent Registry) | FastMCP |
+| Cliente MCP | tool `mcp` de Foundry | AgentCore Gateway / Strands `MCPClient` | `McpToolset` de ADK | `MultiServerMCPClient`, `McpToolset` (nuestro) |
+| MCP Gateway | API Management | AgentCore Gateway | Apigee (proxy MCP) / Agent Gateway + Agent Registry | gateway propio (FastMCP `ProxyProvider`) |
+| IdP / OBO | Entra ID On-Behalf-Of | Cognito + AgentCore Identity (token exchange) | Identity Platform + `signJwt` (sin OBO nativo); Agent Identity 3LO para terceros | `DevTokenIssuer` (solo local) |
 
 ## 7. Resultados en Azure (18-10-2026)
 
@@ -186,6 +197,8 @@ Lo que no se ve con modelos falsos (cada uno con su test):
 - Publicar los servidores por HTTPS (fases 13 y 14) y aplicar `mcp_gateway_enabled` (AWS) y
   `apim_enabled` (Azure) con confirmación; medir latencia y coste frente al gateway propio.
 - Tool de compra con `Idempotency-Key` estable y aprobación humana (fase 8).
+- GCP: agentes con Gemini, token por servidor con `signJwt` e Identity Platform, Agent Gateway y
+  Apigee ([pendientes de la 6.G](pendientes-cloud.md#fase-6-gcp)).
 
 ## 9. GCP (pasada 6.G)
 
@@ -196,8 +209,8 @@ Google y los gateways gestionados de GCP. Coste 0: todo con dobles; lo real, en
 | Subfase | Commit | Qué |
 |---|---|---|
 | 6.G1 | `4428442` | Bucle de tools y `support_agent` con Gemini de punta a punta |
-| 6.G2 | (este commit) | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
-| 6.G3 | — | Agent Gateway + Agent Registry + Agent Identity y Apigee en Terraform; cierre |
+| 6.G2 | `10fac9a` | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
+| 6.G3 | (este commit) | Agent Gateway + Agent Registry y Apigee en Terraform; cierre |
 
 ### Verificación previa (20-11-2026)
 
@@ -298,6 +311,45 @@ Decisiones y hallazgos:
 - Tests sin red: un firmador con clave RSA local hace de IAM Credentials (misma forma de JWT, con
   `kid`) y los JWKS se sirven desde memoria con las URLs reales de Google; servidores y gateway
   validan con el `JWTVerifier` de verdad (audience cruzado, otro proyecto, caducado, sin claim).
+
+### 6.G3 · Carril A: Agent Gateway + Agent Registry y Apigee
+
+```powershell
+uv run pytest services/mcp_servers/tests/test_apigee_bundle.py
+uv run python -m genaipocs_mcp.apigee --signer <mcp_gateway_service_account>   # → .tmp/apigee/*.zip
+terraform -chdir=infra/terraform/gcp validate
+# Con nube (pendientes-cloud.md): mcp_server_urls (fase 15) y agent_gateway_enabled / apigee_enabled = true
+```
+
+| Pieza | Qué hace | Código |
+|---|---|---|
+| Agent Registry | Un `google_agent_registry_service` por servidor con su toolspec **generado desde `contracts/*.json`** (nombre, descripción, `inputSchema` y las anotaciones MCP como `isReadOnly`/`isDestructive`...) | [mcp_gateway.tf](../infra/terraform/gcp/mcp_gateway.tf) |
+| Agent Gateway | `AGENT_TO_ANYWHERE` asociado al registro regional (`agent_gateway_enabled`, `agent_gateway_region`) | [mcp_gateway.tf](../infra/terraform/gcp/mcp_gateway.tf) |
+| Bundles de Apigee | Un proxy por servidor: `ParsePayload` (MCP) → `VerifyJWT` del token del servidor → `RaiseFault` si `tools/call` pide una tool fuera del contrato → `SpikeArrest` por cliente; destino en un TargetServer (sin URLs en el bundle); zip reproducible | [apigee.py](../services/mcp_servers/src/genaipocs_mcp/apigee.py) |
+| Apigee | Organización de **evaluación** sin VPC peering, instancia, entorno, grupo de entornos, TargetServers, proxies y despliegues (`apigee_enabled`) | [mcp_gateway.tf](../infra/terraform/gcp/mcp_gateway.tf) |
+
+Hallazgos (21-11-2026):
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Regiones de Agent Gateway ([codelab de salida a MCP propios](https://codelabs.developers.google.com/agw-ge-custom-mcp-egress-vpc-registry)) | Gateways de salida con servidores MCP propios solo en `us-central1` y `europe-west1` | `agent_gateway_region = "europe-west1"` (no `europe-west4` como el resto) |
+| Permisos de los agentes | No hay roles por servidor: una **política de acceso de IAM v3** (`iap.googleapis.com/resources.egressViaIAP` con condiciones `destination.is_registered`, servidor, método o tool) sobre el principal del agente | La política y el *binding* con un auth provider de Agent Identity necesitan el agente desplegado: **pasan a la 7.G2** (cambio del plan) |
+| `protocols` en `google_network_services_agent_gateway` | Obsoleto en el provider 8.11 (el codelab aún lo usa) | Se omite; comprobar en la nube que el gateway queda en MCP |
+| Apigee delante de un MCP propio ([acceso por tool](https://docs.cloud.google.com/apigee/docs/api-platform/apigee-mcp/manage-mcp-tool-access)) | Proxy normal con `ParsePayload` (`JSON-RPC-2.0`, `MCP`); filtrado de `tools/list` y cuotas por tool solo con `VerifyAPIKey`/`OAuthV2` de Apigee y productos de API | Con nuestros JWT (`VerifyJWT`), la lista de tools va en el propio proxy desde el contrato; los productos de API quedan para partners con claves |
+| Bundle en Terraform | `google_apigee_api` exige un zip; `archive_file` añadiría el provider `hashicorp/archive` | Se genera con Python (`genaipocs_mcp.apigee`, con tests) en `.tmp/apigee/`, sin provider nuevo |
+
+### Decisiones y límites de la pasada
+
+- **Sin OBO nativo en GCP**: el gateway firma con `signJwt` (6.G2). Es el patrón que encaja con
+  servidores propios; Agent Identity 3LO es para servicios de terceros con consentimiento.
+- **Dos gateways gestionados que no compiten**: Apigee para consumidores externos (partners, con
+  productos y cuotas) y Agent Gateway para nuestros agentes en Agent Runtime (IAM por tool).
+- **Contratos como fuente única**: toolspec de Agent Registry y lista de tools de Apigee salen
+  de `contracts/*.json`; cambiar una tool exige `--update` y regenerar, no editar dos listas.
+- **Preview fuera del camino crítico**: nada de Agent Gateway en tests ni en la CI; Terraform
+  desactivado por defecto y `validate` en la CI.
+- **Imagen de los servidores**: `google-auth` no está en la imagen de `mcp-servers` (como
+  `azure-identity` para Entra): el gateway en Cloud Run (fase 15) necesitará el extra `gcp`.
 
 ## 10. Checkpoint de entrevista
 

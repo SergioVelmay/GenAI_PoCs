@@ -42,7 +42,8 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API (suelta) o VertexRanker integrado en Agent Retrieval |
 | Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
-| Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee, Agent Gateway (parte en preview) |
+| Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee (proxy MCP con `ParsePayload`), Agent Gateway + Agent Registry (salida gobernada; Cloud Run en Limited Preview) |
+| Token de usuario hacia una API propia (OBO) | Entra On-Behalf-Of | AgentCore Identity (token exchange RFC 8693) | Sin OBO nativo: el gateway firma con `signJwt` de IAM (sin claves); Agent Identity (3LO) para terceros |
 | Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge | Pub/Sub (temas + suscripciones, *dead-letter topic*), Eventarc |
 | Emulador local de colas | Emulador de Service Bus (EULA + SQL Server) | ElasticMQ, LocalStack | Emulador oficial de Pub/Sub (perfil `pubsub`) |
 | Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (cuotas), Cloud Armor (*rate limiting*), Memorystore (Valkey) |
@@ -683,6 +684,53 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    potente cuesta ~0,001 $ por turno. Un reembolso mal gestionado cuesta una reclamación y
    tiempo de soporte. La regla es simple y auditable: si el turno puede cambiar algo, modelo
    potente.
+
+### GCP (pasada 6.G)
+
+**Técnicas**
+
+1. **¿Cómo haces On-Behalf-Of en GCP?** No existe tal cual. Google STS es RFC 8693, pero solo
+   cambia un token externo por un *access token* de Google para llamar a APIs de Google; no emite
+   un JWT con el audience de un servidor tuyo, que es lo que dan Entra OBO y AgentCore Identity.
+   Lo resolví haciendo del gateway el STS **sin claves**: valida el ID token de Identity Platform
+   y pide a IAM (`signJwt`) que firme, con la clave gestionada por Google de su cuenta de
+   servicio, un JWT por servidor con su `aud`, su `scope`, el cliente en `sub` y el gateway en
+   `act`. Los servidores lo validan con el JWKS público de la cuenta. La cuenta solo tiene un rol
+   propio con `signJwt`: `Token Creator` le dejaría actuar como ella en todo Google Cloud.
+2. **Identity Platform frente a Cognito o Entra como IdP de clientes: ¿qué cambia en el
+   gateway?** Que autentica pero no autoriza: sus ID tokens llevan `aud` = proyecto y ningún
+   scope. El gateway exige un usuario válido de ese proyecto y decide él qué scope recibe cada
+   servidor. A cambio, el `customer_id` viaja como *custom claim* puesto por el backend al dar de
+   alta al cliente, que resuelve lo que con Entra quedó abierto (mapear `oid` → cliente sin una
+   tabla). Un usuario autenticado sin ese claim no obtiene ningún token de servidor.
+3. **Gemini en el bucle de tools: ¿qué hay que cuidar?** Las *thought signatures*: Gemini
+   devuelve un estado opaco en la primera llamada de cada paso y exige recibirlo en el turno
+   siguiente (si no, `400`). Lo probé con una conversación de reembolso de tres turnos: dos
+   lecturas en paralelo con la firma solo en la primera, sus resultados agrupados en un turno y
+   la escritura con su propia firma. Cualquier capa que reconstruya el historial (puentes de
+   frameworks, checkpoints) tiene que conservar `ToolCall.signature`.
+4. **Agent Gateway frente a AgentCore Gateway.** AgentCore es un endpoint MCP que agrega
+   servidores y hace el token exchange. Agent Gateway gobierna la **salida** de agentes que corren
+   en Agent Runtime o GKE: solo deja pasar a destinos registrados en Agent Registry, todo está
+   denegado hasta que una política de IAM da permiso al agente por servidor o por tool, y las
+   credenciales las pone Agent Identity (API key, 2LO o 3LO con consentimiento), no un OBO. Es más
+   gobierno de red e identidad que agregación.
+
+**Negocio y stakeholders**
+
+1. **¿Apigee o Agent Gateway para los servidores MCP de Genaipocs?** Depende de quién llama. Para
+   nuestros agentes en Agent Runtime, Agent Gateway: gobierno por agente y por tool con IAM. Para
+   partners que integran sus agentes contra nuestro catálogo, Apigee: productos de API, cuotas por
+   cliente, analítica y lista de tools por proxy, como un canal de producto. El coste también
+   decide: Apigee de pago por uso ronda 365 $/mes por entorno antes de la primera llamada; la
+   evaluación es gratis 60 días y no vale para producción. Lo generé todo desde los contratos
+   versionados para que ninguna de las dos listas de tools se desalinee del código.
+2. **Seguridad pregunta quién firma los tokens de los servidores en GCP. ¿Qué respondes?** Google,
+   con una clave que no sale de su infraestructura y rota sola; nosotros solo tenemos permiso para
+   pedir firmas con esa cuenta, y cada firma queda en la auditoría de IAM. Cada token dura cinco
+   minutos, vale para un único servidor y dice quién actúa por quién. Y un aviso que doy antes de
+   activarlo: Identity Platform no se puede desactivar en un proyecto, así que se enciende con una
+   decisión explícita, no en una prueba.
 
 <a id="fase-7"></a>
 

@@ -57,6 +57,19 @@ output "mcp_env" {
   }
 }
 
+output "agent_gateway" {
+  description = "Agent Gateway de salida (null mientras agent_gateway_enabled = false)."
+  value       = var.agent_gateway_enabled ? google_network_services_agent_gateway.mcp[0].id : null
+}
+
+output "apigee_instance" {
+  description = "Host y service attachment de la instancia de Apigee (null mientras apigee_enabled = false)."
+  value = var.apigee_enabled ? {
+    host               = google_apigee_instance.mcp[0].host
+    service_attachment = google_apigee_instance.mcp[0].service_attachment
+  } : null
+}
+
 output "agent_search_engine" {
   description = "GCP_AGENT_SEARCH__ENGINE (null mientras agent_search_enabled = false)."
   value       = var.agent_search_enabled ? google_discovery_engine_search_engine.knowledge[0].engine_id : null
