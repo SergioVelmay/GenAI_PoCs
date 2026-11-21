@@ -35,6 +35,9 @@ from genaipocs_core.ports.llm import ToolSpec
 
 # LangChain no tiene noción de checkpoint de caché: viaja en `additional_kwargs`.
 CACHE_CHECKPOINT = "cache_checkpoint"
+# Ni de *thought signatures* (Gemini 3/4): {id de la llamada: firma}, también en `additional_kwargs`
+# porque `ToolCall` de LangChain es un TypedDict cerrado.
+SIGNATURES = "tool_call_signatures"
 
 
 def spec_to_openai(spec: ToolSpec) -> dict[str, Any]:
@@ -71,16 +74,28 @@ def with_cache_checkpoint(message: BaseMessage) -> BaseMessage:
 
 
 def tool_calls_of(message: AIMessage) -> tuple[ToolCall, ...]:
+    signatures: dict[str, str] = message.additional_kwargs.get(SIGNATURES, {})
     valid = [
-        ToolCall(c["id"] or "", c["name"], json.dumps(c["args"], ensure_ascii=False))
+        ToolCall(
+            c["id"] or "",
+            c["name"],
+            json.dumps(c["args"], ensure_ascii=False),
+            signatures.get(c["id"] or ""),
+        )
         for c in message.tool_calls
     ]
     # Argumentos que no eran JSON: se reenvían tal cual para que el ejecutor devuelva el error.
     invalid = [
-        ToolCall(c["id"] or "", c["name"] or "", c["args"] or "")
+        ToolCall(c["id"] or "", c["name"] or "", c["args"] or "", signatures.get(c["id"] or ""))
         for c in message.invalid_tool_calls
     ]
     return (*valid, *invalid)
+
+
+def without_signatures(message: BaseMessage) -> BaseMessage:
+    """Mismo mensaje (mismo `id`, así `add_messages` lo sustituye) sin firmas."""
+    kwargs = {k: v for k, v in message.additional_kwargs.items() if k != SIGNATURES}
+    return message.model_copy(update={"additional_kwargs": kwargs})
 
 
 def to_chat_messages(messages: Sequence[BaseMessage]) -> list[ChatMessage]:
@@ -132,8 +147,10 @@ def to_ai_message(response: LLMResponse) -> AIMessage:
             continue
         valid.append(tool_call(name=call.name, args=args, id=call.id))
     usage = response.usage
+    signatures = {c.id: c.signature for c in response.tool_calls if c.signature is not None}
     return AIMessage(
         content=response.content,
+        additional_kwargs={SIGNATURES: signatures} if signatures else {},
         tool_calls=valid,
         invalid_tool_calls=invalid,
         usage_metadata=UsageMetadata(

@@ -83,8 +83,8 @@ resource "google_identity_platform_config" "customers" {
 #     Preview); no es un endpoint MCP agregado al que se conecta cualquier cliente.
 #   - Solo deja pasar a destinos REGISTRADOS en Agent Registry, y todo está denegado hasta que
 #     una política de acceso de IAM (v3) da permiso al agente (principal de Agent Identity) por
-#     servidor, método o tool. Esa política y el binding con un auth provider de Agent Identity
-#     necesitan el agente desplegado: llegan en la 7.G2.
+#     servidor, método o tool. Esa política necesita el agente desplegado: está en
+#     agent_platform.tf (7.G4), que explica por qué no hay binding con un auth provider.
 #   - Credenciales hacia la tool: auth providers de Agent Identity (API key, 2LO, 3LO). No hay
 #     token exchange: nuestros servidores siguen recibiendo el JWT de `signJwt` (6.G2).
 # Coste: no publicado (Limited Preview); se valida con agent_gateway_enabled solo durante la sesión.

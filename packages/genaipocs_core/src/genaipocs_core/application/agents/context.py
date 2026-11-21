@@ -12,6 +12,11 @@ provoca: llamadas a tools, resultados y respuesta). Se expulsan intercambios com
 mensajes sueltos: un resultado de tool sin su llamada es un error en OpenAI y en Bedrock.
 El recorte tiene histéresis (se dispara en `trigger_tokens` y baja hasta `target_tokens`) para
 no cambiar el prefijo en cada turno, y lo expulsado se condensa en un resumen.
+
+Al compactar, el historial conservado pierde las *thought signatures* de Gemini (7.G1): en
+Gemini 4 la firma va ligada al prefijo con el que se generó y el resumen lo cambia. Sin firma,
+`GeminiLLM` manda el validador de *skip* documentado; el coste es razonar algo peor solo en
+ese turno. La alternativa (`prefix_mismatch_behavior="DROP"`) ya no está documentada.
 """
 
 from __future__ import annotations
@@ -83,6 +88,16 @@ def plan_compaction(
     return evicted, [m for e in exchanges for m in e]
 
 
+def without_signatures(messages: Sequence[ChatMessage]) -> list[ChatMessage]:
+    """El historial sin *thought signatures*: lo que se envía tras cambiar el prefijo."""
+    return [
+        replace(m, tool_calls=tuple(replace(c, signature=None) for c in m.tool_calls))
+        if any(c.signature is not None for c in m.tool_calls)
+        else m
+        for m in messages
+    ]
+
+
 def render_transcript(messages: Sequence[ChatMessage], *, max_chars: int) -> str:
     def clip(text: str) -> str:
         return text if len(text) <= max_chars else text[:max_chars] + "…"
@@ -135,7 +150,7 @@ class ShortTermMemory:
         summary = state.summary
         if self._policy.summarize and self._summarizer is not None:
             summary = await self._summarizer.summarize(state.summary, evicted)
-        return replace(state, messages=tuple(kept), summary=summary), True
+        return replace(state, messages=tuple(without_signatures(kept)), summary=summary), True
 
 
 async def load_thread(store: CheckpointStore, thread_id: str, customer_id: str) -> ThreadState:

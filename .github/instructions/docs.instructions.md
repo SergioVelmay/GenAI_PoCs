@@ -10,7 +10,7 @@ description: "Estructura y estilo de la documentación de fases."
 Misma estructura en todas las fases:
 
 1. Título `# Fase N · Tema`, **Objetivo** en 1–2 frases y commits o subfases.
-2. Arquitectura con un diagrama Mermaid y una tabla de piezas (dónde vive cada cosa). Sergio prefiere diagramas **simplificados**: actores y relaciones clave, sin listar servicios ni modelos (el detalle va en la tabla). Etiquetas de flecha siempre entre comillas (`-->|"texto (x)"|`): los paréntesis sin comillas rompen el parser. Validar con `npx.cmd -y @mermaid-js/mermaid-cli` (PowerShell) o `npx -y ...` (Git Bash).
+2. Arquitectura con un diagrama Mermaid y una tabla de piezas (dónde vive cada cosa). Sergio prefiere diagramas **simplificados**: actores y relaciones clave, sin listar servicios ni modelos (el detalle va en la tabla). Etiquetas de flecha siempre entre comillas (`-->|"texto (x)"|`): los paréntesis sin comillas rompen el parser. Validar con `npx.cmd -y @mermaid-js/mermaid-cli@12.2.0 -i <diagrama>.mmd -o <salida>.svg` (PowerShell) o `npx -y @mermaid-js/mermaid-cli@12.2.0 ...` (Git Bash), como comando suelto (sin encadenar: en Claude Code es la forma que permite `.claude/settings.json`) y con los ficheros en `.tmp/`. Versión fijada, como promptfoo: subirla es un cambio deliberado (aquí y en el `allow`).
 3. Qué se construye (por subfase), con comandos ejecutables.
 4. Resultados medidos (tablas con números reales; si son de local o con embeddings `hashing`, decirlo).
 5. Comparativa **Azure ↔ AWS ↔ GCP ↔ framework** (carriles A/B/C). En la pasada GCP, además, una sección "GCP (pasada N.G)" con lo construido, sus comandos y sus hallazgos.

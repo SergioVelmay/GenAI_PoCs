@@ -45,9 +45,21 @@ mcp_server_urls = {
 }
 
 # Agent Gateway + Agent Registry (6.G3): Limited Preview para Cloud Run; solo us-central1 o
-# europe-west1. true solo durante la validación (la política de acceso del agente llega en la 7.G2).
+# europe-west1. true solo durante la validación (con el agente desplegado, crea su política de acceso, 7.G4).
 agent_gateway_enabled = false
 agent_gateway_region  = "europe-west1"
+
+# Agente en Agent Runtime (7.G4). true = motor standalone con Sessions + Memory Bank (pago por
+# uso, sin coste por hora; output agent_platform_env). Con imagen, además el agente en un
+# contenedor con Agent Identity (vCPU-hora activa, escala a cero; la imagen llega en la fase 15).
+agent_platform_enabled       = false
+agent_platform_runtime_image = "" # europe-west1-docker.pkg.dev/<proyecto>/agents/booking:<tag>
+agent_platform_invokers      = [] # ["serviceAccount:<backend>"]: solo el backend invoca al agente
+organization_id              = "" # vacío = proyecto sin organización (Agent Identity proj-<número>)
+# Política de acceso por tool (con agent_gateway_enabled): vacío = todas las del contrato.
+agent_platform_mcp_tools = {
+  # refunds = []   # p. ej., el agente sin tools de escritura
+}
 
 # Apigee de evaluación (6.G3): gratis 60 días, ~1 h en crearse. Antes del apply, generar los
 # bundles: uv run python -m genaipocs_mcp.apigee --signer <mcp_gateway_service_account>

@@ -28,6 +28,13 @@ CACHE_CHECKPOINT = "cache_checkpoint"
 # MAF parsea y valida los argumentos antes de llamar a la función: el JSON inválido viaja
 # envuelto para que lo rechace nuestro ejecutor (y quede en el diario) igual que en native.
 RAW_ARGUMENTS = "__raw_arguments__"
+# *Thought signature* de Gemini: en `additional_properties` del contenido `function_call`.
+SIGNATURE = "signature"
+
+
+def _signature(call: Content) -> str | None:
+    value = (call.additional_properties or {}).get(SIGNATURE)
+    return value if isinstance(value, str) else None
 
 
 def _arguments(call: Content) -> str:
@@ -60,7 +67,7 @@ def to_chat_messages(messages: Sequence[Message]) -> list[ChatMessage]:
             )
             continue
         calls = tuple(
-            ToolCall(c.call_id or "", c.name or "", _arguments(c))
+            ToolCall(c.call_id or "", c.name or "", _arguments(c), _signature(c))
             for c in m.contents
             if c.type == "function_call"
         )
@@ -75,7 +82,10 @@ def _call_content(call: ToolCall) -> Content:
         args = None
     if not isinstance(args, dict):
         args = {RAW_ARGUMENTS: call.arguments}
-    return Content.from_function_call(call.id, call.name, arguments=args)
+    extra = {SIGNATURE: call.signature} if call.signature is not None else None
+    return Content.from_function_call(
+        call.id, call.name, arguments=args, additional_properties=extra
+    )
 
 
 def to_maf_messages(messages: Iterable[ChatMessage]) -> list[Message]:

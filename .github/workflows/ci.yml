@@ -202,6 +202,8 @@ jobs:
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false -input=false
       - run: terraform validate
+      # Plan con proveedores simulados (mock_provider): evalúa lo que validate no ve con count = 0.
+      - run: terraform test
 
   integration:
     runs-on: ubuntu-26.04

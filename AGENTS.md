@@ -81,7 +81,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 falta AWS; y GCP en todas). No escribir "asterisco".
 - Pasada GCP: subfases `N.G1`, `N.G2`... por fase (`feat: fase 3.G1 - ...`), con paridad total con Azure y AWS; cada una actualiza el doc de su fase y la columna GCP de la tabla de estado.
-- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre sin preguntar con `uv run python scripts/restore_latency_reports.py` (comprueba que solo cambian claves `*_ms` y, si no, no toca nada; `git restore` sigue en `ask`) y se informa; si cambian campos o resultados, entran en el commit.
+- Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre sin preguntar con `uv run python scripts/restore_latency_reports.py` (JSON y Markdown: comprueba que solo cambian claves `*_ms` o columnas `ms` de las tablas y, si no, no toca nada; `git restore` sigue en `ask`) y se informa; si cambian campos o resultados, entran en el commit.
 
 ## Entorno y problemas conocidos
 
@@ -107,7 +107,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 4 | Retrieval avanzado y servicio RAG | ✅ Hecha* | ✅* | `docs/fase-4-retrieval.md` |
 | 5 | Evals de RAG y gate en CI | ✅ Hecha* | ✅* | `docs/fase-5-evals.md` |
 | 6 | Tool calling manual, servidores MCP, OAuth y MCP gateway | ✅ Hecha* | ✅* | `docs/fase-6-tools-mcp.md` |
-| 7 | Un agente en 7 sabores y context engineering | ✅ Hecha* | 7.G | `docs/fase-7-agentes.md` |
+| 7 | Un agente en 9 sabores y context engineering | ✅ Hecha* | ✅* | `docs/fase-7-agentes.md` |
 | 8 | Agentic harness y guardrails | ✅ Hecha* | 8.G | `docs/fase-8-harness.md` |
 | 8→9 | Checkpoint: CI, docs 0–2, README, AGENTS.md, conexión con Azure y pendientes de Azure de las fases 2–8 | ✅ Hecha | — | `docs/fase-9-8-checkpoint.md` |
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | 9.G | `docs/fase-9-multiagente.md` |
@@ -115,7 +115,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights | ✅ Hecha* | 11.G | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G, 5.G y 6.G; siguiente: **7.G**, dos sesiones, rama `fase/7-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G, 5.G, 6.G y 7.G; siguiente: **8.G**, rama `fase/8-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | G→13 | Checkpoint: emuladores locales oficiales de AWS, Azure y GCP (tras cerrar la pasada GCP) | | | `docs/plan-fases.md#checkpoint-g-13` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |

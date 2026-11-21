@@ -3,6 +3,8 @@
 Strands habla el formato de Bedrock Converse: mensajes con bloques `text` / `toolUse` /
 `toolResult` / `cachePoint` y un modelo que emite eventos de streaming. El puente traduce a
 nuestros `ChatMessage` en la entrada y emite los eventos equivalentes a la respuesta del gateway.
+La *thought signature* de Gemini viaja en `toolUse.reasoningSignature` (base64), el campo que
+usa el propio `GeminiModel` de Strands.
 """
 
 from __future__ import annotations
@@ -13,10 +15,15 @@ from typing import Any, Literal, TypeVar, cast
 
 from pydantic import BaseModel
 from strands.models import Model
-from strands.types.content import ContentBlock, Messages, SystemContentBlock
+from strands.types.content import (
+    ContentBlock,
+    ContentBlockStartToolUse,
+    Messages,
+    SystemContentBlock,
+)
 from strands.types.content import Message as StrandsMessage
 from strands.types.streaming import StreamEvent
-from strands.types.tools import ToolChoice, ToolChoiceTool, ToolResult
+from strands.types.tools import ToolChoice, ToolChoiceTool, ToolResult, ToolUse
 from strands.types.tools import ToolSpec as StrandsToolSpec
 
 from genaipocs_core.ports import ChatMessage, LLMPort, Role, ToolCall, ToolConfig
@@ -108,13 +115,27 @@ def to_chat_messages(messages: Messages) -> list[ChatMessage]:
         text = "".join(b.get("text", "") for b in blocks)
         calls = tuple(
             ToolCall(
-                b["toolUse"]["toolUseId"], b["toolUse"]["name"], arguments_of(b["toolUse"]["input"])
+                b["toolUse"]["toolUseId"],
+                b["toolUse"]["name"],
+                arguments_of(b["toolUse"]["input"]),
+                b["toolUse"].get("reasoningSignature"),
             )
             for b in blocks
             if "toolUse" in b
         )
         converted.append(ChatMessage(Role(m["role"]), text, checkpoint, tool_calls=calls))
     return converted
+
+
+def _tool_use(call: ToolCall) -> ToolUse:
+    tool_use: ToolUse = {
+        "toolUseId": call.id,
+        "name": call.name,
+        "input": _input_of(call.arguments),
+    }
+    if call.signature is not None:
+        tool_use["reasoningSignature"] = call.signature
+    return tool_use
 
 
 def to_strands_messages(messages: Iterable[ChatMessage]) -> Messages:
@@ -136,10 +157,7 @@ def to_strands_messages(messages: Iterable[ChatMessage]) -> Messages:
                 converted.append({"role": "user", "content": [block]})
         else:
             content: list[ContentBlock] = [{"text": m.content}] if m.content else []
-            content += [
-                {"toolUse": {"toolUseId": c.id, "name": c.name, "input": _input_of(c.arguments)}}
-                for c in m.tool_calls
-            ]
+            content += [{"toolUse": _tool_use(c)} for c in m.tool_calls]
             role: Literal["user", "assistant"] = "assistant" if m.role is Role.ASSISTANT else "user"
             converted.append({"role": role, "content": content})
         if m.cache_checkpoint:
@@ -198,11 +216,10 @@ class GatewayModel(Model):
             yield {"contentBlockDelta": {"delta": {"text": response.content}}}
             yield {"contentBlockStop": {}}
         for call in response.tool_calls:
-            yield {
-                "contentBlockStart": {
-                    "start": {"toolUse": {"toolUseId": call.id, "name": call.name}}
-                }
-            }
+            start: ContentBlockStartToolUse = {"toolUseId": call.id, "name": call.name}
+            if call.signature is not None:
+                start["reasoningSignature"] = call.signature
+            yield {"contentBlockStart": {"start": {"toolUse": start}}}
             tool_input = json.dumps(_input_of(call.arguments), ensure_ascii=False)
             yield {"contentBlockDelta": {"delta": {"toolUse": {"input": tool_input}}}}
             yield {"contentBlockStop": {}}

@@ -38,12 +38,14 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 
 from booking_agent.bridges.langchain import (
+    SIGNATURES,
     GatewayChatModel,
     spec_to_openai,
     system_message,
     to_chat_messages,
     tool_calls_of,
     with_cache_checkpoint,
+    without_signatures,
 )
 from booking_agent.runtime import AgentDeps, AgentTurn, StopReason
 from genaipocs_core.application.agents import (
@@ -138,8 +140,19 @@ class LangGraphAgent:
         }
         if did_compact:
             evicted = history[: len(history) - len(compacted.messages)]
+            kept = history[len(evicted) :]
+            # El historial conservado pierde las firmas, como en `ShortTermMemory`: aquí vive en
+            # el estado del grafo, así que se sustituye cada mensaje (mismo `id`).
+            unsigned = [
+                without_signatures(m)
+                for m in kept
+                if m.id is not None and SIGNATURES in m.additional_kwargs
+            ]
             update |= {
-                "messages": [RemoveMessage(id=m.id) for m in evicted if m.id is not None],
+                "messages": [
+                    *(RemoveMessage(id=m.id) for m in evicted if m.id is not None),
+                    *unsigned,
+                ],
                 "summary": compacted.summary,
                 "turn_start": len(messages) - 1 - len(evicted),
                 "compacted": True,

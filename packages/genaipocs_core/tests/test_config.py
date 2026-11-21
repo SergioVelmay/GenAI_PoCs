@@ -279,3 +279,13 @@ def test_gcp_agent_search_defaults_match_terraform() -> None:
         "knowledge-search",
     )
     assert (search.bucket, search.prefix, search.answer_model) == ("", "agent-search", "stable")
+
+
+def test_gcp_agent_platform_is_local_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """7.G3: sin motores, memoria en el proceso y el sabor `agentplatform` con su emulador."""
+    platform = Settings(_env_file=None).gcp_agent_platform
+    assert (platform.memory_engine, platform.runtime_engine) == ("", "")
+
+    engine = "projects/p/locations/europe-west4/reasoningEngines/1"
+    monkeypatch.setenv("GCP_AGENT_PLATFORM__MEMORY_ENGINE", engine)
+    assert Settings(_env_file=None).gcp_agent_platform.memory_engine == engine

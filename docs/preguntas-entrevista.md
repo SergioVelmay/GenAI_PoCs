@@ -40,7 +40,8 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Agent Search (antes Vertex AI Search; respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API (suelta) o VertexRanker integrado en Agent Retrieval |
-| Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK |
+| Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK; Managed Agents API (Antigravity, Pre-GA) |
+| Identidad del agente desplegado | Identidad gestionada | Rol de IAM del AgentCore Runtime | Agent Identity (principal SPIFFE por agente) + política de acceso de IAM v3 por tool |
 | Guardrails | Content Safety, Prompt Shields | Bedrock Guardrails | Model Armor, Sensitive Data Protection, *safety settings* de Gemini |
 | Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee (proxy MCP con `ParsePayload`), Agent Gateway + Agent Registry (salida gobernada; Cloud Run en Limited Preview) |
 | Token de usuario hacia una API propia (OBO) | Entra On-Behalf-Of | AgentCore Identity (token exchange RFC 8693) | Sin OBO nativo: el gateway firma con `signJwt` de IAM (sin claves); Agent Identity (3LO) para terceros |
@@ -781,6 +782,81 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    formato. Le daría tres cifras separadas: tareas resueltas, errores reales con su impacto y
    errores bloqueados por las defensas (aquí, un reembolso ajeno que frenó el backend). Y un plan
    para medir mejor antes de decidir nada con ese dato.
+
+### GCP (pasada 7.G)
+
+**Técnicas**
+
+1. **Cambias el modelo a Gemini y el agente de LangGraph empieza a dar `400` en el segundo paso.
+   ¿Qué miras?** Las *thought signatures*: Gemini devuelve con la primera llamada a tool de cada
+   paso un estado opaco de su razonamiento y exige recibirlo de vuelta. Cada framework reconstruye
+   el historial con sus tipos y, si no tiene dónde guardarlo, lo pierde: en Strands hay un campo
+   nativo (`reasoningSignature`); en LangChain, LlamaIndex y MAF lo llevé en sus metadatos. Lo
+   cubre un test que firma como Gemini y comprueba la ida y vuelta en los 14 escenarios de cada sabor.
+2. **¿Y qué pasa con las firmas al compactar el historial?** En Gemini 4 la firma va ligada al
+   prefijo con el que se generó, y el resumen lo cambia. El parámetro que lo toleraba ya no está
+   documentado, así que no dependo de él: al compactar, el historial conservado va sin firmas y el
+   adaptador manda el validador de *skip* documentado. El coste es razonar algo peor solo en ese
+   turno, que con la histéresis ocurre pocas veces. Lo valido con el modelo real antes de darlo por bueno.
+3. **¿Qué te encontraste al meter ADK detrás de tus contratos?** Tres cosas que un "hello world"
+   no enseña. Escribe su propio prompt de sistema (añade una línea en inglés con su nombre), así
+   que el puente envía el prefijo común. Sustituye `{clave}` del estado de sesión dentro de las
+   instrucciones, así que la identidad no va en el estado sino en la tool del turno. Y trata el
+   límite de iteraciones como un fallo del nodo, con traza en ERROR: lo cambié por un
+   `before_model_callback` que responde con el fallback. Con eso, 14/14, la misma trayectoria y
+   los mismos tokens que el bucle propio, y 6/6 ataques contenidos.
+4. **ADK trae compactación de eventos. ¿Por qué no la usas?** Porque resume después de la
+   invocación y mete el resumen como un turno del propio agente, y yo lo quiero antes del turno
+   y marcado como datos (defensa frente a inyecciones que queden en el historial). Además
+   conserva las firmas de Gemini en los eventos que retiene, que es justo lo que en Gemini 4
+   puede dar `400` tras cambiar el prefijo. La nuestra funciona igual en todos los sabores.
+5. **Agent Runtime frente a AgentCore Runtime: ¿qué cambia para la seguridad?** Los dos ejecutan
+   tu contenedor con un contrato HTTP, pero AgentCore pone el usuario en una cabecera que solo
+   puede fijar quien tiene `InvokeAgentRuntimeForUser`; en Agent Runtime el `user_id` va en el
+   cuerpo y lo puede poner cualquiera con permiso de `query`. Así que la frontera es IAM: solo
+   la cuenta de servicio del backend autenticado puede invocar el agente, y el dueño del hilo se
+   vuelve a comprobar dentro. Con la memoria pasa algo parecido: Sessions no tiene escritura
+   condicional como AgentCore, así que la concurrencia optimista tiene una ventana que hay que
+   conocer.
+6. **¿Cómo limitas qué tools puede usar un agente desplegado en GCP?** Con identidad y política,
+   no con la lista de tools del prompt. El agente corre con Agent Identity (un principal por
+   agente, sin cuenta de servicio que custodiar) y toda su salida pasa por Agent Gateway, que
+   deniega por defecto. Una política de acceso de IAM v3 le da `egressViaIAP` por servidor MCP y
+   tool registrados en Agent Registry, generada desde los contratos de los servidores; en AWS es
+   la lista de targets y tools del AgentCore Gateway. La escribí para que falle cerrada: si el
+   *handshake* no casa con la condición, se deniega y se ve en la validación, nunca al revés.
+7. **¿Por qué no usas la Managed Agents API de Google para el agente de reservas?** Porque es
+   Pre-GA y sus condiciones prohíben producción y datos confidenciales, y porque el agente
+   decide dentro de un sandbox con sus propias tools (código, web, MCP directo). Para que fuera un
+   sabor, todas las tools que tocan datos de Genaipocs tendrían que volver a mi harness: la
+   Gemini API lo permite con *custom functions* (`requires_action`), pero en Agent Platform no está
+   documentado para agentes. Lo dejé como prueba de céntimos y, aun así, heredaría el límite de
+   Foundry: el historial es del servicio y no lo compacto yo.
+
+**Negocio y stakeholders**
+
+1. **El equipo quiere probar Gemini en el agente de soporte "cambiando una variable". ¿Qué le
+   dices?** Que el gateway lo permite, pero que cambiar de proveedor no es gratis aunque el código
+   compile: cada modelo tiene contratos propios (aquí, las firmas de razonamiento) que rompen en
+   producción, no en local. Por eso pedí primero un test de contrato por framework y una prueba
+   con presupuesto acotado (céntimos) antes de enviarle tráfico real.
+2. **Un equipo en GCP pregunta si debe usar ADK o LangGraph.** ADK si van a desplegar en Agent
+   Runtime y quieren Sessions, Memory Bank y el ecosistema de Google con poco código; LangGraph
+   si el flujo tiene pasos, ramas y aprobaciones que conviene ver como grafo, y quieren ser
+   portables. Les enseñaría la tabla de la suite: con los contratos propios, los dos hacen las
+   mismas llamadas y gastan lo mismo, así que la decisión es de equipo y plataforma, no de coste.
+3. **Legal pregunta qué recuerda el asistente de cada cliente en GCP y si se puede borrar.**
+   Solo tres preferencias de una lista cerrada (idioma, ciudad, categoría favorita), guardadas
+   cuando el cliente lo pide y con su identificador como ámbito en Memory Bank; no activo la
+   extracción automática por LLM, que guardaba planes puntuales como preferencias. Borrarlas es
+   borrar las memorias de ese ámbito, y las conversaciones viven en sesiones con caducidad. Es
+   fácil de explicar y de auditar, que es lo que pide un regulador.
+4. **Seguridad pregunta qué pasa si alguien inyecta al agente una orden de reembolsar a otra
+   cuenta.** Que hay tres barreras que no dependen del modelo: el harness valida y bloquea la
+   escritura, el servidor MCP solo acepta el cliente del token, y en GCP la política de acceso
+   puede quitar al agente la tool de reembolsos entera (`agent_platform_mcp_tools`) si ese
+   agente no la necesita. Se cuenta como "el agente solo tiene las llaves de las puertas que usa",
+   y cada cambio de llaves es una revisión de código en Terraform, no un ajuste en una consola.
 
 <a id="fase-8"></a>
 

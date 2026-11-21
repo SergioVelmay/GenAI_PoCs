@@ -16,6 +16,7 @@ description: "Terraform para AWS, Azure y GCP: validación sin coste y recursos 
 - Validación sin coste (lo mismo que la CI, en cada módulo):
   `terraform fmt -check -recursive` · `terraform init -backend=false -input=false` · `terraform validate`.
   Usar `-check -recursive`, no solo `terraform fmt`: la CI de la 7.4 falló por eso.
+  Y `terraform test` (7.G4): `tests/*.tftest.hcl` con `mock_provider` hace un `plan`/`apply` simulado (sin credenciales ni red) con los recursos activados, que `validate` no evalúa con `count = 0`. A los recursos cuyo atributo valida el provider (miembros de IAM, nombres) hay que darles `defaults` realistas en `mock_resource`.
 - `plan` y `apply` requieren credenciales y **confirmación explícita**; antes, revisar coste y presupuesto (alertas de presupuesto activas). EKS/AKS solo efímeros (`apply` → probar → `destroy`).
   - Repetir `plan` justo antes de cada `apply` y comprobar que solo cambia lo aprobado.
   - Antes del primer `plan` con modelos, comprobar versión y cuota en la región (`az cognitiveservices model list` / `usage list -l swedencentral`): `validate` no lo detecta.

@@ -81,7 +81,7 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
     que usa el repo.
   - **GCP**: los emuladores de `gcloud` (además del de Pub/Sub, que ya usamos) y otros módulos
     oficiales: qué hay para Firestore/Datastore, Bigtable, Spanner, Cloud Storage y lo que usa el
-    repo (Agent Runtime tiene emulador propio desde la 7.G2).
+    repo (Agent Runtime tiene emulador propio desde la 7.G3).
 - **Entregables:** tabla por nube "servicio que usa Genaipocs → emulador oficial (sí/no, estado,
   licencia, imagen) → qué permite probar y qué no"; decisión de cuáles se adoptan (perfiles de
   `docker compose`, tests de contrato e integración como los de colas, arranque en la CI); y
@@ -176,5 +176,9 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   (fase 8). Alternativas conocidas: modelos de política como Llama Guard o gpt-oss-safeguard.
 - **Repaso de entrevista** (del checkpoint 12→13): historias STAR, OWASP LLM Top 10, EU AI Act,
   fine-tuning frente a RAG, multimodal, FinOps y un simulacro.
+- **Sabor `managedagents`** (de la 7.G5): la Managed Agents API (Antigravity) como décimo sabor,
+  con el bucle `requires_action` → `function_result` como `foundry`, si la prueba de *custom
+  functions* en Agent Platform sale bien ([pendientes](pendientes-cloud.md#fase-7-gcp)) y deja de
+  ser Pre-GA.
 - Fijar la versión de `uv` en la CI (`version:` de `setup-uv` o `required-version`), igual que los
   Dockerfiles fijan `uv:0.12.17`.

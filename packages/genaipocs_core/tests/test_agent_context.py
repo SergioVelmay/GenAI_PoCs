@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from genaipocs_core.application.agents import (
     load_thread,
     plan_compaction,
     split_exchanges,
+    without_signatures,
 )
 from genaipocs_core.application.tools import ToolContext, ToolExecutor, ToolRegistry
 from genaipocs_core.domain.preferences import (
@@ -100,6 +102,28 @@ async def test_trimming_without_summary_forgets() -> None:
     compacted, changed = await ShortTermMemory(policy, None).compact(state)
 
     assert changed and compacted.summary == ""
+
+
+def _signed(exchange: list[ChatMessage]) -> list[ChatMessage]:
+    return [
+        replace(m, tool_calls=tuple(replace(c, signature=f"sig-{c.id}") for c in m.tool_calls))
+        for m in exchange
+    ]
+
+
+async def test_compaction_drops_thought_signatures_from_the_kept_history() -> None:
+    # Gemini 4 liga la firma al prefijo; el resumen lo cambia, así que lo conservado va sin
+    # firmas (GeminiLLM pone entonces el validador de skip). Sin compactar, nada cambia.
+    policy = ContextPolicy(trigger_tokens=60, target_tokens=60, summarize=False)
+    memory = ShortTermMemory(policy, None)
+    signed = ThreadState("t1", "cus_1", tuple(_signed(_exchange(1)) + _signed(_exchange(2))))
+
+    compacted, changed = await memory.compact(signed)
+    untouched, unchanged = await memory.compact(replace(signed, messages=signed.messages[4:]))
+
+    assert changed and compacted.messages == tuple(_exchange(2))
+    assert not unchanged and untouched.messages[1].tool_calls[0].signature == "sig-c2"
+    assert without_signatures(_exchange(1)) == _exchange(1)
 
 
 def test_prompt_order_keeps_a_stable_prefix() -> None:

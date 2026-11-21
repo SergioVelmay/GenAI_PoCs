@@ -4,6 +4,8 @@ paths:
   - "packages/genaipocs_core/src/genaipocs_core/application/agents/**"
   - "packages/genaipocs_core/src/genaipocs_core/domain/preferences.py"
   - "packages/genaipocs_core/src/genaipocs_core/adapters/agentcore_memory.py"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/memory_bank.py"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/thread_document.py"
   - "scripts/provision_foundry_agent.py"
 ---
 

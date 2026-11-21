@@ -139,7 +139,7 @@ Coste 0: nada se ejecuta en la nube.
 
 - Extra `gcp` de `genaipocs-core`: `google-genai` (Gemini) y `google-cloud-{aiplatform,
   discoveryengine,dlp,modelarmor,monitoring,pubsub,storage}`. `google-adk` en `booking-agent`,
-  bloqueado ya aunque su sabor llega en la 7.G1: es el que impone las restricciones.
+  bloqueado ya aunque su sabor llega en la 7.G2: es el que impone las restricciones.
 - **Conflicto resuelto:** `google-genai` iba por la 3.0, pero ADK 2.14 exige `<3`; manda el techo
   del framework (`google-genai>=2.34,<3`). El lock baja `websockets` 16.1 → 15.0 y sube `authlib`
   a 1.9. Toda la suite, los gates y la imagen de agentes pasan con él

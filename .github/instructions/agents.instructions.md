@@ -1,5 +1,5 @@
 ---
-applyTo: "services/booking_agent/**,packages/genaipocs_core/src/genaipocs_core/application/agents/**,packages/genaipocs_core/src/genaipocs_core/domain/preferences.py,packages/genaipocs_core/src/genaipocs_core/adapters/agentcore_memory.py,scripts/provision_foundry_agent.py"
+applyTo: "services/booking_agent/**,packages/genaipocs_core/src/genaipocs_core/application/agents/**,packages/genaipocs_core/src/genaipocs_core/domain/preferences.py,packages/genaipocs_core/src/genaipocs_core/adapters/agentcore_memory.py,packages/genaipocs_core/src/genaipocs_core/adapters/memory_bank.py,packages/genaipocs_core/src/genaipocs_core/adapters/thread_document.py,scripts/provision_foundry_agent.py"
 description: "Agente en 7 sabores, context engineering y carril A (fase 7)."
 ---
 
@@ -17,9 +17,10 @@ Doc: `docs/fase-7-agentes.md`.
 
 ## Sabores (`booking_agent/flavors/`)
 
-- `native` (`ToolLoop`) · `langgraph` (`StateGraph` prepare→agent⇄tools→fallback, `InMemorySaver`, `context_schema=ToolContext`) · `llamaindex` (`FunctionAgent`, `streaming=False`, `max_iterations` = N + 1) · `maf` (`Agent` + `GatewayChatClient` por capas, `HistoryProvider` sobre `CheckpointStore`) · `strands` (`GatewayModel` Converse con `cachePoint`, `JournaledTool`, `NullConversationManager`; amplía la lista `messages` en sitio).
+- `native` (`ToolLoop`) · `langgraph` (`StateGraph` prepare→agent⇄tools→fallback, `InMemorySaver`, `context_schema=ToolContext`) · `llamaindex` (`FunctionAgent`, `streaming=False`, `max_iterations` = N + 1) · `maf` (`Agent` + `GatewayChatClient` por capas, `HistoryProvider` sobre `CheckpointStore`) · `strands` (`GatewayModel` Converse con `cachePoint`, `JournaledTool`, `NullConversationManager`; amplía la lista `messages` en sitio) · `adk` (7.G2: `LlmAgent` + `Runner` con una sesión de `InMemorySessionService` sembrada por turno desde el `CheckpointStore`; `GatewayLlm` envía nuestro prefijo en lugar del `system_instruction` de ADK; instrucción como función, sin plantillas `{estado}`; identidad en la *closure* de `JournaledTool`, nunca en `session.state`; límite con `IterationLimit` (`before_model_callback`), no `max_llm_calls`, que ADK registra como error).
 - Puentes (`booking_agent/bridges/`): `GatewayChatModel` (`BaseChatModel` de LangChain; `bind_tools` traduce formato OpenAI → `ToolSpec` con `strict`) y `GatewayFunctionLLM` (`FunctionCallingLLM` de LlamaIndex; `tool_calls`/`cache_checkpoint` en `additional_kwargs`).
 - JSON inválido del modelo viaja crudo hasta el ejecutor (en MAF y Strands, envuelto en `__raw_arguments__`) para que el error tipado vuelva al modelo.
+- *Thought signatures* de Gemini (`ToolCall.signature`, 7.G1): todo puente las conserva de ida y vuelta (Strands `toolUse.reasoningSignature`; LangChain `additional_kwargs["tool_call_signatures"]`; LlamaIndex `tool_calls[].signature`; MAF `additional_properties["signature"]`). Al compactar, el historial conservado va sin firmas (`without_signatures`; en LangGraph se sustituye cada mensaje en el estado del grafo). Un sabor nuevo entra en `evals/tests/test_agent_signatures.py`.
 
 ## Context engineering (`genaipocs_core/application/agents/`)
 
@@ -31,6 +32,7 @@ Doc: `docs/fase-7-agentes.md`.
 - `foundry`: function tools ejecutadas en el cliente, historial en una `conversation` del servicio; `LocalAgentService` emula el servicio en local (`create`); el servicio real se usa con `create_cloud` / `booking_agent --flavor foundry --foundry-service`. `scripts/provision_foundry_agent.py [--apply]` (dry-run por defecto): volver a publicar tras cambiar el prompt o las tools.
 - Suite en modo `llm`: se evalúa el resultado (escrituras esperadas, estado, invariantes, contenido); la trayectoria exacta, las skills y los errores guionizados solo en `scripted`, y los escenarios `harness` no corren con modelo real.
 - `agentcore`: contrato `POST /invocations` + `GET /ping` (`create_runtime_app(sabor)`), identidad = `runtimeUserId`, sesión = `runtime_session_id(cliente, hilo)` (sha256, ≥ 33 chars). Memoria en `adapters/agentcore_memory.py`. Terraform `aws/agentcore.tf` desactivado por defecto.
+- `agentplatform` (7.G3): contrato de Agent Runtime `POST /api/reasoning_engine` (`{"class_method": "query", "input": {user_id, session_id, message}}` → `{"output": ...}`) + `GET /`, alojando `adk`; el error de hilo ajeno va dentro de `output`. `create` = emulador en proceso que **avisa** una vez por proceso; `create_cloud(build_agent_runtime_client(settings))` = `reasoningEngines.query` real. Memoria en `adapters/memory_bank.py` (Sessions: un evento por guardado con la instantánea en `state_delta`; Memory Bank: escritura directa `clave=valor`), instantánea compartida en `adapters/thread_document.py`. `GCP_AGENT_PLATFORM__MEMORY_ENGINE` / `RUNTIME_ENGINE` vacías = local. Terraform `gcp/agent_platform.tf` (7.G4, desactivado): motor *standalone* de memoria y Runtime con `AGENT_IDENTITY`; su `spec.class_methods` se lee de `contracts/agent_runtime.json`, generado desde `QueryInput` (`python -m booking_agent.managed.agent_runtime --update`; un test lo comprueba).
 
 ## CLI (con coste)
 

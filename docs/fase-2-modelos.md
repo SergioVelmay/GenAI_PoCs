@@ -258,11 +258,13 @@ terraform -chdir=infra/terraform/gcp validate   # roles/aiplatform.user para gen
 
 - Las firmas de las partes de **texto** finales no se conservan (el puerto no las transporta). Google
   no las valida (sin 400), pero avisa de que perderlas degrada el razonamiento entre turnos.
-- Los puentes de los sabores de framework (fase 7) reconstruyen `ToolCall` sin firma: con Gemini
-  caerían en el valor ficticio. Se resuelve en la 7.G1.
+- ~~Los puentes de los sabores de framework (fase 7) reconstruyen `ToolCall` sin firma.~~
+  **Resuelto en la 7.G1** ([fase 7](fase-7-agentes.md#7g1--thought-signatures-a-través-de-los-sabores)):
+  los cuatro puentes la conservan y un test lo comprueba por sabor.
 - En Gemini 4 la firma va ligada al prefijo: **compactar** el historial con el mismo modelo da 400
-  salvo `prefix_mismatch_behavior="DROP"` en `ThinkingConfig`, que el SDK 2.34 aún no expone
-  (habría que mandarlo por `extra_body`). Afecta al context engineering de la 7.G1.
+  salvo `prefix_mismatch_behavior="DROP"` en `ThinkingConfig`. **Al hacer la 7.G1 (21-11-2026)**
+  esa opción ya no estaba documentada ni en ningún SDK: al compactar se quitan las firmas del
+  historial conservado y `GeminiLLM` manda el validador de *skip*.
 
 ### 10.3 Gateway con tres proveedores (2.G2)
 
