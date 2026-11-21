@@ -38,6 +38,7 @@ run "disabled_by_default" {
       && length(google_logging_project_bucket_config.default) == 0
       && length(google_logging_project_exclusion.noise) == 0
       && length(google_monitoring_notification_channel.oncall) == 0
+      && length(google_monitoring_alert_policy.generated) == 0
     )
     error_message = "Sin observability_enabled no se crea nada de observabilidad."
   }
@@ -95,5 +96,49 @@ run "enabled_with_collector_roles_and_log_hygiene" {
   assert {
     condition     = output.observability.collector_env.GOOGLE_CLOUD_PROJECT == "genaipocs-test"
     error_message = "El output da las variables del collector."
+  }
+}
+
+run "generated_alert_policies" {
+  command = apply
+
+  variables {
+    observability_enabled = true
+  }
+
+  assert {
+    condition     = length(google_monitoring_alert_policy.generated) == length(jsondecode(file("alerts/alert_policies.json")).policies)
+    error_message = "Una política por alerta generada (alerts/alert_policies.json)."
+  }
+
+  assert {
+    condition = alltrue([
+      for p in google_monitoring_alert_policy.generated : (
+        !strcontains(p.conditions[0].condition_prometheus_query_language[0].query, "__PROJECT_ID__")
+        && !strcontains(p.documentation[0].content, "__RUNBOOK_BASE__")
+        && p.conditions[0].condition_prometheus_query_language[0].disable_metric_validation
+      )
+    ])
+    error_message = "Marcadores sustituidos y sin validar métricas que aún no existen."
+  }
+
+  assert {
+    condition = (
+      google_monitoring_alert_policy.generated["ErrorBudgetBurn-llm-calls-1h"].severity == "CRITICAL"
+      && google_monitoring_alert_policy.generated["ErrorBudgetBurn-llm-calls-3d"].severity == "WARNING"
+      && google_monitoring_alert_policy.generated["ErrorBudgetBurn-llm-calls-3d"].conditions[0].condition_prometheus_query_language[0].duration == "0s"
+      && google_monitoring_alert_policy.generated["ErrorBudgetBurn-llm-calls-3d"].conditions[0].condition_prometheus_query_language[0].evaluation_interval == "300s"
+    )
+    error_message = "Página = CRITICAL; consultas de más de 25 h cada 5 min y sin ventana de reintento."
+  }
+
+  assert {
+    condition     = strcontains(google_monitoring_alert_policy.generated["PubSubBacklogGrowing"].conditions[0].condition_prometheus_query_language[0].query, "project_id=\"genaipocs-test\"")
+    error_message = "El backlog de Pub/Sub consulta el proyecto real."
+  }
+
+  assert {
+    condition     = alltrue([for p in google_monitoring_alert_policy.generated : tolist(p.notification_channels) == tolist([google_monitoring_notification_channel.oncall[0].id])])
+    error_message = "Todas avisan al canal de guardia."
   }
 }

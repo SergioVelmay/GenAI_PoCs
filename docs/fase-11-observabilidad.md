@@ -106,7 +106,7 @@ uv run python scripts/telemetry_demo.py --rounds 3 --minutes 3
 
 ### 11.6 · Alertas como código, evaluación online y runbook
 
-- `build_rules()` genera `rules/genaipocs.rules.yml` desde `domain/slo.py`: 42 recording rules (SLI por ventana), 24 alertas de *burn rate* y 5 operativas (`LlmCostBudget`, `LlmCostRunaway`, `OutboxBacklogGrowing`, `FaithfulnessDrop`, `PromptInjectionSpike`). Un SLO sin SLI rompe la generación.
+- `build_rules()` genera `rules/genaipocs.rules.yml` desde `domain/slo.py`: 42 recording rules (SLI por ventana), 24 alertas de *burn rate* y 5 operativas (`LlmCostBudget`, `LlmCostRunaway`, `OutboxBacklogGrowing`, `FaithfulnessDrop`, `PromptInjectionSpike`; la 11.G2 añadió `MessageSettleFailures`). Un SLO sin SLI rompe la generación.
 - 11 escenarios de `promtool test rules` en la CI. Cada alerta enlaza un ancla del [runbook](runbook-incidentes.md).
 - Evaluación online: el edge ofrece respuestas generadas (`miss`) a un juez que no bloquea (cola acotada, `EDGE__ONLINE_EVAL_RATE`, `EDGE__ONLINE_EVAL_PER_MINUTE`). El score va al mismo `trace_id` en Langfuse y a la métrica `genaipocs.eval.faithfulness`.
 
@@ -233,7 +233,8 @@ test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 11.G1 | — | `collector-gcp.yaml`, nombres de las métricas comprobados con el collector real y `observability.tf` |
+| 11.G1 | `345a7bb` | `collector-gcp.yaml`, nombres de las métricas comprobados con el collector real y `observability.tf` |
+| 11.G2 | — | Las 36 alertas en Cloud Monitoring (PromQL), generadas desde `domain/slo.py` y probadas con `promtool` |
 
 ### Verificación previa (22-11-2026)
 
@@ -307,6 +308,66 @@ Resultado: **23 de 23** iguales, por ejemplo
 - Canal de guardia por correo, separado del del presupuesto.
 - `tests/observability.tftest.hcl` comprueba los dos estados: desactivado no crea nada; activado,
   crea los roles, la retención, las exclusiones y el canal.
+
+### 11.G2 · Alertas de Cloud Monitoring generadas
+
+```powershell
+uv run python scripts/build_observability.py --check     # reglas, dashboard y alertas de GCP al día
+docker run --rm -v ${PWD}/infra/terraform/gcp/alerts:/alerts:ro --entrypoint promtool `
+  prom/prometheus:v3.15.1 test rules /alerts/tests/genaipocs.test.yml /alerts/tests/platform.test.yml
+uv run pytest packages/genaipocs_core/tests/test_cloud_monitoring.py
+```
+
+**La idea.** Cloud Monitoring evalúa PromQL sobre Managed Prometheus, y la 11.G1 demostró que las
+métricas llegan con los mismos nombres. Por eso aquí se portan **todas** las alertas, no 2 de
+muestra como en Azure y AWS: salen de la misma fuente, `build_rules()`, que sale de
+`domain/slo.py`. `adapters/cloud_monitoring.py` las transforma y `build_observability.py` escribe
+tres ficheros en `infra/terraform/gcp/alerts/`:
+
+| Fichero | Para qué |
+|---|---|
+| `genaipocs.alerts.yml` | Las alertas en formato de Prometheus, para `promtool` |
+| `tests/genaipocs.test.yml` | Los tests locales, apuntados a esas alertas |
+| `alert_policies.json` | Lo que `observability.tf` recorre con `for_each` |
+
+**Qué cambia respecto a Prometheus:**
+
+| | Prometheus (local) | Cloud Monitoring |
+|---|---|---|
+| SLI | *Recording rules* `slo:error_ratio:rate1h{slo=...}`, evaluadas cada 30 s | No hay *recording rules*: cada referencia se sustituye por su expresión dentro de la alerta |
+| Condiciones | Un grupo con muchas reglas | **Una política por alerta**, con una sola condición PromQL |
+| `for` | El que diga la regla | Igual hasta 25 h de consulta. Más allá (*burn rate* de 3 días, drift de 1 + 7 días) Cloud Monitoring **desactiva la ventana de reintento**: salta en la primera evaluación, y la documentación de la alerta lo avisa |
+| Intervalo | 30 s / 1 min | 60 s; 300 s para consultas de más de 25 h (el mínimo que permite) |
+| Anotaciones | `{{ $value }}` | No entiende las plantillas de Prometheus: el valor se ve en la incidencia. El runbook es un enlace absoluto (`runbook_base_url`) |
+| Métricas aún inexistentes | La regla evalúa a vacío | El `apply` falla: `disable_metric_validation = true` |
+
+**Las pruebas.** Si la expansión cambiara el resultado, una alerta saltaría cuando no toca o no
+saltaría nunca. Por eso las alertas expandidas pasan **los mismos tests de `promtool`** que las
+locales:
+
+- Las expresiones de los tests que leen una *recording rule* (`drift:psi{...}`) se expanden con la
+  misma función.
+- Resultado: los mismos escenarios dan las mismas alertas. Saltan las del *burn rate* y no las de
+  un pico corto, y el drift de intenciones se detecta y el estable no.
+- `platform.test.yml`, escrito a mano, cubre las alertas que solo existen en GCP.
+
+**Alertas nuevas:**
+
+| Alerta | Dónde | Por qué |
+|---|---|---|
+| `MessageSettleFailures` | Local y GCP | Heredada de la 10.G1. `ack_failures` y `lease_failures` eran contadores del objeto y ahora son la métrica `genaipocs.messaging.settle_failures` (por suscripción y por operación: `ack`, `nack`, `modack`). Más de 0,01/s durante 10 min = reentregas y el modelo pagado otra vez |
+| `PubSubBacklogGrowing` | Solo GCP | Más de 100 mensajes sin confirmar en una suscripción `.worker`. **Misma métrica y mismo selector** que el autoescalador y CREMA: `pubsub_subscription_selector`, que comparten `pubsub_backlog_promql` y la nueva `pubsub_backlog_by_subscription_promql`. Una incidencia por cola (`sum by (subscription_id)`); las DLQ no cuentan |
+| `PubSubAckDeadlinesExpiring` | Solo GCP | `expired_ack_deadlines_count`: el latido no llega o los turnos superan `PUBSUB__MAX_LEASE_S` |
+| `LogIngestionPace` | Solo GCP | Ingesta de 6 h proyectada a un día por encima de 1,67 GiB (los 50 GiB/mes gratis). Es lo más cercano al tope diario de Log Analytics, que GCP no tiene: aquí solo se avisa |
+
+**Coste:**
+
+- Las 36 políticas son **gratis hasta el 01-09-2027**.
+- Después, 0,35 $/mes por métrica referenciada y 0,50 $ por millón de puntos devueltos: con
+  ~40 referencias, unos 14 $/mes más los puntos.
+- Evaluar cada 60 s y no cada 30 s reduce a la mitad los puntos devueltos.
+- Si hiciera falta recortar, primero las de ticket con ventana de 3 días: duplican lo que ya
+  cubre la de 1 día.
 
 ## 8. Checkpoint de entrevista
 

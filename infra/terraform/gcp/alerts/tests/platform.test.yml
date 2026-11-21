@@ -1,0 +1,92 @@
+# Tests de las alertas de plataforma de GCP (11.G2, `platform_alerts()` en
+# adapters/cloud_monitoring.py): métricas de Google Cloud sin equivalente local. Escrito a mano.
+# Los otros tests (genaipocs.test.yml) son los locales, generados contra las alertas de GCP.
+#
+#   docker run --rm -v ${PWD}/infra/terraform/gcp/alerts:/alerts:ro --entrypoint promtool `
+#     prom/prometheus:v3.15.1 test rules /alerts/tests/genaipocs.test.yml /alerts/tests/platform.test.yml
+#
+# `__PROJECT_ID__` es el marcador que Terraform cambia por el proyecto real: las series de prueba
+# lo llevan tal cual.
+
+rule_files:
+  - ../genaipocs.alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # La cola de triaje se atasca (150 sin confirmar); la de resultados va al día. Una incidencia,
+  # la de su suscripción: la consulta separa por `subscription_id`.
+  - name: pubsub-backlog-one-queue
+    interval: 1m
+    input_series:
+      - series: 'pubsub_googleapis_com:subscription_num_unacked_messages_by_region{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="support.emails.worker",region="europe-west4"}'
+        values: '150x20'
+      - series: 'pubsub_googleapis_com:subscription_num_unacked_messages_by_region{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="case.outcomes.worker",region="europe-west4"}'
+        values: '3x20'
+      # Las DLQ no son colas de trabajo: no alertan aunque acumulen.
+      - series: 'pubsub_googleapis_com:subscription_num_unacked_messages_by_region{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="support.emails.dlq",region="europe-west4"}'
+        values: '500x20'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="PubSubBacklogGrowing",alertstate="firing",severity="page",subscription_id="support.emails.worker"})
+        eval_time: 15m
+        exp_samples:
+          - value: 1
+      - expr: count(ALERTS{alertname="PubSubBacklogGrowing",alertstate="firing"})
+        eval_time: 15m
+        exp_samples:
+          - value: 1
+
+  # La misma cola repartida entre dos regiones: se suman (80 + 40 > 100), como en el autoescalador.
+  - name: pubsub-backlog-summed-across-regions
+    interval: 1m
+    input_series:
+      - series: 'pubsub_googleapis_com:subscription_num_unacked_messages_by_region{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="support.emails.worker",region="europe-west4"}'
+        values: '80x20'
+      - series: 'pubsub_googleapis_com:subscription_num_unacked_messages_by_region{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="support.emails.worker",region="europe-west1"}'
+        values: '40x20'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="PubSubBacklogGrowing",alertstate="firing"})
+        eval_time: 15m
+        exp_samples:
+          - value: 1
+
+  # Un plazo vencido por minuto (0,017/s): ticket. Uno cada 10 min, no.
+  - name: pubsub-ack-deadlines-expiring
+    interval: 1m
+    input_series:
+      - series: 'pubsub_googleapis_com:subscription_expired_ack_deadlines_count{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="case.triaged.refunds.worker"}'
+        values: '0+1x40'
+      - series: 'pubsub_googleapis_com:subscription_expired_ack_deadlines_count{monitored_resource="pubsub_subscription",project_id="__PROJECT_ID__",subscription_id="support.emails.worker"}'
+        values: '0+0.1x40'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="PubSubAckDeadlinesExpiring",alertstate="firing",severity="ticket",subscription_id="case.triaged.refunds.worker"})
+        eval_time: 30m
+        exp_samples:
+          - value: 1
+      - expr: count(ALERTS{alertname="PubSubAckDeadlinesExpiring",alertstate="firing"})
+        eval_time: 30m
+        exp_samples:
+          - value: 1
+
+  # 1 GiB/h (24 GiB/día proyectados) frente a 1,67 GiB/día de tramo gratuito: ticket tras 1 h.
+  # 50 MiB/h (1,2 GiB/día): dentro del tramo.
+  - name: log-ingestion-pace
+    interval: 10m
+    input_series:
+      - series: 'logging_googleapis_com:billing_bytes_ingested{project_id="__PROJECT_ID__"}'
+        values: '0+178956970x60'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="LogIngestionPace",alertstate="firing"})
+        eval_time: 8h
+        exp_samples:
+          - value: 1
+  - name: log-ingestion-within-free-tier
+    interval: 10m
+    input_series:
+      - series: 'logging_googleapis_com:billing_bytes_ingested{project_id="__PROJECT_ID__"}'
+        values: '0+8738133x60'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="LogIngestionPace",alertstate="firing"}) or vector(0)
+        eval_time: 8h
+        exp_samples:
+          - value: 0

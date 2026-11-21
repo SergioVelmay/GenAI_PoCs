@@ -629,6 +629,17 @@ groups:
       summary: 'Eventos atascados en el outbox: los casos no avanzan'
       description: '{{ $value }} eventos sin publicar desde hace 10 min.'
       runbook_url: docs/runbook-incidentes.md#outbox
+  - alert: MessageSettleFailures
+    expr: sum(rate(genaipocs_messaging_settle_failures_total[10m])) > 0.01
+    for: 10m
+    labels:
+      severity: ticket
+      owner: soporte-ia
+    annotations:
+      summary: El broker rechaza confirmaciones o renovaciones del plazo
+      description: '{{ $value | humanize }} rechazos/s en 10 min (ack, nack o modack): los mensajes pueden
+        volver a entregarse y repetir la llamada al modelo.'
+      runbook_url: docs/runbook-incidentes.md#mensajeria
   - alert: FaithfulnessDrop
     expr: (sum(rate(genaipocs_eval_faithfulness_sum[1h])) or vector(0)) / clamp_min(sum(rate(genaipocs_eval_faithfulness_count[1h])),
       1e-9) < 0.8 and sum(increase(genaipocs_eval_faithfulness_count[1h])) >= 20

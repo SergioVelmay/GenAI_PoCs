@@ -91,3 +91,53 @@ resource "google_monitoring_notification_channel" "oncall" {
 
   depends_on = [google_project_service.enabled]
 }
+
+# ---------- Alertas (11.G2): generadas desde domain/slo.py ----------
+#
+# alerts/alert_policies.json lo escribe `scripts/build_observability.py` (no editar a mano; la CI
+# comprueba que está al día y pasa promtool a alerts/genaipocs.alerts.yml, la misma alerta en
+# formato de Prometheus). Una política por alerta, con una sola condición PromQL: los SLI van
+# expandidos dentro de la consulta porque Cloud Monitoring no evalúa recording rules.
+#
+#   Azure: 2 alertas KQL de muestra    AWS: 2 alarmas Metrics Insights    GCP: las 36, en PromQL
+#
+# Gratis hasta el 01-09-2027; después, 0,35 $/mes por métrica referenciada y 0,50 $ por millón de
+# puntos devueltos (por eso 60 s de intervalo y no 30).
+
+locals {
+  alert_policies = var.observability_enabled ? jsondecode(file("${path.module}/alerts/alert_policies.json")).policies : {}
+}
+
+resource "google_monitoring_alert_policy" "generated" {
+  for_each = local.alert_policies
+
+  display_name          = "${local.name} · ${each.key}"
+  combiner              = "OR"
+  severity              = each.value.severity
+  notification_channels = [google_monitoring_notification_channel.oncall[0].id]
+  user_labels           = merge(local.labels, { owner = each.value.labels.owner })
+
+  conditions {
+    display_name = each.value.alert_rule
+
+    condition_prometheus_query_language {
+      query               = replace(each.value.query, "__PROJECT_ID__", var.project_id)
+      duration            = each.value.duration
+      evaluation_interval = each.value.evaluation_interval
+      labels              = each.value.labels
+      rule_group          = each.value.rule_group
+      alert_rule          = each.value.alert_rule
+      # Las métricas no existen hasta que el collector manda el primer punto: sin esto, el
+      # apply falla en un proyecto recién creado.
+      disable_metric_validation = true
+    }
+  }
+
+  documentation {
+    subject   = each.value.subject
+    content   = replace(each.value.documentation, "__RUNBOOK_BASE__", var.runbook_base_url)
+    mime_type = "text/markdown"
+  }
+
+  depends_on = [google_project_service.enabled]
+}

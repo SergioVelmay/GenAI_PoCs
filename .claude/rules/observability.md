@@ -7,6 +7,8 @@ paths:
   - "infra/terraform/aws/observability.tf"
   - "infra/terraform/azure/observability.tf"
   - "infra/terraform/gcp/observability.tf"
+  - "infra/terraform/gcp/alerts/**"
+  - "packages/genaipocs_core/src/genaipocs_core/adapters/cloud_monitoring.py"
   - "scripts/check_collector_gcp.py"
   - "packages/genaipocs_core/src/genaipocs_core/application/online_eval.py"
   - "packages/genaipocs_core/src/genaipocs_core/adapters/langfuse_scores.py"

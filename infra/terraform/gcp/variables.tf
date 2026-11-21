@@ -601,3 +601,9 @@ variable "log_retention_days" {
     error_message = "Cloud Logging admite de 1 a 3650 días."
   }
 }
+
+variable "runbook_base_url" {
+  description = "Raíz del repo con docs/runbook-incidentes.md, para el enlace de cada alerta (11.G2)."
+  type        = string
+  default     = "https://github.com/SergioVelmay/GenAI_PoCs/blob/main"
+}

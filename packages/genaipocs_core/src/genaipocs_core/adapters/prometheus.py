@@ -639,6 +639,22 @@ def _operational_alerts() -> list[dict[str, Any]]:
             },
         },
         {
+            # 11.G2: confirmaciones o latidos rechazados. Cada uno es una posible reentrega:
+            # la idempotencia evita el doble efecto, pero el modelo se paga otra vez.
+            "alert": "MessageSettleFailures",
+            "expr": f"{rate(m.MESSAGE_SETTLE_FAILURES, window='10m')} > 0.01",
+            "for": "10m",
+            "labels": {"severity": "ticket", "owner": "soporte-ia"},
+            "annotations": {
+                "summary": "El broker rechaza confirmaciones o renovaciones del plazo",
+                "description": (
+                    "{{ $value | humanize }} rechazos/s en 10 min (ack, nack o modack): los "
+                    "mensajes pueden volver a entregarse y repetir la llamada al modelo."
+                ),
+                "runbook_url": f"{RUNBOOK}#mensajeria",
+            },
+        },
+        {
             "alert": "FaithfulnessDrop",
             "expr": (
                 f"{faithfulness} < 0.8"

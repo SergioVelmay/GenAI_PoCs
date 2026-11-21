@@ -1,0 +1,595 @@
+{
+  "policies": {
+    "ErrorBudgetBurn-assistant-availability-1h": {
+      "display_name": "ErrorBudgetBurn-assistant-availability-1h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[1h])) - sum(rate(genaipocs_answers_total[1h])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[1h])), 1e-9)) > 0.072 and ((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[5m])) - sum(rate(genaipocs_answers_total[5m])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[5m])), 1e-9)) > 0.072",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "assistant-availability",
+        "owner": "plataforma-ia",
+        "window": "1h"
+      },
+      "subject": "assistant-availability: presupuesto de error quemándose a 14.4x",
+      "documentation": "Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un 429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 1h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-availability"
+    },
+    "ErrorBudgetBurn-assistant-availability-6h": {
+      "display_name": "ErrorBudgetBurn-assistant-availability-6h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[6h])) - sum(rate(genaipocs_answers_total[6h])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[6h])), 1e-9)) > 0.03 and ((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[30m])) - sum(rate(genaipocs_answers_total[30m])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[30m])), 1e-9)) > 0.03",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "assistant-availability",
+        "owner": "plataforma-ia",
+        "window": "6h"
+      },
+      "subject": "assistant-availability: presupuesto de error quemándose a 6x",
+      "documentation": "Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un 429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 6h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-availability"
+    },
+    "ErrorBudgetBurn-assistant-availability-1d": {
+      "display_name": "ErrorBudgetBurn-assistant-availability-1d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[1d])) - sum(rate(genaipocs_answers_total[1d])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[1d])), 1e-9)) > 0.015 and ((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[2h])) - sum(rate(genaipocs_answers_total[2h])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[2h])), 1e-9)) > 0.015",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "assistant-availability",
+        "owner": "plataforma-ia",
+        "window": "1d"
+      },
+      "subject": "assistant-availability: presupuesto de error quemándose a 3x",
+      "documentation": "Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un 429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 1d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-availability"
+    },
+    "ErrorBudgetBurn-assistant-availability-3d": {
+      "display_name": "ErrorBudgetBurn-assistant-availability-3d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[3d])) - sum(rate(genaipocs_answers_total[3d])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[3d])), 1e-9)) > 0.005 and ((clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[6h])) - sum(rate(genaipocs_answers_total[6h])), 0) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_route=\"ask\"}[6h])), 1e-9)) > 0.005",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "assistant-availability",
+        "owner": "plataforma-ia",
+        "window": "3d"
+      },
+      "subject": "assistant-availability: presupuesto de error quemándose a 1x",
+      "documentation": "Preguntas al asistente respondidas sin error del servidor (5xx o stream roto). Un 429 por abuso no cuenta: es la política funcionando. Objetivo 99.5% en 28 días. Error en 3d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-availability\n\nEn Prometheus espera 15m antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "ErrorBudgetBurn-assistant-ttft-1h": {
+      "display_name": "ErrorBudgetBurn-assistant-ttft-1h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[1h])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[1h]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[1h])), 1e-9)) > 0.72 and (((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[5m])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[5m]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[5m])), 1e-9)) > 0.72",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "assistant-ttft",
+        "owner": "plataforma-ia",
+        "window": "1h"
+      },
+      "subject": "assistant-ttft: presupuesto de error quemándose a 14.4x",
+      "documentation": "Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo 95.0% en 28 días. Error en 1h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-ttft"
+    },
+    "ErrorBudgetBurn-assistant-ttft-6h": {
+      "display_name": "ErrorBudgetBurn-assistant-ttft-6h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[6h])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[6h]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[6h])), 1e-9)) > 0.3 and (((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[30m])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[30m]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[30m])), 1e-9)) > 0.3",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "assistant-ttft",
+        "owner": "plataforma-ia",
+        "window": "6h"
+      },
+      "subject": "assistant-ttft: presupuesto de error quemándose a 6x",
+      "documentation": "Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo 95.0% en 28 días. Error en 6h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-ttft"
+    },
+    "ErrorBudgetBurn-assistant-ttft-1d": {
+      "display_name": "ErrorBudgetBurn-assistant-ttft-1d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[1d])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[1d]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[1d])), 1e-9)) > 0.15 and (((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[2h])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[2h]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[2h])), 1e-9)) > 0.15",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "assistant-ttft",
+        "owner": "plataforma-ia",
+        "window": "1d"
+      },
+      "subject": "assistant-ttft: presupuesto de error quemándose a 3x",
+      "documentation": "Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo 95.0% en 28 días. Error en 1d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-ttft"
+    },
+    "ErrorBudgetBurn-assistant-ttft-3d": {
+      "display_name": "ErrorBudgetBurn-assistant-ttft-3d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[3d])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[3d]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[3d])), 1e-9)) > 0.05 and (((sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[6h])) - sum(rate(genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome!=\"hit\",le=\"1.5\"}[6h]))) or vector(0)) / clamp_min(sum(rate(genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome!=\"hit\"}[6h])), 1e-9)) > 0.05",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "assistant-ttft",
+        "owner": "plataforma-ia",
+        "window": "3d"
+      },
+      "subject": "assistant-ttft: presupuesto de error quemándose a 1x",
+      "documentation": "Respuestas calculadas (sin caché) cuyo primer trozo llega en menos de 1,5 s. Objetivo 95.0% en 28 días. Error en 3d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-ttft\n\nEn Prometheus espera 15m antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "ErrorBudgetBurn-public-admission-1h": {
+      "display_name": "ErrorBudgetBurn-public-admission-1h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[1h])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[1h])), 1e-9)) > 0.144 and ((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[5m])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[5m])), 1e-9)) > 0.144",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "public-admission",
+        "owner": "plataforma-ia",
+        "window": "1h"
+      },
+      "subject": "public-admission: presupuesto de error quemándose a 14.4x",
+      "documentation": "Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error en 1h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#public-admission"
+    },
+    "ErrorBudgetBurn-public-admission-6h": {
+      "display_name": "ErrorBudgetBurn-public-admission-6h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[6h])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[6h])), 1e-9)) > 0.06 and ((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[30m])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[30m])), 1e-9)) > 0.06",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "public-admission",
+        "owner": "plataforma-ia",
+        "window": "6h"
+      },
+      "subject": "public-admission: presupuesto de error quemándose a 6x",
+      "documentation": "Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error en 6h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#public-admission"
+    },
+    "ErrorBudgetBurn-public-admission-1d": {
+      "display_name": "ErrorBudgetBurn-public-admission-1d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[1d])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[1d])), 1e-9)) > 0.03 and ((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[2h])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[2h])), 1e-9)) > 0.03",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "public-admission",
+        "owner": "plataforma-ia",
+        "window": "1d"
+      },
+      "subject": "public-admission: presupuesto de error quemándose a 3x",
+      "documentation": "Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error en 1d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#public-admission"
+    },
+    "ErrorBudgetBurn-public-admission-3d": {
+      "display_name": "ErrorBudgetBurn-public-admission-3d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[3d])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[3d])), 1e-9)) > 0.01 and ((sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\",genaipocs_admission_outcome=\"shed\"}[6h])) or vector(0)) / clamp_min(sum(rate(genaipocs_admission_decisions_total{genaipocs_caller_plan=\"public\"}[6h])), 1e-9)) > 0.01",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "public-admission",
+        "owner": "plataforma-ia",
+        "window": "3d"
+      },
+      "subject": "public-admission: presupuesto de error quemándose a 1x",
+      "documentation": "Peticiones del plan público que no se rechazan por saturación (503 shed). Mide si la capacidad está bien dimensionada para la venta de un festival. Objetivo 99.0% en 28 días. Error en 3d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#public-admission\n\nEn Prometheus espera 15m antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "ErrorBudgetBurn-assistant-not-degraded-1h": {
+      "display_name": "ErrorBudgetBurn-assistant-not-degraded-1h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[1h])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[1h])), 1e-9)) > 0.72 and ((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[5m])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[5m])), 1e-9)) > 0.72",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "assistant-not-degraded",
+        "owner": "plataforma-ia",
+        "window": "1h"
+      },
+      "subject": "assistant-not-degraded: presupuesto de error quemándose a 14.4x",
+      "documentation": "Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0% en 28 días. Error en 1h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-not-degraded"
+    },
+    "ErrorBudgetBurn-assistant-not-degraded-6h": {
+      "display_name": "ErrorBudgetBurn-assistant-not-degraded-6h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[6h])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[6h])), 1e-9)) > 0.3 and ((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[30m])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[30m])), 1e-9)) > 0.3",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "assistant-not-degraded",
+        "owner": "plataforma-ia",
+        "window": "6h"
+      },
+      "subject": "assistant-not-degraded: presupuesto de error quemándose a 6x",
+      "documentation": "Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0% en 28 días. Error en 6h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-not-degraded"
+    },
+    "ErrorBudgetBurn-assistant-not-degraded-1d": {
+      "display_name": "ErrorBudgetBurn-assistant-not-degraded-1d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[1d])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[1d])), 1e-9)) > 0.15 and ((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[2h])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[2h])), 1e-9)) > 0.15",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "assistant-not-degraded",
+        "owner": "plataforma-ia",
+        "window": "1d"
+      },
+      "subject": "assistant-not-degraded: presupuesto de error quemándose a 3x",
+      "documentation": "Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0% en 28 días. Error en 1d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-not-degraded"
+    },
+    "ErrorBudgetBurn-assistant-not-degraded-3d": {
+      "display_name": "ErrorBudgetBurn-assistant-not-degraded-3d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[3d])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[3d])), 1e-9)) > 0.05 and ((sum(rate(genaipocs_answers_total{genaipocs_answer_degraded=\"true\"}[6h])) or vector(0)) / clamp_min(sum(rate(genaipocs_answers_total[6h])), 1e-9)) > 0.05",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "assistant-not-degraded",
+        "owner": "plataforma-ia",
+        "window": "3d"
+      },
+      "subject": "assistant-not-degraded: presupuesto de error quemándose a 1x",
+      "documentation": "Respuestas redactadas por el modelo y no degradadas a citas literales. Objetivo 95.0% en 28 días. Error en 3d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#assistant-not-degraded\n\nEn Prometheus espera 15m antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "ErrorBudgetBurn-case-processing-1h": {
+      "display_name": "ErrorBudgetBurn-case-processing-1h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[1h])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[1h])), 1e-9)) > 0.144 and ((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[5m])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[5m])), 1e-9)) > 0.144",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "case-processing",
+        "owner": "soporte-ia",
+        "window": "1h"
+      },
+      "subject": "case-processing: presupuesto de error quemándose a 14.4x",
+      "documentation": "Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0% en 28 días. Error en 1h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#case-processing"
+    },
+    "ErrorBudgetBurn-case-processing-6h": {
+      "display_name": "ErrorBudgetBurn-case-processing-6h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[6h])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[6h])), 1e-9)) > 0.06 and ((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[30m])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[30m])), 1e-9)) > 0.06",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "case-processing",
+        "owner": "soporte-ia",
+        "window": "6h"
+      },
+      "subject": "case-processing: presupuesto de error quemándose a 6x",
+      "documentation": "Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0% en 28 días. Error en 6h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#case-processing"
+    },
+    "ErrorBudgetBurn-case-processing-1d": {
+      "display_name": "ErrorBudgetBurn-case-processing-1d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[1d])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[1d])), 1e-9)) > 0.03 and ((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[2h])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[2h])), 1e-9)) > 0.03",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "case-processing",
+        "owner": "soporte-ia",
+        "window": "1d"
+      },
+      "subject": "case-processing: presupuesto de error quemándose a 3x",
+      "documentation": "Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0% en 28 días. Error en 1d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#case-processing"
+    },
+    "ErrorBudgetBurn-case-processing-3d": {
+      "display_name": "ErrorBudgetBurn-case-processing-3d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[3d])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[3d])), 1e-9)) > 0.01 and ((sum(rate(messaging_process_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[6h])) or vector(0)) / clamp_min(sum(rate(messaging_process_duration_seconds_count[6h])), 1e-9)) > 0.01",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "case-processing",
+        "owner": "soporte-ia",
+        "window": "3d"
+      },
+      "subject": "case-processing: presupuesto de error quemándose a 1x",
+      "documentation": "Entregas de casos (triaje y especialistas) procesadas sin error ni DLQ. Objetivo 99.0% en 28 días. Error en 3d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#case-processing\n\nEn Prometheus espera 15m antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "ErrorBudgetBurn-llm-calls-1h": {
+      "display_name": "ErrorBudgetBurn-llm-calls-1h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[1h])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[1h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[1h])) + (sum(rate(genaipocs_llm_rejections_total[1h])) or vector(0)), 1e-9)) > 0.144 and (((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[5m])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[5m])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[5m])) + (sum(rate(genaipocs_llm_rejections_total[5m])) or vector(0)), 1e-9)) > 0.144",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "llm-calls",
+        "owner": "plataforma-ia",
+        "window": "1h"
+      },
+      "subject": "llm-calls: presupuesto de error quemándose a 14.4x",
+      "documentation": "Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en 28 días. Error en 1h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#llm-calls"
+    },
+    "ErrorBudgetBurn-llm-calls-6h": {
+      "display_name": "ErrorBudgetBurn-llm-calls-6h",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[6h])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[6h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[6h])) + (sum(rate(genaipocs_llm_rejections_total[6h])) or vector(0)), 1e-9)) > 0.06 and (((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[30m])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[30m])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[30m])) + (sum(rate(genaipocs_llm_rejections_total[30m])) or vector(0)), 1e-9)) > 0.06",
+      "duration": "120s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "slo": "llm-calls",
+        "owner": "plataforma-ia",
+        "window": "6h"
+      },
+      "subject": "llm-calls: presupuesto de error quemándose a 6x",
+      "documentation": "Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en 28 días. Error en 6h: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#llm-calls"
+    },
+    "ErrorBudgetBurn-llm-calls-1d": {
+      "display_name": "ErrorBudgetBurn-llm-calls-1d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[1d])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[1d])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[1d])) + (sum(rate(genaipocs_llm_rejections_total[1d])) or vector(0)), 1e-9)) > 0.03 and (((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[2h])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[2h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[2h])) + (sum(rate(genaipocs_llm_rejections_total[2h])) or vector(0)), 1e-9)) > 0.03",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "llm-calls",
+        "owner": "plataforma-ia",
+        "window": "1d"
+      },
+      "subject": "llm-calls: presupuesto de error quemándose a 3x",
+      "documentation": "Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en 28 días. Error en 1d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#llm-calls"
+    },
+    "ErrorBudgetBurn-llm-calls-3d": {
+      "display_name": "ErrorBudgetBurn-llm-calls-3d",
+      "rule_group": "slo-burn-rate",
+      "alert_rule": "ErrorBudgetBurn",
+      "query": "(((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[3d])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[3d])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[3d])) + (sum(rate(genaipocs_llm_rejections_total[3d])) or vector(0)), 1e-9)) > 0.01 and (((sum(rate(gen_ai_client_operation_duration_seconds_count{error_type!=\"\",error_type!=\"CancelledError\"}[6h])) or vector(0)) + (sum(rate(genaipocs_llm_rejections_total[6h])) or vector(0)) or vector(0)) / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count[6h])) + (sum(rate(genaipocs_llm_rejections_total[6h])) or vector(0)), 1e-9)) > 0.01",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "slo": "llm-calls",
+        "owner": "plataforma-ia",
+        "window": "3d"
+      },
+      "subject": "llm-calls: presupuesto de error quemándose a 1x",
+      "documentation": "Llamadas al modelo sin error del proveedor ni rechazo por cuota. Objetivo 99.0% en 28 días. Error en 3d: (valor en la incidencia).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#llm-calls\n\nEn Prometheus espera 15m antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "LlmCostBudget": {
+      "display_name": "LlmCostBudget",
+      "rule_group": "operacion",
+      "alert_rule": "LlmCostBudget",
+      "query": "86400 * sum(rate(genaipocs_llm_cost_USD_total[1h])) > 16",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "finops"
+      },
+      "subject": "El gasto en modelos va camino de pasar el presupuesto diario",
+      "documentation": "Al ritmo de la última hora se gastarían (valor en la incidencia) $ al día (presupuesto 20 $, aviso al 80%).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#coste"
+    },
+    "LlmCostRunaway": {
+      "display_name": "LlmCostRunaway",
+      "rule_group": "operacion",
+      "alert_rule": "LlmCostRunaway",
+      "query": "86400 * sum(rate(genaipocs_llm_cost_USD_total[15m])) > 60",
+      "duration": "300s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "owner": "plataforma-ia"
+      },
+      "subject": "Gasto en modelos disparado (posible bucle de agente o abuso)",
+      "documentation": "En los últimos 15 min se gasta a un ritmo de (valor en la incidencia) $/día, el triple del presupuesto.\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#coste"
+    },
+    "OutboxBacklogGrowing": {
+      "display_name": "OutboxBacklogGrowing",
+      "rule_group": "operacion",
+      "alert_rule": "OutboxBacklogGrowing",
+      "query": "sum(genaipocs_outbox_backlog) > 100",
+      "duration": "600s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "owner": "soporte-ia"
+      },
+      "subject": "Eventos atascados en el outbox: los casos no avanzan",
+      "documentation": "(valor en la incidencia) eventos sin publicar desde hace 10 min.\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#outbox"
+    },
+    "MessageSettleFailures": {
+      "display_name": "MessageSettleFailures",
+      "rule_group": "operacion",
+      "alert_rule": "MessageSettleFailures",
+      "query": "sum(rate(genaipocs_messaging_settle_failures_total[10m])) > 0.01",
+      "duration": "600s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "soporte-ia"
+      },
+      "subject": "El broker rechaza confirmaciones o renovaciones del plazo",
+      "documentation": "(valor en la incidencia) rechazos/s en 10 min (ack, nack o modack): los mensajes pueden volver a entregarse y repetir la llamada al modelo.\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#mensajeria"
+    },
+    "FaithfulnessDrop": {
+      "display_name": "FaithfulnessDrop",
+      "rule_group": "operacion",
+      "alert_rule": "FaithfulnessDrop",
+      "query": "(sum(rate(genaipocs_eval_faithfulness_sum[1h])) or vector(0)) / clamp_min(sum(rate(genaipocs_eval_faithfulness_count[1h])), 1e-9) < 0.8 and sum(increase(genaipocs_eval_faithfulness_count[1h])) >= 20",
+      "duration": "900s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "plataforma-ia"
+      },
+      "subject": "Las respuestas se apoyan menos en las fuentes (evaluación online)",
+      "documentation": "Faithfulness media de la última hora: (valor en la incidencia) (umbral 80 %, mínimo 20 muestras).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#faithfulness"
+    },
+    "PromptInjectionSpike": {
+      "display_name": "PromptInjectionSpike",
+      "rule_group": "operacion",
+      "alert_rule": "PromptInjectionSpike",
+      "query": "sum(rate(genaipocs_guardrail_triggers_total{genaipocs_guardrail_code=~\"prompt_injection|indirect_injection\"}[10m])) > 0.05",
+      "duration": "600s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "seguridad"
+      },
+      "subject": "Pico de intentos de inyección bloqueados por el harness",
+      "documentation": "(valor en la incidencia) bloqueos/s en 10 min.\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#inyeccion"
+    },
+    "DistributionDrift-case-intents": {
+      "display_name": "DistributionDrift-case-intents",
+      "rule_group": "drift",
+      "alert_rule": "DistributionDrift",
+      "query": "(sum((clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) * 0), 0.0001) - clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)))) > 0.25 and on() sum(increase(genaipocs_cases_triaged_total[1d])) >= 200",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "soporte-ia",
+        "signal": "case-intents"
+      },
+      "subject": "case-intents: la distribución de hoy no se parece a la de la semana",
+      "documentation": "Mezcla de intenciones de los casos de soporte (qué piden los clientes). PSI 1d frente a los 7d anteriores: (valor en la incidencia) (> 0.25 significativo).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#drift\n\nEn Prometheus espera 1h antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "DistributionDrift-agent-tools": {
+      "display_name": "DistributionDrift-agent-tools",
+      "rule_group": "drift",
+      "alert_rule": "DistributionDrift",
+      "query": "(sum((clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d])) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])))) or (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) * 0), 0.0001) - clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) or (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d])) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d])) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])))) or (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[7d] offset 1d)))) or (sum by (gen_ai_tool_name)(increase(gen_ai_execute_tool_duration_seconds_count[1d])) / scalar(sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])))) * 0), 0.0001)))) > 0.25 and on() sum(increase(gen_ai_execute_tool_duration_seconds_count[1d])) >= 200",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "plataforma-ia",
+        "signal": "agent-tools"
+      },
+      "subject": "agent-tools: la distribución de hoy no se parece a la de la semana",
+      "documentation": "Mezcla de tools que ejecutan los agentes (qué hacen para resolver). PSI 1d frente a los 7d anteriores: (valor en la incidencia) (> 0.25 significativo).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#drift\n\nEn Prometheus espera 1h antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "DistributionDrift-agent-resolution": {
+      "display_name": "DistributionDrift-agent-resolution",
+      "rule_group": "drift",
+      "alert_rule": "DistributionDrift",
+      "query": "(sum((clamp_min(((sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[1d])) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[1d])))) or (sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)))) * 0), 0.0001) - clamp_min(((sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)))) or (sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[1d])) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[1d])) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[1d])))) or (sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[7d] offset 1d)))) or (sum by (genaipocs_eval_resolution)(increase(genaipocs_eval_agent_verdicts_total[1d])) / scalar(sum(increase(genaipocs_eval_agent_verdicts_total[1d])))) * 0), 0.0001)))) > 0.25 and on() sum(increase(genaipocs_eval_agent_verdicts_total[1d])) >= 50",
+      "duration": "0s",
+      "evaluation_interval": "300s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "plataforma-ia",
+        "signal": "agent-resolution"
+      },
+      "subject": "agent-resolution: la distribución de hoy no se parece a la de la semana",
+      "documentation": "Resolución según el juez online (resuelto, escalado, parcial, no resuelto). PSI 1d frente a los 7d anteriores: (valor en la incidencia) (> 0.25 significativo).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#drift\n\nEn Prometheus espera 1h antes de saltar; aquí salta en la primera evaluación (sin ventana de reintento para consultas de más de 25 h)."
+    },
+    "PubSubBacklogGrowing": {
+      "display_name": "PubSubBacklogGrowing",
+      "rule_group": "gcp-plataforma",
+      "alert_rule": "PubSubBacklogGrowing",
+      "query": "sum by (subscription_id)(pubsub_googleapis_com:subscription_num_unacked_messages_by_region{monitored_resource=\"pubsub_subscription\",project_id=\"__PROJECT_ID__\",subscription_id=~\".+\\\\.worker\"}) > 100",
+      "duration": "600s",
+      "evaluation_interval": "60s",
+      "severity": "CRITICAL",
+      "labels": {
+        "severity": "page",
+        "owner": "soporte-ia"
+      },
+      "subject": "Mensajes sin confirmar acumulándose en una cola de Pub/Sub",
+      "documentation": "Más de 100 mensajes sin confirmar durante 10 min en una suscripción .worker.\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#backlog-colas"
+    },
+    "PubSubAckDeadlinesExpiring": {
+      "display_name": "PubSubAckDeadlinesExpiring",
+      "rule_group": "gcp-plataforma",
+      "alert_rule": "PubSubAckDeadlinesExpiring",
+      "query": "sum by (subscription_id)(rate(pubsub_googleapis_com:subscription_expired_ack_deadlines_count{monitored_resource=\"pubsub_subscription\",project_id=\"__PROJECT_ID__\",subscription_id=~\".+\\\\.worker\"}[10m])) > 0.01",
+      "duration": "600s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "soporte-ia"
+      },
+      "subject": "Plazos de ack de Pub/Sub vencidos: reentregas y modelo pagado otra vez",
+      "documentation": "Más de 0,01 plazos vencidos por segundo durante 10 min en una suscripción .worker (latido caído o turnos más largos que PUBSUB__MAX_LEASE_S).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#backlog-colas"
+    },
+    "LogIngestionPace": {
+      "display_name": "LogIngestionPace",
+      "rule_group": "gcp-plataforma",
+      "alert_rule": "LogIngestionPace",
+      "query": "sum(increase(logging_googleapis_com:billing_bytes_ingested{project_id=\"__PROJECT_ID__\"}[6h])) * 4 / 1073741824 > 1.667",
+      "duration": "3600s",
+      "evaluation_interval": "60s",
+      "severity": "WARNING",
+      "labels": {
+        "severity": "ticket",
+        "owner": "finops"
+      },
+      "subject": "Los logs van camino de salir del tramo gratuito de Cloud Logging",
+      "documentation": "La ingesta de las últimas 6 h, proyectada a un día, supera 1.67 GiB (50 GiB al mes gratis).\n\n**Runbook:** __RUNBOOK_BASE__/docs/runbook-incidentes.md#ingesta-logs"
+    }
+  }
+}

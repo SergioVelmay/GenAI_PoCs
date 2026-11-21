@@ -1,0 +1,265 @@
+# GENERADO por scripts/build_observability.py (adapters/cloud_monitoring.py) desde las
+# reglas locales: alertas de Cloud Monitoring, sin recording rules. No editar a mano.
+# Los mismos tests que infra/local/telemetry/rules/tests/genaipocs.test.yml.
+rule_files:
+- ../genaipocs.alerts.yml
+evaluation_interval: 1m
+tests:
+- name: availability-burning
+  interval: 1m
+  input_series:
+  - series: genaipocs_admission_decisions_total{genaipocs_route="ask",genaipocs_caller_plan="public",genaipocs_admission_outcome="admitted"}
+    values: 0+100x80
+  - series: genaipocs_answers_total{genaipocs_answer_degraded="false",genaipocs_caller_plan="public"}
+    values: 0+90x80
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-availability",severity="page"})
+    eval_time: 70m
+    exp_samples:
+    - value: 2
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-availability",severity="ticket"})
+    eval_time: 70m
+    exp_samples:
+    - value: 2
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo!="assistant-availability"})
+      or vector(0)
+    eval_time: 70m
+    exp_samples:
+    - value: 0
+- name: availability-healthy
+  interval: 1m
+  input_series:
+  - series: genaipocs_admission_decisions_total{genaipocs_route="ask",genaipocs_caller_plan="public",genaipocs_admission_outcome="admitted"}
+    values: 0+1000x80
+  - series: genaipocs_answers_total{genaipocs_answer_degraded="false",genaipocs_caller_plan="public"}
+    values: 0+998x80
+  promql_expr_test:
+  - expr: count(ALERTS{alertstate="firing"}) or vector(0)
+    eval_time: 70m
+    exp_samples:
+    - value: 0
+- name: availability-short-spike
+  interval: 1m
+  input_series:
+  - series: genaipocs_admission_decisions_total{genaipocs_route="ask",genaipocs_caller_plan="public",genaipocs_admission_outcome="admitted"}
+    values: 0+100x440
+  - series: genaipocs_answers_total{genaipocs_answer_degraded="false",genaipocs_caller_plan="public"}
+    values: 0+100x420 42050+50x5 42300+100x15
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",severity="page"}) or vector(0)
+    eval_time: 426m
+    exp_samples:
+    - value: 0
+- name: ttft-slow
+  interval: 1m
+  input_series:
+  - series: genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome="miss"}
+    values: 0+100x80
+  - series: genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome="miss",le="1.5"}
+    values: 0+80x80
+  - series: genaipocs_answer_time_to_first_chunk_seconds_count{genaipocs_cache_outcome="hit"}
+    values: 0+1000x80
+  - series: genaipocs_answer_time_to_first_chunk_seconds_bucket{genaipocs_cache_outcome="hit",le="1.5"}
+    values: 0+1000x80
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-ttft",severity="ticket"})
+    eval_time: 70m
+    exp_samples:
+    - value: 2
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="assistant-ttft",severity="page"})
+      or vector(0)
+    eval_time: 70m
+    exp_samples:
+    - value: 0
+- name: llm-errors-exclude-cancellations
+  interval: 1m
+  input_series:
+  - series: gen_ai_client_operation_duration_seconds_count{gen_ai_response_model="gpt-4.1-mini"}
+    values: 0+80x80
+  - series: gen_ai_client_operation_duration_seconds_count{error_type="CancelledError"}
+    values: 0+20x80
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="llm-calls"}) or vector(0)
+    eval_time: 70m
+    exp_samples:
+    - value: 0
+- name: llm-rate-limited
+  interval: 1m
+  input_series:
+  - series: gen_ai_client_operation_duration_seconds_count{gen_ai_response_model="gpt-4.1-mini"}
+    values: 0+80x80
+  - series: gen_ai_client_operation_duration_seconds_count{error_type="LLMRateLimitError"}
+    values: 0+10x80
+  - series: genaipocs_llm_rejections_total{genaipocs_llm_reject_reason="circuit_open"}
+    values: 0+10x80
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ErrorBudgetBurn",alertstate="firing",slo="llm-calls",severity="page"})
+    eval_time: 70m
+    exp_samples:
+    - value: 2
+- name: cost-runaway
+  interval: 1m
+  input_series:
+  - series: genaipocs_llm_cost_USD_total{gen_ai_agent_name="refunds"}
+    values: 0+0.1x40
+  promql_expr_test:
+  - expr: count(ALERTS{alertname=~"LlmCostRunaway|LlmCostBudget",alertstate="firing"})
+    eval_time: 30m
+    exp_samples:
+    - value: 2
+- name: cost-normal
+  interval: 1m
+  input_series:
+  - series: genaipocs_llm_cost_USD_total{gen_ai_agent_name="refunds"}
+    values: 0+0.005x40
+  promql_expr_test:
+  - expr: count(ALERTS{alertname=~"LlmCost.*",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - value: 0
+- name: outbox-stuck
+  interval: 1m
+  input_series:
+  - series: genaipocs_outbox_backlog{genaipocs_outbox_topic_prefix="*"}
+    values: 150x20
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="OutboxBacklogGrowing",alertstate="firing"})
+    eval_time: 15m
+    exp_samples:
+    - value: 1
+- name: settle-failures-sustained
+  interval: 1m
+  input_series:
+  - series: genaipocs_messaging_settle_failures_total{messaging_operation_name="modack",messaging_destination_subscription_name="support.emails.worker"}
+    values: 0+1x40
+  - series: genaipocs_messaging_settle_failures_total{messaging_operation_name="ack",messaging_destination_subscription_name="case.outcomes.worker"}
+    values: 0+0.2x40
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="MessageSettleFailures",alertstate="firing"})
+    eval_time: 30m
+    exp_samples:
+    - value: 1
+- name: settle-failures-occasional
+  interval: 1m
+  input_series:
+  - series: genaipocs_messaging_settle_failures_total{messaging_operation_name="ack",messaging_destination_subscription_name="support.emails.worker"}
+    values: 0+0.2x40
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="MessageSettleFailures",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - value: 0
+- name: faithfulness-drop
+  interval: 1m
+  input_series:
+  - series: genaipocs_eval_faithfulness_count{genaipocs_eval_name="online-faithfulness"}
+    values: 0+1x60
+  - series: genaipocs_eval_faithfulness_sum{genaipocs_eval_name="online-faithfulness"}
+    values: 0+0.6x60
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="FaithfulnessDrop",alertstate="firing"})
+    eval_time: 50m
+    exp_samples:
+    - value: 1
+- name: faithfulness-few-samples
+  interval: 1m
+  input_series:
+  - series: genaipocs_eval_faithfulness_count{genaipocs_eval_name="online-faithfulness"}
+    values: 0+0.1x60
+  - series: genaipocs_eval_faithfulness_sum{genaipocs_eval_name="online-faithfulness"}
+    values: 0+0.06x60
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="FaithfulnessDrop",alertstate="firing"}) or vector(0)
+    eval_time: 50m
+    exp_samples:
+    - value: 0
+- name: drift-intents-shift
+  interval: 1h
+  input_series:
+  - series: genaipocs_cases_triaged_total{genaipocs_case_intent="refund_request",genaipocs_case_language="es"}
+    values: 0+10x168 1680+40x24
+  - series: genaipocs_cases_triaged_total{genaipocs_case_intent="event_info",genaipocs_case_language="es"}
+    values: 0+10x192
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing",signal="case-intents"})
+    eval_time: 192h
+    exp_samples:
+    - value: 1
+  - expr: count((sum((clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) * 0), 0.0001)
+      - clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum
+      by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d]))))
+      or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)))) > 0.4 < 0.43)
+    eval_time: 192h
+    exp_samples:
+    - value: 1
+- name: drift-intents-stable
+  interval: 1h
+  input_series:
+  - series: genaipocs_cases_triaged_total{genaipocs_case_intent="refund_request",genaipocs_case_language="es"}
+    values: 0+10x192
+  - series: genaipocs_cases_triaged_total{genaipocs_case_intent="event_info",genaipocs_case_language="es"}
+    values: 0+10x192
+  promql_expr_test:
+  - expr: count((sum((clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) * 0), 0.0001)
+      - clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum
+      by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d]))))
+      or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)))) < 0.01)
+    eval_time: 192h
+    exp_samples:
+    - value: 1
+  - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing"}) or vector(0)
+    eval_time: 192h
+    exp_samples:
+    - value: 0
+- name: drift-intents-few-samples
+  interval: 1h
+  input_series:
+  - series: genaipocs_cases_triaged_total{genaipocs_case_intent="refund_request",genaipocs_case_language="es"}
+    values: 0+0.1x168 16.8+0.4x24
+  - series: genaipocs_cases_triaged_total{genaipocs_case_intent="event_info",genaipocs_case_language="es"}
+    values: 0+0.1x192
+  promql_expr_test:
+  - expr: count((sum((clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) * 0), 0.0001)
+      - clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)) * ln(clamp_min(((sum
+      by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d])) / scalar(sum(increase(genaipocs_cases_triaged_total[1d]))))
+      or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d] offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)))) * 0), 0.0001) / clamp_min(((sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[7d]
+      offset 1d)) / scalar(sum(increase(genaipocs_cases_triaged_total[7d] offset 1d)))) or (sum by (genaipocs_case_intent)(increase(genaipocs_cases_triaged_total[1d]))
+      / scalar(sum(increase(genaipocs_cases_triaged_total[1d])))) * 0), 0.0001)))) > 0.25)
+    eval_time: 192h
+    exp_samples:
+    - value: 1
+  - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing"}) or vector(0)
+    eval_time: 192h
+    exp_samples:
+    - value: 0
+- name: drift-new-tool
+  interval: 1h
+  input_series:
+  - series: gen_ai_execute_tool_duration_seconds_count{gen_ai_tool_name="get_order"}
+    values: 0+20x192
+  - series: gen_ai_execute_tool_duration_seconds_count{gen_ai_tool_name="issue_refund"}
+    values: 0x168 0+20x24
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="DistributionDrift",alertstate="firing",signal="agent-tools"})
+    eval_time: 192h
+    exp_samples:
+    - value: 1

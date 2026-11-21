@@ -182,6 +182,7 @@ output "observability" {
     oncall_channel       = google_monitoring_notification_channel.oncall[0].id
     log_retention_days   = var.log_retention_days
     log_exclusions       = keys(local.log_exclusions)
+    alert_policies       = length(local.alert_policies)
     trace_explorer       = "https://console.cloud.google.com/traces/explorer?project=${var.project_id}"
     prometheus_query_api = "https://monitoring.googleapis.com/v1/projects/${var.project_id}/location/global/prometheus"
   } : null

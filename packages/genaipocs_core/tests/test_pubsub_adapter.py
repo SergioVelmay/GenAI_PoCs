@@ -22,7 +22,9 @@ from google.pubsub_v1.types import (
 from google.rpc.error_details_pb2 import ErrorInfo  # type: ignore[import-untyped]
 
 from genaipocs_core.adapters.messaging_factory import MESSAGING_SYSTEMS
+from genaipocs_core.adapters.otel import recording_telemetry
 from genaipocs_core.adapters.pubsub import PubSubMessageBus, subscription_path, topic_path
+from genaipocs_core.application.telemetry import metrics
 from genaipocs_core.config import GcpSettings, PubSubSettings
 from genaipocs_core.ports import Message
 
@@ -171,6 +173,33 @@ async def test_expired_ack_with_exactly_once_is_counted_and_does_not_break_the_l
 
     assert calls == ["ack a1"]  # Un fallo permanente no se reintenta.
     assert bus.ack_failures == 1
+
+
+async def test_settle_failures_become_a_metric_for_the_alerts() -> None:
+    """11.G2: `ack_failures` y `lease_failures` llegan a las alertas (MessageSettleFailures)."""
+    bus, _ = make_failing_bus([_ack_failure("PERMANENT_FAILURE_INVALID_ACK_ID")])
+    lease_bus, _ = make_lease_bus([_modify_failure("PERMANENT_FAILURE_INVALID_ACK_ID")])
+
+    async def slow(message: Message) -> None:
+        await _spin()
+
+    with recording_telemetry() as recorded:
+        await bus._handle("t", "projects/p/subscriptions/t.worker", DLQ, received(b"{}"), _ok)
+        await lease_bus._handle(
+            "t", "projects/p/subscriptions/t.worker", DLQ, received(b"{}"), slow, ack_deadline_s=60
+        )
+
+    def failures(operation: str) -> float:
+        return recorded.total(
+            metrics.MESSAGE_SETTLE_FAILURES,
+            **{
+                "messaging.system": MESSAGING_SYSTEMS["pubsub"],
+                "messaging.destination.subscription.name": "t.worker",
+                "messaging.operation.name": operation,
+            },
+        )
+
+    assert (failures("ack"), failures("modack"), failures("nack")) == (1, 1, 0)
 
 
 async def test_transient_ack_failure_is_retried() -> None:
