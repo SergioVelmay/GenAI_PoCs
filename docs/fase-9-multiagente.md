@@ -175,21 +175,23 @@ uv run python -m rag_evals.multiagent --mode llm --budget-usd 0.20         # mod
 
 Dataset `evals/datasets/multiagent-v1.jsonl`: 15 escenarios (felices, defensa, resiliencia y un
 email con dos intenciones) con especialista y estado esperados, revisión humana y comprobaciones.
-El gate de la CI corre los tres motores en modo guionizado y bloquea con cualquier fallo o
-invariante distinto de 0.
+El gate de la CI corre los cuatro motores (ADK desde la 9.G2) en modo guionizado y bloquea con
+cualquier fallo o invariante distinto de 0.
 
 ## 3. Resultados medidos (local, modelo guionizado)
 
 | Motor | Escenarios OK | Enrutado OK | Invariantes | Llamadas al LLM | Traspaso: mínimo / con email |
 |---|---:|---:|---:|---:|---:|
-| LangGraph | 15/15 | 14/15 | 0 | 36 | 436 / 1175 (-63 %) |
-| MAF | 14/14 | 13/14 | 0 | 33 | 394 / 1121 (-65 %) |
-| Cola (asíncrono) | 15/15 | 14/15 | 0 | 36 | 436 / 1175 (-63 %) |
+| LangGraph | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63 %) |
+| MAF | 14/14 | 13/14 | 0 | 33 | 394 / 1125 (-65 %) |
+| ADK (9.G2) | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63 %) |
+| Cola (asíncrono) | 15/15 | 14/15 | 0 | 36 | 436 / 1179 (-63 %) |
 
 - **Enrutado 14/15** es intencionado: en `defense-misrouted-refund` el triaje se equivoca (o lo
   manipulan) y el caso llega a Conocimiento, que no tiene la tool de reembolsar: 0 solicitudes.
   La precisión real del triaje del modelo solo se mide con `--mode llm` (pendiente).
-- MAF omite `resilience-transient-error`: no tiene `RetryPolicy` por nodo.
+- MAF omite `resilience-transient-error`: no tiene `RetryPolicy` por nodo. ADK sí lo pasa
+  (`RetryConfig`).
 - **Contexto mínimo**: en emails cortos el sobre es *más largo* que el email (cabeceras de
   campos); el ahorro llega con hilos reales (respuestas citadas, pies legales). Con el hilo largo
   del dataset, el especialista recibe un 63-65 % menos de tokens que pasándole también el email.
@@ -250,7 +252,7 @@ entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y do
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 9.G1 | — | ADK como cuarto motor (`AdkCaseWorkflow`); antes, `ccfcca5` (`fix:` del informe de `multiagent --mode llm` por nube) |
+| 9.G1 | `850cf5c` | ADK como cuarto motor (`AdkCaseWorkflow`); antes, `ccfcca5` (`fix:` del informe de `multiagent --mode llm` por nube) |
 | 9.G2 | — | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
 | 9.G3 | — | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
 | 9.G4 | — | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
@@ -310,6 +312,30 @@ START → triage ─route─┬─▶ refunds ───┐
   especialista.
 - Límite conocido: el contador de reintentos de `RetryConfig` no se persiste (ADK lo avisa en el
   log): tras reanudar, el nodo vuelve a tener todos sus intentos.
+
+### 9.G2 · Evals con cuatro motores y sesiones en PostgreSQL
+
+```powershell
+uv run python -m rag_evals.multiagent --engine adk --check                     # coste 0
+docker compose up -d
+uv run pytest -m integration services/orchestrator/tests/test_adk_postgres.py
+```
+
+- `rag_evals.multiagent` corre ahora **cuatro motores** con el mismo dataset y el gate de la CI los
+  incluye todos (`--check` sin `--engine`). ADK: **15/15**, enrutado 14/15 (el fallo intencionado
+  de `defense-misrouted-refund`), invariantes 0, 36 llamadas al LLM y el mismo traspaso que
+  LangGraph ([tabla](#3-resultados-medidos-local-modelo-guionizado)). A diferencia de MAF, ejecuta
+  `resilience-transient-error` gracias a `RetryConfig`.
+- `postgres_session_service` (`orchestrator/checkpoints.py`) abre un `DatabaseSessionService`
+  sobre asyncpg con `search_path` en el esquema **`adk`**: ADK crea sus tablas (`sessions`,
+  `events`, `app_states`, `user_states`, `adk_internal_metadata`) al primer uso, fuera de Alembic
+  (`alembic check` sigue limpio), como LangGraph en el esquema `langgraph`.
+- Dos tests `integration` con "reinicio" (engine, servicio y workflow nuevos sobre el mismo
+  PostgreSQL): un caso pausado lo revisa otra instancia, y un caso que falló tras el triaje lo
+  termina otra instancia **sin repetir el triaje**.
+- En la nube, el mismo `AdkCaseWorkflow` aceptaría las Sessions de Agent Platform
+  (`VertexAiSessionService`, sin tablas que gestionar) o Cloud SQL / AlloyDB con este mismo
+  servicio (pendiente con coste).
 
 ## 8. Checkpoint de entrevista
 

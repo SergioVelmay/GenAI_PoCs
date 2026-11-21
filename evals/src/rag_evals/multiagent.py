@@ -1,12 +1,12 @@
-"""Evals multi-agente (fase 9.7): el mismo dataset sobre los tres estilos de orquestación.
+"""Evals multi-agente (fase 9.7): el mismo dataset sobre los cuatro motores de orquestación.
 
     uv run python -m rag_evals.multiagent [--engine langgraph] [--check]
     uv run python -m rag_evals.multiagent --mode llm --budget-usd 0.20   # coste: modelo real
 
-Motores: `langgraph` (RouterGraph), `maf` (MafCaseWorkflow) y `async` (cola en memoria +
-CaseStore). Con el modelo guionizado (coste 0) mide el comportamiento del SISTEMA: enrutado del
-dominio, estado final tras la revisión humana, invariantes y contexto del traspaso. La precisión
-del triaje del modelo solo se mide con `--mode llm`.
+Motores: `langgraph` (RouterGraph), `maf` (MafCaseWorkflow), `adk` (AdkCaseWorkflow, 9.G2) y
+`async` (cola en memoria + CaseStore). Con el modelo guionizado (coste 0) mide el comportamiento
+del SISTEMA: enrutado del dominio, estado final tras la revisión humana, invariantes y contexto del
+traspaso. La precisión del triaje del modelo solo se mide con `--mode llm`.
 
 Invariantes (siempre 0, bloqueantes en la CI con `--check`):
 - `unapproved_irreversible`: reembolso ejecutado o email enviado sin que una persona lo apruebe.
@@ -29,6 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 
+from google.adk.workflow import RetryConfig
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel, ConfigDict
 
@@ -56,6 +57,7 @@ from genaipocs_core.domain import (
 )
 from genaipocs_core.ports import LLMPort, LLMTransientError, ToolCall
 from genaipocs_core.ports.approvals import ApprovalStatus
+from orchestrator.adk_workflow import AdkCaseWorkflow
 from orchestrator.async_flow import SUPPORT_EMAILS, CaseReviewService, subscribe_workers
 from orchestrator.graph import RouterGraph
 from orchestrator.maf_workflow import MafCaseWorkflow
@@ -66,7 +68,12 @@ from rag_evals.metering import CostMeter
 from rag_evals.retrieval_eval import REPORTS_DIR, llm_cloud
 
 DATASET_PATH = Path(__file__).resolve().parents[2] / "datasets" / "multiagent-v1.jsonl"
-ENGINES: tuple[Literal["langgraph", "maf", "async"], ...] = ("langgraph", "maf", "async")
+ENGINES: tuple[Literal["langgraph", "maf", "adk", "async"], ...] = (
+    "langgraph",
+    "maf",
+    "adk",
+    "async",
+)
 REVIEWER = "ops-eval"
 TRIAGE_MARK = "agente de triaje"
 INVARIANTS = (
@@ -76,8 +83,9 @@ INVARIANTS = (
     "email_in_handoff",
 )
 NO_WAIT = RetryPolicy(initial_interval=0, jitter=False, max_attempts=2, retry_on=LLMTransientError)
+ADK_NO_WAIT = RetryConfig(max_attempts=2, initial_delay=0, jitter=0, exceptions=[LLMTransientError])
 
-type Engine = Literal["langgraph", "maf", "async"]
+type Engine = Literal["langgraph", "maf", "adk", "async"]
 type Mode = Literal["scripted", "llm"]
 type Step = dict[str, Any]
 
@@ -264,6 +272,12 @@ async def _run_engine(
         if maf.awaiting_review and review is not None:
             maf = await workflow.review(maf, reviewer=REVIEWER, approve=review.approve)
         return maf.outcome
+    if engine == "adk":
+        adk = AdkCaseWorkflow(TriageAgent(llm), specialists, approvals, retry_config=ADK_NO_WAIT)
+        run = await adk.start(email)
+        if run["awaiting_review"] and review is not None:
+            run = await adk.review(run["case_id"], reviewer=REVIEWER, approve=review.approve)
+        return run["outcome"]
     bus = InMemoryMessageBus(max_deliveries=2)
     cases = InMemoryCaseStore(InMemoryOutbox(deliver_to=bus))
     await subscribe_workers(bus, cases, triage=TriageAgent(llm), specialists=specialists)
@@ -577,7 +591,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.mode == "llm" and args.budget_usd is None:
         parser.error("--mode llm requiere --budget-usd (llamadas con coste)")
-    for noisy in ("harness", "orchestrator", "genaipocs_core", "agent_framework"):
+    for noisy in ("harness", "orchestrator", "genaipocs_core", "agent_framework", "google_adk"):
         logging.getLogger(noisy).setLevel(logging.CRITICAL)
     llm, meter = _gateway(args.budget_usd) if args.mode == "llm" else (None, None)
     engines: list[Engine] = args.engine or list(ENGINES)
