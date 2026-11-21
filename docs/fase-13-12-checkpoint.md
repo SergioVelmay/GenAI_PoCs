@@ -160,9 +160,14 @@ Plan original (antes del cambio):
 
 **9.G · Multi-agente**
 
-- **Heredado de la 8.G4:** `multiagent --mode llm` escribe siempre en `evals/reports/azure/`: a la carpeta de la nube de `LLM_PROVIDER` (`CloudModels.cloud` / `llm_reports_dir`), como `agents` y `attacks`.
-- 9.G1: ADK como cuarto motor del orquestador (triaje con tabla del dominio, especialistas, revisión humana con confirmación de tools de ADK) con test de paridad frente a LangGraph, MAF y cola.
-- 9.G2: `ORCHESTRATOR__BROKER=pubsub` con el outbox y *exactly-once delivery* como primera capa de deduplicación; A2A con ID tokens de Google (audience por especialista) en `remote/auth.py`; Terraform de Cloud Run y Workflows.
+- **Heredado de la 8.G4:** `multiagent --mode llm` escribe siempre en `evals/reports/azure/`: a la carpeta de la nube de `LLM_PROVIDER` (`CloudModels.cloud` / `llm_reports_dir`), como `agents` y `attacks`. Hecho en el `fix:` `ccfcca5`.
+- ~~9.G1: ADK como cuarto motor del orquestador (triaje con tabla del dominio, especialistas, revisión humana con confirmación de tools de ADK) con test de paridad frente a LangGraph, MAF y cola.~~
+- ~~9.G2: `ORCHESTRATOR__BROKER=pubsub` con el outbox y *exactly-once delivery* como primera capa de deduplicación; A2A con ID tokens de Google (audience por especialista) en `remote/auth.py`; Terraform de Cloud Run y Workflows.~~ **Al empezar (21-11-2026)** se divide en cinco (decidido con Sergio; verificación previa en la [fase 9](fase-9-multiagente.md#7-gcp-pasada-9g)): el motor es un workflow de grafo de ADK (`google.adk.workflow`) y la revisión, un `RequestInput` (la confirmación de tools es para tools de un `LlmAgent`); *exactly-once* solo evita reentregas (no duplicados al publicar) y el emulador lo admite; los ID tokens de Google no llevan `scope`; y Workflows se implementa de verdad (SLA de revisión con escalado), no solo en Terraform.
+- 9.G1: `AdkCaseWorkflow` (rutas del dominio con `ctx.route`, `RetryConfig`, revisión con `RequestInput`, estado en la sesión) con paridad frente a LangGraph y MAF.
+- 9.G2: motor `adk` en `rag_evals.multiagent` y en el gate de la CI (cuatro motores) y sesiones en PostgreSQL con `DatabaseSessionService` (test `integration`).
+- 9.G3: `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* en la topología (emulador y `pubsub.tf`), `ack` fallido tratado como confirmado, test `integration` con el emulador (duplicados, DLQ, CAS) y temas del orquestador en `pubsub.tf`.
+- 9.G4: A2A con ID tokens de Google (`A2A__IDENTITY=dev|gcp`: servidor de metadatos o *impersonation*; verificador con el JWKS de Google, `aud` por especialista y `email` en la lista) y `a2a.tf` (Cloud Run con *custom audiences* e *invoker* solo para el orquestador, `a2a_enabled`).
+- 9.G5: Workflows como espera humana (`case_review.yaml`: callback, aviso, `await_callback` con SLA y decisión en `case.reviews`), rol `review` del worker y `workflows.tf` (`case_review_workflow_enabled`); doc de la fase 9 a tres nubes.
 
 **10.G · Escala**
 

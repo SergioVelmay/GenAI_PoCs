@@ -48,3 +48,10 @@ description: "Orquestación multi-agente: Triaje → Reembolsos / Creativo / Con
 - `MafCaseWorkflow`: mismo flujo con executors tipados, `add_switch_case_edge_group` (`Default` → `unroutable`) y `request_info` + `@response_handler`. Un `Workflow` nuevo por ejecución (`build()`); `review(run)` restaura desde `run.checkpoint_id`.
 - Checkpoints en disco con `file_checkpoint_storage` (pickle con `CHECKPOINT_TYPES` permitidos; añadir ahí cualquier tipo nuevo que viaje entre executors). MAF solo avisa si no guarda un checkpoint: una pausa sin checkpoint lanza `CheckpointNotSavedError`.
 - Debe dar el mismo resultado que `RouterGraph` con el mismo guion (`test_same_result_as_langgraph`).
+
+## ADK (`adk_workflow.py`, fase 9.G1)
+
+- `AdkCaseWorkflow`: workflow de grafo de ADK (`google.adk.workflow`), no un `LlmAgent` con `sub_agents` (ahí el traspaso lo decide el LLM). Misma API que `RouterGraph` (`start`, `review`, `get` → `CaseRun`). La ruta la fija el triaje con `ctx.route = envelope.specialist` (mapa de rutas en la arista; `DEFAULT_ROUTE` → `unroutable`); `RetryConfig(exceptions=[LLMTransientError])` en triaje y especialistas.
+- Estado en la **sesión** de ADK (`session_id = case_id`, `user_id = orchestrator`): `email`, `envelope`, `outcome`, `triage_calls`, `pending_review` (`interrupt_id` + `invocation_id`), solo JSON plano. Cualquier réplica con el mismo `session_service` reanuda.
+- Revisión: nodo `review` con `rerun_on_resume=True` que cede `RequestInput` (`review-<n>`); se reanuda con `review_answer(interrupt_id, decisión)` y la misma `invocation_id`. `resume_inputs` acumula respuestas: se usa la última; una inválida vuelve a pausar con id nuevo. Nada con efectos antes de una decisión válida.
+- `start` es idempotente (pausado o terminado = estado actual) y, si un fallo dejó el caso a medias, reanuda la misma invocación sin mensaje (no repite el triaje). Paridad con LangGraph y MAF en `test_same_result_as_langgraph_and_maf`.

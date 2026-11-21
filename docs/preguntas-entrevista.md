@@ -1024,6 +1024,28 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    agentes y la autoaprobación por importe. Primero router + aprobación humana en todo lo que sale
    hacia el cliente, medir dos o tres semanas y automatizar solo donde los datos lo justifiquen.
 
+### GCP (pasada 9.G)
+
+**Técnicas**
+
+1. **¿Cómo montarías el router con ADK sin que el LLM decida el traspaso?** Con un workflow de
+   grafo (`google.adk.workflow`), no con un `LlmAgent` con `sub_agents`: ahí el traspaso es una
+   *function call* del modelo. El nodo de triaje marca `ctx.route` con el especialista que sale
+   de la tabla del dominio y el mapa de rutas de la arista elige el nodo; `DEFAULT_ROUTE` manda a
+   una persona lo que no encaje. Da el mismo resultado que LangGraph y MAF con el mismo guion.
+2. **¿Dónde vive el estado de un caso en pausa con ADK y cómo se reanuda en otra réplica?** En la
+   sesión (`session_id = case_id`): eventos y `state` en JSON. La revisión es un `RequestInput`,
+   una *function call* de larga duración; se reanuda enviando una `FunctionResponse` con su id y
+   la misma `invocation_id` desde cualquier réplica que comparta el servicio de sesiones. Los
+   nodos completados no se repiten, así que el triaje se paga una vez.
+
+**Negocio y stakeholders**
+
+1. **¿Por qué un cuarto motor si ya hay tres?** No para producción: para que la decisión de nube
+   no la imponga el framework. El contrato `SpecialistAgent` y el dataset son los mismos; si
+   Genaipocs desplegara en GCP con Agent Runtime, el motor nativo es ADK y ya está probado con
+   las mismas evals. En producción elegiría uno y documentaría por qué.
+
 <a id="fase-10"></a>
 
 ## Fase 10 · Escala y patrones asíncronos ([doc](fase-10-escala.md))

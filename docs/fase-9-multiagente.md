@@ -241,6 +241,76 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 9): eval con
 (precisión del triaje), A2A con identidad de nube, carril A (Foundry / AgentCore) y colas en SQS
 y Service Bus.
 
-## 7. Checkpoint de entrevista
+## 7. GCP (pasada 9.G)
+
+**Objetivo:** el mismo flujo con las piezas de GCP detrás de los mismos contratos: **ADK** como
+cuarto motor, **Pub/Sub** (*exactly-once*) en el flujo asíncrono, **A2A con ID tokens de Google**
+entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y dobles; lo real, en
+[pendientes](pendientes-cloud.md).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 9.G1 | — | ADK como cuarto motor (`AdkCaseWorkflow`); antes, `ccfcca5` (`fix:` del informe de `multiagent --mode llm` por nube) |
+| 9.G2 | — | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
+| 9.G3 | — | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
+| 9.G4 | — | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
+| 9.G5 | — | Workflows como espera humana con SLA, rol `review` y doc a tres nubes |
+
+### Verificación previa (21-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| ADK 2.14 instalado (2.15 publicada) | `google.adk.workflow` (GA desde 2.0): nodos, rutas por valor, `RetryConfig` por excepción, `RequestInput` y reanudación por sesión | El motor es un **workflow de grafo**, no un `LlmAgent` con `sub_agents` (ahí el traspaso lo decide el LLM: regla 6). Se queda en 2.14 (7.G) |
+| [Human input](https://adk.dev/graphs/human-input/) | `RequestInput` emite una *function call* `adk_request_input` de larga duración; `rerun_on_resume` + `ctx.resume_inputs` | **Cambio de plan:** la revisión es un `RequestInput`, no la confirmación de tools (`require_confirmation` es para tools de un `LlmAgent`) |
+| [Exactly-once](https://docs.cloud.google.com/pubsub/docs/exactly-once-delivery) | Solo evita la **reentrega** tras un `ack` correcto; los duplicados al publicar llegan con otro `message_id`; solo *pull* y una región; más latencia | Primera capa menor que SQS FIFO: las transiciones *compare-and-set* del `CaseStore` siguen siendo la deduplicación de verdad |
+| Emulador de Pub/Sub (sonda local) | Acepta `enable_exactly_once_delivery` y un segundo `ack` del mismo id falla con `INVALID_ARGUMENT` (`EXACTLY_ONCE_ACKID_FAILURE`) | Se prueba en local (9.G3); el adaptador no debe romperse con ese error |
+| [Custom audiences](https://docs.cloud.google.com/run/docs/configuring/custom-audiences) de Cloud Run | Cualquier cadena (`custom_audiences`), la URL `run.app` sigue valiendo | Se conserva `api://genaipocs-agents/{specialist}` como audience |
+| ID tokens de Google | Sin `scope`; el llamante va en `email` (cuenta de servicio) | En GCP autorizan **audience + lista de llamantes + `roles/run.invoker`** (9.G4) |
+| [Callbacks de Workflows](https://docs.cloud.google.com/workflows/docs/creating-callback-endpoints) | `await_callback` con 12 h por defecto, idempotentes; llamarlos exige `workflows.callbacks.send` | SLA de revisión con `TimeoutError` → escalado (9.G5) |
+
+### 9.G1 · ADK como cuarto motor
+
+```powershell
+uv run pytest services/orchestrator/tests/test_adk_workflow.py
+```
+
+```text
+START → triage ─route─┬─▶ refunds ───┐
+                      ├─▶ creative ──┼─▶ review ─(pendiente)─▶ RequestInput ─▶ decisión
+                      ├─▶ knowledge ─┘        └─(resto)──────▶ salida
+                      └─▶ (DEFAULT_ROUTE) unroutable
+```
+
+`orchestrator/adk_workflow.py` (`AdkCaseWorkflow`) con la misma API que `RouterGraph`
+(`start`, `review`, `get` → `CaseRun`):
+
+| Pieza | LangGraph | MAF | ADK |
+|---|---|---|---|
+| Ruta del dominio | `add_conditional_edges` + función | `add_switch_case_edge_group` | `ctx.route = envelope.specialist` + mapa de rutas en la arista |
+| Red de seguridad | — (`ROUTES` es total) | `Default` | `DEFAULT_ROUTE` → `unroutable` |
+| Pausa humana | `interrupt()` / `Command(resume=...)` | `request_info` / `@response_handler` | `RequestInput` / `FunctionResponse` con el mismo id e `invocation_id` |
+| Estado | Checkpoint por `thread_id` | Checkpoint por *superstep* | **Sesión** (`session_id = case_id`): eventos + `state` |
+| Reintentos | `RetryPolicy(retry_on=LLMTransientError)` | No tiene | `RetryConfig(exceptions=[LLMTransientError])` (por nombre en la MRO) |
+| Tras un fallo | `ainvoke(None)` desde el checkpoint | — | `run_async(invocation_id=..., new_message=None)` |
+
+- **El estado vive en la sesión** de ADK: `email`, `envelope`, `outcome`, `triage_calls` y
+  `pending_review` (id de la interrupción e `invocation_id`), todo JSON plano. Así otra réplica
+  (otro `Runner` y otro `Workflow` sobre el mismo servicio de sesiones) reanuda la revisión: el
+  test lo hace. En memoria en los tests; en producción, `DatabaseSessionService` (9.G2) o las
+  Sessions de Agent Platform.
+- **Los nodos completados se memorizan**: al reanudar no se repite el triaje. Un error no
+  reintentable sale de `run_async` (como en LangGraph) y `start` reanuda la misma invocación sin
+  mensaje nuevo: el triaje se paga una vez.
+- **Revisión** con `rerun_on_resume=True`: el nodo se repite desde arriba al reanudar, así que
+  nada con efectos antes de tener una decisión válida. `resume_inputs` acumula todas las
+  respuestas; una inválida vuelve a pausar con un id nuevo (`review-2`), y `review()` valida
+  antes de reanudar (defensa en profundidad, como en los otros motores).
+- Paridad: mismo `CaseOutcome` y mismas llamadas al LLM que LangGraph y MAF con el mismo guion
+  (`test_same_result_as_langgraph_and_maf`); 20 tests, incluidos los sabores locales del
+  especialista.
+- Límite conocido: el contador de reintentos de `RetryConfig` no se persiste (ADK lo avisa en el
+  log): tras reanudar, el nodo vuelve a tener todos sus intentos.
+
+## 8. Checkpoint de entrevista
 
 Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-9).
