@@ -137,6 +137,10 @@ class PubSubSettings(BaseModel):
     # dead-letter topic. En la nube los fija `infra/terraform/gcp/pubsub.tf`. Entregas: de 5 a 100.
     ack_deadline_s: int = Field(default=60, ge=10, le=600)
     max_delivery_attempts: int = Field(default=5, ge=5, le=100)
+    # Exactly-once delivery en las suscripciones que declara el emulador (9.G3): sin reentregas
+    # tras un `ack` correcto, pero el `ack` puede fallar. En la nube lo fija `pubsub.tf` (activo
+    # en las del orquestador).
+    exactly_once: bool = False
 
 
 class LLMGatewaySettings(BaseModel):

@@ -17,8 +17,9 @@ class OrchestratorSettings(BaseSettings):
         extra="ignore",
     )
 
-    # rabbitmq en local; sqs (ElasticMQ/AWS) y servicebus (emulador/Azure) para la nube.
-    broker: Literal["rabbitmq", "sqs", "servicebus"] = "rabbitmq"
+    # rabbitmq en local; sqs (ElasticMQ/AWS), servicebus (emulador/Azure) y pubsub
+    # (emulador/GCP, 9.G3) para la nube.
+    broker: Literal["rabbitmq", "sqs", "servicebus", "pubsub"] = "rabbitmq"
     # inprocess: el worker ejecuta el especialista. a2a: lo llama en su contenedor (A2A__URLS).
     specialists: Literal["inprocess", "a2a"] = "inprocess"
     # RabbitMQ: forman parte de la declaración de la cola (productor y workers deben coincidir).

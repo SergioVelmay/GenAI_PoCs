@@ -116,3 +116,139 @@ resource "google_pubsub_subscription_iam_member" "app_read_policy" {
   role         = "roles/pubsub.viewer"
   member       = google_service_account.app.member
 }
+
+# ==================================================================================================
+# Fase 9.G3: flujo asíncrono de casos del orquestador (ORCHESTRATOR__BROKER=pubsub).
+#
+#   support.emails → triaje → case.triaged.<especialista> → especialista → case.outcomes
+#
+# Mismo patrón que la cola de indexación (tema, DLQ con su suscripción, `<tema>.worker`), con dos
+# diferencias:
+# - **Exactly-once delivery** en las suscripciones de los workers: tras un `ack` correcto no hay
+#   reentregas (cada triaje o especialista es una llamada al LLM, con coste). No elimina los
+#   duplicados al publicar (otro `message_id`): la deduplicación de verdad sigue en el CaseStore.
+#   Solo con *pull* y en una región; añade latencia.
+# - **Ack deadline de 600 s** (el máximo): un turno del agente con tools puede pasar del minuto, y
+#   el adaptador no renueva el plazo. Con exactly-once, un `ack` fuera de plazo falla y el
+#   mensaje vuelve (lo absorbe el CaseStore, pero se paga otra vez el modelo).
+#
+# `case.outcomes` no tiene consumidor en el orquestador: su suscripción `.worker` la leerán las
+# notificaciones y la espera humana de Workflows (9.G5). Sin suscripción, el mensaje se perdería.
+# ==================================================================================================
+
+locals {
+  case_topics = toset([
+    "support.emails",
+    "case.triaged.refunds",
+    "case.triaged.creative",
+    "case.triaged.knowledge",
+    "case.outcomes",
+  ])
+}
+
+resource "google_pubsub_topic" "cases" {
+  for_each = local.case_topics
+
+  name   = each.key
+  labels = local.labels
+
+  depends_on = [google_project_service.enabled]
+}
+
+resource "google_pubsub_topic" "cases_dlq" {
+  for_each = local.case_topics
+
+  name   = "${each.key}.dlq"
+  labels = local.labels
+
+  depends_on = [google_project_service.enabled]
+}
+
+resource "google_pubsub_subscription" "cases_dlq" {
+  for_each = local.case_topics
+
+  name   = "${each.key}.dlq"
+  topic  = google_pubsub_topic.cases_dlq[each.key].id
+  labels = local.labels
+
+  message_retention_duration = "604800s"
+
+  expiration_policy {
+    ttl = ""
+  }
+}
+
+resource "google_pubsub_subscription" "cases_worker" {
+  for_each = local.case_topics
+
+  name   = "${each.key}.worker"
+  topic  = google_pubsub_topic.cases[each.key].id
+  labels = local.labels
+
+  ack_deadline_seconds         = 600
+  enable_exactly_once_delivery = true
+
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.cases_dlq[each.key].id
+    max_delivery_attempts = var.max_deliveries
+  }
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "300s"
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+}
+
+resource "google_pubsub_topic_iam_member" "cases_dlq_service_agent" {
+  for_each = local.case_topics
+
+  topic  = google_pubsub_topic.cases_dlq[each.key].id
+  role   = "roles/pubsub.publisher"
+  member = local.pubsub_service_agent
+}
+
+resource "google_pubsub_subscription_iam_member" "cases_worker_service_agent" {
+  for_each = local.case_topics
+
+  subscription = google_pubsub_subscription.cases_worker[each.key].id
+  role         = "roles/pubsub.subscriber"
+  member       = local.pubsub_service_agent
+}
+
+# La aplicación publica en todos (el relay del outbox publica traspasos y resultados; la entrada,
+# los emails), escribe sus errores permanentes en las DLQ y consume las suscripciones `.worker`.
+resource "google_pubsub_topic_iam_member" "cases_app_publish" {
+  for_each = local.case_topics
+
+  topic  = google_pubsub_topic.cases[each.key].id
+  role   = "roles/pubsub.publisher"
+  member = google_service_account.app.member
+}
+
+resource "google_pubsub_topic_iam_member" "cases_app_dead_letter" {
+  for_each = local.case_topics
+
+  topic  = google_pubsub_topic.cases_dlq[each.key].id
+  role   = "roles/pubsub.publisher"
+  member = google_service_account.app.member
+}
+
+resource "google_pubsub_subscription_iam_member" "cases_app_consume" {
+  for_each = local.case_topics
+
+  subscription = google_pubsub_subscription.cases_worker[each.key].id
+  role         = "roles/pubsub.subscriber"
+  member       = google_service_account.app.member
+}
+
+resource "google_pubsub_subscription_iam_member" "cases_app_read_policy" {
+  for_each = local.case_topics
+
+  subscription = google_pubsub_subscription.cases_worker[each.key].id
+  role         = "roles/pubsub.viewer"
+  member       = google_service_account.app.member
+}

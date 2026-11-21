@@ -22,6 +22,11 @@ output "knowledge_topic" {
   value       = google_pubsub_topic.knowledge.name
 }
 
+output "case_topics" {
+  description = "Temas del flujo de casos con ORCHESTRATOR__BROKER=pubsub (suscripciones <tema>.worker con exactly-once)."
+  value       = sort([for t in google_pubsub_topic.cases : t.name])
+}
+
 output "enabled_services" {
   value = sort([for s in google_project_service.enabled : s.service])
 }

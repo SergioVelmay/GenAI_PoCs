@@ -17,6 +17,12 @@ Diferencias de semántica frente a las colas (RabbitMQ, SQS, Service Bus) y cóm
   opción de producción con mucho volumen; aquí manda la paridad con los demás adaptadores.
 - En la nube, ADC (o *impersonation*) y los recursos los crea Terraform (`pubsub.tf`). Con el
   emulador, el adaptador hace de Terraform y declara tema, suscripción y DLQ (`EmulatorTopology`).
+- **Exactly-once delivery** (9.G3, opcional por suscripción): Pub/Sub no reentrega un mensaje
+  confirmado con éxito y **el `ack` puede fallar** (`INVALID_ARGUMENT`,
+  `EXACTLY_ONCE_ACKID_FAILURE`), p. ej. si el plazo caducó mientras el handler trabajaba. Un
+  `ack` o `nack` fallido nunca tumba el bucle: los fallos transitorios se reintentan y el resto
+  se registra (`ack_failures`), porque el mensaje puede volver y lo absorbe la idempotencia del
+  handler. No elimina los duplicados **al publicar** (llegan con otro `message_id`).
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ import asyncio
 import contextlib
 import json
 import logging
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Self
@@ -77,6 +83,14 @@ class EmulatorTopology:
     # Backoff entre entregas de la retry policy (en la nube, de 10 a 600 s por defecto).
     min_backoff_s: int = 0
     max_backoff_s: int = 1
+    exactly_once: bool = False
+
+
+# Con exactly-once, el servidor explica cada `ack_id` fallido en los metadatos del error:
+# `PERMANENT_FAILURE_INVALID_ACK_ID` (caducado o ya confirmado) o `TRANSIENT_FAILURE_*`.
+EXACTLY_ONCE_ACK_FAILURE = "EXACTLY_ONCE_ACKID_FAILURE"
+TRANSIENT_ACK_FAILURE = "TRANSIENT_FAILURE"
+ACK_ATTEMPTS = 3
 
 
 class PubSubMessageBus:
@@ -100,6 +114,8 @@ class PubSubMessageBus:
         self._topology = topology
         self._declared: set[str] = set()
         self._tasks: set[asyncio.Task[None]] = set()
+        # `ack`/`nack` que Pub/Sub no aceptó: el mensaje puede volver a entregarse.
+        self.ack_failures = 0
 
     @classmethod
     def from_settings(
@@ -129,6 +145,7 @@ class PubSubMessageBus:
                 topology=EmulatorTopology(
                     max_delivery_attempts=settings.max_delivery_attempts,
                     ack_deadline_s=settings.ack_deadline_s,
+                    exactly_once=settings.exactly_once,
                 ),
             )
         if not project:
@@ -247,11 +264,47 @@ class PubSubMessageBus:
             logger.exception("Fallo transitorio en %s (entrega %d)", message_id, attempt)
             # Nack: vuelve a entregarse tras el backoff de la retry policy. Al superar
             # max_delivery_attempts, Pub/Sub lo reenvía solo al dead-letter topic.
-            await self._subscriber.modify_ack_deadline(
-                subscription=subscription, ack_ids=[raw.ack_id], ack_deadline_seconds=0
-            )
+            await self._nack(subscription, raw, message_id)
         else:
-            await self._subscriber.acknowledge(subscription=subscription, ack_ids=[raw.ack_id])
+            await self._ack(subscription, raw, message_id)
+
+    async def _ack(self, subscription: str, raw: ReceivedMessage, message_id: str) -> None:
+        await self._settle(
+            "ack",
+            message_id,
+            lambda: self._subscriber.acknowledge(subscription=subscription, ack_ids=[raw.ack_id]),
+        )
+
+    async def _nack(self, subscription: str, raw: ReceivedMessage, message_id: str) -> None:
+        await self._settle(
+            "nack",
+            message_id,
+            lambda: self._subscriber.modify_ack_deadline(
+                subscription=subscription, ack_ids=[raw.ack_id], ack_deadline_seconds=0
+            ),
+        )
+
+    async def _settle(
+        self, operation: str, message_id: str, call: Callable[[], Awaitable[object]]
+    ) -> None:
+        """Confirma o devuelve un mensaje sin tumbar el bucle de *pull* si Pub/Sub lo rechaza."""
+        for attempt in range(1, ACK_ATTEMPTS + 1):
+            try:
+                await call()
+                return
+            except exceptions.GoogleAPICallError as exc:
+                if _transient_ack_failure(exc) and attempt < ACK_ATTEMPTS:
+                    continue
+                self.ack_failures += 1
+                # Caducado o ya confirmado (exactly-once), o la red: puede volver a entregarse.
+                # Lo absorbe la idempotencia del handler (p. ej. las transiciones del CaseStore).
+                logger.warning(
+                    "%s de %s no aceptado (%s): puede volver a entregarse.",
+                    operation,
+                    message_id,
+                    exc.reason or type(exc).__name__,
+                )
+                return
 
     async def _dead_letter(
         self,
@@ -270,7 +323,7 @@ class PubSubMessageBus:
         )
         # Primero se publica y después se confirma: si algo falla entre medias, se duplica en
         # la DLQ (at-least-once), nunca se pierde.
-        await self._subscriber.acknowledge(subscription=subscription, ack_ids=[raw.ack_id])
+        await self._ack(subscription, raw, message_id)
 
     async def _dead_letter_topic(self, subscription: str) -> str:
         config = await self._subscriber.get_subscription(subscription=subscription)
@@ -311,6 +364,7 @@ class PubSubMessageBus:
                         minimum_backoff=timedelta(seconds=topology.min_backoff_s),
                         maximum_backoff=timedelta(seconds=topology.max_backoff_s),
                     ),
+                    enable_exactly_once_delivery=topology.exactly_once,
                 )
             )
         )
@@ -320,3 +374,11 @@ class PubSubMessageBus:
     async def _ignore_existing(call: Awaitable[object]) -> None:
         with contextlib.suppress(exceptions.AlreadyExists):
             await call
+
+
+def _transient_ack_failure(exc: exceptions.GoogleAPICallError) -> bool:
+    """Exactly-once: el servidor marca cada `ack_id` como fallo permanente o transitorio."""
+    if exc.reason != EXACTLY_ONCE_ACK_FAILURE:
+        return False
+    metadata = exc.metadata or {}
+    return any(str(value).startswith(TRANSIENT_ACK_FAILURE) for value in metadata.values())

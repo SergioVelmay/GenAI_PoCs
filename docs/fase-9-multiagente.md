@@ -253,7 +253,7 @@ entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y do
 | Subfase | Commit | Qué |
 |---|---|---|
 | 9.G1 | `850cf5c` | ADK como cuarto motor (`AdkCaseWorkflow`); antes, `ccfcca5` (`fix:` del informe de `multiagent --mode llm` por nube) |
-| 9.G2 | — | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
+| 9.G2 | `7ec458c` | Motor `adk` en las evals multi-agente y sesiones de ADK en PostgreSQL |
 | 9.G3 | — | `ORCHESTRATOR__BROKER=pubsub` con *exactly-once* y temas del orquestador en `pubsub.tf` |
 | 9.G4 | — | A2A con ID tokens de Google y `a2a.tf` (Cloud Run) |
 | 9.G5 | — | Workflows como espera humana con SLA, rol `review` y doc a tres nubes |
@@ -336,6 +336,49 @@ uv run pytest -m integration services/orchestrator/tests/test_adk_postgres.py
 - En la nube, el mismo `AdkCaseWorkflow` aceptaría las Sessions de Agent Platform
   (`VertexAiSessionService`, sin tablas que gestionar) o Cloud SQL / AlloyDB con este mismo
   servicio (pendiente con coste).
+
+### 9.G3 · Pub/Sub con exactly-once en el flujo asíncrono
+
+```powershell
+docker compose up -d ; docker compose --profile pubsub up -d
+uv run pytest -m integration services/orchestrator/tests/test_async_pubsub.py
+uv run pytest packages/genaipocs_core/tests/test_pubsub_adapter.py
+# Workers sobre el emulador (coste al procesar):
+#   PUBSUB__EMULATOR_HOST=127.0.0.1:8085 PUBSUB__EXACTLY_ONCE=true ORCHESTRATOR__BROKER=pubsub
+```
+
+- `ORCHESTRATOR__BROKER=pubsub`: el mismo `subscribe_workers`, el mismo outbox y el mismo
+  `CaseStore` sobre el adaptador de Pub/Sub de la 3.G1. Temas con el nombre lógico
+  (`support.emails`, `case.triaged.<especialista>`, `case.outcomes`) y suscripción
+  `<tema>.worker` compartida por los workers de cada rol.
+- **Qué deduplica cada capa** (la pregunta clave):
+
+| Duplicado | Ejemplo | Exactly-once de Pub/Sub | `CaseStore` |
+|---|---|---|---|
+| Reentrega tras un `ack` correcto | El servidor no recibió a tiempo la confirmación | ✅ No se reentrega | ✅ |
+| El mismo email publicado dos veces | Buzón *at-least-once*, reintento del productor, relay del outbox | ❌ Otro `message_id` | ✅ Alta única por email y CAS |
+| `ack` fuera de plazo | Turno del LLM más largo que el *ack deadline* | ❌ El `ack` falla y el mensaje vuelve | ✅ (pero se paga el modelo otra vez) |
+
+  Por eso es una **primera capa**, más débil que la deduplicación por id de SQS FIFO o la
+  *duplicate detection* de Service Bus: el `CaseStore` sigue siendo la garantía.
+- **El `ack` puede fallar** con exactly-once (`INVALID_ARGUMENT`, motivo
+  `EXACTLY_ONCE_ACKID_FAILURE` y un valor por `ack_id`: `PERMANENT_FAILURE_INVALID_ACK_ID` o
+  `TRANSIENT_FAILURE_*`). `_settle` reintenta los transitorios (3 intentos), cuenta el resto en
+  `ack_failures` y nunca tumba el bucle de *pull*: antes, cualquier error de `ack` salía de
+  `_handle` y paraba el consumo de la suscripción. Lo mismo para el `nack`.
+- `PUBSUB__EXACTLY_ONCE` solo afecta a lo que declara el emulador. En la nube, `pubsub.tf` crea
+  los cinco temas con DLQ, **exactly-once y ack deadline de 600 s** (el máximo) en las
+  suscripciones del orquestador; la indexación no lo lleva (el upsert es idempotente y
+  exactly-once añade latencia). `terraform test` (`pubsub_cases.tftest.hcl`) lo comprueba.
+- `case.outcomes` no tiene consumidor en el orquestador, pero sí suscripción: en Pub/Sub, un tema
+  sin suscripciones descarta lo que recibe. La leerá la espera humana de Workflows (9.G5).
+- Tests: 4 unitarios del `ack` (permanente, transitorio, red, topología) y 2 `integration` con
+  el emulador: el flujo completo con exactly-once (email duplicado → 3 llamadas al LLM, venenoso →
+  DLQ, revisión → 3 eventos del outbox, 0 `ack` rechazados) y un segundo `ack` real que el
+  emulador rechaza y el adaptador cuenta.
+- **Límite conocido** (de los tres adaptadores de nube, no solo Pub/Sub): ninguno renueva el plazo
+  (*lease*) mientras el handler trabaja. Se cubre con un plazo largo; la renovación automática es
+  del *streaming pull* de la librería de alto nivel (candidata a la 10.G con los worker pools).
 
 ## 8. Checkpoint de entrevista
 

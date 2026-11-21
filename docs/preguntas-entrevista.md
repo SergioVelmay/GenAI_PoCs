@@ -1038,6 +1038,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    una *function call* de larga duración; se reanuda enviando una `FunctionResponse` con su id y
    la misma `invocation_id` desde cualquier réplica que comparta el servicio de sesiones. Los
    nodos completados no se repiten, así que el triaje se paga una vez.
+3. **Si activas exactly-once en Pub/Sub, ¿puedes quitar la deduplicación del `CaseStore`?** No.
+   Exactly-once solo evita reentregar un mensaje ya confirmado; el mismo email publicado dos
+   veces (buzón, reintento del productor, relay del outbox) llega con otro `message_id` y pasa.
+   Además, el `ack` puede fallar si el turno del LLM supera el plazo, y el mensaje vuelve. Es una
+   primera capa más débil que SQS FIFO; la garantía es el alta única por email y las
+   transiciones CAS. En AWS: SQS FIFO con `MessageDeduplicationId` (ventana de 5 min).
 
 **Negocio y stakeholders**
 
