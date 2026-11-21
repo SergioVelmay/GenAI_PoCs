@@ -1,0 +1,36 @@
+[
+  {
+    "name": "query",
+    "api_mode": "",
+    "description": "Un turno del Knowledge & Booking Agent de Genaipocs.",
+    "parameters": {
+      "properties": {
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "user_id",
+        "session_id",
+        "message"
+      ],
+      "title": "QueryInput",
+      "type": "object"
+    }
+  }
+]

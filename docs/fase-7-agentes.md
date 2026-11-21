@@ -232,8 +232,8 @@ funcionen con Gemini. Coste 0: todo con dobles; lo real, en
 |---|---|---|
 | 7.G1 | `efc9a96` | *Thought signatures* de Gemini a través de los puentes y política al compactar |
 | 7.G2 | `7a8e408` | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
-| 7.G3 | (este commit) | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
-| 7.G4 | | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
+| 7.G3 | `f027fe2` | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
+| 7.G4 | (este commit) | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
 | 7.G5 | | *Spike* de la Managed Agents API, 9 sabores en informes y ataques, cierre |
 
 ### Verificación previa (21-11-2026)
@@ -391,6 +391,70 @@ Hallazgos y decisiones (21-11-2026):
    clave; lo que no es `clave=valor` de la lista cerrada se ignora al leer.
 7. **El emulador avisa**, una vez por proceso: el primer recorrido real de Foundry usó el
    emulador sin que nadie lo notara.
+
+### 7.G4 · Terraform: Agent Runtime, Agent Identity y política de acceso por tool
+
+```mermaid
+flowchart LR
+  B["Backend (invoker)"] -->|"reasoningEngines.query"| R["Agent Runtime (Agent Identity)"]
+  R -->|"Sessions y Memory Bank"| M["Motor standalone"]
+  R -->|"toda la salida"| G["Agent Gateway"]
+  G -->|"política de acceso v3 (servidor y tool)"| S["Servidores MCP registrados"]
+  G -->|"hosts permitidos"| A["APIs de Google"]
+```
+
+```powershell
+cd infra/terraform/gcp ; terraform validate ; terraform test   # plan simulado, sin credenciales
+uv run python -m booking_agent.managed.agent_runtime             # contrato class_methods al día
+```
+
+| Pieza | Qué hace | Código |
+|---|---|---|
+| Motor `memory` | Agent Runtime *standalone* (sin código) con `memory_bank_config`: TTL de las memorias (como `event_expiry_duration` de AgentCore), sin revisiones (la escritura es directa y sobrescribe) y *topics* para la extracción por LLM como contraste | [agent_platform.tf](../infra/terraform/gcp/agent_platform.tf) |
+| Motor `booking` | `container_spec` (imagen de Artifact Registry, fase 15), `identity_type = AGENT_IDENTITY`, escala a cero, `env` con el motor de memoria y, con gateway, `agent_gateway_config.agent_to_anywhere_config` | [agent_platform.tf](../infra/terraform/gcp/agent_platform.tf) |
+| `class_methods` | El método `query` declarado en OpenAPI desde `QueryInput`: con contenedor propio el servicio no lo descubre | [agent_runtime.json](../services/booking_agent/contracts/agent_runtime.json) |
+| Permisos del agente | `roles/aiplatform.user` al principal de Agent Identity (Gemini, Sessions, Memory Bank); `agent_platform_invokers` con permiso de consulta **solo sobre este motor** | [agent_platform.tf](../infra/terraform/gcp/agent_platform.tf) |
+| Política de acceso v3 | Heredada de la 6.G3: una regla ALLOW por servidor (`mcp_server.name` de Agent Registry + tools del contrato o de `agent_platform_mcp_tools`) y otra para las APIs de Google; *binding* al proyecto | [agent_platform.tf](../infra/terraform/gcp/agent_platform.tf) |
+| `terraform test` | Primer test de Terraform del repo: `plan`/`apply` con `mock_provider` y todo activado (región, identidad, principal con y sin organización, reglas por tool, tool fuera del contrato) | [agent_platform.tftest.hcl](../infra/terraform/gcp/tests/agent_platform.tftest.hcl) |
+
+Equivalencias del carril A:
+
+| | Azure | AWS | GCP |
+|---|---|---|---|
+| Dónde corre el agente | Foundry Agent Service (sin contenedor propio) | AgentCore Runtime (contenedor ARM64 de ECR) | Agent Runtime (contenedor de Artifact Registry) |
+| Identidad del agente | Identidad gestionada del proyecto | Rol de IAM del Runtime | **Agent Identity**: un principal SPIFFE por agente, sin cuenta de servicio |
+| Quién lo invoca | RBAC sobre el proyecto | `InvokeAgentRuntime` (+ `ForUser` para fijar el usuario) | `reasoningEngines.query` sobre el motor |
+| Qué tools puede usar | Lista de tools del agente | Targets y tools del AgentCore Gateway | Política de acceso v3 con `egressViaIAP` por servidor y tool |
+| Memoria | Propia (conversations del servicio) | AgentCore Memory | Sessions + Memory Bank (motor *standalone*) |
+
+Hallazgos y decisiones (21-11-2026):
+
+1. **Agent Identity no exige organización.** El dominio de confianza del principal es
+   `agents.global.org-<id>.system.id.goog` o, sin organización, `agents.global.proj-<número>`:
+   va en una variable (`organization_id`) y el principal se calcula en Terraform. El output
+   `agent_identity` lo enseña junto al `effective_identity` del servicio para comprobar en la
+   nube que coinciden. Redesplegar el agente cambia su id y su principal: los permisos van
+   enlazados al recurso, nunca puestos a mano.
+2. **El agente sigue al gateway de región.** La salida por Agent Gateway es regional y los
+   gateways con MCP propios solo están en `us-central1` y `europe-west1`: con gateway, el agente
+   se crea en su región (el motor de memoria se queda en `europe-west4`).
+3. **Política por tool, fallando cerrada.** Cada regla admite las tools de su servidor y la
+   tool vacía (`initialize` y `tools/list` no llevan tool, como en el codelab de Agent Gateway).
+   Si en la nube el *handshake* se resolviera de otro modo, se deniega y se ve: nunca al revés.
+   El método (`mcp_server.method`) no se usa porque su valor no está claro en la documentación
+   (`tools` frente a `tools/call`) y una condición mal escrita sobre él abriría el paso.
+4. **Sin *binding* con un auth provider** (era "si aplica"). Los auth providers de Agent
+   Identity (API key, 2LO, 3LO) sirven para APIs de terceros; nuestros servidores validan el JWT
+   por servidor de `signJwt` (6.G2), que lleva el cliente de Genaipocs. Cómo obtiene ese token
+   el agente desplegado sin poder firmarlo él (si pudiera, se haría pasar por cualquier cliente)
+   se decide en la fase 15: lo natural es que el backend lo pase con la invocación.
+5. **`class_methods` desde el código.** Con contenedor propio, Agent Runtime no descubre los
+   métodos; el JSON se genera desde `QueryInput` y un test impide que diverjan, como los
+   contratos de los servidores MCP.
+6. **`terraform test` con `mock_provider` entra en la CI.** `validate` no evalúa nada que tenga
+   `count = 0`, que es todo lo que tiene coste: el test hace un `plan` simulado con todo
+   activado. Comprobado con mutaciones (sin la tool vacía o sin la región del gateway, fallan
+   cuatro aserciones).
 
 ## 11. Checkpoint de entrevista
 

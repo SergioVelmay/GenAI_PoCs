@@ -329,3 +329,15 @@ async def test_agent_runtime_client_calls_reasoning_engines_query() -> None:
         "input": {"user_id": "cus_1", "session_id": "s1", "message": "hola"},
     }
     assert result.response == "hola"
+
+
+def test_declared_class_methods_match_the_container_contract() -> None:
+    """`agent_platform.tf` publica `spec.class_methods` desde este fichero (7.G4)."""
+    from booking_agent.managed import agent_runtime
+
+    # Si falla: uv run python -m booking_agent.managed.agent_runtime --update
+    assert agent_runtime.main([]) == 0
+    [method] = json.loads(agent_runtime.CONTRACT_PATH.read_text(encoding="utf-8"))
+    assert method["name"] == agent_runtime.CLASS_METHOD
+    # Lo que acepta el contenedor es exactamente lo que se declara.
+    assert set(method["parameters"]["required"]) == set(agent_runtime.QueryInput.model_fields)

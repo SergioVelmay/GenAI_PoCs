@@ -16,9 +16,12 @@ tiene la cuenta de servicio del backend autenticado, nunca un cliente final.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import hashlib
+import json
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any, Literal, Protocol
 
 import httpx
@@ -166,3 +169,46 @@ def build_agent_runtime_client(settings: Settings) -> AgentRuntimeClient:
     if not engine:
         raise ValueError("Falta GCP_AGENT_PLATFORM__RUNTIME_ENGINE (agente desplegado, fase 15).")
     return AgentRuntimeClient(httpx.AsyncClient(timeout=60), engine, adc_token(settings.gcp))
+
+
+# ---------- Contrato publicado (7.G4) ----------
+# Con un contenedor propio, Agent Runtime no descubre los métodos: `spec.class_methods` se
+# declara a mano (OpenAPI) y `agent_platform.tf` lo lee de este fichero. Se genera desde
+# `QueryInput` para que el contrato del servidor y el declarado no puedan divergir:
+#     uv run python -m booking_agent.managed.agent_runtime --update
+CONTRACT_PATH = Path(__file__).resolve().parents[3] / "contracts" / "agent_runtime.json"
+
+
+def class_methods() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": CLASS_METHOD,
+            "api_mode": "",  # síncrono: `reasoningEngines.query` (sin streaming)
+            "description": "Un turno del Knowledge & Booking Agent de Genaipocs.",
+            "parameters": QueryInput.model_json_schema(),
+        }
+    ]
+
+
+def render_contract() -> str:
+    return json.dumps(class_methods(), ensure_ascii=False, indent=2) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Contrato class_methods de Agent Runtime.")
+    parser.add_argument("--update", action="store_true", help="Reescribe el fichero")
+    args = parser.parse_args(argv)
+    rendered = render_contract()
+    if args.update:
+        CONTRACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONTRACT_PATH.write_text(rendered, encoding="utf-8")
+        print(f"actualizado {CONTRACT_PATH.name}")
+        return 0
+    if not CONTRACT_PATH.exists() or CONTRACT_PATH.read_text(encoding="utf-8") != rendered:
+        print(f"{CONTRACT_PATH.name} desactualizado: ejecuta con --update")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

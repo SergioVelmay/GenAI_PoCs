@@ -62,6 +62,22 @@ output "agent_gateway" {
   value       = var.agent_gateway_enabled ? google_network_services_agent_gateway.mcp[0].id : null
 }
 
+output "agent_platform_env" {
+  description = "GCP_AGENT_PLATFORM__MEMORY_ENGINE y RUNTIME_ENGINE del .env (vacías mientras agent_platform_enabled = false)."
+  value = {
+    GCP_AGENT_PLATFORM__MEMORY_ENGINE  = one(google_vertex_ai_reasoning_engine.memory[*].name)
+    GCP_AGENT_PLATFORM__RUNTIME_ENGINE = one(google_vertex_ai_reasoning_engine.booking[*].name)
+  }
+}
+
+output "agent_identity" {
+  description = "Principal de Agent Identity del agente: el calculado (el de los permisos) y el que informa el servicio; deben coincidir."
+  value = local.agent_platform_runtime == 1 ? {
+    principal          = local.agent_principal
+    effective_identity = google_vertex_ai_reasoning_engine.booking[0].spec[0].effective_identity
+  } : null
+}
+
 output "apigee_instance" {
   description = "Host y service attachment de la instancia de Apigee (null mientras apigee_enabled = false)."
   value = var.apigee_enabled ? {

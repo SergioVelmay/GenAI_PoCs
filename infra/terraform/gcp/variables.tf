@@ -192,6 +192,81 @@ variable "apigee_bundle_dir" {
   default     = "../../../.tmp/apigee"
 }
 
+# ---------- Agente en Agent Runtime (agent_platform.tf, 7.G4) ----------
+
+variable "agent_platform_enabled" {
+  description = "Motor standalone con Sessions + Memory Bank (pago por uso, sin coste por hora) y, si hay imagen, el agente en Agent Runtime."
+  type        = bool
+  default     = false
+}
+
+variable "agent_platform_runtime_image" {
+  description = "Imagen del agente en Artifact Registry (fase 15). Vacío = sin Agent Runtime con contenedor."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.agent_platform_runtime_image == "" || can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/", var.agent_platform_runtime_image))
+    error_message = "Agent Runtime solo ejecuta imágenes de Artifact Registry (<región>-docker.pkg.dev/...)."
+  }
+}
+
+variable "agent_platform_max_instances" {
+  description = "Tope de instancias del agente (el mínimo es 0: escala a cero)."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.agent_platform_max_instances >= 1 && var.agent_platform_max_instances <= 10
+    error_message = "Entre 1 y 10 (el servicio admite hasta 1000; aquí es una PoC)."
+  }
+}
+
+variable "agent_platform_memory_ttl_days" {
+  description = "Caducidad de las memorias de Memory Bank (días), como event_expiry_duration de AgentCore."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.agent_platform_memory_ttl_days >= 1 && var.agent_platform_memory_ttl_days <= 365
+    error_message = "Entre 1 y 365 días."
+  }
+}
+
+variable "agent_platform_invokers" {
+  description = "Quién puede invocar al agente (reasoningEngines.query): la cuenta de servicio del backend, nunca clientes finales."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for m in var.agent_platform_invokers : startswith(m, "serviceAccount:") || startswith(m, "user:") || startswith(m, "group:")])
+    error_message = "serviceAccount:, user: o group: (para probar desde local)."
+  }
+}
+
+variable "organization_id" {
+  description = "ID numérico de la organización del proyecto (Agent Identity usa org-<id> como dominio de confianza). Vacío = proyecto sin organización (proj-<número>)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[0-9]*$", var.organization_id))
+    error_message = "Solo dígitos (gcloud projects describe <proyecto> --format='value(parent.id)')."
+  }
+}
+
+variable "agent_platform_mcp_tools" {
+  description = "Tools MCP permitidas al agente por servidor en la política de acceso (vacío = todas las del contrato)."
+  type        = map(list(string))
+  default     = {}
+}
+
+variable "agent_platform_egress_hosts" {
+  description = "Hosts sin registrar en Agent Registry a los que puede salir el agente, además de Gemini, Memory Bank y la telemetría."
+  type        = list(string)
+  default     = []
+}
+
 # ---------- Presupuesto (budget.tf) ----------
 
 variable "budget_email" {

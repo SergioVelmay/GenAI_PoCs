@@ -817,6 +817,13 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    vuelve a comprobar dentro. Con la memoria pasa algo parecido: Sessions no tiene escritura
    condicional como AgentCore, así que la concurrencia optimista tiene una ventana que hay que
    conocer.
+6. **¿Cómo limitas qué tools puede usar un agente desplegado en GCP?** Con identidad y política,
+   no con la lista de tools del prompt. El agente corre con Agent Identity (un principal por
+   agente, sin cuenta de servicio que custodiar) y toda su salida pasa por Agent Gateway, que
+   deniega por defecto. Una política de acceso de IAM v3 le da `egressViaIAP` por servidor MCP y
+   tool registrados en Agent Registry, generada desde los contratos de los servidores; en AWS es
+   la lista de targets y tools del AgentCore Gateway. La escribí para que falle cerrada: si el
+   *handshake* no casa con la condición, se deniega y se ve en la validación, nunca al revés.
 
 **Negocio y stakeholders**
 
@@ -836,6 +843,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    extracción automática por LLM, que guardaba planes puntuales como preferencias. Borrarlas es
    borrar las memorias de ese ámbito, y las conversaciones viven en sesiones con caducidad. Es
    fácil de explicar y de auditar, que es lo que pide un regulador.
+4. **Seguridad pregunta qué pasa si alguien inyecta al agente una orden de reembolsar a otra
+   cuenta.** Que hay tres barreras que no dependen del modelo: el harness valida y bloquea la
+   escritura, el servidor MCP solo acepta el cliente del token, y en GCP la política de acceso
+   puede quitar al agente la tool de reembolsos entera (`agent_platform_mcp_tools`) si ese
+   agente no la necesita. Se cuenta como "el agente solo tiene las llaves de las puertas que usa",
+   y cada cambio de llaves es una revisión de código en Terraform, no un ajuste en una consola.
 
 <a id="fase-8"></a>
 
