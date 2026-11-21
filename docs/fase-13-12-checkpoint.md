@@ -72,7 +72,7 @@ La columna GCP es lo que se construye en la pasada. **Local** = verificable sin 
 | 3 | Service Bus, AI Search (B), indexer + skillset (A) | SQS, S3 Vectors (B), Bedrock KB (A) | **Pub/Sub** (contrato común + DLQ), embeddings Gemini a 1024, **Agent Retrieval** (antes Vector Search 2.0; B), **RAG Engine** desde Cloud Storage (A), LlamaIndex + pgvector (C) | Emulador, dobles | Ingesta y coste |
 | 4 | AI Search híbrida + Semantic Ranker, Foundry IQ | KB Retrieve/RetrieveAndGenerate, Bedrock Rerank | Agent Retrieval híbrida (vector + texto completo con RRF) con filtros JSON como ACL, **Ranking API**, RAG Engine `retrieveContexts`, **Agent Search** (antes Vertex AI Search; confirmado en la 4.G) con respuestas citadas | Dobles | Comparativa A/B/C |
 | 5 | Jueces con Azure, Foundry Evaluation | Bedrock Evaluations | Juez Gemini fijo fuera del router, RAGAS/DeepEval con Gemini, **Gen AI Evaluation Service** | Dobles | Calibración (kappa) |
-| 6 | APIM, Entra OBO | AgentCore Gateway, Cognito | **Agent Gateway** + Agent Registry + Agent Identity, Apigee (equivalente de APIM), intercambio de tokens con STS / Identity Platform, MCP en Cloud Run | Tests del *exchanger* | OBO de extremo a extremo |
+| 6 | APIM, Entra OBO | AgentCore Gateway, Cognito | **Agent Gateway** + Agent Registry + Agent Identity, Apigee (equivalente de APIM), token por servidor con `signJwt` a partir de Identity Platform (sin OBO nativo; corregido en la 6.G), MCP en Cloud Run | Tests del *exchanger* | OBO de extremo a extremo |
 | 7 | Sabor `foundry` | Sabor `agentcore` + Memory | Sabores **`adk`** (C) y **`agentplatform`** (A: Agent Runtime + Sessions + **Memory Bank**), emulador local | 14 escenarios, paridad, ataques | Agente real y memoria |
 | 8 | Content Safety / Prompt Shields | Bedrock Guardrails | **Model Armor** (`shield: gcp`) y **Sensitive Data Protection** (`pii: gcp`), safety settings de Gemini | Dobles | 24 textos con el servicio |
 | 9 | MAF, Container Apps, Durable Functions | Strands, AgentCore A2A, Step Functions | **ADK** como 4.º motor, A2A en Cloud Run / Agent Runtime con ID tokens de Google, Pub/Sub en el flujo asíncrono (*exactly-once*), Workflows como espera humana | Paridad de 4 motores, emulador | Flujo real |
@@ -122,13 +122,15 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 **6.G · Tools y MCP**
 
-- 6.G1: bucle de tools y `support_agent` con Gemini (llamadas paralelas y *thought signatures*); `GcpTokenExchanger` (STS / Identity Platform) con tests, como `EntraOboExchanger`.
-- 6.G2: Terraform del MCP gateway gestionado: Agent Gateway + Agent Registry + Agent Identity (`agent_gateway_enabled`) y Apigee (`apigee_enabled`), desactivados por defecto.
+- ~~6.G1: bucle de tools y `support_agent` con Gemini (llamadas paralelas y *thought signatures*); `GcpTokenExchanger` (STS / Identity Platform) con tests, como `EntraOboExchanger`.~~ **Al empezar (20-11-2026)** cambió el plan (decidido con Sergio): Google STS solo cambia tokens externos por *access tokens* de Google (federación), no emite un JWT con el audience de un servidor propio, así que **GCP no tiene OBO** como Entra o AgentCore Identity. El token por servidor se firma con **`signJwt`** de IAM Credentials (sin claves; JWKS público de la cuenta de servicio) a partir del token de **Identity Platform** (`customer_id` como *custom claim*), y el 3LO del *auth manager* de Agent Identity queda como contraste. Se divide en tres subfases.
+- 6.G1: bucle de tools y `support_agent` con Gemini de punta a punta (lecturas en paralelo, firmas en cada paso, routing de escrituras, errores como datos), con dobles.
+- 6.G2: `GcpTokenExchanger` con `signJwt` (`aud` y scope del servidor, `sub` = cliente, `act` = gateway), `MCP__EXCHANGER=dev|gcp` y Terraform de la cuenta de servicio del gateway e Identity Platform (`identity_platform_enabled`).
+- 6.G3: Terraform del MCP gateway gestionado: Agent Gateway + Agent Registry (`agent_gateway_enabled`, en `europe-west1`: los gateways de salida a MCP propios solo están en `us-central1` y `europe-west1`) y Apigee de evaluación (`apigee_enabled`, bundles generados desde los contratos con `genaipocs_mcp.apigee`), desactivados por defecto; doc de la fase 6 a tres nubes. **Al hacerla (21-11-2026):** la política de acceso de IAM v3 del agente y el *binding* con un auth provider de Agent Identity necesitan el agente desplegado: pasan a la 7.G2.
 
 **7.G · Agentes** (la más grande: dos sesiones)
 
 - 7.G1: puente `bridges/adk.py` (un `BaseLlm` de ADK que llama a nuestro `LLMPort`, tools por `JournaledExecutor`) y sabor `adk`: 14 escenarios, paridad de tools, invariantes y context engineering (compactación propia frente a la de ADK). **Heredado de la 2.G:** que los puentes de los sabores (LangChain, LlamaIndex, MAF, Strands) conserven `ToolCall.signature` al reconstruir el historial, y que la compactación con Gemini 4 envíe `prefix_mismatch_behavior="DROP"` (el SDK 2.34 no lo expone: `extra_body`).
-- 7.G2: sabor `agentplatform` (Agent Runtime con emulador local que **avisa** cuando no toca la nube) y `adapters/memory_bank.py` (`CheckpointStore` con Sessions y `PreferenceStore` con Memory Bank); Terraform `agent_platform.tf`.
+- 7.G2: sabor `agentplatform` (Agent Runtime con emulador local que **avisa** cuando no toca la nube) y `adapters/memory_bank.py` (`CheckpointStore` con Sessions y `PreferenceStore` con Memory Bank); Terraform `agent_platform.tf`. **Heredado de la 6.G3:** política de acceso de IAM v3 (`egressViaIAP` por servidor y tool) para el principal de Agent Identity del agente y, si aplica, `google_agent_registry_binding` con un auth provider.
 - 7.G3: *spike* de la Managed Agents API; baselines, informes y ataques con **9 sabores**.
 
 **8.G · Harness**
@@ -179,7 +181,8 @@ pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del co
 
 Una sesión por fase con la skill `iniciar-fase` ("vamos a por la 0.G"): 0.G → 2.G → 3.G → 4.G → 5.G →
 6.G → 7.G (dos sesiones) → 8.G → 9.G → 10.G → 11.G → 12.G. Unas 13 sesiones, coste 0. Al terminar,
-se retoma la fase 13 (AWS), después la 14 (Azure) y la 15 (GCP).
+el [checkpoint G→13](plan-fases.md#checkpoint-g-13) (emuladores locales oficiales de las tres nubes,
+añadido el 21-11-2026) y después la fase 13 (AWS), la 14 (Azure) y la 15 (GCP).
 
 ## 4. Cierre
 

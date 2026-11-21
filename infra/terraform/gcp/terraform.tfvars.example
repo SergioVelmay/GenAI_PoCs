@@ -30,3 +30,26 @@ rag_engine_enabled = false
 # Agent Search del carril A (4.G3): pago por consulta (Enterprise + respuestas generativas), sin
 # coste por hora; aun así, false al terminar (borra el índice; se reimporta con FULL).
 agent_search_enabled = false
+
+# Identity Platform como IdP de los clientes del MCP Gateway (6.G2). Gratis hasta 50 000 MAU,
+# pero activarlo en el proyecto NO se deshace (ni con destroy): true solo al validar el gateway.
+identity_platform_enabled            = false
+identity_platform_authorized_domains = ["localhost"]
+
+# Servidores MCP publicados por HTTPS (Cloud Run, fase 15). Sin ellos no se registra ni se
+# despliega nada en Agent Registry ni en Apigee.
+mcp_server_urls = {
+  # catalog   = "https://genaipocs-mcp-catalog-xxxxxxxxxx.europe-west4.run.app/mcp"
+  # ticketing = "https://genaipocs-mcp-ticketing-xxxxxxxxxx.europe-west4.run.app/mcp"
+  # refunds   = "https://genaipocs-mcp-refunds-xxxxxxxxxx.europe-west4.run.app/mcp"
+}
+
+# Agent Gateway + Agent Registry (6.G3): Limited Preview para Cloud Run; solo us-central1 o
+# europe-west1. true solo durante la validación (la política de acceso del agente llega en la 7.G2).
+agent_gateway_enabled = false
+agent_gateway_region  = "europe-west1"
+
+# Apigee de evaluación (6.G3): gratis 60 días, ~1 h en crearse. Antes del apply, generar los
+# bundles: uv run python -m genaipocs_mcp.apigee --signer <mcp_gateway_service_account>
+apigee_enabled   = false
+apigee_hostnames = ["mcp.genaipocs.internal"]

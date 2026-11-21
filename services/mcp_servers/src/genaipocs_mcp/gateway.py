@@ -49,7 +49,8 @@ class TokenExchanger(Protocol):
 
 class DevTokenExchanger:
     """Solo local: el emisor de desarrollo actúa también como STS. En la nube,
-    `EntraOboExchanger` (genaipocs_mcp.entra) o el token exchange de AgentCore Identity."""
+    `EntraOboExchanger` (genaipocs_mcp.entra), el token exchange de AgentCore Identity o
+    `GcpTokenExchanger` (genaipocs_mcp.gcp, `signJwt`)."""
 
     def __init__(self, issuer: DevTokenIssuer, *, ttl_s: int = 300) -> None:
         self._issuer = issuer
@@ -105,7 +106,8 @@ def create_gateway(
     auth: AuthProvider | None,
     requests_per_second: float = 5.0,
 ) -> FastMCP[Any]:
-    claim = settings.customer_claim
+    # El cliente sale del token de ENTRADA (en GCP, un claim propio de Identity Platform).
+    claim = settings.gateway_customer_claim
     gateway: FastMCP[Any] = FastMCP(
         "genaipocs-gateway",
         INSTRUCTIONS,

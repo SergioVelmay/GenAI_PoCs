@@ -48,13 +48,18 @@ variable "services" {
     "serviceusage.googleapis.com",
     "sts.googleapis.com",
     # Pasada GCP (2.G–12.G): habilitar una API es gratis; se paga el uso.
+    "agentidentity.googleapis.com",
+    "agentregistry.googleapis.com",
     "aiplatform.googleapis.com",
+    "apigee.googleapis.com",
     "cloudtrace.googleapis.com",
     "discoveryengine.googleapis.com",
     "dlp.googleapis.com",
+    "identitytoolkit.googleapis.com",
     "logging.googleapis.com",
     "modelarmor.googleapis.com",
     "monitoring.googleapis.com",
+    "networkservices.googleapis.com",
     "pubsub.googleapis.com",
     "storage.googleapis.com",
     "vectorsearch.googleapis.com",
@@ -125,6 +130,66 @@ variable "agent_search_location" {
     condition     = contains(["global", "us", "eu"], var.agent_search_location)
     error_message = "Agent Search solo admite las ubicaciones global, us y eu."
   }
+}
+
+# ---------- MCP Gateway (mcp_gateway.tf) ----------
+
+variable "identity_platform_enabled" {
+  description = "Identity Platform como IdP de los clientes (6.G2). Gratis hasta 50 000 MAU, pero activarlo NO se deshace: false hasta la validación."
+  type        = bool
+  default     = false
+}
+
+variable "identity_platform_authorized_domains" {
+  description = "Dominios autorizados para las redirecciones OAuth de Identity Platform."
+  type        = list(string)
+  default     = ["localhost"]
+}
+
+variable "mcp_server_urls" {
+  description = "URL HTTPS de cada servidor MCP (Cloud Run, fase 15): catalog, ticketing y refunds."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.mcp_server_urls : contains(["catalog", "ticketing", "refunds"], k) && startswith(v, "https://")])
+    error_message = "Claves catalog, ticketing o refunds y URLs https://."
+  }
+}
+
+variable "agent_gateway_enabled" {
+  description = "Agent Gateway + servicios de Agent Registry (6.G3). Limited Preview para Cloud Run; true solo durante la validación."
+  type        = bool
+  default     = false
+}
+
+variable "agent_gateway_region" {
+  description = "Región del gateway y del registro: los gateways de salida con MCP propios solo están en us-central1 y europe-west1 (no en europe-west4)."
+  type        = string
+  default     = "europe-west1"
+
+  validation {
+    condition     = contains(["us-central1", "europe-west1"], var.agent_gateway_region)
+    error_message = "Agent Gateway con MCP propios: us-central1 o europe-west1."
+  }
+}
+
+variable "apigee_enabled" {
+  description = "Organización de evaluación de Apigee con un proxy por servidor MCP (6.G3). Gratis 60 días; tarda ~1 h en crearse."
+  type        = bool
+  default     = false
+}
+
+variable "apigee_hostnames" {
+  description = "Hostnames del grupo de entornos de Apigee (cabecera Host con la que llegan las peticiones)."
+  type        = list(string)
+  default     = ["mcp.genaipocs.internal"]
+}
+
+variable "apigee_bundle_dir" {
+  description = "Carpeta con los bundles generados por `python -m genaipocs_mcp.apigee` (relativa al módulo)."
+  type        = string
+  default     = "../../../.tmp/apigee"
 }
 
 # ---------- Presupuesto (budget.tf) ----------
