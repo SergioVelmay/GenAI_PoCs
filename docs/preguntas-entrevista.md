@@ -797,6 +797,18 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    documentado, así que no dependo de él: al compactar, el historial conservado va sin firmas y el
    adaptador manda el validador de *skip* documentado. El coste es razonar algo peor solo en ese
    turno, que con la histéresis ocurre pocas veces. Lo valido con el modelo real antes de darlo por bueno.
+3. **¿Qué te encontraste al meter ADK detrás de tus contratos?** Tres cosas que un "hello world"
+   no enseña. Escribe su propio prompt de sistema (añade una línea en inglés con su nombre), así
+   que el puente envía el prefijo común. Sustituye `{clave}` del estado de sesión dentro de las
+   instrucciones, así que la identidad no va en el estado sino en la tool del turno. Y trata el
+   límite de iteraciones como un fallo del nodo, con traza en ERROR: lo cambié por un
+   `before_model_callback` que responde con el fallback. Con eso, 14/14, la misma trayectoria y
+   los mismos tokens que el bucle propio, y 6/6 ataques contenidos.
+4. **ADK trae compactación de eventos. ¿Por qué no la usas?** Porque resume después de la
+   invocación y mete el resumen como un turno del propio agente, y yo lo quiero antes del turno
+   y marcado como datos (defensa frente a inyecciones que queden en el historial). Además
+   conserva las firmas de Gemini en los eventos que retiene, que es justo lo que en Gemini 4
+   puede dar `400` tras cambiar el prefijo. La nuestra funciona igual en todos los sabores.
 
 **Negocio y stakeholders**
 
@@ -805,6 +817,11 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    compile: cada modelo tiene contratos propios (aquí, las firmas de razonamiento) que rompen en
    producción, no en local. Por eso pedí primero un test de contrato por framework y una prueba
    con presupuesto acotado (céntimos) antes de enviarle tráfico real.
+2. **Un equipo en GCP pregunta si debe usar ADK o LangGraph.** ADK si van a desplegar en Agent
+   Runtime y quieren Sessions, Memory Bank y el ecosistema de Google con poco código; LangGraph
+   si el flujo tiene pasos, ramas y aprobaciones que conviene ver como grafo, y quieren ser
+   portables. Les enseñaría la tabla de la suite: con los contratos propios, los dos hacen las
+   mismas llamadas y gastan lo mismo, así que la decisión es de equipo y plataforma, no de coste.
 
 <a id="fase-8"></a>
 

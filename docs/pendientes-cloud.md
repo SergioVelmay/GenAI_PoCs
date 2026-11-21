@@ -220,7 +220,7 @@ reembolso completo con `mini`).
 Requiere el [modelo de la 2.G](#fase-2-gcp). Coste estimado: céntimos (en Azure, ~0,08 $ la suite
 de 7 sabores con `mini`).
 
-- [ ] **Firmas reales a través de los sabores** (7.G1): `rag_evals.agents --mode llm --budget-usd 0.50` con `LLM_PROVIDER=gcp` en `native`, `langgraph`, `llamaindex`, `maf` y `strands`. Comprobar: ningún `400` por firmas en los pasos con tools en paralelo ni en los hilos de varios turnos, y que **el hilo largo que compacta** (`memory-summary-long-thread-es`, con un umbral bajo) no da `400` con Gemini 4 al mandar el historial conservado sin firmas (validador de *skip*). Si lo da, la alternativa es resumir también el intercambio en curso o no compactar con `gemini-4-hydrogen`. Capturar una petición real con firmas para los dobles de `test_agent_signatures.py`.
+- [ ] **Firmas reales a través de los sabores** (7.G1): `rag_evals.agents --mode llm --budget-usd 0.50` con `LLM_PROVIDER=gcp` en `native`, `langgraph`, `llamaindex`, `maf`, `strands` y `adk` (7.G2: comprobar también que la línea de identidad de ADK no llega al modelo y comparar idioma y resultados con `native`). Comprobar: ningún `400` por firmas en los pasos con tools en paralelo ni en los hilos de varios turnos, y que **el hilo largo que compacta** (`memory-summary-long-thread-es`, con un umbral bajo) no da `400` con Gemini 4 al mandar el historial conservado sin firmas (validador de *skip*). Si lo da, la alternativa es resumir también el intercambio en curso o no compactar con `gemini-4-hydrogen`. Capturar una petición real con firmas para los dobles de `test_agent_signatures.py`.
 
 ## Fase 8 · Harness ([doc](fase-8-harness.md))
 

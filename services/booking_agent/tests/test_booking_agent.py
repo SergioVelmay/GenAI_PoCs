@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -227,6 +229,46 @@ async def test_invalid_tool_arguments_reach_the_executor(flavor: str) -> None:
     assert execution.is_error and execution.call.arguments == "{no es json"
     tool_message = next(m for m in llm.calls[1] if m.role is Role.TOOL)
     assert "error" in tool_message.content
+
+
+async def test_adk_limit_ends_the_turn_without_framework_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Con `RunConfig.max_llm_calls`, ADK trata el límite como un fallo del nodo (traza en ERROR
+    # e invocación abortada); el `before_model_callback` cierra el turno con el fallback.
+    preferences = InMemoryPreferenceStore()
+    spec = _spec(preferences)
+    loop = [[_call(f"c{i}", "list_my_orders", limit=1)] for i in range(10)]
+    llm = FakeLLM(loop)
+    store = InMemoryCheckpointStore()
+    deps = AgentDeps(spec, llm, JournaledExecutor(spec.tools), store, preferences)
+
+    with caplog.at_level(logging.WARNING):
+        turn = await create_agent("adk", deps).respond("t1", "pedidos", ANA)
+
+    assert turn.stop_reason == "max_iterations"
+    assert len(llm.calls) == spec.max_iterations  # la llamada N + 1 no llega al modelo
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR] == []
+
+
+async def test_adk_keeps_identity_out_of_the_session_and_braces_in_the_prompt() -> None:
+    preferences = InMemoryPreferenceStore()
+    # Las llaves serían plantillas de estado de ADK si la instrucción fuera un texto.
+    spec = replace(_spec(preferences), instructions="Responde con {formato} y {customer_id}.")
+    llm = FakeLLM([[_call("c1", "list_my_orders", limit=1)], "Tienes un pedido."])
+    executor = JournaledExecutor(spec.tools)
+    agent = create_agent(
+        "adk", AgentDeps(spec, llm, executor, InMemoryCheckpointStore(), preferences)
+    )
+
+    turn = await agent.respond("t1", "mis pedidos", ANA)
+
+    assert turn.answer == "Tienes un pedido."
+    assert llm.calls[0][0].content.startswith("Responde con {formato} y {customer_id}.")
+    # La identidad llega a la tool por la closure del turno, nunca por el modelo.
+    [execution] = executor.journal
+    assert execution.call.id == "c1" and "ord_1" in execution.output
+    assert all("cus_1" not in m.content for m in llm.calls[1])
 
 
 class _Args(BaseModel):

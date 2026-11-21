@@ -50,6 +50,7 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
 | maf | 14/14 | 50 | 67,8 % | 0 | 3,5 / 14,8 | 150 + 118 |
 | strands | 14/14 | 50 | 67,8 % | 0 | 7,3 / 11,8 | 110 + 186 |
 | foundry (emulado) | 13/14 | 48 | 68,7 % | 0 | 2,2 / 4,2 | 49 + 125 |
+| adk (7.G2) | 14/14 | 50 | 68,0 % (= native hoy) | 0 | 13,4 / 303,6 | 126 + 144 |
 | agentcore (contrato en proceso, aloja strands) | 14/14 | 50 | 67,8 % | 0 | 7,3 / 13,2 | 29 + 76 |
 
 - **Paridad**: los sabores de framework y `agentcore` ejecutan exactamente las mismas tools, en
@@ -228,8 +229,8 @@ funcionen con Gemini. Coste 0: todo con dobles; lo real, en
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 7.G1 | (este commit) | *Thought signatures* de Gemini a través de los puentes y política al compactar |
-| 7.G2 | | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
+| 7.G1 | `efc9a96` | *Thought signatures* de Gemini a través de los puentes y política al compactar |
+| 7.G2 | (este commit) | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
 | 7.G3 | | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
 | 7.G4 | | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
 | 7.G5 | | *Spike* de la Managed Agents API, 9 sabores en informes y ataques, cierre |
@@ -280,6 +281,61 @@ sus propios tipos, y ahí se perdía.
   compactar sustituye además cada mensaje conservado por su copia sin firmas (mismo `id`). El
   test lo exige: en el hilo largo se quitan firmas y en ningún otro escenario.
 - `foundry` queda fuera: su historial es del servicio de Azure y nunca habla con Gemini.
+
+### 7.G2 · Sabor `adk` (carril C)
+
+```powershell
+uv run python -m rag_evals.agents --flavor native --flavor adk
+uv run pytest services/booking_agent -k adk evals/tests/test_agent_signatures.py evals/tests/test_agent_evals.py
+```
+
+| Pieza | Qué hace | Código |
+|---|---|---|
+| `GatewayLlm` | `BaseLlm` de ADK sobre `LLMPort`: traduce `types.Content` (partes `text`, `function_call` con `thought_signature`, `function_response`) a `ChatMessage` y la respuesta del gateway a `LlmResponse` | [bridges/adk.py](../services/booking_agent/src/booking_agent/bridges/adk.py) |
+| `JournaledTool` | `BaseTool` que declara el `ToolSpec` (`parameters_json_schema`) y ejecuta por el `JournaledExecutor` con el id de la llamada que da ADK | [flavors/adk.py](../services/booking_agent/src/booking_agent/flavors/adk.py) |
+| `IterationLimit` | `before_model_callback`: en la llamada N + 1 responde con el fallback sin llamar al modelo | [flavors/adk.py](../services/booking_agent/src/booking_agent/flavors/adk.py) |
+| `AdkAgent` | Por turno: compacta con nuestra política, siembra una sesión de `InMemorySessionService` con el historial y ejecuta `Runner.run_async`; guarda el turno en nuestro `CheckpointStore` | [flavors/adk.py](../services/booking_agent/src/booking_agent/flavors/adk.py) |
+
+Resultado: **14/14, paridad exacta de tools con `native`, 0 invariantes, 6/6 ataques contenidos
+y 4/4 controles benignos** con el harness, y las firmas de Gemini de ida y vuelta. Con el mismo
+prefijo, ADK hace las mismas 50 llamadas y gasta los mismos tokens que el bucle propio; su p95
+(304 ms) es el arranque en frío del primer `Runner`.
+
+Hallazgos (21-11-2026):
+
+1. **ADK escribe su propio prompt de sistema**: añade a las instrucciones "You are an agent.
+   Your internal name is ..." (en inglés, en cada llamada; no se desactiva salvo en modo
+   *single turn*). El puente envía nuestro prefijo en su lugar, como con Strands: así el prompt
+   es el mismo en todos los sabores y la comparación mide el framework, no el texto.
+2. **Plantillas en las instrucciones**: si `instruction` es un texto, ADK sustituye `{clave}` por
+   el estado de la sesión (y falla si la clave no existe). Con una función
+   (`InstructionProvider`) no lo hace: el prompt y las skills tienen llaves literales. Por lo
+   mismo, **la identidad no va en `session.state`**: una plantilla mal puesta la llevaría al
+   prompt. Va en la *closure* de la tool, construida por turno (test con `{customer_id}` literal).
+3. **El límite de iteraciones es un error**: `RunConfig.max_llm_calls` lanza
+   `LlmCallsLimitExceededError` en la llamada N + 1, que ADK registra en ERROR con traza
+   ("Node execution failed") y que aborta la invocación. En producción eso sería una alerta por
+   cada pregunta que agota el presupuesto. El `before_model_callback` (que corre antes del
+   conteo) cierra el turno con el fallback, como el `ChatMiddleware` de MAF.
+4. **ADK sí da el id de la llamada a la tool** (`tool_context.function_call_id`): el diario usa
+   el del modelo, no uno inventado como en MAF y LlamaIndex.
+5. **Firmas**: ADK conserva `Part.thought_signature` en la sesión (nunca la trata como
+   invisible); el puente solo la pasa a base64.
+
+**Compactación: la nuestra frente a la de ADK.** ADK la configura en la `App`
+(`EventsCompactionConfig`):
+
+| | Nuestra (`ShortTermMemory`) | ADK (`EventsCompactionConfig`) |
+|---|---|---|
+| Cuándo | Antes del turno, si el historial pasa de `trigger_tokens` | Después de la invocación: cada N invocaciones (ventana con solape) o al pasar `token_threshold` |
+| Qué conserva | Intercambios completos hasta `target_tokens` (histéresis) | Los últimos `event_retention_size` eventos, sin partir parejas llamada/respuesta |
+| Dónde va el resumen | Contexto de sesión en el sistema, **marcado como datos** | Un evento atribuido al propio agente: el modelo lo lee como turnos suyos |
+| Firmas de Gemini | Se quitan del historial conservado (7.G1) | Se conservan: con Gemini 4, el mismo riesgo de `400` tras cambiar el prefijo (validar en la nube) |
+| Estado | Nuestro `CheckpointStore` (cualquier nube) | Eventos en el `SessionService` (en memoria, base de datos o Sessions de Agent Runtime) |
+
+Se usa la nuestra, como en todos los sabores: el resumen como datos y no como turnos del agente
+es una defensa frente a la inyección que haya quedado en el historial, y el disparo antes del
+turno evita mandar al modelo una petición que ya pasa del presupuesto.
 
 ## 11. Checkpoint de entrevista
 

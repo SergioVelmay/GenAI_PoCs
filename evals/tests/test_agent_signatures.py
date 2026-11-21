@@ -10,6 +10,7 @@ turnos anteriores va sin firmas (`ShortTermMemory`), nunca con una firma cambiad
 
 from __future__ import annotations
 
+from base64 import b64encode
 from collections.abc import Sequence
 from dataclasses import replace
 
@@ -23,7 +24,7 @@ from rag_evals.agents.scenario_llm import ScenarioLLM
 from rag_evals.agents.scenarios import load_scenarios
 from rag_evals.agents.suite import build_knowledge, run_scenario
 
-FLAVORS = ["native", "langgraph", "llamaindex", "maf", "strands", "agentcore"]
+FLAVORS = ["native", "langgraph", "llamaindex", "maf", "strands", "adk", "agentcore"]
 
 
 class SigningLLM:
@@ -52,8 +53,9 @@ class SigningLLM:
             response_schema=response_schema,
             tools=tools,
         )
+        # Base64 como las reales: ADK las guarda en bytes (`Part.thought_signature`).
         calls = tuple(
-            replace(c, signature=f"sig-{c.id}" if index == 0 else None)
+            replace(c, signature=b64encode(f"sig-{c.id}".encode()).decode() if index == 0 else None)
             for index, c in enumerate(response.tool_calls)
         )
         self.signed |= {c.id: c.signature for c in calls}
