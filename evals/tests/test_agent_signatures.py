@@ -24,7 +24,10 @@ from rag_evals.agents.scenario_llm import ScenarioLLM
 from rag_evals.agents.scenarios import load_scenarios
 from rag_evals.agents.suite import build_knowledge, run_scenario
 
-FLAVORS = ["native", "langgraph", "llamaindex", "maf", "strands", "adk", "agentcore"]
+FLAVORS = [
+    *("native", "langgraph", "llamaindex", "maf", "strands", "adk"),
+    *("agentcore", "agentplatform"),  # contratos de los runtimes gestionados, en proceso
+]
 
 
 class SigningLLM:

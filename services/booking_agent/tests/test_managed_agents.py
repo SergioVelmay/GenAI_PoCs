@@ -13,6 +13,9 @@ from openai import AsyncOpenAI
 
 from booking_agent.flavors import create_agent
 from booking_agent.flavors.foundry import FoundryAgent
+from booking_agent.managed.agent_runtime import AgentRuntimeClient, HttpRuntimeClient
+from booking_agent.managed.agent_runtime import create_runtime_app as create_agent_runtime_app
+from booking_agent.managed.agent_runtime import runtime_session_id as agent_runtime_session
 from booking_agent.managed.agentcore import (
     SESSION_HEADER,
     USER_HEADER,
@@ -245,3 +248,84 @@ async def test_boto_invoker_calls_invoke_agent_runtime() -> None:
         )
 
     assert result.response == "hola" and result.status == "success"
+
+
+async def test_agent_runtime_app_follows_the_container_contract() -> None:
+    deps = _deps(FakeLLM(["hola"]))
+    app = create_agent_runtime_app(create_agent("adk", deps))
+    session = agent_runtime_session("cus_1", "t1")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://runtime"
+    ) as http:
+        assert (await http.get("/")).json() == {"status": "ok"}
+        # Sin usuario no hay identidad, y solo existe el método `query`.
+        missing = await http.post(
+            "/api/reasoning_engine",
+            json={"class_method": "query", "input": {"session_id": session, "message": "x"}},
+        )
+        assert missing.status_code == 422
+        other = await http.post(
+            "/api/reasoning_engine",
+            json={
+                "class_method": "stream_query",
+                "input": {"user_id": "cus_1", "session_id": session, "message": "x"},
+            },
+        )
+        assert other.status_code == 400
+        client = HttpRuntimeClient(http)
+        result = await client.query(user_id="cus_1", session_id=session, message="hola")
+        assert (result.response, result.stop_reason) == ("hola", "answer")
+        # La misma sesión con otro usuario: el error viaja dentro de `output` y se tipa.
+        with pytest.raises(ThreadAccessError):
+            await client.query(user_id="cus_2", session_id=session, message="me cuelo")
+
+
+async def test_agentplatform_sessions_are_isolated_and_the_emulator_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import booking_agent.flavors.agentplatform as flavor
+
+    flavor._warned = False
+    deps = _deps(FakeLLM(["para Ana", "para Bob"]))
+    with caplog.at_level("WARNING", logger=flavor.__name__):
+        agent = create_agent("agentplatform", deps)
+        create_agent("agentplatform", deps)
+
+    await agent.respond("t1", "hola", ANA)
+    await agent.respond("t1", "hola", BOB)
+
+    # Avisa una vez de que no toca la nube (lección de Foundry), no una por agente.
+    warnings = [r for r in caplog.records if "no toca la nube" in r.getMessage()]
+    assert len(warnings) == 1
+    assert agent_runtime_session("cus_1", "t1") != agent_runtime_session("cus_2", "t1")
+    assert [m.content for m in deps.llm.calls[1] if m.role is Role.USER] == ["hola"]  # type: ignore[attr-defined]
+
+
+async def test_agent_runtime_client_calls_reasoning_engines_query() -> None:
+    engine = "projects/p/locations/europe-west4/reasoningEngines/123"
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        output = {"response": "hola", "stop_reason": "answer", "compacted": False}
+        return httpx.Response(200, json={"output": output})
+
+    async def token() -> str:
+        return "adc-token"
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        result = await AgentRuntimeClient(http, engine, token).query(
+            user_id="cus_1", session_id="s1", message="hola"
+        )
+
+    [request] = seen
+    assert str(request.url) == (
+        "https://europe-west4-aiplatform.googleapis.com/v1/"
+        "projects/p/locations/europe-west4/reasoningEngines/123:query"
+    )
+    assert request.headers["Authorization"] == "Bearer adc-token"
+    assert json.loads(request.content) == {
+        "classMethod": "query",
+        "input": {"user_id": "cus_1", "session_id": "s1", "message": "hola"},
+    }
+    assert result.response == "hola"

@@ -51,6 +51,7 @@ La pasada GCP añade `adk` (carril C) y `agentplatform` (carril A): ver
 | strands | 14/14 | 50 | 67,8 % | 0 | 7,3 / 11,8 | 110 + 186 |
 | foundry (emulado) | 13/14 | 48 | 68,7 % | 0 | 2,2 / 4,2 | 49 + 125 |
 | adk (7.G2) | 14/14 | 50 | 68,0 % (= native hoy) | 0 | 13,4 / 303,6 | 126 + 144 |
+| agentplatform (7.G3, contrato en proceso, aloja adk) | 14/14 | 50 | 68,0 % | 0 | 18,6 / 36,5 | 41 + 104 |
 | agentcore (contrato en proceso, aloja strands) | 14/14 | 50 | 67,8 % | 0 | 7,3 / 13,2 | 29 + 76 |
 
 - **Paridad**: los sabores de framework y `agentcore` ejecutan exactamente las mismas tools, en
@@ -230,8 +231,8 @@ funcionen con Gemini. Coste 0: todo con dobles; lo real, en
 | Subfase | Commit | Qué |
 |---|---|---|
 | 7.G1 | `efc9a96` | *Thought signatures* de Gemini a través de los puentes y política al compactar |
-| 7.G2 | (este commit) | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
-| 7.G3 | | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
+| 7.G2 | `7a8e408` | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
+| 7.G3 | (este commit) | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
 | 7.G4 | | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
 | 7.G5 | | *Spike* de la Managed Agents API, 9 sabores en informes y ataques, cierre |
 
@@ -336,6 +337,60 @@ Hallazgos (21-11-2026):
 Se usa la nuestra, como en todos los sabores: el resumen como datos y no como turnos del agente
 es una defensa frente a la inyección que haya quedado en el historial, y el disparo antes del
 turno evita mandar al modelo una petición que ya pasa del presupuesto.
+
+### 7.G3 · Sabor `agentplatform` (carril A) y memoria en Sessions y Memory Bank
+
+```mermaid
+flowchart LR
+  B["Backend (cuenta de servicio)"] -->|"reasoningEngines.query (user_id en input)"| R["Agent Runtime"]
+  R -->|"POST /api/reasoning_engine"| C["Contenedor: sabor adk"]
+  C -->|"hilos"| S["Sessions"]
+  C -->|"preferencias"| M["Memory Bank"]
+  C -->|"modelo"| G["Gateway (LLMPort)"]
+```
+
+```powershell
+uv run python -m rag_evals.agents --flavor agentplatform     # avisa: emulador local
+uv run pytest packages/genaipocs_core/tests/test_memory_bank.py services/booking_agent/tests/test_managed_agents.py
+```
+
+| Pieza | Qué hace | Código |
+|---|---|---|
+| `create_runtime_app` | El servidor del contenedor: `GET /` (salud) y `POST /api/reasoning_engine` con `{"class_method": "query", "input": {user_id, session_id, message}}` → `{"output": ...}` | [agent_runtime.py](../services/booking_agent/src/booking_agent/managed/agent_runtime.py) |
+| `AgentRuntimeClient` | `reasoningEngines.query` (REST v1, `classMethod` + `input`) con un token de ADC, sin SDK; `HttpRuntimeClient` habla el contrato del contenedor en local | [agent_runtime.py](../services/booking_agent/src/booking_agent/managed/agent_runtime.py) |
+| Sabor `agentplatform` | `create`: la app del contenedor en proceso alojando `adk`, con **aviso** (una vez por proceso) de que no toca la nube; `create_cloud`: Agent Runtime real | [agentplatform.py](../services/booking_agent/src/booking_agent/flavors/agentplatform.py) |
+| `SessionsCheckpointStore` | Una sesión por hilo y un evento por guardado con la instantánea en `actions.state_delta` (hilo + versión); se lee el de mayor versión | [memory_bank.py](../packages/genaipocs_core/src/genaipocs_core/adapters/memory_bank.py) |
+| `MemoryBankPreferenceStore` | Escritura directa (`memories.create`, sin extracción por LLM), scope `{"customer_id": ...}`, hechos `clave=valor` de la lista cerrada | [memory_bank.py](../packages/genaipocs_core/src/genaipocs_core/adapters/memory_bank.py) |
+| `thread_document.py` | La instantánea JSON del hilo, compartida con AgentCore Memory (antes vivía en su adaptador) | [thread_document.py](../packages/genaipocs_core/src/genaipocs_core/adapters/thread_document.py) |
+| `GCP_AGENT_PLATFORM__*` | `MEMORY_ENGINE` (Agent Runtime *standalone* con Sessions y Memory Bank) y `RUNTIME_ENGINE` (agente desplegado); vacías = todo local | [config.py](../packages/genaipocs_core/src/genaipocs_core/config.py) |
+
+Resultado: **14/14, paridad exacta con `native`, 0 invariantes, ataques 6/6 y 4/4**, y las
+firmas de Gemini atraviesan también el contrato HTTP. Mismas llamadas y tokens que `adk`: el
+contrato no añade nada al prompt.
+
+Hallazgos y decisiones (21-11-2026):
+
+1. **La identidad viaja en el cuerpo, no en una cabecera.** AgentCore pone el usuario en una
+   cabecera que solo puede fijar quien tiene `InvokeAgentRuntimeForUser`; el contrato de Agent
+   Runtime no tiene cabeceras de usuario, así que `user_id` va en `input` y lo puede fijar
+   cualquiera con `aiplatform.reasoningEngines.query`. Ese permiso solo lo tendrá la cuenta de
+   servicio del backend autenticado (7.G4), nunca un cliente: la frontera es IAM, no el contrato.
+2. **El error de negocio va dentro de `output`** (`thread_not_found`), no como 404: qué hace el
+   plano de control con un 4xx del contenedor no está documentado. Se comprueba en la nube.
+3. **Sessions no tiene escritura condicional.** AgentCore deduplica con el `clientToken` de
+   `CreateEvent`; aquí solo queda releer la versión antes de escribir, con una ventana entre
+   lectura y escritura. Un hilo es la conversación de un cliente (turnos secuenciales); si
+   hiciera falta, un lock por hilo en Valkey (fase 10).
+4. **`state_delta` vuelve como `Struct`**: los enteros llegan como `float`. La versión se lee
+   con `int()` y el doble de los tests lo imita.
+5. **Un 404 es un hilo nuevo; un 403 no.** Tratar cualquier error como "sin historial" haría
+   que un problema de permisos borrara la conversación en silencio (test).
+6. **Memory Bank con escritura directa**: la tool `remember_preference` es explícita (lo que
+   enseñó la suite con LLM real: el modelo guardaba planes como preferencias), así que no se
+   usa la extracción por LLM (`generate`). Cambiar una preferencia borra la anterior de esa
+   clave; lo que no es `clave=valor` de la lista cerrada se ignora al leer.
+7. **El emulador avisa**, una vez por proceso: el primer recorrido real de Foundry usó el
+   emulador sin que nadie lo notara.
 
 ## 11. Checkpoint de entrevista
 

@@ -16,6 +16,7 @@
 | adk | sí | 6/6 | 4/4 | 0 | 19 | 11 |
 | foundry | sí | 6/6 | 4/4 | 0 | 19 | 11 |
 | agentcore | sí | 6/6 | 4/4 | 0 | 19 | 11 |
+| agentplatform | sí | 6/6 | 4/4 | 0 | 19 | 11 |
 
 ## Escenarios (native, sin y con harness)
 

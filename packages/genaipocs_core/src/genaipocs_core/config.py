@@ -361,6 +361,19 @@ class GcpEvalSettings(BaseModel):
     allow_cross_region_model: bool = False
 
 
+class GcpAgentPlatformSettings(BaseModel):
+    """Carril A del agente en GCP (7.G3): Agent Runtime + Sessions + Memory Bank.
+
+    Dos instancias de Agent Runtime (`projects/.../reasoningEngines/<id>`, salidas de
+    `agent_platform.tf`, 7.G4): una *standalone* sin código que solo aloja Sessions y Memory
+    Bank, y la del agente desplegado en un contenedor (fase 15). Vacías = todo en memoria y el
+    sabor `agentplatform` con su emulador local.
+    """
+
+    memory_engine: str = ""
+    runtime_engine: str = ""
+
+
 class AzureManagedIngestionSettings(BaseModel):
     """Carril A en Azure: indexer + skillset de AI Search que leen de Blob Storage."""
 
@@ -550,6 +563,7 @@ class Settings(BaseSettings):
     gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
     gcp_agent_search: GcpAgentSearchSettings = GcpAgentSearchSettings()
     gcp_eval: GcpEvalSettings = GcpEvalSettings()
+    gcp_agent_platform: GcpAgentPlatformSettings = GcpAgentPlatformSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()
     foundry_iq: FoundryIQSettings = FoundryIQSettings()

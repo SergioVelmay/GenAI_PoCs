@@ -1,5 +1,5 @@
 ---
-applyTo: "services/booking_agent/**,packages/genaipocs_core/src/genaipocs_core/application/agents/**,packages/genaipocs_core/src/genaipocs_core/domain/preferences.py,packages/genaipocs_core/src/genaipocs_core/adapters/agentcore_memory.py,scripts/provision_foundry_agent.py"
+applyTo: "services/booking_agent/**,packages/genaipocs_core/src/genaipocs_core/application/agents/**,packages/genaipocs_core/src/genaipocs_core/domain/preferences.py,packages/genaipocs_core/src/genaipocs_core/adapters/agentcore_memory.py,packages/genaipocs_core/src/genaipocs_core/adapters/memory_bank.py,packages/genaipocs_core/src/genaipocs_core/adapters/thread_document.py,scripts/provision_foundry_agent.py"
 description: "Agente en 7 sabores, context engineering y carril A (fase 7)."
 ---
 
@@ -32,6 +32,7 @@ Doc: `docs/fase-7-agentes.md`.
 - `foundry`: function tools ejecutadas en el cliente, historial en una `conversation` del servicio; `LocalAgentService` emula el servicio en local (`create`); el servicio real se usa con `create_cloud` / `booking_agent --flavor foundry --foundry-service`. `scripts/provision_foundry_agent.py [--apply]` (dry-run por defecto): volver a publicar tras cambiar el prompt o las tools.
 - Suite en modo `llm`: se evalúa el resultado (escrituras esperadas, estado, invariantes, contenido); la trayectoria exacta, las skills y los errores guionizados solo en `scripted`, y los escenarios `harness` no corren con modelo real.
 - `agentcore`: contrato `POST /invocations` + `GET /ping` (`create_runtime_app(sabor)`), identidad = `runtimeUserId`, sesión = `runtime_session_id(cliente, hilo)` (sha256, ≥ 33 chars). Memoria en `adapters/agentcore_memory.py`. Terraform `aws/agentcore.tf` desactivado por defecto.
+- `agentplatform` (7.G3): contrato de Agent Runtime `POST /api/reasoning_engine` (`{"class_method": "query", "input": {user_id, session_id, message}}` → `{"output": ...}`) + `GET /`, alojando `adk`; el error de hilo ajeno va dentro de `output`. `create` = emulador en proceso que **avisa** una vez por proceso; `create_cloud(build_agent_runtime_client(settings))` = `reasoningEngines.query` real. Memoria en `adapters/memory_bank.py` (Sessions: un evento por guardado con la instantánea en `state_delta`; Memory Bank: escritura directa `clave=valor`), instantánea compartida en `adapters/thread_document.py`. `GCP_AGENT_PLATFORM__MEMORY_ENGINE` / `RUNTIME_ENGINE` vacías = local.
 
 ## CLI (con coste)
 

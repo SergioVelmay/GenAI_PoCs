@@ -106,7 +106,7 @@ async def test_native_flavor_passes_the_whole_suite(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "flavor", ["langgraph", "llamaindex", "maf", "strands", "adk", "agentcore"]
+    "flavor", ["langgraph", "llamaindex", "maf", "strands", "adk", "agentcore", "agentplatform"]
 )
 async def test_framework_flavors_match_the_native_reference(flavor: str) -> None:
     report = await run_agent_suite(

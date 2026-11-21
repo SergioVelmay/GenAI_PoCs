@@ -809,6 +809,14 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    y marcado como datos (defensa frente a inyecciones que queden en el historial). Además
    conserva las firmas de Gemini en los eventos que retiene, que es justo lo que en Gemini 4
    puede dar `400` tras cambiar el prefijo. La nuestra funciona igual en todos los sabores.
+5. **Agent Runtime frente a AgentCore Runtime: ¿qué cambia para la seguridad?** Los dos ejecutan
+   tu contenedor con un contrato HTTP, pero AgentCore pone el usuario en una cabecera que solo
+   puede fijar quien tiene `InvokeAgentRuntimeForUser`; en Agent Runtime el `user_id` va en el
+   cuerpo y lo puede poner cualquiera con permiso de `query`. Así que la frontera es IAM: solo
+   la cuenta de servicio del backend autenticado puede invocar el agente, y el dueño del hilo se
+   vuelve a comprobar dentro. Con la memoria pasa algo parecido: Sessions no tiene escritura
+   condicional como AgentCore, así que la concurrencia optimista tiene una ventana que hay que
+   conocer.
 
 **Negocio y stakeholders**
 
@@ -822,6 +830,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    si el flujo tiene pasos, ramas y aprobaciones que conviene ver como grafo, y quieren ser
    portables. Les enseñaría la tabla de la suite: con los contratos propios, los dos hacen las
    mismas llamadas y gastan lo mismo, así que la decisión es de equipo y plataforma, no de coste.
+3. **Legal pregunta qué recuerda el asistente de cada cliente en GCP y si se puede borrar.**
+   Solo tres preferencias de una lista cerrada (idioma, ciudad, categoría favorita), guardadas
+   cuando el cliente lo pide y con su identificador como ámbito en Memory Bank; no activo la
+   extracción automática por LLM, que guardaba planes puntuales como preferencias. Borrarlas es
+   borrar las memorias de ese ámbito, y las conversaciones viven en sesiones con caducidad. Es
+   fácil de explicar y de auditar, que es lo que pide un regulador.
 
 <a id="fase-8"></a>
 
