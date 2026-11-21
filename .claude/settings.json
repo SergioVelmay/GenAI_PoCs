@@ -14,8 +14,7 @@
       "Bash(gh pr view *)",
       "Bash(gh pr list *)",
       "Bash(uv *)",
-      "Bash(sleep *)",
-      "Bash(npx -y @mermaid-js/mermaid-cli@12.2.0 *)"
+      "Bash(sleep *)"
     ],
     "deny": [
       "Bash(gh pr merge *)",

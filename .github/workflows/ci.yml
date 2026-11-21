@@ -53,6 +53,13 @@ jobs:
       - name: Reglas de agentes al día
         run: uv run python scripts/sync_agent_rules.py --check
 
+      # Diagramas Mermaid de docs/, README y AGENTS (10.G5): mermaid-cli fijado con lockfile en
+      # tools/mermaid (sin npx). Un diagrama que no renderiza no llega a main.
+      - name: Diagramas Mermaid
+        run: |
+          npm ci --prefix tools/mermaid --no-fund --no-audit
+          uv run python scripts/validate_mermaid.py
+
       - name: Generador de datos sintéticos (smoke test)
         run: uv run python scripts/generate_synthetic_data.py --scale small --out /tmp/synthetic
 

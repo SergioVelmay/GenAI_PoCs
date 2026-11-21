@@ -62,6 +62,7 @@ docker compose --profile telemetry up -d                        # collector, Jae
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_evals.llmops.prompts check ; uv run python -m rag_evals.llmops.drift --check   # fase 12 (coste 0)
 uv run python scripts/sync_agent_rules.py [--check]             # regenera .claude/rules desde .github/instructions
+uv run python scripts/validate_mermaid.py [doc.md]              # diagramas Mermaid (antes: npm ci --prefix tools/mermaid); nunca npx
 ```
 
 Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-sync` evita que el siguiente `uv run` lo desinstale.
@@ -93,6 +94,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - **Azure CLI aislada**: el perfil por defecto de `az` tiene sesiones de otra organización. En este repo, cada comando de Azure, Terraform o scripts con Entra ID se ejecuta con `AZURE_CONFIG_DIR` = `%USERPROFILE%\.azure-genaipocs` (Claude Code lo recibe de `.claude/settings.local.json`), y antes se comprueba `az account show`. Nunca `az login`/`az account set` sin esa variable.
 - **gcloud aislado** (desde la 0.G): `CLOUDSDK_CONFIG` = `%USERPROFILE%\.gcloud-genaipocs` antes de cualquier comando de GCP, Terraform o scripts, y comprobar `gcloud config list`. Sin claves JSON de cuentas de servicio (ADC de usuario e *impersonation*).
 - Verificar con **los mismos comandos que la CI** (p. ej. `terraform fmt -check -recursive`).
+- **Si el modo automático bloquea una verificación inofensiva** (pasó tres veces con `npx` y Mermaid): no saltársela ni añadir otra regla de permisos; convertirla en herramienta del repo con versión fijada (`uv run ...`) y en paso de la CI, y apuntarlo en lecciones (10.G5).
 - Si aparecen ficheros con cambios que no son de esta sesión: no guardarlos ni descartarlos sin analizarlos con Sergio.
 - Más casos y su porqué: `docs/lecciones-aprendidas.md`.
 
