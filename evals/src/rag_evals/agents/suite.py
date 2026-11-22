@@ -230,15 +230,32 @@ def _is_subsequence(expected: Sequence[str], actual: Sequence[str]) -> bool:
     return all(any(name == item for item in remaining) for name in expected)
 
 
+def _common_subsequence(expected: Sequence[str], actual: Sequence[str]) -> int:
+    """Longitud de la subsecuencia común más larga (programación dinámica, O(n·m))."""
+    previous = [0] * (len(actual) + 1)
+    for name in expected:
+        current = [0]
+        for index, item in enumerate(actual):
+            current.append(
+                previous[index] + 1 if name == item else max(previous[index + 1], current[index])
+            )
+        previous = current
+    return previous[-1]
+
+
 def trajectory_metrics(expected: Sequence[str], actual: Sequence[str]) -> tuple[float, float]:
     """Precisión y recall de la trayectoria como subsecuencia ordenada.
 
     Precisión: llamadas que encajan en el orden esperado / llamadas hechas (penaliza las
     sobrantes). Recall: esperadas que aparecen en orden / esperadas (penaliza las que faltan o
     van desordenadas). Sin nada esperado ni hecho, ambas valen 1.
+
+    Las llamadas que encajan son la subsecuencia común más larga (LCS). Hasta la 12.G2 se
+    buscaba cada esperada consumiendo un iterador: si faltaba la primera, se consumía la
+    trayectoria entera buscándola y el resto ya no contaba (esperada `load_skill → search`,
+    hecha `search`: 0 % / 0 % en lugar de 100 % / 50 %).
     """
-    remaining = iter(actual)
-    matched = sum(1 for name in expected if any(name == item for item in remaining))
+    matched = _common_subsequence(expected, actual)
     precision = matched / len(actual) if actual else float(not expected)
     recall = matched / len(expected) if expected else float(not actual)
     return precision, recall
