@@ -61,6 +61,8 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | En la 9.G4, una función nueva quedó decorada con el `@asynccontextmanager` de la siguiente | Se insertó el texto justo antes de `async def ...`, por debajo del decorador | Al insertar código antes de una función, anclar el reemplazo en el decorador, no en el `def`. Lo cazó un test, no mypy |
 | `gh run watch` salió con código 1 a mitad de la CI (9.G2) | El comando se corta a veces sin que el run haya terminado | Vigilar con un bucle que consulte `gh run view <id> --json status` hasta `completed` y leer después la conclusión por job |
 | La PR de Dependabot chocó con la de la fase en `ci.yml` (0.G) | Las dos tocaban el mismo paso | Fusionar antes la PR de la fase; Dependabot rehace su rama solo (si no, `@dependabot rebase`). Un conflicto en la rama de la fase se resuelve con *merge* de `main`, nunca con *rebase* (los docs citan hashes) |
+| En la 12.G7 hubo que retrasar un push: la CI de la subfase anterior seguía corriendo y se habría cancelado | `ci.yml` usa `concurrency` con `cancel-in-progress: true` por rama: un push nuevo cancela la ejecución en curso | Antes de subir la subfase siguiente, esperar a que termine la CI de la anterior y hacer mientras el commit en local. Así cada subfase deja su ejecución en verde como evidencia |
+| Al cerrar la pasada GCP (12.G6), `arquitectura.md` seguía nombrando solo Azure y AWS en todos sus niveles y el agente seguía con «7 sabores», aunque cada fase ya tenía su doc a tres nubes | Cada subfase actualizaba el doc de su fase, pero no los docs transversales (arquitectura, glosario, README) que resumen esa fase | Al cerrar una fase que cambia una cifra o añade una nube, buscar con `grep` la cifra o los nombres antiguos en los docs transversales y actualizarlos en el mismo cierre |
 
 ## Sesiones de chat
 
@@ -131,6 +133,7 @@ cuando una corrección tuya deba sobrevivir a la sesión.
 | Quedaron colas `it.*` en RabbitMQ tras interrumpir los tests (fase 3) | Las colas temporales se borran al final del test, que no llegó a ejecutarse | Borrarlas desde la consola de gestión (`:15672`) o con `rabbitmqadmin`; son solo de tests |
 | Las pruebas manuales contra la infraestructura local dejaron trabajo con coste latente (fase 10) | Filas de outbox y `case_submissions` que un worker futuro procesaría con LLM | Al terminar una prueba manual, borrar sus filas; no arrancar el relay contra el RabbitMQ real en pruebas manuales |
 | Las notas de las sesiones de Copilot (estado, comandos, trampas) vivían en su memoria privada | El agente guardaba en su memoria lo que debía ir al repo | Lo que deba sobrevivir a la sesión va a `AGENTS.md`, a las instrucciones o a este fichero. El 11-11-2026 se pasó al repo lo útil de esa memoria y de las exportaciones de chat |
+| Un A/B de modelos con Gemini o Bedrock salía «sin diferencia» (12.G1, `fix:` `f98ed1e`) | `with_model` solo forzaba los despliegues de Azure: las dos variantes usaban el mismo modelo y el resultado nulo era un artefacto | Un resultado nulo de un experimento se verifica comprobando que la variable de verdad cambió: el coste por modelo del informe lo enseña, y hay un test por nube |
 
 ## Estilo de documentación
 

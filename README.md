@@ -140,8 +140,8 @@ mensaje corto; la skill reconstruye el contexto desde el repo (plan, rama, PR dr
 Sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 % o se sigue otro día:
 
 ```text
-Vamos a por la 12.G de la pasada GCP. Usa la skill iniciar-fase.       # fase nueva (rama fase/12-g desde main)
-Seguimos con la 12.G. Usa la skill retomar-fase.                      # fase empezada, en sesión nueva
+Vamos a por el checkpoint G→13. Usa la skill iniciar-fase.            # fase nueva (rama nueva desde main)
+Seguimos con el checkpoint G→13. Usa la skill retomar-fase.           # fase empezada, en sesión nueva
 revisado                                                              # commit + push + PR de la subfase
 dale                                                                  # empieza la subfase propuesta
 ```

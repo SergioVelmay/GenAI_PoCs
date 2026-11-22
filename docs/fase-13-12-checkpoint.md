@@ -224,6 +224,7 @@ Plan original (antes del cambio):
   - `CODE_OF_CONDUCT.md` adopta el Contributor Covenant 2.1 por referencia, con un resumen en español. `SECURITY.md` pide el informe privado de GitHub y dice qué interesa (saltarse el harness, secretos en el historial, permisos de la CI). `CONTRIBUTING.md` resume `AGENTS.md` para personas. Hay plantillas de issue (error, mejora) y de PR con las comprobaciones de la CI.
   - Ajustes del repo, con confirmación de Sergio: descripción con las tres nubes, 18 *topics* e informe privado de vulnerabilidades activado (lo dan por hecho `SECURITY.md` y la plantilla de issues).
   - El perfil de comunidad solo mira la rama por defecto, así que el «después» se mide al fusionar la PR.
+- **Hecha (22-11-2026)**: las siete, más los `fix:` `f98ed1e` (el A/B de modelos solo forzaba Azure) y `a523a67` (precisión y recall de trayectoria). **Con ella se cierra la pasada GCP** (0.G a 12.G, coste 0, todo con dobles y emuladores); la validación en la nube queda en [pendientes](pendientes-cloud.md), agrupada en cinco sesiones. **Heredado para el checkpoint G→13:** los dobles de GCP se sustituyen por respuestas reales capturadas en la primera validación, y los emuladores oficiales pueden adelantar parte de ella sin coste.
 
 ### 3.5 Convenciones de la pasada
 

@@ -247,6 +247,13 @@ de 10 a 14 casos, la mayoría de experimentos acabarán en «falta muestra».
 - **Límites conocidos:** todo se ha medido con el modelo guionizado; el juez no está calibrado
   (faltan las etiquetas); los datasets son pequeños para A/B; el drift de entrada por embeddings
   solo se puede validar con embeddings reales.
+- **En GCP (pasada 12.G), lo gestionado es contraste, no gate.** El Evaluation Service puntúa la
+  trayectoria por conjunto y sus rúbricas no se calibran ni se fijan (`_v2`, Preview): sirven de
+  segunda opinión, y como tal destaparon un bug en la métrica propia. El juez Gemini se recalibra
+  con las mismas 32 etiquetas humanas, porque el kappa de Azure no vale para otro modelo.
+- **Cada almacén, detrás de su puerto.** La gestión de prompts de Agent Platform y Vertex AI
+  Experiments no se parecen a Langfuse ni a MLflow (sin etiquetas ni *tags*, ids numéricos o
+  únicos). Bastó un adaptador por pieza, sin tocar el plan de publicación ni el experimento.
 
 ## 6. Pendiente con coste
 
@@ -256,7 +263,10 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 12):
 - red teaming con atacante LLM (PyRIT, AI Red Teaming Agent de Foundry, promptfoo con generador);
 - riesgo residual frente a Bedrock Guardrails y Content Safety;
 - A/B con modelo real, MLflow gestionado y juez online con Azure OpenAI;
-- drift con tráfico real y drift de entrada por embeddings.
+- drift con tráfico real y drift de entrada por embeddings;
+- en GCP ([sección propia](pendientes-cloud.md#fase-12-gcp)): calibrar el juez Gemini, el servicio
+  de trayectoria y las rúbricas frente a las etiquetas humanas, SDP frente a la PII ofuscada,
+  promptfoo con Gemini de atacante, y los prompts y experimentos reales en Agent Platform.
 
 ## 7. GCP (pasada 12.G)
 
@@ -273,7 +283,9 @@ Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
 | 12.G2 | `a523a67` + `376eb2b` | Evaluation Service como contraste: trayectoria por cómputo y rúbricas gestionadas. Destapó un bug en la precisión y el recall de la 12.1 |
 | 12.G3 | `3c5367d` | Riesgo residual frente a los detectores de PII y promptfoo con atacante LLM de cada nube |
 | 12.G4 | `926e824` | Prompts publicados en la gestión de prompts de Agent Platform |
-| 12.G5 | (este) | Experimentos en Vertex AI Experiments, drift en Managed Prometheus y doc a tres nubes |
+| 12.G5 | `eabe331` | Experimentos en Vertex AI Experiments, drift en Managed Prometheus y doc a tres nubes |
+| 12.G6 | `7349d01` | Cierre de la pasada GCP: arquitectura por niveles a tres nubes, glosario, preguntas y pendientes agrupados |
+| 12.G7 | `bdb6cb7` | Buenas prácticas de GitHub del repo público: licencia MIT, código de conducta, contribuir, seguridad y plantillas |
 
 ### Verificación previa (22-11-2026)
 
