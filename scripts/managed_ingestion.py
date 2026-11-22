@@ -95,25 +95,13 @@ async def azure_apply(settings: Settings, docs: list[KnowledgeDocument]) -> None
     managed = settings.azure_managed
     target, credentials = azure_inputs(settings)
     names = azure_lane.ManagedLaneNames(managed.prefix)
-    from azure.core.exceptions import ResourceNotFoundError
 
     uploaded = 0
     async with DefaultAzureCredential() as credential:
         async with BlobServiceClient(managed.storage_account_url, credential) as blobs:
             container = blobs.get_container_client(managed.container)
             for doc in docs:
-                blob = container.get_blob_client(azure_lane.blob_name(doc))
-                try:
-                    properties = await blob.get_blob_properties()
-                    md5, metadata = properties.content_settings.content_md5, properties.metadata
-                except ResourceNotFoundError:
-                    md5, metadata = None, None
-                if not azure_lane.needs_upload(doc, md5, metadata):
-                    continue
-                await blob.upload_blob(
-                    doc.content.encode(), overwrite=True, metadata=azure_lane.blob_metadata(doc)
-                )
-                uploaded += 1
+                uploaded += await azure_lane.upload_if_changed(container, doc)
         endpoint = settings.azure_search.endpoint
         async with (
             SearchIndexClient(endpoint, credential) as indexes,

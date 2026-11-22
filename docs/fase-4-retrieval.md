@@ -1,13 +1,51 @@
-# Fase 4: retrieval avanzado y servicio RAG
+# Fase 4 · Retrieval avanzado y servicio RAG
+
+**Objetivo:** un servicio de retrieval y RAG (`services/retrieval`) que recupera con BM25, vector e
+híbrida (RRF), reordena, aplica la ACL en el servidor y responde con citas verificables, con el
+mismo contrato en los tres carriles (gestionado, SDK nativo y framework) y en las tres nubes.
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 4.1 | `78b004a` | Retrieval local y RAG con citas (carril B + FastAPI) |
+| 4.2 | `e426802` | Carril C con LlamaIndex y auto-merging local |
+| 4.3 | `c1cb588` | SDK de AI Search y Bedrock sin ejecutar nube; sustitución del carril A de Azure |
+| Carril A Azure | `a9b9fc1` | Foundry IQ y Agent Service (offline) |
+| Composición cloud | `1bd0633` | Composición cloud explícita, rutas `/managed/*` y aprovisionamiento de Foundry IQ |
+| 4.G1–4.G3 | `0b3e2c3`, `248d2ba`, `9beaf31` | Pasada GCP ([sección GCP](#gcp-pasada-4g)); cierre en `2209ca2` |
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+  U["Cliente o agente"] -->|"/search/* y /rag/*"| API["Servicio retrieval"]
+  API --> RS["RetrievalService"]
+  RS -->|"ACL y filtros del servidor"| RP["RetrievalPort (carriles B y C)"]
+  RS -->|"candidatos autorizados"| RR["RerankerPort"]
+  RS -.->|"plan validado"| LLM["LLMPort (gateway)"]
+  API -->|"/managed/*"| MK["ManagedKnowledgePort (carril A)"]
+  RS --> C["Citas verificadas"]
+```
+
+| Pieza | Dónde vive | Implementaciones |
+|---|---|---|
+| Puertos | `ports/retrieval.py` | `RetrievalPort`, `RerankerPort`, `ManagedKnowledgePort` |
+| Caso de uso | `application/retrieval.py` | `RetrievalService`: RRF, ACL, filtros, estrategias, parent-child y citas |
+| Carril B | `adapters/` | Local (BM25 + hashing), `azure_retrieval.py` (`AzureSearchRetrieval`), `gcp_retrieval.py` (`AgentRetrievalSearch`); en AWS no hay backend propio en esta fase (S3 Vectors no tiene BM25: Bedrock Rerank sobre el corpus local y la KB del carril A) |
+| Carril C | `adapters/llamaindex_retrieval.py` | `LlamaIndexRetrieval` (BM25, vector, fusión y auto-merging) |
+| Rerankers | `adapters/` | Cobertura léxica local, `bedrock_retrieval.py` (`BedrockReranker`), `gcp_retrieval.py` (`VertexRankingReranker`) |
+| Carril A | `adapters/` | `foundry_iq.py` (`FoundryIQKnowledge`), `bedrock_retrieval.py` (`BedrockKnowledgeBase`), `gcp_rag_retrieval.py` (`RagEngineKnowledge`), `gcp_agent_search.py` (`AgentSearchKnowledge`) |
+| Servicio | `services/retrieval` | `app.py` (FastAPI), `cloud.py` (composición cloud), `compare.py` |
+| Aprovisionamiento | `scripts/`, `infra/terraform/` | `provision_foundry_iq.py`; `azure/` (rol de Foundry), `gcp/agent_search.tf` |
 
 ## Estado y alcance
 
-**Fase 4 Hecha\*: todo lo local está implementado y probado (carriles A/B/C, composición
-cloud explícita, aprovisionamiento en dry-run e IaC validada). Falta la validación en
-cloud, con coste y confirmación, igual que en las fases 2 y 3.**
+**Fase 4 ✅ Hecha*: todo lo local está implementado y probado (carriles A/B/C, composición
+cloud explícita, aprovisionamiento en dry-run e IaC validada). Azure se validó en la nube el
+18-10-2026 ([resultados](#resultados-en-azure-18-10-2026)); faltan AWS y GCP, con coste y
+confirmación ([pendientes](pendientes-cloud.md)).**
 
-No se han creado recursos cloud ni invocado modelos. No se ha regenerado ni modificado
-el dataset LARGE, ni escrito en PostgreSQL. Los tests usan adaptadores en memoria.
+Los tests usan adaptadores en memoria y no crean recursos cloud, no invocan modelos, no
+regeneran el dataset LARGE ni escriben en PostgreSQL.
 
 Implementado:
 
@@ -30,6 +68,9 @@ Implementado:
   originales aunque el proveedor devuelva texto alternativo.
 - Carril A AWS: SDK de KB Retrieve y RetrieveAndGenerate, filtros ACL, referencias S3
   y validación estricta de spans/cobertura de citas.
+- Carril A Azure: Foundry IQ (`retrieve`) y Foundry Agent Service vía MCP (`answer`).
+- GCP ([pasada 4.G](#gcp-pasada-4g)): carril B con Agent Retrieval (BM25, vector, híbrida con
+  RRF y VertexRanker) y Ranking API; carril A con RAG Engine (un corpus por ACL) y Agent Search.
 
 **Por defecto la API no hace llamadas cloud.** Los endpoints LLM devuelven 503 y sus
 flujos se prueban con `FakeLLM`, un doble guionizado, no un modelo local. La nube solo
@@ -49,9 +90,14 @@ se activa componiéndola de forma explícita (ver "Composición cloud explícita
 
 El mismo contrato permite comparar implementaciones, pero **ninguna equivalencia implica
 idéntica calidad, seguridad o funcionalidades entre proveedores**. Los adaptadores
-cloud se validan con dobles; aún no hay validación real de región, permisos o calidad.
+cloud se validan con dobles; en la nube solo se ha validado Azure (18-10-2026, ver
+[resultados](#resultados-en-azure-18-10-2026)). AWS y GCP siguen sin validación real de región,
+permisos o calidad.
 
-### 4.3: SDKs sin ejecutar cloud
+### 4.3 · SDKs sin ejecutar la nube
+
+> Redactado el 2026-10-08, antes de la validación en Azure: lo que esa validación resolvió va
+> marcado como "resuelto el 18-10-2026".
 
 Los clientes se inyectan, nunca se crean durante el arranque local. La API conserva
 su composición local: este incremento no añade un interruptor que active coste.
@@ -72,7 +118,9 @@ por sí solas no prueban compatibilidad. Debe garantizarlo la composición de 4.
 
 El esquema de ingesta nativa ahora incluye `title`, `acl` filtrable y configuración
 semántica. **No se ha actualizado ningún índice cloud.** Antes de probarlo habrá que
-actualizar el esquema y reingerir metadatos ACL explícitos, con confirmación. No se
+actualizar el esquema y reingerir metadatos ACL explícitos, con confirmación (**resuelto el
+18-10-2026**: corpus clasificado con ACL e índice `knowledge` reingerido, ver
+[resultados](#resultados-en-azure-18-10-2026)). No se
 asigna acceso público por defecto en estos adaptadores cloud; una ACL ausente se
 deniega. La política didáctica del cargador local no se aplica automáticamente a
 los pipelines cloud. El índice gestionado Azure de fase 3 tiene otro esquema y no se
@@ -147,9 +195,12 @@ que decide el agente, y la salida MCP solo trae los campos de la configuración 
   definiciones REST están en `knowledge_source_definition`/`agent_definition`.
 - El adaptador exige que el scope pedido coincida con la audiencia del agente y rechaza
   filtros por petición, en lugar de ignorarlos en silencio.
-- La referencia de una respuesta del agente tiene `source_id` hash por contenido y
-  `document_id` vacio: **no es comparable 1:1 con B/C** y no se recomprueba la ACL por
-  referencia. Es una diferencia real del carril gestionado frente a Bedrock y B/C.
+- ~~La referencia de una respuesta del agente tiene `source_id` hash por contenido y
+  `document_id` vacío: **no es comparable 1:1 con B/C** y no se recomprueba la ACL por
+  referencia.~~ **Resuelto el 18-10-2026:** en la nube, cada cita trae una anotación
+  `url_citation` con la clave del chunk, así que las referencias llevan `chunk_id` y
+  `document_id` reales, son comparables 1:1 con B/C y se recomprueba la ACL de cada documento
+  citado (ver [hallazgos](#resultados-en-azure-18-10-2026)).
 
 La knowledge base se define **sin modelos** y el endpoint MCP usa la API GA: retrieval
 minimal y extractivo, sin planificación ni síntesis con LLM dentro de AI Search; el
@@ -168,9 +219,21 @@ Referencias técnicas: [Semantic Ranker](https://learn.microsoft.com/en-us/azure
 [Bedrock Rerank](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_Rerank.html)
 y [RetrieveAndGenerate](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_RetrieveAndGenerate.html).
 
-### Por que RRF
+### Por qué RRF
 
 BM25 y cosine similarity no comparten escala. No sumamos sus scores directamente:
+
+```mermaid
+flowchart LR
+  Q["Pregunta + scope"] --> F["Filtro ACL del servidor"]
+  F --> L["Ranking léxico"]
+  F --> V["Ranking vectorial"]
+  L -->|"posiciones"| R["Fusión RRF"]
+  V -->|"posiciones"| R
+  R -->|"candidate_k"| K["Reranker opcional"]
+  K -->|"top_k"| X["Recomprobar ACL y filtros"]
+  X --> S["Fuentes y citas"]
+```
 
 $$
 \operatorname{RRF}(d) = \sum_{r \in rankings} \frac{1}{60 + position_r(d)}
@@ -197,7 +260,7 @@ recall previo a la fusión/reranking; `top_k` controla el contexto final.
   Es expansión explícita, disponible en ambos motores.
 - **Auto-merge:** en LlamaIndex, sustituye los hijos recuperados por el padre si su
   proporción supera `merge_ratio` (por defecto 0.5). Un hijo de tres no amplía; dos de
-  tres si. Los hits vectoriales con score cero se descartan antes de calcular el ratio.
+  tres sí. Los hits vectoriales con score cero se descartan antes de calcular el ratio.
   Puede reducir el número final de hits: no se rellena con fuentes irrelevantes.
 
 El plan del LLM se valida con los structured outputs de fase 2. Puede proponer búsquedas,
@@ -290,7 +353,7 @@ La lectura real se verificó el 2026-10-08 con 134 documentos y 134 chunks exist
 ambos motores respondieron a `refund` filtrando idioma y categoría, con fuente
 `policy-candlelit-en`. PostgreSQL se arrancó conservando su volumen, sin migraciones,
 cargas ni borrados. Hay un test marcado `integration` de solo lectura: funciona también
-contra un esquema migrado sin datos; en ese caso valida el camino SQL vacio, no calidad.
+contra un esquema migrado sin datos; en ese caso valida el camino SQL vacío, no calidad.
 
 ```powershell
 uv run pytest services/retrieval/tests/test_retrieval_api.py -m integration
@@ -373,7 +436,7 @@ autenticación Entra/Cognito ni acceso interno por HTTP.
 La respuesta local copia evidencia literal, con un máximo de 4000 caracteres por
 fuente. Sin candidatos se abstiene. Con LLM, solo se permiten selecciones de citas
 literales de los candidatos autorizados; no IDs externos ni texto inventado. Un fallo
-de cita devuelve 502, nunca una respuesta parcialmente valida.
+de cita devuelve 502, nunca una respuesta parcialmente válida.
 
 **Una cita literal prueba procedencia, no relevancia, vigencia ni verdad del contenido.**
 La selección puede ser equivocada; hashing puede tener colisiones. No afirmamos que el
@@ -407,6 +470,11 @@ los padres privados, hits con score cero y el bloqueo de los modelos por defecto
 
 ### Informe de estado al 2026-10-08
 
+> Histórico. **Actualizado el 18-10-2026:** en Azure ya están hechos los pendientes 1–3 (corpus
+> con ACL, Foundry IQ aprovisionado, comparativa A/B/C y estrategias con LLM ejecutadas con
+> modelos reales); ver [resultados en Azure](#resultados-en-azure-18-10-2026). Siguen pendientes
+> AWS y la [pasada GCP](#gcp-pasada-4g).
+
 | Bloque | Estado | Lo que falta |
 |---|---|---|
 | 4.1, carril B local + FastAPI | Publicado (`78b004a`) | Nada local |
@@ -415,6 +483,7 @@ los padres privados, hits con score cero y el bloqueo de los modelos por defecto
 | Carril A Azure (Foundry IQ + Agent Service) | Publicado (`a9b9fc1`) | Crear KS/KB/agente y validación real |
 | Composición cloud, rutas `/managed/*`, aprovisionamiento e IaC | Implementado y probado en local | Validación real |
 | Comparativa cloud A/B/C | Azure hecha (18-10-2026, ver resultados abajo) | AWS: ver [pendientes con coste](pendientes-cloud.md) |
+| Pasada GCP (4.G1–4.G3, añadida el 20-11-2026) | Publicada (`0b3e2c3`, `248d2ba`, `9beaf31`; cierre `2209ca2`) | Validación real ([pendientes](pendientes-cloud.md#fase-4-gcp)) |
 
 Las estrategias rewrite, HyDE, subpreguntas, router y auto-retrieval están implementadas,
 probadas con dobles de `LLMPort` y conectadas al gateway con `RETRIEVAL__LLM=gateway`;
@@ -536,7 +605,7 @@ documentación y los tipos reales de los SDK.
 | 4.G1 | `0b3e2c3` | Carril B: `AgentRetrievalSearch` (BM25, vector, híbrida con RRF y VertexRanker opcional), `VertexRankingReranker` (Ranking API), composición y `retrieval_eval --engine gcp` |
 | 4.G2 | `248d2ba` | Carril A: RAG Engine (`retrieve_contexts` por corpus de ACL y respuesta de Gemini con *grounding*) |
 | 4.G3 | `9beaf31` | Carril A: Agent Search (antes Vertex AI Search) con ingesta, Terraform y `answer_query` con citas |
-| Cierre | (este commit) | Estado en `AGENTS.md` y `README.md`, decisiones de la pasada y lecciones aprendidas |
+| Cierre | `2209ca2` | Estado en `AGENTS.md` y `README.md`, decisiones de la pasada y lecciones aprendidas |
 
 Resultados: solo locales (dobles construidos desde la documentación y los tipos reales de los
 SDK; suite completa en verde). Las medidas reales están en
@@ -744,6 +813,14 @@ con el corpus de evals: 114 documentos públicos y 2 internos). La validación r
   los segmentos de Gemini, `struct_data` en los fragmentos de Agent Search y qué modelos de
   Gemini sirven la herramienta de RAG Engine en `europe-west4` están sin confirmar: van a
   [pendientes](pendientes-cloud.md#fase-4-gcp) con su forma de comprobarlo.
+
+## Pendiente con coste
+
+- Azure: hecho (18-10-2026, [resultados](#resultados-en-azure-18-10-2026)).
+- AWS: resincronizar Bedrock KB con ACL, habilitar Cohere Rerank y el modelo de generación de la KB
+  y repetir la comparativa ([pendientes-cloud.md](pendientes-cloud.md)).
+- GCP: Agent Retrieval con la Ranking API, RAG Engine y Agent Search, todos efímeros
+  ([pendientes de la 4.G](pendientes-cloud.md#fase-4-gcp)).
 
 ## Checkpoint de entrevista
 

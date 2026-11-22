@@ -58,6 +58,8 @@ uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run python scripts/generate_synthetic_data.py --scale small  # data/synthetic/ está en escala large: no regenerar sin preguntar
 docker compose up -d                                            # PostgreSQL+pgvector, RabbitMQ
 docker compose --profile observability|sqs|servicebus|pubsub|mcp|agents|scale up -d # Langfuse, colas, MCP, A2A, Redis
+docker compose --profile aws up -d                              # AWS Emulator oficial :9297 (SQS, S3, S3 Vectors, IaC; G→13)
+docker compose --profile azure up -d                            # Azurite (Blob) :10000 (subida del carril A de Azure; G→13)
 docker compose --profile telemetry up -d                        # collector, Jaeger :16686, Prometheus :9095, Grafana :3001
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_evals.llmops.prompts check ; uv run python -m rag_evals.llmops.drift --check   # fase 12 (coste 0)
@@ -117,8 +119,8 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights vs Cloud Trace | ✅ Hecha* | ✅* | `docs/fase-11-observabilidad.md` |
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | ✅* | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G; siguiente: **checkpoint G→13**) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
-| G→13 | Checkpoint: emuladores locales oficiales de AWS, Azure y GCP (tras cerrar la pasada GCP) | | | `docs/plan-fases.md#checkpoint-g-13` |
+| G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G→13 | Checkpoint: emuladores oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus 2.0.1); siguiente: **fase 13** | ✅ Hecha | — | `docs/fase-13-g-checkpoint.md` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |

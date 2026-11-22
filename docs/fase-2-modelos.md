@@ -1,4 +1,4 @@
-# Fase 2 · Capa de modelos: Azure OpenAI vs Bedrock, LLM gateway, routing, caching y coste
+# Fase 2 · Capa de modelos: Azure OpenAI vs Bedrock vs Gemini, LLM gateway, routing, caching y coste
 
 **Objetivo:** que ninguna parte del sistema hable con un proveedor de modelos directamente. Todo pasa
 por `LLMPort` y por un **gateway** que decide modelo, reintenta, cambia de proveedor, limita, traza y
@@ -12,15 +12,13 @@ tercer proveedor): `7b000cd`, `2beec92` y `ea14f4e`, detalle en la [sección 10]
 
 ```mermaid
 flowchart LR
-  UC[Caso de uso] --> R["RoutingLLM<br/>cheap / strong"]
-  R --> F["FallbackLLM<br/>reintentos + cambio de proveedor"]
-  F --> O1["ObservedLLM<br/>trazas, tokens, coste"]
-  F --> O2["ObservedLLM"]
-  O1 --> RL1["RateLimitedLLM<br/>RPM + TPM"]
-  O2 --> RL2["RateLimitedLLM"]
-  RL1 --> AZ["AzureOpenAILLM"]
-  RL2 --> BR["BedrockConverseLLM"]
-  O1 -.-> LF[(Langfuse)]
+  UC["Caso de uso"] -->|"LLMPort"| R["Routing<br/>cheap / strong"]
+  R --> F["Fallback<br/>cadena de proveedores"]
+  F -->|"por proveedor"| P["Pila por proveedor<br/>trazas, coste y rate limit"]
+  P --> AZ["Azure OpenAI"]
+  P --> BR["Bedrock"]
+  P --> GE["Gemini"]
+  P -.->|"generations"| LF[("Langfuse")]
 ```
 
 Cada capa es un decorador que implementa el mismo `LLMPort` (como las políticas de APIM). El
@@ -32,7 +30,7 @@ montaje vive en un solo sitio: `adapters/llm_factory.build_gateway(settings)`.
 | Fallback | `FallbackLLM` | Reintenta errores transitorios con backoff exponencial y *full jitter*; un 429 salta directamente al siguiente proveedor (su cuota sigue agotada); los errores no transitorios (400, credenciales) se propagan |
 | Observabilidad | `ObservedLLM` + `LLMTracer` | Una *generation* por llamada: modelo, tokens (incluidos los cacheados), coste, latencia y error |
 | Rate limit | `RateLimitedLLM` + `TokenBucket` | Límite en cliente por RPM y TPM (tokens estimados a ~4 caracteres/token) para no provocar 429 |
-| Adaptador | `AzureOpenAILLM`, `BedrockConverseLLM` | SDK nativo, sin reintentos propios (`max_retries=0`): los reintentos son del gateway |
+| Adaptador (`adapters/`) | `AzureOpenAILLM`, `BedrockConverseLLM`, `GeminiLLM` (2.G1) | SDK nativo, sin reintentos propios (`max_retries=0`): los reintentos son del gateway |
 
 Errores tipados en `ports/llm.py`: `LLMError` → `LLMTransientError` → `LLMRateLimitError`. Cada
 adaptador traduce los suyos; el gateway solo conoce estos.
@@ -124,6 +122,14 @@ profiles** + cuotas de Bedrock (no hay un gateway gestionado equivalente a APIM;
 o LiteLLM desplegado). En GCP, el **endpoint `global`** reparte la capacidad entre regiones y las
 cuotas de tokens llegan con **Agent Gateway** (en preview; se monta en la 6.G2) o con Apigee.
 
+**Comparativa Azure ↔ AWS ↔ GCP ↔ framework por carril:**
+
+| Carril | Azure | AWS | GCP |
+|---|---|---|---|
+| A · Gestionado | APIM como AI Gateway (cuotas de tokens, balanceo, *circuit breaker*, caché semántica) | *Cross-region inference profiles* + cuotas de Bedrock; sin gateway gestionado equivalente (API Gateway o LiteLLM desplegado) | Endpoint `global` + Agent Gateway (preview, 6.G2) o Apigee |
+| B · SDK nativo | `AzureOpenAILLM` (`openai`) dentro del gateway propio (`native`) | `BedrockConverseLLM` (`boto3`) dentro del gateway propio | `GeminiLLM` (`google-genai`) dentro del gateway propio |
+| C · Framework | LiteLLM `azure/` (`LLM_GATEWAY__ENGINE=litellm`) | LiteLLM `bedrock/converse/` | LiteLLM `vertex_ai/` (2.G2) |
+
 ## 7. Observabilidad
 
 `adapters/langfuse_tracer.py` (SDK v4): una *generation* por llamada con `usage_details`
@@ -148,7 +154,7 @@ local con `docker compose --profile observability up -d`.
 
 ## 9. Scripts (con coste; pedir confirmación)
 
-- `scripts/llm_cache_benchmark.py --provider azure|aws --tier strong --runs 5`: el mismo manual de
+- `scripts/llm_cache_benchmark.py --provider azure|aws|gcp --tier strong --runs 5`: el mismo manual de
   políticas (~10 k tokens) con caché (prefijo idéntico + `cache_checkpoint`) y sin ella (nonce al
   principio). Mide tokens cacheados, latencia y coste.
 - `scripts/llm_gateway_demo.py --limit 20`: triaje de emails de soporte por el gateway completo
@@ -355,20 +361,7 @@ mismo prefijo, o cuando el acierto de la implícita sea bajo (Google no lo garan
 continuo, como el del asistente de Genaipocs, la implícita suele bastar y no cuesta nada. Las
 cifras reales saldrán del benchmark en la nube.
 
-## 11. Pendiente con coste (validación en cloud)
-
-- [x] Azure: Foundry con `gpt-4.1-mini` y `gpt-4.1-nano`, benchmark de caché, demo del gateway con
-  los dos motores y trazas en Langfuse (resultados arriba).
-- [ ] AWS: `aws configure sso`, habilitar Claude Haiku 4.5 y Nova Lite en Bedrock (`eu-west-1`) y
-  repetir ambos scripts con `--provider aws` (comparar `cachePoint` explícito frente a la caché
-  automática de Azure y el coste de escritura de Claude).
-- [ ] Fallback real entre proveedores (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`), cuando haya
-  AWS y GCP.
-- [ ] Valorar migrar Langfuse a la imagen v4 en la fase 11.
-- [ ] GCP: prueba de humo de los dos modelos de Gemini y respuestas reales capturadas para
-  sustituir los dobles ([pendientes](pendientes-cloud.md#fase-2-gcp)).
-
-## 12. Decisiones (para defenderlas)
+## 11. Decisiones (para defenderlas)
 
 - **Gateway como decoradores del puerto**: cada responsabilidad se prueba aislada y el orden es
   explícito (el rate limit va por proveedor, debajo del fallback; las trazas registran cada intento).
@@ -387,6 +380,21 @@ cifras reales saldrán del benchmark en la nube.
   se sigue con la implícita y se avisa en el log.
 - **Verificar modelos y API al empezar, no al planificar**: el plan de GCP tenía cinco días y los
   modelos que nombraba ya no eran válidos.
+
+## 12. Pendiente con coste (validación en cloud)
+
+- [x] Azure: Foundry con `gpt-4.1-mini` y `gpt-4.1-nano`, benchmark de caché, demo del gateway con
+  los dos motores y trazas en Langfuse (resultados arriba).
+- [ ] AWS: `aws configure sso`, habilitar Claude Haiku 4.5 y Nova Lite en Bedrock (`eu-west-1`) y
+  repetir ambos scripts con `--provider aws` (comparar `cachePoint` explícito frente a la caché
+  automática de Azure y el coste de escritura de Claude).
+- [ ] Fallback real entre proveedores (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`), cuando haya
+  AWS y GCP.
+- [ ] ~~Valorar migrar Langfuse a la imagen v4 en la fase 11.~~ Aplazado: tras la fase 11, el
+  Langfuse local sigue en v3; la migración está en los
+  pendientes de la fase 11 ([pendientes-cloud.md](pendientes-cloud.md)).
+- [ ] GCP: prueba de humo de los dos modelos de Gemini y respuestas reales capturadas para
+  sustituir los dobles ([pendientes](pendientes-cloud.md#fase-2-gcp)).
 
 ## 13. Checkpoint de entrevista
 

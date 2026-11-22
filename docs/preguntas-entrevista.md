@@ -11,7 +11,7 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 
 - [Cómo responder](#como-responder) · [Chuleta Azure → AWS → GCP](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
 - Siglas, términos y librerías: [glosario e inventario](glosario.md) · Diagramas por niveles: [arquitectura](arquitectura.md)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12) · [checkpoint 12→13](#checkpoint-12-13)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12) · [checkpoint 12→13](#checkpoint-12-13) · [checkpoint G→13](#checkpoint-g-13)
 
 <a id="como-responder"></a>
 
@@ -37,6 +37,8 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
 | Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
 | Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
+| Embeddings (1024 dimensiones en las tres) | `text-embedding-3-small` en Azure OpenAI | Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`) | `gemini-embedding-001` con `output_dimensionality` y `task_type` distinto para documento y consulta |
+| Almacenamiento de objetos (documentos del carril A) | Blob Storage (Azurite en local) | S3 (AWS Emulator en local) | Cloud Storage (sin emulador oficial: dobles en memoria) |
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Agent Search (antes Vertex AI Search; respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API (suelta) o VertexRanker integrado en Agent Retrieval |
@@ -46,7 +48,7 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 | Gateway de APIs/MCP | API Management (AI Gateway) | API Gateway, AgentCore Gateway | Apigee (proxy MCP con `ParsePayload`), Agent Gateway + Agent Registry (salida gobernada; Cloud Run en Limited Preview) |
 | Token de usuario hacia una API propia (OBO) | Entra On-Behalf-Of | AgentCore Identity (token exchange RFC 8693) | Sin OBO nativo: el gateway firma con `signJwt` de IAM (sin claves); Agent Identity (3LO) para terceros |
 | Colas y eventos | Service Bus, Event Grid | SQS, SNS, EventBridge | Pub/Sub (temas + suscripciones, *dead-letter topic*), Eventarc |
-| Emulador local de colas | Emulador de Service Bus (EULA + SQL Server) | ElasticMQ, LocalStack | Emulador oficial de Pub/Sub (perfil `pubsub`) |
+| Emuladores locales oficiales (checkpoint G→13) | Uno por servicio: Azurite (Storage, MIT; perfil `azure`), Service Bus 2.0.1 (EULA + SQL Server), Event Hubs, Cosmos DB; nada para AI Search, Foundry ni la IaC | **AWS Emulator** (casi todas las API en un proceso, CC0; perfil `aws`): SQS, S3, S3 Vectors, KB y `terraform apply` real (job `aws-emulator`). ElasticMQ (comunidad) para ejecutar los servicios con SQS | Emuladores de `gcloud`: Pub/Sub (perfil `pubsub`), Firestore, Datastore, Bigtable, Spanner; **sin Cloud Storage** |
 | Rate limiting y caché en el borde | API Management (`llm-token-limit`, caché semántica), Azure Managed Redis | API Gateway (*usage plans*), WAF (*rate-based rules*), ElastiCache (Valkey/Redis) | Apigee (`LLMTokenQuota`), Cloud Armor (`throttle`, `rate_based_ban`; solo tras un ALB), Memorystore for Valkey (búsqueda vectorial sin `TEXT` ni `SORTBY`; IAM auth) |
 | Autoescalado por cola | KEDA en Container Apps / AKS | ECS *target tracking* sobre SQS, KEDA en EKS | Worker pools de Cloud Run + CREMA (KEDA como servicio; escalador `prometheus`: el `gcp-pubsub` está obsoleto). El backlog solo está en Cloud Monitoring (1-3 min de retraso) |
 | Pruebas de carga | Azure Load Testing (JMeter, Locust) | *Distributed Load Testing on AWS*, Locust en ECS | Locust en un Cloud Run job con `--processes` (sin servicio propio; sin red entre instancias) o en GKE Autopilot |
@@ -227,6 +229,21 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    consulta tarda ~640 ms y recorre los 3 M de pedidos con o sin índices, compitiendo con las
    compras. Negocio con ellos la frescura real que necesitan y la sirvo desde una réplica o un
    warehouse.
+
+### GCP (pasada 0.G, documental)
+
+La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en la comparativa de su
+[doc](fase-1-sql.md#7-comparativa-azure--aws--gcp--framework).
+
+1. **Técnica · ¿Qué cambia en la capa SQL al pasar a GCP?** Nada del código: esquema, migraciones,
+   bloqueos e idempotencia son PostgreSQL estándar; cambia la cadena de conexión. En GCP elegiría
+   Cloud SQL para PostgreSQL (o AlloyDB si hay mezcla analítica, por su motor columnar) con
+   autenticación IAM, el equivalente de IAM database authentication en Aurora y de Entra ID en
+   Flexible Server. Se despliega en la fase 15.
+2. **Negocio · Finanzas quiere los ingresos por ciudad y en GCP está BigQuery. ¿Lo usas?** Sí,
+   pero fuera del camino transaccional: la consulta de ~640 ms sobre 3 M de pedidos va a BigQuery
+   (consultas federadas a Cloud SQL o una réplica), como iría a Redshift o Athena en AWS. Así las
+   compras no compiten con los informes.
 
 <a id="fase-2"></a>
 
@@ -735,11 +752,12 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 
 <a id="fase-7"></a>
 
-## Fase 7 · Un agente en siete sabores ([doc](fase-7-agentes.md))
+## Fase 7 · Un agente en nueve sabores ([doc](fase-7-agentes.md))
 
 ### Técnicas
 
-1. **¿Por qué siete implementaciones del mismo agente?** Para separar lo que es del framework de lo
+1. **¿Por qué nueve implementaciones del mismo agente?** (Siete de Azure y AWS más dos de GCP,
+   `adk` y `agentplatform`.) Para separar lo que es del framework de lo
    que es del producto. La misma suite con el mismo modelo guionizado convierte "me gusta más X" en
    datos: llamadas, tokens, paridad de tools, invariantes de seguridad y casos límite.
 2. **¿Qué dejarías siempre fuera del framework?** Identidad y autorización, ejecución de tools
@@ -868,11 +886,11 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    y qué sale: validación, guardas, autocorrección, aprobación y trazas. El modelo propone; el
    harness dispone.
 2. **¿Cómo pones guardrails a agentes de frameworks distintos?** Con un punto de paso obligatorio
-   que controlas: todas las tools por tu ejecutor y todos los turnos por tu contrato. Aquí, siete
+   que controlas: todas las tools por tu ejecutor y todos los turnos por tu contrato. Aquí, nueve
    sabores con el mismo harness y los mismos tests de ataque.
 3. **¿Cómo demuestras que funciona?** Tests de ataque con un modelo que obedece al atacante, con y
    sin harness, más controles benignos para medir falsos positivos, y un gate en CI. Resultado: sin
-   harness 0/6 ataques contenidos; con harness 6/6 y 4/4 controles en los siete sabores.
+   harness 0/6 ataques contenidos; con harness 6/6 y 4/4 controles en los nueve sabores.
 4. **¿Qué no resuelve ningún guardrail?** Que un modelo con poder haga daño si lo engañan. Por eso la
    capa decisiva es de arquitectura: identidad fuera del modelo, mínimos privilegios y acciones
    irreversibles con aprobación humana.
@@ -1226,7 +1244,8 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    errores, duración) más las de GenAI: TTFT, tokens y coste por agente, 429/503 por plan, acierto
    de la caché, respuestas degradadas, backlog de colas y faithfulness muestreada. Las alertas son
    de *burn rate* multiventana sobre 6 SLO (14,4× en 1 h y 5 min para despertar, 6×/3×/1× para
-   ticket) más coste desbocado. Se generan desde el dominio (71 reglas) y se prueban con
+   ticket) más coste desbocado. Se generan desde el dominio (78 reglas: 33 alertas, 24 de
+   ellas de burn rate) y se prueban con
    `promtool test rules` en la CI.
 4. **¿Cómo evitas que la observabilidad filtre PII?** En tres capas:
    - el contenido (prompts, respuestas, argumentos) está apagado por defecto y, si se activa,
@@ -1356,7 +1375,7 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
      invariantes rotos.
 
    Un agente puede decir «reembolsado» sin haberlo hecho; lo que cuenta es el pedido. Con 14
-   escenarios × 7 sabores, la CI bloquea cualquier fallo fuera de la baseline (job `release-gate`).
+   escenarios × 9 sabores, la CI bloquea cualquier fallo fuera de la baseline (job `release-gate`).
 2. **¿Cómo te fías de un LLM-juez?** Primero, el juez no decide: etiqueta hechos verificables
    (afirmaciones respaldadas, acciones dadas por hechas, resolución, idioma) y una regla del dominio
    decide si es aceptable. Segundo, se calibra contra etiquetas humanas a ciegas (32 muestras con
@@ -1387,7 +1406,7 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 
 1. **¿Por qué invertir en evals si el agente ya «funciona»?** Porque sin ellas cada cambio
    (prompt, modelo, proveedor) es una apuesta. El gate convierte «creo que va bien» en «14
-   escenarios, 7 sabores, 0 invariantes rotos», y el A/B evita discusiones de opinión. KPI: tasa de
+   escenarios, 9 sabores, 0 invariantes rotos», y el A/B evita discusiones de opinión. KPI: tasa de
    resolución, regresiones que llegan a producción (objetivo 0) y tiempo de un cambio de prompt de
    la idea al despliegue.
 2. **¿Cómo cuentas el red teaming a Legal o dirección?** Con el informe consolidado: «ninguna
@@ -1520,3 +1539,50 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    escritas con su porqué, verificación de riesgos antes de empezar (servicios retirados,
    dependencias), subfases pequeñas con criterio de terminado, coste 0 hasta validar y un orden de
    sesiones. Así cualquiera puede retomarlo.
+
+<a id="checkpoint-g-13"></a>
+
+## Checkpoint G→13 · Emuladores locales de AWS, Azure y GCP ([doc](fase-13-g-checkpoint.md))
+
+### Técnicas
+
+1. **¿Cómo pruebas tu infraestructura como código antes de pagar el primer `apply`?** En tres
+   capas: `validate` (sintaxis y referencias), `terraform test` con `mock_provider` (lo que
+   `validate` no evalúa con `count = 0`) y, en AWS, un `apply` y `destroy` **reales** contra el AWS
+   Emulator oficial en cada PR, con el estado en memoria. Encontró dos cosas que el mock no ve: el
+   presupuesto mandaba un `accountId` vacío sin el id de cuenta del provider, y la API acepta el
+   enum `TOKEN_EXCHANGE` que el provider no documenta. En Azure no hay equivalente: ningún emulador
+   expone Resource Manager.
+2. **¿Qué no te puede demostrar un emulador?** Permisos (el AWS Emulator no evalúa IAM; Azurite no
+   comprueba RBAC), modelos (Bedrock `Converse` no está emulado y no lo queremos), cuotas, latencia
+   y regiones. Un verde contra el emulador prueba el **contrato de la API**; por eso no cerré ninguna
+   casilla de `pendientes-cloud.md` con él.
+3. **¿Cómo te aseguras de que un test contra un emulador no acaba llamando a la nube?** Tres redes:
+   claves del emulador, que la nube rechaza; un proxy inexistente para todo lo que no sea
+   `127.0.0.1`, y un `assert` de la cuenta `000000000000`. La segunda salió de un caso real: el
+   provider leía las etiquetas de S3 por S3 Control, que no estaba redirigido, y una petición fue a
+   AWS. Ahora un endpoint olvidado falla en local.
+4. **¿Por qué mantienes ElasticMQ si ya tienes el emulador oficial?** Porque hacen cosas distintas:
+   el contrato pasa igual en los dos (6/6), pero el emulador oficial usa HTTPS con certificado y
+   claves nuevos en cada arranque, ideal para tests herméticos y molesto para levantar el sistema
+   entero en local. ElasticMQ ejecuta los servicios; el emulador mide fidelidad y prueba la IaC. Si
+   divergen, manda el oficial.
+5. **¿Cómo evitas que un emulador que cambia cada dos horas te rompa la CI?** Versión fijada
+   (`1.0.569`, como cualquier imagen), tests que esperan lo que hace AWS y no lo que hace el
+   emulador hoy, y subir de versión como un cambio deliberado leyendo sus puntuaciones de fidelidad
+   por servicio, que AWS publica con cada release.
+
+### Negocio y stakeholders
+
+1. **¿Qué gana Genaipocs con esto?** Feedback en minutos y gratis en lugar de horas y dinero: el
+   módulo de AWS se aplica entero en cada PR (5 min, en paralelo) antes del primer despliegue de la
+   fase 13. Cada error de IaC que aparece aquí es un `apply` fallido menos en una cuenta real, con
+   su coste y su tiempo de equipo.
+2. **¿Cómo lo explicas a dirección?** "Tenemos un simulador oficial de AWS en cada portátil y en la
+   CI: el equipo prueba la infraestructura sin cuenta ni factura, y solo vamos a la nube a validar
+   lo que el simulador no puede (seguridad, modelos, rendimiento)."
+3. **¿Qué priorizaste y qué dejaste fuera?** Adopté solo emuladores de servicios que el repo usa
+   (AWS Emulator, Azurite; Service Bus y Pub/Sub ya estaban) y descarté Cosmos DB, Event Hubs,
+   Firestore o Spanner, que no usamos: más contenedores sin valor. Tampoco adopté uno de la
+   comunidad para Cloud Storage: la regla era "oficial", y su ausencia queda documentada como riesgo
+   de GCP.

@@ -2,7 +2,8 @@
 
 **Objetivo:** que un pico de demanda (la salida a la venta de un festival en Genaipocs) no tumbe el
 sistema ni agote la cuota de los modelos. Cada petición se decide pronto y barato: se rechaza,
-se sirve desde la caché, se degrada o se encola. Nada espera sin límite.
+se sirve desde la caché, se degrada o se encola. Nada espera sin límite. En Azure, AWS y GCP
+(sección 7).
 
 | Subfase | Commit | Qué |
 |---|---|---|
@@ -12,7 +13,7 @@ se sirve desde la caché, se degrada o se encola. Nada espera sin límite.
 | 10.4 | `070db89` | Streaming SSE en la capa de modelos y en el edge |
 | 10.5 | `0a012ca` | *Transactional outbox*, idempotencia y `POST /cases` con 202 + SSE |
 | 10.6 | `5f5e20e` | Autoescalado por longitud de cola (regla tipo KEDA, plan de capacidad, Terraform) |
-| 10.7 | — | Pruebas de carga con Locust, informe de límites, bulkhead por ruta, degradación y este documento |
+| 10.7 | `c507c55` | Pruebas de carga con Locust, informe de límites, bulkhead por ruta, degradación y este documento |
 
 ## 1. Arquitectura
 
@@ -40,7 +41,7 @@ flowchart LR
   AS --> GW --> M["Azure OpenAI / Bedrock / Gemini<br/>(o proveedor simulado)"]
   M -->|"trozos"| SSE
 
-  R[("Redis 8<br/>GCRA + índice vectorial")]
+  R[("Redis 8 / Valkey<br/>GCRA + índice vectorial")]
   RL <--> R
   C <--> R
   Q <--> R
@@ -106,7 +107,7 @@ uv run python -m rag_evals.semantic_cache --check        # calibración del umbr
 
 ### 10.4 · Streaming SSE
 
-- `StreamingLLMPort.stream()` en Azure (`include_usage`), Bedrock `ConverseStream` y el fake. Todas las capas del gateway lo respetan.
+- `StreamingLLMPort.stream()` en Azure (`include_usage`), Bedrock `ConverseStream`, Gemini `generate_content_stream` y el fake. Todas las capas del gateway lo respetan.
 - El fallback solo salta **antes del primer trozo**: después no se empalman respuestas.
 - `POST /ask/stream` hace *priming*: lo que falla antes del primer evento es un código HTTP; lo que falla después, `event: error`. Hay latidos `: ping`.
 - Las citas `[n]` se verifican al final; una respuesta sin verificar no se cachea.
@@ -133,6 +134,18 @@ uv run python scripts/queue_autoscaler.py --apply      # con el perfil scale y R
 - Terraform desactivado:
   - Azure: Container Apps con regla KEDA `azure-servicebus` e identidad.
   - AWS: ECS Fargate con *target tracking* sobre mensajes por tarea.
+  - GCP: worker pool de Cloud Run escalado por CREMA con la PromQL del backlog de Pub/Sub ([10.G4](#10g4--workers-escalados-por-backlog-y-perímetro-con-cloud-armor)).
+
+```mermaid
+flowchart LR
+  Q[["Cola"]] -->|"longitud o backlog"| M["Métrica<br/>Service Bus · SQS · Cloud Monitoring"]
+  M --> S["Escalador<br/>KEDA en ACA · target tracking en ECS · CREMA"]
+  S -->|"réplicas = f(cola)"| W["Workers 0..N"]
+  W -->|"consumen"| Q
+```
+
+En local, `QueueAutoscaler` hace de escalador con la longitud de RabbitMQ y mueve las réplicas de
+Docker Compose.
 
 ### 10.7 · Pruebas de carga e informe de límites
 
@@ -225,7 +238,7 @@ Límites que quedan (y su siguiente paso):
 | El techo del modelo es la cuota: ~2,5 respuestas nuevas por segundo sostenidas | 150 K TPM / ~985 tokens **reservados** por llamada | Más cuota (otro despliegue o región con el fallback de la fase 2) o menos tokens por llamada (menos fragmentos) |
 | Se reserva cuota de más | El gateway reserva entrada + `max_tokens` (400) y la respuesta usa ~90: ~985 reservados frente a ~675 usados (31 % de cuota desaprovechada) | `max_tokens` ajustado a la respuesta (150 bastaría) o devolver la diferencia al terminar, con el uso real |
 | La degradación espera 2 s antes de rendirse | Hasta agotar la espera no se sabe si llega la cuota | Degradar al instante si `retry_after` supera el presupuesto, o leer el breaker abierto antes de esperar |
-| Un proceso de edge satura la CPU con ~75 req/s locales | Python + SSE + Locust en la misma máquina | Varias réplicas tras el balanceador (el estado ya está en Redis) y la carga desde Azure Load Testing |
+| Un proceso de edge satura la CPU con ~75 req/s locales | Python + SSE + Locust en la misma máquina | Varias réplicas tras el balanceador (el estado ya está en Redis) y la carga desde Azure Load Testing o un Cloud Run job (10.G5) |
 | *Single-flight* solo dentro de una réplica | Las peticiones en curso viven en memoria del proceso | Bloqueo corto en Redis por clave de caché si las réplicas son muchas |
 
 ### 3.3 · Resto de la fase (local, coste 0)
@@ -509,13 +522,13 @@ uv run pytest packages/genaipocs_core/tests/test_pubsub_backlog.py -k terraform
 **`queue_workers.tf`** (`queue_workers_enabled = false`; necesita `queue_worker_image`, de la
 fase 15):
 
-```text
-Pub/Sub support.emails.worker ──(métrica, 1-3 min)──▶ Cloud Monitoring
-                                                           │ PromQL
-Parameter Manager (CremaConfig) ──▶ CREMA (Cloud Run) ─────┘
-                                       │ Admin API: manual_instance_count
-                                       ▼
-                         worker pool "triage-worker" (0..4 instancias)
+```mermaid
+flowchart LR
+  PS[["Pub/Sub<br/>support.emails.worker"]] -->|"métrica (1-3 min)"| CM["Cloud Monitoring"]
+  PM["Parameter Manager<br/>CremaConfig"] --> CR["CREMA<br/>(Cloud Run)"]
+  CR -->|"PromQL"| CM
+  CR -->|"Admin API: manual_instance_count"| WP["Worker pool triage-worker<br/>(0..4 instancias)"]
+  WP -->|"consume"| PS
 ```
 
 - **Worker pool** `MANUAL`, arranca en 0 y con `ignore_changes` sobre el número de instancias:

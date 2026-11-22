@@ -35,6 +35,9 @@ data/benchmarks/
 *.tfvars
 !*.tfvars.example
 
+# AWS Emulator (checkpoint G→13.2): claves SigV4 y certificado de cada arranque.
+.aws-emulator/
+
 # Experimentos A/B (fase 12.7): los runs locales (JSONL y MLflow) no se versionan; el informe sí.
 .experiments/
 .mlflow/

@@ -17,6 +17,14 @@ de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 pendientes de GCP están en la sección de cada fase ([plan](fase-13-12-checkpoint.md#plan-gcp));
 Vector Search y RAG Engine serán efímeros, como AI Search.
 
+**Emuladores (checkpoint G→13, 22-11-2026).** Antes de cualquier `apply` en AWS, el módulo
+`infra/terraform/aws` ya se aplica entero contra el AWS Emulator en cada PR (job `aws-emulator`),
+salvo el autoescalado de ECS (`PutScalingPolicy` con *metric math*: 501) y los targets del MCP
+gateway; y SQS, S3, S3 Vectors y la ingesta de la KB tienen tests de integración contra él. Azure:
+la subida de blobs del carril A, contra Azurite. **Ninguna casilla se cierra por eso**: lo que se
+valida en la nube (modelos, IAM y Entra ID reales, AI Search, Vector Search, RAG Engine, Cloud
+Storage, cuotas) no lo cubre ningún emulador ([qué cubre cada uno](fase-13-g-checkpoint.md)).
+
 **Validación de GCP (pasada cerrada en la 12.G6, 22-11-2026).** Quedan 63 casillas abiertas: 5 de
 la fase 0, 7 de la 2, 4 de la 3, 4 de la 4, 4 de la 5, 4 de la 6, 5 de la 7, 5 de la 8, 6 de la 9,
 8 de la 10, 3 de la 11 y 8 de la 12. No es una tarea por casilla: se agrupan por lo que
@@ -94,7 +102,7 @@ terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 
 ## Fase 2 · Capa de modelos ([doc](fase-2-modelos.md))
 
-- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`), suscripción *MSDN - Sergio Velasco* (17-10-2026).
+- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`), suscripción personal de desarrollo, ya eliminada (17-10-2026).
 - [ ] **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
 - [x] **Azure AI Foundry** como código (`foundry.tf`): cuenta AI Services, proyecto `genaipocs` y despliegues `gpt-4.1-mini`, `gpt-4.1-nano` y `text-embedding-3-small` en `swedencentral`, **DataZoneStandard** (chat 200 K TPM desde el 18-10-2026; embeddings 50 K), con *Cognitive Services OpenAI User* y *Foundry User* para el usuario. `terraform apply` del grupo `rg-genaipocs-dev` (17 recursos; AI Search apagado) el 17-10-2026. Prueba de humo: `gpt-4.1-nano` responde con Entra ID (16 + 2 tokens, 0,0000024 $) y el embedding devuelve 1024 dimensiones. Hallazgos: el proyecto debe crearse en serie con los despliegues (409) y el rol "Azure AI User" se llama ahora "Foundry User". El 18-10-2026 los recursos se recrearon con nombres CAF (`aif-genaipocs-dev-swc-001`...), sin sufijo aleatorio.
 - [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
@@ -244,7 +252,7 @@ de 7 sabores con `mini`).
 - [x] Azure (18-10-2026): `analytics_sql_demo.py` con 5 preguntas: 1 respondida, 1 escritura rechazada, 3 canceladas por el timeout de 3 s sobre 3 M de pedidos (escaladas). Bedrock pendiente.
 - [x] Azure: Content Safety (F0) frente al escudo heurístico con `rag_evals.shields` (24 textos): 7/12 cada uno, 9/12 juntos, 0 falsos positivos; Content Safety a ~2 s por llamada. Bedrock Guardrails pendiente.
 - [x] Tests de ataque con modelo real (`rag_evals.attacks --mode llm`): con harness, 0 invariantes en los 7 sabores. El harness ahora convierte el filtro de contenido del proveedor en un bloqueo.
-- [ ] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques (fase 12).
+- [x] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques: hechos en local en la [fase 12](fase-12-evals-llmops.md) (12.2, 12.4 y 12.5); lo que tiene coste sigue en la sección de la fase 12 de este documento.
 
 <a id="fase-8-gcp"></a>
 

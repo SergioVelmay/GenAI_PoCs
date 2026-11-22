@@ -13,7 +13,10 @@ agentes para usuarios internos (operaciones, soporte, partners) y para el públi
 ```mermaid
 flowchart LR
   U[Cliente / operador] --> AG["booking_agent<br/>(9 sabores)"]
-  EM[Emails] --> OR["orchestrator<br/>triaje → especialistas<br/>(LangGraph · MAF · ADK · cola · A2A)"]
+  PUB[Público] --> EDGE["edge_api<br/>admisión · caché · SSE"]
+  EM[Emails] --> EDGE
+  EDGE -->|"POST /cases"| OR["orchestrator<br/>triaje → especialistas<br/>(LangGraph · MAF · ADK · cola · A2A)"]
+  EDGE --> RET
   OR --> H
   AG --> H["harness<br/>guardrails · HITL · validación"]
   H --> GW["LLM gateway<br/>routing · fallback · coste"]
@@ -24,7 +27,7 @@ flowchart LR
   MCP --> API["ticketing_api"] --> PG[(PostgreSQL)]
   H --> RET["retrieval<br/>híbrido · rerank · citas"] --> VS[(pgvector · AI Search · S3 Vectors · Agent Retrieval)]
   SRC[Documentos] --> Q[[RabbitMQ · SQS · Service Bus · Pub/Sub]] --> IDX[indexer] --> VS
-  EV["evals<br/>RAG · agentes · ataques"] -.gate CI.-> AG
+  EV["evals<br/>RAG · agentes · ataques"] -.->|"gate CI"| AG
 ```
 
 Zoom por bloques (modelos, RAG, MCP, agente y harness, multi-agente, escala, observabilidad,
@@ -49,7 +52,8 @@ services/
   mcp_servers/     servidores MCP (FastMCP) y MCP gateway
   support_agent/   agente mínimo sobre MCP
   booking_agent/   el mismo agente en 9 sabores
-  orchestrator/    multi-agente: triaje y especialistas (LangGraph, MAF, cola, A2A)
+  orchestrator/    multi-agente: triaje y especialistas (LangGraph, MAF, ADK, cola, A2A)
+  edge_api/        puerta pública: admisión, rate limit, caché semántica y SSE
 evals/             golden datasets, evals de RAG, de agentes, multi-agente y tests de ataque
 infra/             Terraform (aws, azure, gcp), SQL de benchmark, config de emuladores
 scripts/           datos sintéticos, carga, benchmarks, aprovisionamiento (dry-run por defecto)
@@ -76,9 +80,10 @@ uv run python -m rag_evals.redteam.report            # informe de red teaming (c
 ```
 
 Perfiles opcionales de Docker: `observability` (Langfuse), `sqs` (ElasticMQ), `servicebus`
-(emulador), `pubsub` (emulador de Pub/Sub), `mcp` (servidores MCP), `agents` (especialistas A2A), `scale` (Redis 8 y workers
-autoescalables de la fase 10) y `telemetry` (collector de OpenTelemetry, Jaeger, Prometheus y
-Grafana de la fase 11). Todo lo que usa modelos o nube es explícito y tiene coste:
+(emulador), `pubsub` (emulador de Pub/Sub), `aws` (AWS Emulator oficial en `127.0.0.1:9297`: SQS,
+S3, S3 Vectors y Terraform de AWS), `azure` (Azurite, Blob Storage), `mcp` (servidores MCP), `agents`
+(especialistas A2A), `scale` (Redis 8, Valkey y workers autoescalables de la fase 10) y `telemetry`
+(collector de OpenTelemetry, Jaeger, Prometheus y Grafana de la fase 11). Todo lo que usa modelos o nube es explícito y tiene coste:
 ver [pendientes con coste](docs/pendientes-cloud.md).
 
 ## Fases
@@ -87,7 +92,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 |---|---|---|---|
 | 0 | Cimientos: monorepo uv, Clean Architecture, entorno local, datos sintéticos, CI | ✅ | [fase-0](docs/fase-0-cimientos.md) |
 | 1 | SQL avanzado (PostgreSQL, Alembic, índices, concurrencia) + `ticketing_api` | ✅ | [fase-1](docs/fase-1-sql.md) |
-| 2 | Capa de modelos: Azure OpenAI vs Bedrock, LLM gateway, routing, prompt caching, coste | ✅* | [fase-2](docs/fase-2-modelos.md) |
+| 2 | Capa de modelos: Azure OpenAI, Bedrock y Gemini, LLM gateway, routing, prompt caching, coste | ✅* | [fase-2](docs/fase-2-modelos.md) |
 | 3 | Indexación event-driven en 3 carriles × 3 nubes | ✅* | [fase-3](docs/fase-3-comparativa.md) |
 | 4 | Retrieval avanzado: híbrido, filtros, reranking, query rewriting, citas | ✅* | [fase-4](docs/fase-4-retrieval.md) |
 | 5 | Evals de RAG: golden dataset, métricas, RAGAS/DeepEval, gate en CI | ✅* | [fase-5](docs/fase-5-evals.md) |
@@ -101,9 +106,10 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 12 | Evals de agentes (trayectoria, LLM-juez, Gen AI Evaluation Service de contraste), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y Vertex AI Experiments, y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
 | G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita), la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL), la 4.G (híbrida en Agent Retrieval con la Ranking API, RAG Engine y Agent Search con citas verificadas), la 5.G (juez Gemini, Gen AI Evaluation Service y fidelidad de RAG Engine y Agent Search), la 6.G (tools con Gemini, token por servidor con `signJwt` e Identity Platform, Agent Gateway + Agent Registry y Apigee), la 7.G (firmas de Gemini en todos los sabores, sabores `adk` y `agentplatform`, Sessions y Memory Bank, Agent Identity con política de acceso por tool), la 8.G (Model Armor como escudo que falla cerrado, PII con Sensitive Data Protection y caída a patrones, plantillas y *floor setting* en Terraform), la 9.G (ADK como cuarto motor del orquestador, Pub/Sub con *exactly-once*, A2A con ID tokens de Google en Cloud Run y espera humana con SLA en Workflows), la 10.G (backlog de Pub/Sub con PromQL y latido del plazo de ack, caché semántica y GCRA portables a Memorystore for Valkey, registro compartido de cachés de Gemini, worker pools con CREMA, Cloud Armor y carga desde un Cloud Run job) la 11.G (collector hacia la Telemetry API y Managed Prometheus con los nombres comprobados, las 36 alertas en PromQL de Cloud Monitoring generadas desde los SLO, logs enlazados con Cloud Trace y spans de los frameworks sin contenido) y la 12.G (juez de agentes con Gemini, Evaluation Service como contraste de la trayectoria y del juez, riesgo residual frente a los detectores de PII, promptfoo con atacante LLM, prompts en Agent Platform y experimentos en Vertex AI Experiments) | ✅* | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) · [4.G](docs/fase-4-retrieval.md#gcp-pasada-4g) · [5.G](docs/fase-5-evals.md#8-gcp-pasada-5g) · [6.G](docs/fase-6-tools-mcp.md#9-gcp-pasada-6g) · [7.G](docs/fase-7-agentes.md#10-gcp-pasada-7g) · [8.G](docs/fase-8-harness.md#9-gcp-pasada-8g) · [9.G](docs/fase-9-multiagente.md#7-gcp-pasada-9g) · [10.G](docs/fase-10-escala.md#7-gcp-pasada-10g) · [11.G](docs/fase-11-observabilidad.md#7-gcp-pasada-11g) · [12.G](docs/fase-12-evals-llmops.md#7-gcp-pasada-12g) |
+| G→13 | Checkpoint: emuladores locales oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus fijado en 2.0.1; Pub/Sub ya estaba) | ✅ | [checkpoint](docs/fase-13-g-checkpoint.md) |
 | 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | [plan de fases](docs/plan-fases.md) |
 
-✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); faltan AWS y GCP (en GCP, todas las fases).
+✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure se validó en el checkpoint 8→9 (3,76 €); faltan AWS y GCP (en GCP, todas las fases). Aviso: la suscripción de Azure de entonces se perdió el 20-11-2026; los resultados se conservan como histórico y los recursos se rehacen en otra suscripción ([pendientes](docs/pendientes-cloud.md)).
 
 Preguntas de entrevista (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
 modelo y una chuleta Azure → AWS → GCP: [preguntas-entrevista.md](docs/preguntas-entrevista.md). Siglas,
@@ -115,9 +121,13 @@ términos y librerías del proyecto: [glosario.md](docs/glosario.md).
 revisión) y solo si pasa el check `release-gate`, que resume todos los jobs de la CI.
 
 GitHub Actions ejecuta en cada PR y en cada merge a `main`: lint, formato, `mypy --strict`, tests, evals deterministas con
-gate contra un baseline, tests de ataque en los 9 sabores, evals multi-agente en los 3 motores,
-build de las imágenes MCP y de especialistas A2A, dashboard y reglas de alerta al día y probadas
-con `promtool`, configuración de los collectors de OpenTelemetry, validación de Terraform de las tres nubes y tests de integración con PostgreSQL, RabbitMQ, Redis, Valkey, y SQS y Pub/Sub emulados. Sin secretos y sin coste.
+gate contra un baseline, tests de ataque en los 9 sabores, evals multi-agente en los 4 motores
+(LangGraph, MAF, ADK y cola), build de las imágenes MCP y de especialistas A2A, dashboard y reglas
+de alerta al día y probadas con `promtool`, configuración de los collectors de OpenTelemetry,
+Terraform de las tres nubes (`validate` y `terraform test` con proveedores simulados), tests de
+integración con PostgreSQL, RabbitMQ, Redis, Valkey, Azurite, y SQS y Pub/Sub emulados, y el job
+`aws-emulator`: tests de SQS, S3, S3 Vectors y la Knowledge Base contra el AWS Emulator oficial y
+el Terraform de AWS aplicado y destruido contra él (estado en memoria). Sin secretos y sin coste.
 
 ## Desarrollo con IA
 
@@ -140,8 +150,8 @@ mensaje corto; la skill reconstruye el contexto desde el repo (plan, rama, PR dr
 Sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 % o se sigue otro día:
 
 ```text
-Vamos a por el checkpoint G→13. Usa la skill iniciar-fase.            # fase nueva (rama nueva desde main)
-Seguimos con el checkpoint G→13. Usa la skill retomar-fase.           # fase empezada, en sesión nueva
+Vamos a por la fase 13. Usa la skill iniciar-fase.                    # fase nueva (rama nueva desde main)
+Seguimos con la fase 13. Usa la skill retomar-fase.                   # fase empezada, en sesión nueva
 revisado                                                              # commit + push + PR de la subfase
 dale                                                                  # empieza la subfase propuesta
 ```

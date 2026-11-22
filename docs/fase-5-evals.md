@@ -2,17 +2,39 @@
 
 Cómo sabemos si el RAG de Genaipocs funciona y cómo evitamos que empeore sin que nadie se dé cuenta.
 Todo se mide con el mismo corpus congelado, el mismo golden dataset y las mismas métricas en los
-carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) queda pendiente de nube.
+carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) está medido en Azure
+(Foundry Evaluation) e implementado en GCP (Gen AI Evaluation Service, [pasada 5.G](#8-gcp-pasada-5g));
+el de AWS (Bedrock Evaluations) está por implementar.
 
-> Estado: todo lo local está completo y en CI (coste 0). Las ejecuciones con LLM (generación y
-> jueces) y el carril A están **pendientes de validación con coste** (ver el final).
+> Estado: todo lo local está completo y en CI (coste 0). Las ejecuciones con LLM (generación,
+> jueces y carril A) están hechas en Azure (18-10-2026) y **pendientes de validación con coste**
+> en AWS y GCP (ver el final).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 5.1-5.2 | `abefdd7` | Golden dataset y evals de retrieval |
+| 5.3 | `e44d6e4` | Evals de generación, juez nativo, RAGAS / DeepEval y medidor de coste |
+| 5.4 | `ea79b45` | Gate de evals con baseline versionado en CI |
+| 5.5 | `892de8b` | Comparativa de evals y cierre de la fase |
+
+Los resultados en Azure (18-10-2026) son del [checkpoint 8→9](fase-9-8-checkpoint.md).
 
 ## 1. Piezas
+
+```mermaid
+flowchart LR
+  D["Corpus congelado + golden v2"] --> R["retrieval_eval (B y C)"]
+  D --> G["generation_eval (B y C)"]
+  R -->|"informes"| GT["gate frente al baseline"]
+  G -->|"informes"| GT
+  GT -->|"regresión: bloquea"| CI["CI (job evals)"]
+  G -.->|"modo llm"| J["Jueces LLM calibrados"]
+```
 
 | Pieza | Qué hace | Código |
 |---|---|---|
 | Corpus congelado | Escala `small`, semilla 42: 116 documentos / 131 chunks, sha256 verificado | [evals/corpus/knowledge.jsonl](../evals/corpus/knowledge.jsonl) |
-| Golden dataset v1 (v2 desde el 15-11-2026) | 144 preguntas generadas por plantillas a partir de los documentos (gold por `document_id`, relevancia graduada, literales de evidencia). La v2 tiene las mismas preguntas sobre el corpus con el cliente renombrado a Genaipocs: un corpus nuevo es un dataset nuevo, y la v1 se conserva con la huella de su corpus | [golden.py](../evals/src/rag_evals/golden.py), [golden-v1.jsonl](../evals/datasets/golden-v1.jsonl) |
+| Golden dataset v1 (v2 desde el 15-11-2026) | 144 preguntas generadas por plantillas a partir de los documentos (gold por `document_id`, relevancia graduada, literales de evidencia). La v2 tiene las mismas preguntas sobre el corpus con el cliente renombrado a Genaipocs: un corpus nuevo es un dataset nuevo, y la v1 se conserva con la huella de su corpus | [golden.py](../evals/src/rag_evals/golden.py), [golden-v2.jsonl](../evals/datasets/golden-v2.jsonl), [golden-v1.jsonl](../evals/datasets/golden-v1.jsonl) |
 | Métricas puras | Hit@k, Recall@k, MRR, nDCG graduado, precisión media, percentiles | [domain/evals.py](../packages/genaipocs_core/src/genaipocs_core/domain/evals.py) |
 | Evals de retrieval | Todas las estrategias de B y C | [retrieval_eval.py](../evals/src/rag_evals/retrieval_eval.py) |
 | Evals de generación | Citas auditadas, abstención, fugas ACL; modo LLM y jueces con presupuesto | [generation_eval.py](../evals/src/rag_evals/generation_eval.py) |
@@ -45,7 +67,8 @@ Lectura:
   que discriminan son **Hit@1, MRR y nDCG** (orden), no Hit@k (presencia).
 - **El reranker local (TokenCoverage) empeora** ligeramente: un reranker léxico sobre un ranking ya
   léxico no añade señal. Un cross-encoder real (Cohere Rerank en Bedrock, Semantic Ranker en AI
-  Search) es lo que hay que medir en la nube.
+  Search) es lo que hay que medir en la nube: en Azure ya está medido (híbrida + Semantic Ranker,
+  nDCG@5 0.980 con embeddings reales; [informe](../evals/reports/azure/retrieval.md)).
 - **`vector` gana**, pero con embeddings `hashing` (bolsa de palabras), así que valida el arnés, no la
   semántica. BM25 sí es una baseline legítima.
 - **C es 20-40 veces más lento** en este proceso (sobrecarga del framework por consulta). En producción
@@ -148,7 +171,19 @@ Con respuestas reales casi todo sale fiel, así que etiquetarlas no enseña nada
 propósito, de forma determinista y sin LLM (`rag_evals.calibration build`): cifra cambiada
 (`fabricated`), afirmación inventada añadida (`unsupported`), respuesta de otra pregunta
 (`off_topic`) y evasiva (`non_answer`). Sergio etiqueta a ciegas en `labels-v1.csv` (la vista
-`.md` no muestra el tipo) y `agreement` calcula acierto y **kappa de Cohen** humano-juez.
+`.md` no muestra el tipo) y `agreement` calcula acierto y **kappa de Cohen** humano-juez. El mismo
+conjunto y las mismas etiquetas sirven para los jueces de todos los carriles y de las tres nubes:
+
+```mermaid
+flowchart LR
+  C["calibration-v1 + etiquetas humanas"] --> N["Juez nativo (B)"]
+  C --> F["RAGAS y DeepEval (C)"]
+  C --> A["Carril A: Foundry Evaluation, Evaluation Service (Bedrock Evaluations, pendiente)"]
+  N -->|"veredictos"| K["agreement (kappa)"]
+  F -->|"veredictos"| K
+  A -->|"veredictos"| K
+  K -->|"elige"| GJ["Juez del gate"]
+```
 
 Detección por tipo (el juez da la fidelidad esperada), antes de las etiquetas humanas:
 
@@ -272,9 +307,25 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 | Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | Job de evaluación en Cloud Build / GitHub Actions | `rag_evals.gate` |
 | Control de coste | Presupuestos de suscripción | AWS Budgets | Presupuestos de Cloud Billing | `CostMeter` por ejecución |
 
-## 7. Pendiente de validación con coste
+## 7. Decisiones y límites
 
-(Con confirmación previa; requiere los pendientes de la fase 2.)
+- **Mismo instrumento en todos los carriles**: corpus congelado, golden dataset y métricas
+  idénticos en B y C; el framework no aporta calidad, aporta componentes ya hechos.
+- **Las métricas que discriminan son las de orden** (Hit@1, MRR, nDCG): Hit@5 está saturado.
+- **El juez nativo es el del gate**: kappa > 0,8 en las dos métricas y ~5 veces más barato. Pide
+  etiquetas atómicas y la nota la calcula el dominio; RAGAS y DeepEval van en el extra `evals`.
+- **Juez fijo fuera del router** (distinto del generador) para evitar la autopreferencia.
+- **El umbral también se calibra** (Foundry Evaluation: kappa 0 exigiendo un 5, 0,82 con su
+  aprobado).
+- **Gate en `enforce`** desde el checkpoint 8→9; subir el baseline es deliberado
+  (`--update-baseline`) y se revisa en la PR.
+- Límites: embeddings `hashing` en local (validan el arnés, no la semántica); calibración con 20
+  muestras y un solo anotador; el baseline de la CI es el local y el de nube se compara a mano.
+
+## 8. Pendiente de validación con coste
+
+(Con confirmación previa; requiere los pendientes de la fase 2. Detalle en
+[pendientes con coste](pendientes-cloud.md).)
 
 1. ~~`generation_eval --mode llm` con los tres jueces sobre la misma muestra~~ (hecho, ver arriba).
 2. ~~Calibración humano-juez~~ (hecho: el juez nativo, kappa 0,82 en fidelidad y 1,0 en
@@ -283,9 +334,15 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
    y `text-embedding-3-small`).
 4. Carril A: ~~Azure AI Foundry Evaluation~~ (hecho, kappa 0,82) y Amazon Bedrock Evaluations
    con el mismo conjunto.
-5. Repetir el retrieval con embeddings reales y reranker de nube (fase 4) y fijar un baseline nuevo.
+5. Retrieval con embeddings reales y reranker de nube: ~~Azure~~ (hecho, con Semantic Ranker; el
+   baseline de la CI sigue siendo el local); falta en AWS y en GCP
+   ([pendientes de la 4.G](pendientes-cloud.md#fase-4-gcp)).
+6. GCP: calibración y generación con el juez Gemini, Evaluation Service y fidelidad de RAG Engine
+   y Agent Search ([pendientes de la 5.G](pendientes-cloud.md#fase-5-gcp)).
 
-## 8. GCP (pasada 5.G)
+<a id="8-gcp-pasada-5g"></a>
+
+## 9. GCP (pasada 5.G)
 
 **Objetivo:** juzgar con Gemini lo mismo que se juzgó con Azure (mismo conjunto de calibración,
 mismas etiquetas humanas, mismo kappa) y sumar el carril A de GCP, el **Gen AI Evaluation
@@ -297,7 +354,7 @@ Service**. Coste 0: todo con dobles; las medidas reales, en
 | 5.G0 | `5e07bdc` | Ficheros temporales en `.tmp/` y plan de la 5.G (dividido en G1–G3) |
 | 5.G1 | `4885272` | Juez Gemini por los carriles B y C, informes con coste por nube y esquemas compatibles con Gemini |
 | 5.G2 | `c2e53be` | Carril A: `rag_evals.gcp_eval` con el Evaluation Service |
-| 5.G3 | (este commit) | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
+| 5.G3 | `47586ae` | Fidelidad de RAG Engine y Agent Search (`managed_eval`) y cierre |
 
 ### Verificación previa (20-11-2026)
 
@@ -423,7 +480,7 @@ recuperaría y no habría respuesta redactada que juzgar.
   `JudgeVerdict`, si `grounding_v2` está en `europe-west4`, el coste real del servicio (no
   devuelve tokens) y si `--dest` hace visible la ejecución en la consola.
 
-## 9. Checkpoint de entrevista
+## 10. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 5](preguntas-entrevista.md#fase-5).

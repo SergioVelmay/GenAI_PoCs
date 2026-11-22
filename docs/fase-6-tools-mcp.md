@@ -10,11 +10,20 @@ Apigee o Agent Gateway).
 > (Entra ID / Cognito / Identity Platform) y los gateways gestionados están **pendientes de
 > validación con coste** (ver el final).
 
+| Subfase | Commit | Qué |
+|---|---|---|
+| 6.1 | `2f0d1dc` | Tool calling manual en Azure OpenAI y Bedrock con tools de ticketing |
+| 6.2 | `05dfbfc` | Servidores MCP `catalog`, `ticketing` y `refunds` con FastMCP |
+| 6.3 | `c06ad2a` | OAuth 2.1 en los servidores MCP y agente mínimo (carril B) |
+| 6.4 | `afc3009` | MCP Gateway propio, AgentCore Gateway y APIM; cierre de la fase |
+
+Los resultados en Azure (18-10-2026) son del [checkpoint 8→9](fase-9-8-checkpoint.md).
+
 ## 1. Piezas
 
 | Pieza | Qué hace | Código |
 |---|---|---|
-| Tool calling en el puerto | `complete(..., tools=ToolConfig)`, `Role.TOOL`, `ToolCall`; Azure OpenAI, Bedrock Converse y LiteLLM | [ports/llm.py](../packages/genaipocs_core/src/genaipocs_core/ports/llm.py) |
+| Tool calling en el puerto | `complete(..., tools=ToolConfig)`, `Role.TOOL`, `ToolCall`; Azure OpenAI, Bedrock Converse, Gemini (`GeminiLLM`, 2.G1) y LiteLLM | [ports/llm.py](../packages/genaipocs_core/src/genaipocs_core/ports/llm.py) |
 | Tools tipadas | Esquema strict desde Pydantic; identidad en `ToolContext`, nunca en el esquema | [registry.py](../packages/genaipocs_core/src/genaipocs_core/application/tools/registry.py) |
 | Bucle manual (carril B) | Lecturas en paralelo acotado, escrituras en serie, timeouts, errores tipados, límite de iteraciones | [loop.py](../packages/genaipocs_core/src/genaipocs_core/application/tools/loop.py) |
 | Saneamiento | Invisibles fuera, textos y listas acotados sin romper el JSON | [tool_output.py](../packages/genaipocs_core/src/genaipocs_core/domain/tool_output.py) |
@@ -57,13 +66,13 @@ sequenceDiagram
 
 Diferencias entre proveedores que el adaptador oculta:
 
-| Concepto | Azure OpenAI | Bedrock Converse |
-|---|---|---|
-| Definir tools | `tools[].function` + `strict` | `toolConfig.tools[].toolSpec` |
-| Forzar uso | `tool_choice: "required"` / función | `toolChoice: {any}` / `{tool}` |
-| Petición del modelo | `message.tool_calls` (argumentos en texto JSON) | bloques `toolUse` (argumentos como objeto) |
-| Resultado | mensaje `role: tool` | `toolResult` dentro de un turno `user`, con `status: error` |
-| Varias a la vez | `parallel_tool_calls` | varios `toolUse`; los resultados se agrupan en **un** turno `user` |
+| Concepto | Azure OpenAI | Bedrock Converse | Gemini (`google-genai`) |
+|---|---|---|---|
+| Definir tools | `tools[].function` + `strict` | `toolConfig.tools[].toolSpec` | `Tool(function_declarations=[...])` con `parameters_json_schema` |
+| Forzar uso | `tool_choice: "required"` / función | `toolChoice: {any}` / `{tool}` | `FunctionCallingConfig(mode=ANY)` / `allowed_function_names` |
+| Petición del modelo | `message.tool_calls` (argumentos en texto JSON) | bloques `toolUse` (argumentos como objeto) | partes `function_call` (argumentos como objeto) con `thought_signature` que hay que devolver |
+| Resultado | mensaje `role: tool` | `toolResult` dentro de un turno `user`, con `status: error` | `function_response` dentro de un turno `user`, con `output` o `error` |
+| Varias a la vez | `parallel_tool_calls` | varios `toolUse`; los resultados se agrupan en **un** turno `user` | varias `function_call`; las respuestas se agrupan en **un** turno `user` |
 
 Decisiones:
 
@@ -96,9 +105,13 @@ Decisiones:
 - **Un audience por servidor** (`api://genaipocs-mcp/{server}`): un token de `ticketing` no sirve en
   `refunds`. Es la defensa contra el *token passthrough* que prohíbe la especificación MCP.
 - En local, `DevTokenIssuer` hace de authorization server (clave RSA en `.secrets/`, ignorado por
-  Git). En la nube, Entra ID o Cognito (`MCP__ISSUER` + `MCP__JWKS_URI`).
+  Git). En la nube, Entra ID o Cognito (`MCP__ISSUER` + `MCP__JWKS_URI`) o, en GCP, Identity
+  Platform a la entrada del gateway y `signJwt` para el token de cada servidor
+  ([6.G2](#6g2--token-por-servidor-con-signjwt-e-identity-platform)).
 
-## 5. MCP Gateway: propio frente a AgentCore Gateway frente a APIM
+<a id="5-mcp-gateway-propio-frente-a-agentcore-gateway-frente-a-apim"></a>
+
+## 5. MCP Gateway: propio, AgentCore Gateway, APIM, Apigee y Agent Gateway
 
 Un gateway pone **un único punto de control** entre los agentes y los servidores MCP: autenticación,
 autorización, cuotas, auditoría, descubrimiento y, a veces, búsqueda semántica de tools.
@@ -109,6 +122,19 @@ flowchart LR
     GW -- "token exchange<br/>aud=catalog, catalog:read" --> C[catalog]
     GW -- "aud=ticketing, orders:read" --> T[ticketing]
     GW -- "aud=refunds, refunds:write" --> R[refunds]
+```
+
+Los gateways gestionados no encajan todos en el mismo sitio: unos agregan y cambian el token, otros
+publican cada servidor por separado y Agent Gateway gobierna la salida del agente:
+
+```mermaid
+flowchart LR
+  AG["Agente"] -->|"token del gateway"| P["Propio o AgentCore Gateway (AWS)"]
+  P -->|"token por servidor (exchange u OBO)"| S["Servidores MCP"]
+  AG -->|"token del propio servidor"| AP["APIM (Azure) o Apigee (GCP): uno por servidor"]
+  AP --> S
+  RT["Agente en Agent Runtime (GCP)"] -->|"salida gobernada: IAM v3 por tool"| AGW["Agent Gateway"]
+  AGW --> S
 ```
 
 | Capacidad | B · Gateway propio (FastMCP) | A · AgentCore Gateway (AWS) | A · API Management (Azure) | A · Apigee (GCP) | A · Agent Gateway (GCP) |
@@ -211,7 +237,7 @@ Google y los gateways gestionados de GCP. Coste 0: todo con dobles; lo real, en
 | 6.G1 | `4428442` | Bucle de tools y `support_agent` con Gemini de punta a punta |
 | 6.G2 | `10fac9a` | `GcpTokenExchanger` (`signJwt`) e Identity Platform como IdP de clientes |
 | 6.G3 | `8214d2b` | Agent Gateway + Agent Registry y Apigee en Terraform |
-| Cierre | (este commit) | Estado, índice y lecciones |
+| Cierre | `adb7a0d` | Estado, índice y lecciones |
 
 ### Verificación previa (20-11-2026)
 

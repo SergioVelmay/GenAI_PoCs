@@ -127,7 +127,7 @@ Job `integration` con servicios `pgvector/pgvector:pg17` y RabbitMQ: migraciones
 arriba (las `downgrade` también se prueban), `alembic check` (el ORM coincide con las migraciones),
 tests de integración y smoke test de carga + benchmark.
 
-## 7. Comparativa Azure ↔ AWS ↔ GCP
+## 7. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
 
 | Necesidad | Azure | AWS | GCP |
 |---|---|---|---|
@@ -156,7 +156,14 @@ alternativas habituales son SQLModel, asyncpg directo o Django ORM.
   porqué del tiempo.
 - **Migraciones reversibles y probadas** en CI, y creación concurrente de índices.
 
-## 9. Checkpoint de entrevista
+## 9. Pendiente con coste
+
+Ninguno en esta fase: todo se mide en local. El PostgreSQL gestionado de cada nube (Aurora
+PostgreSQL, Azure Database for PostgreSQL Flexible Server, Cloud SQL o AlloyDB), con su
+autenticación sin contraseña, llega con los despliegues de las fases 13–15
+([plan](plan-fases.md)).
+
+## 10. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 1](preguntas-entrevista.md#fase-1).

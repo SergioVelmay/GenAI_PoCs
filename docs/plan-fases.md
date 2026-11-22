@@ -45,7 +45,7 @@ El objetivo original de cada una sigue en su doc; aquí solo el resumen y los ca
 | 0 · Cimientos | Esqueleto profesional donde el negocio no sabe qué nube ni qué modelo hay debajo | Sin Ollama: solo modelos cloud (regla 4) |
 | 1 · SQL | El "backend corporativo" de Genaipocs que leen y modifican los agentes | — |
 | 2 · Modelos | Llamar a cualquier modelo de forma barata, rápida y trazada (routing, caché, gateway) | — |
-| 3 · Indexación | Ingesta event-driven en tres carriles × dos nubes | OpenSearch Serverless (~175 $/mes fijo) sustituido por **S3 Vectors** y pgvector |
+| 3 · Indexación | Ingesta event-driven en tres carriles × dos nubes | OpenSearch Serverless (~175 $/mes fijo) sustituido por **S3 Vectors** y pgvector; tercera nube (GCP) en la 3.G |
 | 4 · Retrieval | Recuperar el fragmento correcto y responder sin inventar, con citas | *On Your Data* retirado (14-10-2026): carril A de Azure con **Foundry IQ** |
 | 5 · Evals de RAG | Demostrar con números qué estrategia es mejor; gate en CI | — |
 | 6 · Tools y MCP | El LLM decide cuándo llamar a la API y el backend procesa la respuesta con seguridad | La tool de **compra** (Idempotency-Key + aprobación humana) quedó sin hacer: ver "Ideas aparcadas" |
@@ -81,7 +81,8 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
     que usa el repo.
   - **GCP**: los emuladores de `gcloud` (además del de Pub/Sub, que ya usamos) y otros módulos
     oficiales: qué hay para Firestore/Datastore, Bigtable, Spanner, Cloud Storage y lo que usa el
-    repo (Agent Runtime tiene emulador propio desde la 7.G3).
+    repo (Agent Runtime no tiene emulador oficial: el de la 7.G3 es un doble local del repo que
+    avisa de que no toca la nube).
 - **Entregables:** tabla por nube "servicio que usa Genaipocs → emulador oficial (sí/no, estado,
   licencia, imagen) → qué permite probar y qué no"; decisión de cuáles se adoptan (perfiles de
   `docker compose`, tests de contrato e integración como los de colas, arranque en la CI); y
@@ -91,6 +92,15 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   (EULA) de cualquier emulador; nada con coste; contenedores parados al terminar.
 - **Cubre:** "local y sin coste primero" (regla 5), testing de integración y equivalencia de
   nubes (cómo se prueba en local cada una).
+- **Plan aprobado (22-11-2026):** subfases G→13.1–G→13.5 en
+  [fase-13-g-checkpoint.md](fase-13-g-checkpoint.md). Se adoptan el **AWS Emulator** oficial
+  (imagen local con versión fijada, telemetría apagada) con `terraform test` + `apply` contra él
+  (estado en memoria) y **Azurite**; GCP no tiene emuladores nuevos que el repo necesite (Cloud
+  Storage no tiene oficial).
+- **Hecho (22-11-2026):** las cinco subfases. El job `aws-emulator` aplica el Terraform de AWS en
+  cada PR (salvo el autoescalado de ECS y los targets del MCP gateway) y Azurite entra en
+  `integration`. **ElasticMQ se queda** (G→13.5) para ejecutar el sistema en local; el AWS Emulator,
+  para la fidelidad y la IaC. Ninguna casilla de `pendientes-cloud.md` se cierra con emuladores.
 
 ## Fase 13 · Despliegue en AWS (producción principal)
 
@@ -115,13 +125,18 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   - Colas del flujo asíncrono con DLQ en SQS y workers con `ORCHESTRATOR__BROKER=sqs` (fase 9).
   - ECS + *target tracking* por mensajes en cola (fase 10).
   - X-Ray Transaction Search, `observability_enabled` y collector ADOT (fase 11).
-  - Servidores MCP en HTTPS y `mcp_gateway_enabled` (fase 6); confirmar en el `plan` que
-    `grant_type = "TOKEN_EXCHANGE"` de `infra/terraform/aws/mcp_gateway.tf` es válido (el provider
-    no lo documenta).
+  - Servidores MCP en HTTPS y `mcp_gateway_enabled` (fase 6). `grant_type = "TOKEN_EXCHANGE"` de
+    `infra/terraform/aws/mcp_gateway.tf` ya lo acepta la API en el AWS Emulator (G→13.3, que valida
+    contra los modelos de API de AWS); falta verlo en AWS con los targets reales.
+  - Probar antes en el AWS Emulator: `terraform test -test-directory=tests-emulator` (G→13.3)
+    aplica el módulo entero salvo `queue_workers` (`PutScalingPolicy` con *metric math* da 501).
   - A2A con Cognito *client credentials* (fase 9).
   - `edge_api` detrás de un balanceador: fijar `--forwarded-allow-ips` de uvicorn (por defecto confía
     en `X-Forwarded-For` desde 127.0.0.1; ver `services/edge_api/src/edge_api/identity.py`).
   - Workflow de CI para los jueces LLM (manual o programado, con OIDC y `--budget-usd`).
+  - Carril A de evals en AWS: **Bedrock Evaluations** no tiene código (sí Foundry Evaluation en
+    Azure y Evaluation Service en GCP); implementarlo y medirlo con el mismo conjunto (fase 5,
+    detectado en el repaso del checkpoint G→13; decisión de Sergio: se trata en la 13).
 
 ## Fase 14 · Despliegue espejo en Azure
 
@@ -139,7 +154,10 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
 - **Heredado:** App Registrations como código con `azuread` y OBO de extremo a extremo (fase 6,
   decisión del 18-10-2026: nada a mano en el tenant), `apim_enabled`, colas en Service Bus con
   `ORCHESTRATOR__BROKER=servicebus` (fase 9), Container Apps + KEDA `azure-servicebus` (fase 10),
-  tokens de servicio de Entra ID para A2A (fase 9), `--forwarded-allow-ips` como en la 13.
+  tokens de servicio de Entra ID para A2A (fase 9), `--forwarded-allow-ips` como en la 13. Del
+  checkpoint G→13: la subida incremental de blobs del carril A (`upload_if_changed`) ya está
+  probada contra Azurite, pero no la identidad gestionada ni RBAC; y `azurerm` no puede apuntar a
+  ningún emulador, así que el primer `plan` de Azure es el real.
 
 ## Fase 15 · Despliegue espejo en GCP
 
@@ -150,7 +168,9 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   Workload Identity Federation en la CI (ya en `infra/terraform/gcp/identity.tf`).
 - **Entregables:** despliegue espejo y columna GCP de la chuleta validada con lo desplegado.
 - **Heredado:** los pendientes de GCP de cada subfase `N.G` en
-  [pendientes-cloud.md](pendientes-cloud.md).
+  [pendientes-cloud.md](pendientes-cloud.md). Del checkpoint G→13: Cloud Storage no tiene emulador
+  oficial y ningún emulador de GCP sirve para aplicar el Terraform, así que su subida y la IaC solo
+  se validan en la nube.
 
 ## Fase 16+ · Extras
 

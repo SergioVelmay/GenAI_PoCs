@@ -14,7 +14,7 @@ Managed Prometheus en GCP ([pasada 11.G](#7-gcp-pasada-11g)).
 | 11.4 | `b20aaf4` + `4e02437` | Métricas RED y GenAI (tokens, coste por agente), catálogo de SLO; arreglo del redondeo del GCRA |
 | 11.5 | `76d1bc0` + `8fea488` | Stack local (collector, Jaeger, Prometheus, Grafana), dashboard como código y reenvío a Langfuse |
 | 11.6 | `ccfb62e` | Alertas de SLO (*burn rate*) y de coste generadas desde el dominio, `promtool` en la CI, evaluación online con LLM-juez y runbook |
-| 11.7 | — | Terraform desactivado (App Insights, CloudWatch/X-Ray), collectors de nube validados en la CI y este documento |
+| 11.7 | `0165ed1` | Terraform desactivado (App Insights, CloudWatch/X-Ray), collectors de nube validados en la CI y este documento |
 
 ## 1. Arquitectura
 
@@ -37,7 +37,7 @@ flowchart LR
   end
 
   COL -->|"local"| J["Jaeger :16686"]
-  COL -->|"local"| P["Prometheus :9095<br/>71 reglas"] --> G["Grafana :3001"]
+  COL -->|"local"| P["Prometheus :9095<br/>reglas generadas"] --> G["Grafana :3001"]
   COL -.->|"opcional, spans GenAI"| LF["Langfuse<br/>sesiones, coste, scores"]
   COL -.->|"Azure (11.7)"| AI["Application Insights<br/>+ Log Analytics"]
   COL -.->|"AWS (11.7)"| XR["X-Ray (OTLP)<br/>+ CloudWatch (EMF)"]
@@ -82,12 +82,12 @@ uv run pytest packages/genaipocs_core/tests/test_telemetry.py packages/genaipocs
 
 ### 11.3 · Propagación de punta a punta
 
-- Contexto W3C (`traceparent`) **fuera del cuerpo**: cabeceras AMQP, atributos de SQS, propiedades de Service Bus y columna `outbox_events.headers`.
+- Contexto W3C (`traceparent`) **fuera del cuerpo**: cabeceras AMQP, atributos de SQS, propiedades de Service Bus, atributos de Pub/Sub y columna `outbox_events.headers`.
 - Un caso asíncrono es **una sola traza** (padre, no *link*): el relay y los workers continúan la del `POST /cases`. A2A inyecta el contexto en httpx y el especialista abre el SERVER.
 
 ```powershell
 uv run pytest services/orchestrator/tests/test_trace_propagation.py -q
-docker compose --profile sqs --profile servicebus up -d ; uv run pytest -m integration packages/genaipocs_core/tests/integration/test_message_bus_contract.py
+docker compose --profile sqs --profile servicebus --profile pubsub up -d ; uv run pytest -m integration packages/genaipocs_core/tests/integration/test_message_bus_contract.py
 ```
 
 ### 11.4 · Métricas RED, GenAI y SLO
@@ -109,13 +109,24 @@ uv run python scripts/telemetry_demo.py --rounds 3 --minutes 3
 
 ### 11.6 · Alertas como código, evaluación online y runbook
 
-- `build_rules()` genera `rules/genaipocs.rules.yml` desde `domain/slo.py`: 42 recording rules (SLI por ventana), 24 alertas de *burn rate* y 5 operativas (`LlmCostBudget`, `LlmCostRunaway`, `OutboxBacklogGrowing`, `FaithfulnessDrop`, `PromptInjectionSpike`; la 11.G2 añadió `MessageSettleFailures`). Un SLO sin SLI rompe la generación.
+- `build_rules()` genera `rules/genaipocs.rules.yml` desde `domain/slo.py`: 42 recording rules (SLI por ventana), 24 alertas de *burn rate* y 5 operativas (`LlmCostBudget`, `LlmCostRunaway`, `OutboxBacklogGrowing`, `FaithfulnessDrop`, `PromptInjectionSpike`; la 11.G2 añadió `MessageSettleFailures`). La 12.8 sumó 3 *recording rules* `drift:psi` y 3 alertas `DistributionDrift`: hoy son **78 reglas** (45 *recording rules* y 33 alertas). Un SLO sin SLI rompe la generación.
 - 11 escenarios de `promtool test rules` en la CI. Cada alerta enlaza un ancla del [runbook](runbook-incidentes.md).
 - Evaluación online: el edge ofrece respuestas generadas (`miss`) a un juez que no bloquea (cola acotada, `EDGE__ONLINE_EVAL_RATE`, `EDGE__ONLINE_EVAL_PER_MINUTE`). El score va al mismo `trace_id` en Langfuse y a la métrica `genaipocs.eval.faithfulness`.
 
 ```powershell
 uv run python scripts/build_observability.py --check
 docker compose --profile telemetry run --rm --entrypoint promtool prometheus test rules /etc/prometheus/rules/tests/genaipocs.test.yml
+```
+
+Alertas como código en las tres nubes (una sola fuente, el dominio):
+
+```mermaid
+flowchart LR
+  SLO["domain/slo.py"] --> BR["build_rules()"]
+  BR --> PR["Prometheus local<br/>promtool en la CI"]
+  BR -->|"SLI expandidos (11.G2)"| CM["GCP: Cloud Monitoring<br/>36 políticas PromQL"]
+  SLO -.->|"2 portadas a mano (11.7)"| AZ["Azure: log search alerts"]
+  SLO -.->|"2 portadas a mano (11.7)"| AW["AWS: CloudWatch alarms"]
 ```
 
 ### 11.7 · Nube: Terraform desactivado y collectors
@@ -136,6 +147,7 @@ docker compose --profile telemetry run --rm --entrypoint promtool prometheus tes
 ```powershell
 cd infra/terraform/azure ; terraform fmt -check -recursive ; terraform init -backend=false ; terraform validate
 cd ../aws ; terraform init -backend=false ; terraform validate
+cd ../gcp ; terraform init -backend=false ; terraform validate ; terraform test   # 11.G1
 ```
 
 ## 3. Resultados medidos (local, coste 0)
@@ -167,13 +179,15 @@ Langfuse como observaciones `GENERATION`, `AGENT` y `TOOL`, con coste calculado 
 
 ### 3.2 · Resto de la fase
 
+Cifras al cierre de la 11.7; lo que añadió la pasada GCP va indicado en cada fila.
+
 | Prueba | Resultado |
 |---|---|
-| Cabeceras de traza por los tres brokers (contrato) | RabbitMQ, SQS (ElasticMQ) y Service Bus (emulador): OK |
+| Cabeceras de traza por los brokers (contrato) | RabbitMQ, SQS (ElasticMQ) y Service Bus (emulador): OK; Pub/Sub (emulador) desde la 11.G3 |
 | Demo de tráfico (`telemetry_demo.py`, 65 casos en 3 min) | 17 consultas PromQL del dashboard con datos; dashboard revisado en el navegador |
-| Reglas de alerta | 71 reglas válidas (`promtool check`), 11 escenarios en verde (`promtool test`), grupos con salud `ok` en Prometheus |
-| Collectors | Local, Azure y AWS válidos con `otelcol-contrib 0.163.1 validate` |
-| Terraform | `fmt` y `validate` en verde en `azure` y `aws`, todo con `count = 0` por defecto |
+| Reglas de alerta | 71 reglas válidas (`promtool check`), 11 escenarios en verde (`promtool test`), grupos con salud `ok` en Prometheus. Hoy son 78, con `MessageSettleFailures` (11.G2) y el drift (12.8) |
+| Collectors | Local, Azure y AWS válidos con `otelcol-contrib 0.163.1 validate`; el de GCP desde la 11.G1 (la CI valida los cuatro) |
+| Terraform | `fmt` y `validate` en verde en `azure` y `aws`, todo con `count = 0` por defecto; `gcp` con `terraform test` desde la 11.G1 |
 | Calidad | 1.049 tests, `mypy --strict` sin errores |
 
 ### 3.3 · Lo que la observabilidad destapó
@@ -209,8 +223,8 @@ SaaS y ata el formato.
 ## 5. Decisiones y límites (para defenderlos)
 
 - **Una instrumentación, varios destinos.** El código habla OTel y el collector decide. Cambiar de Jaeger a X-Ray o añadir Langfuse es configuración, no código. Es la misma idea que `LLMPort` aplicada a la telemetría.
-- **Convención GenAI de OTel aunque esté en *Development*.** Es la que entienden Langfuse, App Insights y X-Ray sin traducir. El riesgo de que cambie se aísla en `genai.py` (un solo fichero de nombres).
-- **El contenido no sale hacia el backend genérico.** Prompts y respuestas pueden traer PII: apagados por defecto, redactados si se activan y borrados en el collector antes de Jaeger, App Insights o X-Ray. Langfuse, con acceso restringido, es el único que los ve.
+- **Convención GenAI de OTel aunque esté en *Development*.** Es la que entienden Langfuse, App Insights, X-Ray y Cloud Trace sin traducir. El riesgo de que cambie se aísla en `genai.py` (un solo fichero de nombres).
+- **El contenido no sale hacia el backend genérico.** Prompts y respuestas pueden traer PII: apagados por defecto, redactados si se activan y borrados en el collector antes de Jaeger, App Insights, X-Ray o Cloud Trace. Langfuse, con acceso restringido, es el único que los ve.
 - **Un caso es una sola traza** (padre, no *link*), aunque cruce outbox, tres colas y A2A. Se pierde la separación "petición frente a procesamiento", y a cambio soporte ve el caso completo con un solo ID.
 - **Alertas generadas desde el dominio.** Los SLO viven en `domain/slo.py`; reglas, dashboard y tests salen de ahí. No hay umbrales copiados a mano que se desincronicen.
 - **Alertas por *burn rate*, no por umbral fijo.** Avisan de lo que importa (el presupuesto de error se acaba) y no despiertan a nadie por un pico de un minuto.
@@ -219,7 +233,7 @@ SaaS y ata el formato.
 - **En GCP, métricas por Managed Prometheus y no por la Telemetry API (11.G1).** Por OTLP las métricas conservan los puntos del nombre y harían falta otras reglas; por `googlemanagedprometheus` llegan con los mismos nombres que en local, comprobado en la CI contra un Cloud Monitoring falso.
 - **En GCP se portan todas las alertas (11.G2), no 2.** Cloud Monitoring habla PromQL: el generador solo expande las *recording rules* y adapta intervalos, y los mismos tests de `promtool` demuestran que no cambia el resultado. Gratis hasta septiembre de 2027.
 - **El contenido de los frameworks se apaga siempre (11.G3).** ADK y Strands emiten spans propios con el proveedor global; su contenido no pasa por nuestro redactor. Se apaga en el arranque y se borra en el collector (atributos y eventos), y Langfuse descarta sus spans porque duplican los tokens.
-- **Límites conocidos:** en Azure y AWS solo se han portado 2 alertas por plataforma (las 77 reglas viven en Prometheus; en GCP, las 36 alertas); no hay muestreo de cola (*tail sampling*); Langfuse sigue en v3 local; la evaluación online no se ha medido con un juez real; los collectors de nube están validados, pero no desplegados.
+- **Límites conocidos:** en Azure y AWS solo se han portado 2 alertas por plataforma (las 78 reglas viven en Prometheus; en GCP, las 36 alertas); no hay muestreo de cola (*tail sampling*); Langfuse sigue en v3 local; la evaluación online no se ha medido con un juez real; los collectors de nube están validados, pero no desplegados.
 
 ## 6. Pendiente con coste
 
@@ -252,7 +266,7 @@ test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
 | Comprobado | Resultado | Consecuencia |
 |---|---|---|
 | [Telemetry API](https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/overview) | OTLP nativo para trazas, métricas y logs en `telemetry.googleapis.com`. Es la vía recomendada desde 2025: admite 1.024 atributos por span y la API propietaria de Cloud Trace solo 32. Rol `roles/telemetry.writer` | Trazas y logs por OTLP, igual que en X-Ray. Se habilita `telemetry.googleapis.com` |
-| [Métricas por OTLP](https://docs.cloud.google.com/stackdriver/docs/otlp-metrics/overview) | Se guardan como series de Prometheus, pero **conservan los puntos** del nombre (`genaipocs.llm.cost`) | Las 77 reglas generadas no valdrían tal cual. Las métricas van por el exporter `googlemanagedprometheus`, que traduce como el Prometheus local |
+| [Métricas por OTLP](https://docs.cloud.google.com/stackdriver/docs/otlp-metrics/overview) | Se guardan como series de Prometheus, pero **conservan los puntos** del nombre (`genaipocs.llm.cost`) | Las reglas generadas (77 entonces, 78 hoy) no valdrían tal cual. Las métricas van por el exporter `googlemanagedprometheus`, que traduce como el Prometheus local |
 | [Collector en Cloud Run](https://docs.cloud.google.com/stackdriver/docs/instrumentation/opentelemetry-collector-cloud-run) | Sidecar con la imagen de Google (`otelcol-google`), `googleclientauth`, `health_check` obligatorio y detector `gcp` | Mismo diseño. La CI valida con la imagen contrib ya fijada, que trae esos componentes |
 | [Alertas PromQL](https://cloud.google.com/monitoring/promql/create-promql-alerts) | Una condición por política y sin *recording rules*. Gratis hasta el 01-09-2027 ([coste](https://docs.cloud.google.com/monitoring/alerts/cost-control)) | La 11.G2 genera las alertas con los SLI expandidos dentro de cada consulta |
 | ADK 2.14 (telemetría instalada) | `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=true` por defecto, y usa el proveedor global de OTel, que fijamos nosotros | Se sospechó una fuga de prompts. **Medido en la 11.G3:** en la ruta que usamos no la hay por defecto; solo si se activa la convención experimental por entorno. La fuga real era de Strands (11.G3) |

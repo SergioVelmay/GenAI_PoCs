@@ -6,6 +6,7 @@
 Cada broker se salta si su emulador no está arrancado:
     docker compose up -d                                # RabbitMQ
     docker compose --profile sqs up -d                  # ElasticMQ
+    docker compose --profile aws up -d                  # SQS en el AWS Emulator (G→13.2)
     docker compose --profile servicebus up -d           # Service Bus (requiere aceptar la EULA)
     docker compose --profile pubsub up -d               # Pub/Sub (fase 3.G1)
 """
@@ -19,6 +20,7 @@ import socket
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import aio_pika
@@ -49,6 +51,9 @@ from genaipocs_core.adapters.sqs import SqsMessageBus, queue_name
 from genaipocs_core.application.telemetry.messaging import TracedMessageBus
 from genaipocs_core.config import GcpSettings, PubSubSettings, get_settings
 from genaipocs_core.ports import Message, MessageBusPort, PermanentMessageError
+
+if TYPE_CHECKING:
+    from mypy_boto3_sqs import SQSClient
 
 pytestmark = pytest.mark.integration
 
@@ -82,11 +87,17 @@ def _require(host: str, port: int, name: str) -> None:
         pytest.skip(f"{name} no está arrancado en {host}:{port}")
 
 
-@pytest.fixture(params=["rabbitmq", "sqs", "servicebus", "pubsub"])
+@pytest.fixture(params=["rabbitmq", "sqs", "sqs-emulator", "servicebus", "pubsub"])
 async def broker(request: pytest.FixtureRequest) -> AsyncIterator[Broker]:
+    if request.param == "sqs-emulator":
+        # El mismo contrato contra el AWS Emulator oficial, junto a ElasticMQ (G→13.2).
+        client_factory: Callable[[str], Any] = request.getfixturevalue("aws_emulator")
+        async for broker in _sqs(client_factory("sqs")):
+            yield broker
+        return
     factories = {
         "rabbitmq": _rabbitmq,
-        "sqs": _sqs,
+        "sqs": _elasticmq,
         "servicebus": _servicebus,
         "pubsub": _pubsub,
     }
@@ -121,7 +132,7 @@ async def _rabbitmq() -> AsyncIterator[Broker]:
             await channel.queue_delete(name)
 
 
-async def _sqs() -> AsyncIterator[Broker]:
+async def _elasticmq() -> AsyncIterator[Broker]:
     endpoint = urlparse(SQS_ENDPOINT)
     _require(endpoint.hostname or "127.0.0.1", endpoint.port or 9324, "ElasticMQ")
     client = boto3.client(
@@ -131,6 +142,11 @@ async def _sqs() -> AsyncIterator[Broker]:
         aws_access_key_id="local",
         aws_secret_access_key="local",
     )
+    async for broker in _sqs(client):
+        yield broker
+
+
+async def _sqs(client: SQSClient) -> AsyncIterator[Broker]:
     topic = f"it.{uuid.uuid4().hex[:12]}"
     # El test hace de "Terraform": crea la cola con su DLQ y redrive policy.
     dlq_url = client.create_queue(QueueName=f"{queue_name(topic)}-dlq")["QueueUrl"]

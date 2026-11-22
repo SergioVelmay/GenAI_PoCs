@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from azure.search.documents.indexes.models import (
     AzureOpenAIEmbeddingSkill,
@@ -49,6 +50,9 @@ from azure.search.documents.indexes.models import (
 )
 
 from genaipocs_core.domain import KnowledgeDocument
+
+if TYPE_CHECKING:
+    from azure.storage.blob.aio import ContainerClient
 
 # Metadatos del blob que el indexer expone como /document/<clave>. Deben ser ASCII.
 BLOB_METADATA = ("document_id", "doc_type", "language", "category", "city")
@@ -121,6 +125,27 @@ def needs_upload(
     return bytes(existing_md5) != content_md5(document) or dict(existing_metadata) != (
         blob_metadata(document)
     )
+
+
+async def upload_if_changed(container: ContainerClient, document: KnowledgeDocument) -> bool:
+    """Sube el documento al contenedor solo si cambió (`needs_upload`). Devuelve si lo subió.
+
+    Probado contra Azurite (checkpoint G→13.4): guarda el Content-MD5 como Azure Storage.
+    """
+    from azure.core.exceptions import ResourceNotFoundError
+
+    blob = container.get_blob_client(blob_name(document))
+    try:
+        properties = await blob.get_blob_properties()
+        md5, metadata = properties.content_settings.content_md5, properties.metadata
+    except ResourceNotFoundError:
+        md5, metadata = None, None
+    if not needs_upload(document, md5, metadata):
+        return False
+    await blob.upload_blob(
+        document.content.encode(), overwrite=True, metadata=blob_metadata(document)
+    )
+    return True
 
 
 def data_source(

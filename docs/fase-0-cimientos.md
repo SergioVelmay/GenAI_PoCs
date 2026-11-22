@@ -7,7 +7,7 @@ cualquier nube, base de datos o modelo, y se prueba sin red ni coste.
 Commit: `bd044b2 chore: fase 0 - monorepo uv, dominio Genaipocs, puertos y adaptadores, entorno local y CI`.
 
 Pasada GCP ([sección 7](#7-gcp-pasada-0g), PR #2): `ef71b14` (0.G1, dependencias y configuración),
-`03a1f68` (0.G2, Terraform de GCP), `6c1f8dd` (0.G3, emulador de Pub/Sub) y el cierre (0.G4, docs).
+`03a1f68` (0.G2, Terraform de GCP), `6c1f8dd` (0.G3, emulador de Pub/Sub) y `417684a` (0.G4, cierre y docs).
 
 ## 1. Arquitectura: puertos y adaptadores
 
@@ -17,7 +17,7 @@ flowchart LR
     D["domain/<br/>Python puro: entidades y reglas"]
     A["application/<br/>casos de uso"]
     P["ports/<br/>typing.Protocol"]
-    AD["adapters/<br/>memory · postgres · azure · aws ..."]
+    AD["adapters/<br/>memory · postgres · azure · aws · gcp ..."]
   end
   S["services/*<br/>(API, indexer, agentes)"] --> A
   A --> D
@@ -31,11 +31,11 @@ flowchart LR
 | `domain/` | `models.py` (dataclasses `frozen`/`slots`: `Money`, `Event`, `Session`, `Order`, `Refund`...), `policies.py` (`evaluate_refund`) | Sin imports de frameworks, nube ni base de datos. **El LLM nunca decide negocio: decide el dominio.** |
 | `application/` | Casos de uso (`RefundService` en la fase 0) | Depende solo de puertos y del dominio |
 | `ports/` | `llm.py`, `repositories.py`, `messaging.py`, `vector_store.py` | Interfaces con `typing.Protocol` (tipado estructural: el adaptador no hereda de nada) |
-| `adapters/` | `memory.py` en la fase 0; después `postgres/`, `azure_openai.py`, `bedrock.py`, ... | Única capa que conoce SDKs |
+| `adapters/` | `memory.py` en la fase 0; después `postgres/`, `azure_openai.py`, `bedrock.py`, `gemini.py`, ... | Única capa que conoce SDKs |
 
 Los servicios (`services/<nombre>`) son la **raíz de composición**: eligen adaptadores según la
 configuración y se los inyectan a los casos de uso. Así, la misma lógica corre con adaptadores en
-memoria (tests) o con PostgreSQL, Azure o AWS (fases siguientes).
+memoria (tests) o con PostgreSQL, Azure, AWS o GCP (fases siguientes).
 
 Ejemplo de la fase 0: `evaluate_refund(order, session, event, requested_at)` devuelve una
 `RefundDecision` (estado del pedido, categoría reembolsable, ventana de horas antes de la sesión).
@@ -76,10 +76,15 @@ Docker solo ejecuta **infraestructura**; los modelos son siempre de nube.
 | PostgreSQL + pgvector | `pgvector/pgvector:pg17` | por defecto | `5432` |
 | RabbitMQ | `rabbitmq:4-management` | por defecto | `5672`, consola `15672` |
 | ElasticMQ (SQS) | `softwaremill/elasticmq-native` | `sqs` (fase 3) | `9324` |
+| AWS Emulator oficial (SQS, S3, S3 Vectors e IaC de AWS) | `genaipocs-aws-emulator` (construida en local) | `aws` (checkpoint G→13) | `9297` |
+| Azurite (Blob Storage) | `azure-storage/azurite` | `azure` (checkpoint G→13) | `10000` |
 | Emulador de Service Bus + SQL Server | `servicebus-emulator` | `servicebus` (fase 3) | `5673` |
 | Emulador de Pub/Sub | `google-cloud-cli:<versión>-emulators` | `pubsub` (0.G3) | `8085` |
 | Langfuse v3 (web, worker, ClickHouse, Redis, MinIO) | `langfuse/langfuse:3` | `observability` (fase 2) | `3000` |
 | Servidores MCP y gateway | `genaipocs-mcp:local` | `mcp` (fase 6) | `8100`–`8103` |
+| Especialistas A2A | `genaipocs-agents:local` | `agents` (fase 9) | `8201`–`8203` |
+| Redis y Valkey de escala, worker de cola | `redis:8`, `valkey/valkey-bundle`, `genaipocs-agents:local` | `scale` (fase 10) | `6380`, `6381` |
+| Collector OTel, Jaeger, Prometheus, Grafana | `otel/opentelemetry-collector-contrib`, `jaegertracing/jaeger`, `prom/prometheus`, `grafana/grafana` | `telemetry` (fase 11) | `4317`/`4318`, `16686`, `9095`, `3001` |
 
 Puertos ligados a `127.0.0.1` para no exponer servicios a la red. Los perfiles evitan arrancar lo
 que no se usa. En Windows el código conecta a `127.0.0.1` y no a `localhost` (el intento IPv6
@@ -120,7 +125,9 @@ añade ~2 s por conexión).
 
 Job `quality`: `uv sync --all-packages --locked` (falla si el lock no está al día) → ruff → formato →
 mypy → pytest → smoke test del generador. Las fases siguientes añaden jobs (`integration`, `evals`,
-`terraform`, `mcp-image`). Acciones fijadas por SHA y runner `ubuntu-26.04` fijado (checkpoint 8→9).
+`terraform` con matriz `aws`/`azure`/`gcp`, `mcp-image`, `agents-image`, `aws-emulator` desde el
+checkpoint G→13 y `release-gate`, el check que exige `main`). Acciones fijadas por SHA y runner
+`ubuntu-26.04` fijado (checkpoint 8→9).
 
 ## 7. GCP (pasada 0.G)
 
@@ -133,7 +140,7 @@ Coste 0: nada se ejecuta en la nube.
 | 0.G1 | `ef71b14` | Dependencias de GCP en el lock y configuración tipada |
 | 0.G2 | `03a1f68` | `infra/terraform/gcp`: APIs, presupuesto e identidades sin claves; `gcp` en la CI |
 | 0.G3 | `6c1f8dd` | Emulador de Pub/Sub en `docker-compose.yml` y en la CI |
-| 0.G4 | (cierre) | Chuleta a tres columnas, comparativas, glosario y pendientes |
+| 0.G4 | `417684a` | Chuleta a tres columnas, comparativas, glosario y pendientes |
 
 ### 7.1 Dependencias y configuración (0.G1)
 
@@ -193,14 +200,14 @@ uv run pytest packages/genaipocs_core/tests/integration/test_pubsub_emulator.py 
 | Unidad de aislamiento | — | Grupo de recursos (`rg-genaipocs-dev`) | Cuenta | Proyecto (facturación, cuotas, APIs e IAM) |
 | Configuración y secretos | Pydantic Settings + `.env` local | App Configuration + Key Vault, Managed Identity | Parameter Store / Secrets Manager, IAM Roles | Secret Manager, cuenta de servicio adjunta |
 | Credenciales en local | Sin claves en `.env` | `az login` (`AZURE_CONFIG_DIR` aislado) | `aws sso login` + perfil | ADC + *impersonation* (`CLOUDSDK_CONFIG` aislado) |
-| Infra local | Docker Compose | Emuladores (Service Bus, Azurite) | ElasticMQ / LocalStack | Emuladores de `google-cloud-cli` (Pub/Sub) |
+| Infra local | Docker Compose | Emuladores oficiales (Service Bus, Azurite) | ElasticMQ (SQS) y AWS Emulator oficial (checkpoint G→13) | Emuladores de `google-cloud-cli` (Pub/Sub); Cloud Storage sin emulador oficial |
 | CI/CD | GitHub Actions | Azure DevOps Pipelines | CodePipeline / CodeBuild | Cloud Build / Cloud Deploy |
 | Identidad en CI | OIDC (fases 13–15) | Federated credentials en Entra ID | `AssumeRoleWithWebIdentity` | Workload Identity Federation (`identity.tf`) |
 | Presupuesto | — | Presupuesto del grupo de recursos | AWS Budgets | Cloud Billing budget (bruto de créditos) |
 
 ## 9. Decisiones (para defenderlas)
 
-- **Clean Architecture desde el día 0**: tres carriles (gestionado, SDK nativo, framework) × dos
+- **Clean Architecture desde el día 0**: tres carriles (gestionado, SDK nativo, framework) × tres
   nubes solo son comparables si comparten dominio, casos de uso y tests; cambia el adaptador.
 - **`Protocol` en lugar de ABC**: los adaptadores de terceros encajan sin heredar; mypy comprueba
   la conformidad.

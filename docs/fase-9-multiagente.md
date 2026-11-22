@@ -14,7 +14,7 @@ y con los guardrails y la aprobación humana de la fase 8. En Azure, AWS y GCP (
 | 9.4 | `7bc8e6e` | El mismo flujo con workflows de MAF |
 | 9.5 | `6298fef` | Especialistas como microservicios A2A con OAuth, un contenedor por subagente |
 | 9.6 | `f6585cc` | Coreografía por cola: idempotencia, reclamación del caso y DLQ |
-| 9.7 | — | Evals multi-agente en los tres motores, gate en la CI y este documento |
+| 9.7 | `25a9e8f` + `c30ccdc` | Evals multi-agente en los tres motores (cuatro desde la 9.G2), gate en la CI y este documento |
 
 ## 1. Arquitectura
 
@@ -151,6 +151,16 @@ uv run python scripts/a2a_smoke.py     # sin coste: Agent Card, 401 sin token, t
 - Cada contenedor carga solo lo que necesita (el Creativo no carga la base de conocimiento). En
   la CI, el job `agents-image` construye la imagen y comprueba Agent Card, 401 y 200.
 
+El mismo protocolo en las tres nubes; solo cambia quién emite el token (detalle por nube en la
+tabla de la [9.G4](#9g4--a2a-con-id-tokens-de-google-y-cloud-run)):
+
+```mermaid
+flowchart LR
+  ORQ["Orquestador<br/>RemoteSpecialist"] -->|"pide un token por audience"| IDP["Emisor<br/>Entra ID · Cognito · Google"]
+  ORQ -->|"A2A JSON-RPC + Bearer"| SP["Especialista<br/>(un contenedor)"]
+  SP -->|"verifica firma, audience y llamante"| IDP
+```
+
 ### 9.6 · Asíncrono: coreografía por eventos
 
 ```powershell
@@ -161,6 +171,21 @@ uv run python -m orchestrator.intake --limit 5       # publica emails sintético
 uv run python -m orchestrator.cases list --status pending_approval
 uv run python -m orchestrator.cases approve case_eml_000004 --reviewer ops-ana
 ```
+
+```mermaid
+flowchart LR
+  IN["Buzón / intake"] -->|"email"| E[["support.emails"]]
+  E --> TW["Workers de triaje"]
+  TW -->|"case.triaged.especialista"| SW["Workers del especialista"]
+  SW -->|"resultado"| OUT[["case.outcomes"]]
+  TW -->|"reclama el caso (CAS)"| CS[("CaseStore")]
+  SW -->|"transición (CAS)"| CS
+  TW -.->|"mal formado o ruta manipulada"| DLQ[["DLQ"]]
+  SW -.->|"traspaso alterado"| DLQ
+```
+
+El broker cambia por nube detrás de `MessageBusPort`: RabbitMQ en local, SQS en AWS, Service Bus
+en Azure y Pub/Sub en GCP ([9.G3](#9g3--pubsub-con-exactly-once-en-el-flujo-asíncrono)).
 
 - `support.emails` → triaje → `case.triaged.<especialista>` → especialista → `case.outcomes`;
   `correlation_id = case_id` en cada evento. Workers por rol que escalan por separado.
@@ -219,7 +244,7 @@ Hallazgos que dejaron test de regresión:
 | Pieza | Azure | AWS | GCP | Nuestro código (B) | Framework (C) |
 |---|---|---|---|---|---|
 | Orquestación gestionada (A) | Foundry Agent Service (workflows, tool A2A) | AgentCore Runtime (A2A), Bedrock Agents (*multi-agent collaboration*) | Agent Runtime (A2A), Agent Gateway agente↔agente | Cola + `CaseStore` (coreografía) | LangGraph `StateGraph`; MAF `WorkflowBuilder`; ADK `Workflow` de grafo |
-| Revisión humana | Durable Functions / Logic Apps | Step Functions (`.waitForTaskToken`) | **Workflows** (`await_callback` con SLA, 9.G5) | `CaseReviewService` + `ReviewHandler` | `interrupt` / `request_info` / `RequestInput` |
+| Revisión humana | Durable Functions / Logic Apps (idea, no implementada) | Step Functions (`.waitForTaskToken`; idea, no implementada) | **Workflows** (`await_callback` con SLA, 9.G5) | `CaseReviewService` + `ReviewHandler` | `interrupt` / `request_info` / `RequestInput` |
 | Estado y checkpoints | Cosmos DB, PostgreSQL Flexible | DynamoDB, Aurora | Sessions de Agent Platform, Cloud SQL / AlloyDB | `support_cases` (PostgreSQL) | `AsyncPostgresSaver` / `CheckpointStorage` / `DatabaseSessionService` |
 | Agente↔agente | A2A sobre Container Apps | A2A sobre AgentCore o ECS | A2A sobre **Cloud Run** (9.G4) o Agent Runtime | `a2a-sdk` | MAF `agent-framework-a2a` (beta), ADK `RemoteA2aAgent` |
 | Colas | Service Bus (*duplicate detection*) | SQS FIFO (deduplicación), SNS, EventBridge | **Pub/Sub** (*exactly-once*: solo reentregas), Eventarc | `MessageBusPort` (RabbitMQ local) | — |
@@ -288,11 +313,18 @@ entre agentes y **Workflows** como espera humana con SLA. Coste 0: emulador y do
 uv run pytest services/orchestrator/tests/test_adk_workflow.py
 ```
 
-```text
-START → triage ─route─┬─▶ refunds ───┐
-                      ├─▶ creative ──┼─▶ review ─(pendiente)─▶ RequestInput ─▶ decisión
-                      ├─▶ knowledge ─┘        └─(resto)──────▶ salida
-                      └─▶ (DEFAULT_ROUTE) unroutable
+```mermaid
+flowchart LR
+  S0(["START"]) --> TRI["triage"]
+  TRI -->|"route"| REF["refunds"]
+  TRI -->|"route"| CRE["creative"]
+  TRI -->|"route"| KNO["knowledge"]
+  TRI -->|"DEFAULT_ROUTE"| UNR["unroutable"]
+  REF --> REV["review"]
+  CRE --> REV
+  KNO --> REV
+  REV -->|"pendiente"| RI["RequestInput"] --> DEC["decisión"]
+  REV -->|"resto"| OUT["salida"]
 ```
 
 `orchestrator/adk_workflow.py` (`AdkCaseWorkflow`) con la misma API que `RouterGraph`

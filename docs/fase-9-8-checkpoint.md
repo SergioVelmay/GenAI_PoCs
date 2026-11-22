@@ -6,6 +6,10 @@ prácticas de Anthropic, material de entrevista recopilado y la conexión real c
 abordar los pendientes con coste.
 
 > Estado: ✅ Hecho (20-10-2026). Coste total en Azure: **3,76 €** ([detalle](#6-coste-real-cost-management-1720-de-octubre)).
+>
+> **Aviso histórico (20-11-2026):** la suscripción de Azure de este checkpoint se perdió y sus
+> recursos (sección 4) ya no existen. Los resultados medidos se conservan como histórico; todo lo de
+> Azure se rehará en otra suscripción ([pendientes](pendientes-cloud.md)).
 
 | Commit | Qué |
 |---|---|
@@ -78,7 +82,7 @@ reescribir `main` rompería los hashes que citan los docs.
 
 | Decisión | Motivo |
 |---|---|
-| Suscripción *MSDN - Sergio Velasco*, perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
+| Suscripción personal de desarrollo (ya eliminada), perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
 | Región `swedencentral` | La región de la UE con más modelos y cuota |
 | Modelos en **DataZoneStandard** (chat 200 K TPM, embeddings 50 K) | Procesamiento dentro de la UE (RGPD) con cuota suficiente (16 M TPM disponibles). La capacidad no se paga: se dimensiona según la carga (ver §5) |
 | Foundry **en Terraform** (`foundry.tf`) | Cuenta AI Services + proyecto + despliegues como código, en lugar del portal |
@@ -283,7 +287,7 @@ Aplazado, con su fase:
 | Pendiente | A | Motivo |
 |---|---|---|
 | Memoria de Foundry y de AgentCore frente a `remember_preference` | Fase 9 | Encaja con la memoria compartida entre agentes |
-| Tool de compra con `Idempotency-Key` y aprobación | Fase 9 | Nuevo flujo de escritura del multi-agente |
+| Tool de compra con `Idempotency-Key` y aprobación | Fase 9 (no se hizo: [aparcada](plan-fases.md#ideas-aparcadas-sin-fase-asignada)) | Nuevo flujo de escritura del multi-agente |
 | Juez de respuestas para la suite de agentes y los ataques; red teaming | Fase 12 | Evals de agentes |
 | Langfuse v4 | Fase 11 | Observabilidad |
 | APIM, MCP en HTTPS y Entra ID + OBO (App Registrations como código) | Fase 14 | Despliegue en Azure; sin objetos a mano en el tenant corporativo |
