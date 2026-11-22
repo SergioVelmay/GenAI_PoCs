@@ -374,7 +374,7 @@ locales:
 
 ```powershell
 uv run pytest packages/genaipocs_core/tests/test_telemetry.py -k gcp
-uv run pytest services/booking_agent/tests/test_harness_flavors.py -k "adk_ or startup_policy"
+uv run pytest services/booking_agent/tests/test_harness_flavors.py -k "adk_ or strands_ or startup_policy"
 docker compose --profile sqs --profile servicebus --profile pubsub up -d
 uv run pytest -m integration packages/genaipocs_core/tests/integration/test_message_bus_contract.py -k one_trace
 ```
@@ -396,11 +396,11 @@ frameworks lo usan para emitir sus propios spans: ADK con el *scope* `gcp.vertex
 con `strands.telemetry.tracer`. Un test los reproduce con un proveedor global en memoria y un turno
 con tool (`test_harness_flavors.py`):
 
-| Medido | ADK 2.14 | Consecuencia |
+| Medido | ADK 2.14 / Strands | Consecuencia |
 |---|---|---|
-| Contenido por defecto | **No** en sus atributos. La sospecha de la verificación previa no se confirma en la ruta que usamos | — |
+| Contenido por defecto | ADK: **no** en sus atributos; la sospecha de la verificación previa no se confirma en la ruta que usamos. Strands: **sí**, en **eventos** del span (`gen_ai.user.message`, `gen_ai.choice`, `gen_ai.tool.message`), que `attributes/no-content` no toca. **Fuga real desde la fase 11** (también en AWS) | `fix:` aparte. El arranque añade `gen_ai_unredacted_attributes=` (vacío = redactar todo) a `OTEL_SEMCONV_STABILITY_OPT_IN` y conserva el resto de la lista. Los cuatro collectors borran `content`, `message` y los `gen_ai.*.messages` de los eventos `gen_ai.*` (`transform/no-event-content`), pero dejan los metadatos (`role`, `finish_reason`) y las excepciones |
 | Con la convención experimental activada por entorno (`OTEL_SEMCONV_STABILITY_OPT_IN`, `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY`) | **Sí**: `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.tool.call.arguments` | `silence_framework_content()` en el arranque fija `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` y `NO_CONTENT`. El test de control demuestra que sin la política se filtra y con ella no |
-| Duplicados | `generate_content` por cada llamada al modelo, **con los tokens**, además de nuestro `chat` | El reenvío a Langfuse descarta los spans de los frameworks por *scope*: si no, contaría el uso dos veces. En Jaeger y Cloud Trace siguen, sin contenido, porque enseñan los pasos internos del framework |
+| Duplicados | ADK: `generate_content` por cada llamada al modelo, **con los tokens**, además de nuestro `chat`. Strands: `chat` con tokens e `invoke_agent` con el total | El reenvío a Langfuse descarta los spans de los frameworks por *scope*: si no, contaría el uso dos veces. En Jaeger y Cloud Trace siguen, sin contenido, porque enseñan los pasos internos del framework |
 
 - **Defensa en profundidad:** los cuatro collectors borran también `gen_ai.system_instructions`
   y los atributos de contenido de ADK (`gcp.vertex.agent.llm_request`, `tool_call_args`...),

@@ -19,6 +19,7 @@ from genaipocs_core.adapters.otel import (
     OTelTelemetry,
     build_tracer_provider,
     recording_telemetry,
+    silence_framework_content,
 )
 from genaipocs_core.application.llm import ObservedLLM, PriceTable
 from genaipocs_core.application.llm.streaming import stream_from
@@ -292,3 +293,15 @@ def test_otel_wins_over_the_langfuse_sdk() -> None:
     )
 
     assert isinstance(build_tracer(settings), TelemetryLLMTracer)
+
+
+def test_framework_content_policy_keeps_other_semconv_opt_ins() -> None:
+    """La lista OTEL_SEMCONV_STABILITY_OPT_IN es compartida: solo se fuerza la redacción."""
+    env = {"OTEL_SEMCONV_STABILITY_OPT_IN": "http, gen_ai_unredacted_attributes=gen_ai.input.*"}
+
+    silence_framework_content(env)
+    silence_framework_content(env)  # Idempotente.
+
+    assert env["OTEL_SEMCONV_STABILITY_OPT_IN"] == "http,gen_ai_unredacted_attributes="
+    assert env["ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS"] == "false"
+    assert env["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "NO_CONTENT"

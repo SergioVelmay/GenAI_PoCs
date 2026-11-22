@@ -15,6 +15,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from strands.telemetry import tracer as strands_tracer
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS, create_agent
 from booking_agent.guardrails import guarded_agent, guarded_executor
@@ -309,6 +310,8 @@ def global_spans(monkeypatch: pytest.MonkeyPatch) -> Iterator[InMemorySpanExport
     monkeypatch.setattr(trace, "_TRACER_PROVIDER", provider)
     # El tracer de ADK es un ProxyTracer que guarda el real la primera vez que lo usa.
     monkeypatch.setattr(adk_tracing.tracer, "_real_tracer", None)
+    # Strands guarda su tracer (y con él el proveedor y la política de redacción) en un singleton.
+    monkeypatch.setattr(strands_tracer, "_tracer_instance", None)
     for key in (*FRAMEWORK_CONTENT_OFF, *OPT_IN):
         monkeypatch.delenv(key, raising=False)
     yield exporter
@@ -380,3 +383,24 @@ async def test_adk_duplicates_the_model_call_with_its_tokens(
     ]
     assert len(calls) == 2  # Una por llamada al modelo (pedir la tool y responder).
     assert all((s.attributes or {}).get("gen_ai.usage.input_tokens") for s in calls)
+
+
+async def test_strands_writes_the_turn_in_span_events_by_default(
+    global_spans: InMemorySpanExporter,
+) -> None:
+    """Control del `fix:` de la 11.G3: sin la política, Strands mete la pregunta, el resultado de
+    la tool y la respuesta en eventos del span, que `attributes/no-content` no toca."""
+    await _turn("strands")
+
+    leaks = _leaks(global_spans.get_finished_spans())
+    assert any("/gen_ai." in leak for leak in leaks), leaks
+
+
+async def test_startup_policy_redacts_strands_events(global_spans: InMemorySpanExporter) -> None:
+    silence_framework_content()
+
+    await _turn("strands")
+
+    spans = global_spans.get_finished_spans()
+    assert _scope(spans, "strands.telemetry.tracer")
+    assert _leaks(spans) == []

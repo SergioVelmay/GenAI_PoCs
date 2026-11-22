@@ -52,6 +52,21 @@ processors:
       # si alguien activa su captura por entorno (el arranque la apaga: defensa en profundidad).
       - {key: gen_ai.system_instructions, action: delete}
       - {pattern: ^gcp\.vertex\.agent\.(llm_request|llm_response|tool_call_args|tool_response|data)$, action: delete}
+  # Fix de la 11.G3: Strands (y la convención GenAI antigua) mete el contenido en EVENTOS del span
+  # (`gen_ai.user.message`, `gen_ai.choice`, `gen_ai.client.inference.operation.details`), que
+  # `attributes/no-content` no toca. El arranque ya lo redacta; esto es la segunda barrera.
+  transform/no-event-content:
+    error_mode: ignore
+    trace_statements:
+      - context: spanevent
+        conditions:
+          - IsMatch(name, "^gen_ai[.]")
+        statements:
+          - delete_key(attributes, "content")
+          - delete_key(attributes, "message")
+          - delete_key(attributes, "gen_ai.input.messages")
+          - delete_key(attributes, "gen_ai.output.messages")
+          - delete_key(attributes, "gen_ai.system_instructions")
   resourcedetection:
     detectors: [env, ecs, ec2]
     timeout: 2s
@@ -102,7 +117,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resourcedetection, attributes/no-content, batch]
+      processors: [memory_limiter, resourcedetection, attributes/no-content, transform/no-event-content, batch]
       exporters: [otlphttp/xray]
     metrics:
       receivers: [otlp]

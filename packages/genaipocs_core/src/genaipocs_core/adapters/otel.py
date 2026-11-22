@@ -379,11 +379,26 @@ FRAMEWORK_CONTENT_OFF = {
 }
 
 
+# Strands emite el contenido en eventos del span (`gen_ai.user.message`, `gen_ai.choice`...) y solo
+# lo redacta con este token en OTEL_SEMCONV_STABILITY_OPT_IN; vacío = "redactar todo lo sensible".
+STRANDS_REDACT_ALL = "gen_ai_unredacted_attributes="
+SEMCONV_OPT_IN = "OTEL_SEMCONV_STABILITY_OPT_IN"
+
+
 def silence_framework_content(environ: MutableMapping[str, str] | None = None) -> None:
-    """Apaga el contenido de los spans de los frameworks. Se lee al crear cada invocación (ADK),
-    así que basta con fijarlo al arrancar, antes del primer turno."""
+    """Apaga el contenido de los spans de los frameworks. ADK lo lee al crear cada invocación y
+    Strands al crear su tracer (el primer agente): basta con fijarlo al arrancar.
+
+    `OTEL_SEMCONV_STABILITY_OPT_IN` es una lista que comparten otras instrumentaciones (HTTP,
+    bases de datos): se conserva lo que haya y solo se sustituye la lista de no redactados."""
     env = os.environ if environ is None else environ
     env.update(FRAMEWORK_CONTENT_OFF)
+    tokens = [
+        token.strip()
+        for token in env.get(SEMCONV_OPT_IN, "").split(",")
+        if token.strip() and not token.strip().startswith(STRANDS_REDACT_ALL)
+    ]
+    env[SEMCONV_OPT_IN] = ",".join([*tokens, STRANDS_REDACT_ALL])
 
 
 def configure_telemetry(
