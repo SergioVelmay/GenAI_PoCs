@@ -2,6 +2,7 @@
 #                Con observabilidad: docker compose --profile observability up -d
 #                Emuladores de colas: --profile sqs (ElasticMQ) | --profile servicebus
 #                AWS Emulator:       --profile aws (SQS, S3, S3 Vectors e IaC; checkpoint G→13)
+#                Azurite (Blob):     --profile azure (checkpoint G→13)
 #                Servidores MCP:     --profile mcp (necesitan ticketing_api en el host :8000)
 #                Especialistas A2A:  --profile agents (ídem; coste al recibir casos)
 #                Telemetría:         --profile telemetry (collector, Jaeger, Prometheus, Grafana)
@@ -99,10 +100,22 @@ services:
     volumes:
       - ./.aws-emulator:/home/emulator/.aws/emulator
 
+  # Azurite (checkpoint G→13.4): emulador oficial de Azure Storage (MIT, sin EULA). Blob en :10000
+  # para la subida incremental del carril A (UseDevelopmentStorage=true; cuenta y clave públicas).
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.38.0
+    profiles: [azure]
+    # En memoria y con techo de 256 MB (por defecto reserva hasta el 50 % de la RAM del equipo).
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--blobPort", "10000",
+              "--inMemoryPersistence", "--extentMemoryLimit", "256"]
+    ports:
+      - "127.0.0.1:10000:10000"
+
   # Service Bus: emulador oficial (EULA propia) + SQL Server como almacenamiento.
   # Pon SERVICEBUS_ACCEPT_EULA=Y en .env solo si aceptas ambas licencias.
+  # Versión fijada (G→13.4): `latest` cambiaba sin aviso (2.0.0 trajo topics y suscripciones).
   servicebus:
-    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.1
     profiles: [servicebus]
     depends_on: [mssql]
     environment:

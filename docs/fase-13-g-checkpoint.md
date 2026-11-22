@@ -9,8 +9,8 @@ reducir lo que queda en [pendientes-cloud.md](pendientes-cloud.md). Plan en
 |---|---|---|
 | G→13.1 | `58f88e5` | Inventario de emuladores oficiales por nube, comparativa con lo que ya usamos y decisión |
 | G→13.2 | `fe71124` | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
-| G→13.3 | (este commit) | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) e ingesta de la KB de punta a punta |
-| G→13.4 | | Azure: Azurite para la subida de blobs y emulador de Service Bus fijado en `2.0.1` |
+| G→13.3 | `e926280` | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) e ingesta de la KB de punta a punta |
+| G→13.4 | (este commit) | Azure: Azurite para la subida incremental de blobs y emulador de Service Bus fijado en `2.0.1` |
 | G→13.5 | | CI: AWS Emulator y Azurite en el job `integration` |
 
 ## 1. Concepto
@@ -150,7 +150,7 @@ flowchart LR
 | AWS Emulator | `infra/local/aws-emulator/Dockerfile`, perfil `aws` | **Se adopta** (G→13.2): imagen local construida con el RPM fijado (`1.0.569`), telemetría apagada |
 | Terraform de AWS contra el emulador | `infra/terraform/aws/tests-emulator/` | **Se adopta** (G→13.3): `terraform test` con `apply`, estado en memoria; no toca el estado local |
 | ElasticMQ | perfil `sqs`, CI | **Se mantiene** junto al AWS Emulator; se decide en la G→13.5 con datos |
-| Azurite | perfil por definir en la G→13.4 | **Se adopta**: MIT, prueba la subida de blobs del carril A |
+| Azurite | perfil `azure` | **Se adopta** (G→13.4): MIT, prueba la subida incremental de blobs del carril A |
 | Emulador de Service Bus | perfil `servicebus` | Se fija en `2.0.1`; **sigue fuera de la CI** (EULA y ~2 GB con SQL Server) |
 | Event Hubs, Cosmos DB, App Configuration | — | No se adoptan: el repo no usa esos servicios |
 | Emuladores de GCP (Firestore, Spanner, Bigtable, Datastore) | — | No se adoptan: el repo no los usa. Pub/Sub ya está |
@@ -261,7 +261,37 @@ Hallazgos:
 - Lo que no implementa lo dice con un 501 explícito (`scaffolded but not implemented`), no con un
   éxito falso: el fallo es visible y se puede reportar en su repositorio.
 
-## 7. Límites
+## 7. Azure: Azurite y Service Bus fijado (G→13.4)
+
+| Pieza | Dónde vive |
+|---|---|
+| Azurite 3.38.0 (solo Blob, en memoria, techo de 256 MB; perfil `azure`) | `docker-compose.yml` |
+| `upload_if_changed`: subida incremental del carril A, sacada del script al adaptador (como `gcp_rag_engine.upload`) | `adapters/azure_search_managed.py`, usada por `scripts/managed_ingestion.py` |
+| Test de integración | `tests/integration/test_azurite.py` |
+| Emulador de Service Bus fijado en `2.0.1` (antes `latest`) | `docker-compose.yml` |
+
+```bash
+docker compose --profile azure up -d azurite
+uv run pytest -m integration packages/genaipocs_core/tests/integration/test_azurite.py
+```
+
+Resultados (22-11-2026, local):
+
+| Prueba | Resultado |
+|---|---|
+| Subida incremental: 1.ª pasada sube 2, 2.ª no sube nada, cambiar contenido o un metadato resube solo ese | ✅ (Azurite guarda el Content-MD5 como Azure Storage: el contrato que `needs_upload` validó en Azure en el checkpoint 8→9) |
+| Contrato de mensajería con Service Bus `2.0.1` + SQL Server | 6/6 (~42 s) |
+
+Decisiones:
+
+- **`UseDevelopmentStorage=true`** en vez de la cadena con la clave de `devstoreaccount1`: la clave
+  es pública, pero así no hay nada con forma de secreto en el repo (los escáneres no distinguen).
+- Solo `azurite-blob`: Queue y Table no los usa el repo. Con `--inMemoryPersistence`, cada arranque
+  empieza vacío, como el AWS Emulator.
+- Lo que Azurite no prueba: la identidad gestionada (con la que sube el script en Azure) ni RBAC;
+  tampoco el indexer de AI Search que lee esos blobs (sin emulador).
+
+## 8. Límites
 
 - Un test verde contra un emulador demuestra que el **contrato de la API** encaja, no que el despliegue
   funcione: IAM, red, cuotas y regiones solo se validan en la nube.
