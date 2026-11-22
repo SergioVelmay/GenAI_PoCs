@@ -1,11 +1,19 @@
 # Fase 3 · Comparativa de los tres carriles de ingesta
 
-Indexación del mismo corpus de conocimiento de Genaipocs (políticas, FAQs, guías de recintos, fichas de
-eventos y guía del centro de ayuda) en tres carriles y tres nubes (GCP desde la
-[pasada 3.G](#7-gcp-pasada-3g)), con la misma cola de eventos delante.
+**Objetivo:** indexar el mismo corpus de conocimiento de Genaipocs (políticas, FAQs, guías de
+recintos, fichas de eventos y guía del centro de ayuda) en tres carriles (gestionado, SDK nativo y
+framework) y tres nubes (GCP desde la [pasada 3.G](#7-gcp-pasada-3g)), con la misma cola de eventos
+delante, para decidir con datos qué carril usar en cada caso.
 
-> Estado: implementación, IaC y tests completos y verificados en local (sin coste). Las cifras de
-> latencia y coste reales en la nube están **pendientes de validación** (ver el final).
+Commits: `d6bf978` (3.1, indexación event-driven con RabbitMQ y pgvector), `1169d4a` (3.2, carril
+C con LlamaIndex), `1325956` (3.3, SQS y Service Bus con test de contrato común), `f15489f` (3.4,
+carril B en la nube y Terraform base) y `d222d22` (3.5, carril A gestionado, comparativa y cierre).
+Pasada GCP: [sección 7](#7-gcp-pasada-3g).
+
+> Estado: implementación, IaC y tests completos y verificados en local (sin coste). **Azure
+> validado en la nube** (18-10-2026, [sección 6](#6-resultados-en-azure-18-10-2026)); las cifras
+> reales de AWS y GCP están **pendientes de validación**
+> ([pendientes-cloud.md](pendientes-cloud.md)).
 
 ## 1. Qué se compara
 
@@ -15,7 +23,7 @@ eventos y guía del centro de ayuda) en tres carriles y tres nubes (GCP desde la
 | **Azure** | Indexer + skillset de AI Search (vectorización integrada) | `azure-search-documents` + Azure OpenAI | LlamaIndex + `PGVectorStore` (*) |
 | **AWS** | Bedrock Knowledge Base (S3 → S3 Vectors) | `boto3` S3 Vectors + Titan v2 | LlamaIndex + `PGVectorStore` (*) |
 | **GCP** | RAG Engine (Cloud Storage → `RagManagedDb`), un corpus por ACL | Agent Retrieval (antes Vector Search 2.0) + `gemini-embedding-001` | LlamaIndex + `PGVectorStore` (*) con `GeminiEmbedding` |
-| **Local (sin coste)** | — (no hay emulador) | pgvector + embeddings deterministas | pgvector + embeddings deterministas |
+| **Local (sin coste)** | El servicio gestionado no se emula; la subida incremental del corpus sí se prueba con Azurite y el S3 del AWS Emulator (checkpoint G→13) | pgvector + embeddings deterministas | pgvector + embeddings deterministas |
 | **Código** | [azure_search_managed.py](../packages/genaipocs_core/src/genaipocs_core/adapters/azure_search_managed.py), [bedrock_kb.py](../packages/genaipocs_core/src/genaipocs_core/adapters/bedrock_kb.py), [gcp_rag_engine.py](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_rag_engine.py) | [indexer.py](../packages/genaipocs_core/src/genaipocs_core/application/ingestion/indexer.py), [azure_search.py](../packages/genaipocs_core/src/genaipocs_core/adapters/azure_search.py), [s3_vectors.py](../packages/genaipocs_core/src/genaipocs_core/adapters/s3_vectors.py), [gcp_vector_search.py](../packages/genaipocs_core/src/genaipocs_core/adapters/gcp_vector_search.py) | [llamaindex.py](../packages/genaipocs_core/src/genaipocs_core/adapters/llamaindex.py) |
 | **IaC** | [aws/lane_a.tf](../infra/terraform/aws/lane_a.tf), [azure/lane_a.tf](../infra/terraform/azure/lane_a.tf), [gcp/lane_a.tf](../infra/terraform/gcp/lane_a.tf) | [aws/main.tf](../infra/terraform/aws/main.tf), [azure/main.tf](../infra/terraform/azure/main.tf), [gcp/vector_search.tf](../infra/terraform/gcp/vector_search.tf) | Esquema `llamaindex` en PostgreSQL |
 
@@ -28,6 +36,20 @@ Delante de los carriles B y C hay la **misma cola** con cuatro brokers intercamb
 SQS, Service Bus y Pub/Sub desde la [3.G1](#71-pubsub-en-el-contrato-de-brokers-3g1)) y un test de
 contrato común. El carril A no la necesita: el servicio sondea el origen
 (indexer programado) o se sincroniza bajo demanda (ingestion job).
+
+```mermaid
+flowchart LR
+  P["Productor"] -->|"un evento por documento"| Q["Cola (4 brokers)"]
+  Q --> W["Worker"]
+  W -->|"carril B"| B["DocumentIndexer + ledger"]
+  W -->|"carril C"| C["Pipeline de LlamaIndex"]
+  B --> VS[("Almacén vectorial")]
+  C --> PG[("pgvector")]
+  M["managed_ingestion.py"] -->|"carril A: solo lo que cambia"| BK[("Bucket de la nube")]
+  BK --> S["Servicio gestionado"]
+```
+
+El detalle de qué servicio hace cada papel en cada nube está en la tabla de arriba.
 
 ## 2. Resumen
 
@@ -58,7 +80,10 @@ contrato común. El carril A no la necesita: el servicio sondea el origen
   o Basic (~70 €/mes) sin secretos. La variable `search_sku` de Terraform activa uno u otro modo.
 - **S3 Vectors frente a OpenSearch Serverless**: sin capacidad mínima reservada; se paga
   almacenamiento y consultas. A cambio no hay BM25 nativo (la búsqueda híbrida en AWS exigirá
-  OpenSearch o un BM25 aparte en la fase 4).
+  OpenSearch o un BM25 aparte en la fase 4). **Resuelto en la fase 4:** en AWS el carril B se
+  queda en búsqueda semántica (no se inventa BM25 sobre S3 Vectors y la KB rechaza `HYBRID`); en
+  GCP, Agent Retrieval sí trae híbrida en el servidor con RRF
+  ([fase 4](fase-4-retrieval.md#gcp-pasada-4g)).
 
 ### Control
 
@@ -74,7 +99,8 @@ contrato común. El carril A no la necesita: el servicio sondea el origen
 
 - **A**: la vía más rápida a un RAG funcional; la IaC de este repo (KB + data source + rol) son
   ~150 líneas de Terraform. Las sorpresas están en los límites del tier y en los permisos.
-- **B**: lo más lento de construir (cola, worker, ledger, tres brokers, tres stores), pero cada pieza
+- **B**: lo más lento de construir (cola, worker, ledger, cuatro brokers: RabbitMQ, SQS, Service
+  Bus y Pub/Sub; cuatro almacenes: pgvector, AI Search, S3 Vectors y Agent Retrieval), pero cada pieza
   es pequeña, testeable con adaptadores en memoria y verificada con tests de contrato.
 - **C**: arranque rápido; el tiempo se va en los bordes del framework (ver hallazgos).
 
@@ -82,8 +108,9 @@ contrato común. El carril A no la necesita: el servicio sondea el origen
 
 - **A**: la definición (skillset, index projections, ingestion job) no se puede llevar de una nube a otra.
   Migrar significa rehacer la ingesta.
-- **B**: el caso de uso no conoce ninguna nube. Cambiar de AI Search a S3 Vectors es cambiar
-  `INDEXER__VECTOR_STORE`; cambiar de RabbitMQ a SQS, `INDEXER__BROKER`.
+- **B**: el caso de uso no conoce ninguna nube. Cambiar de AI Search a S3 Vectors o a Agent
+  Retrieval (`gcp_vector_search`) es cambiar `INDEXER__VECTOR_STORE`; cambiar de RabbitMQ a SQS o a
+  Pub/Sub, `INDEXER__BROKER`.
 - **C**: portable entre nubes, pero atado al framework: su esquema de tablas (esquema `llamaindex`,
   fuera de Alembic) y sus dependencias (obligó a bajar SQLAlchemy de 2.1 a 2.0).
 
@@ -98,7 +125,7 @@ contrato común. El carril A no la necesita: el servicio sondea el origen
 | Chunker nativo dejaba títulos huérfanos (29 % de cortes en guías largas) | B | `chunking_report.py` | Los títulos viajan con la frase siguiente (0 %) |
 | Troceo semántico sin tope de tamaño (chunk de 562 tokens) | C | `chunking_report.py` | `SentenceSplitter` encadenado como tope |
 | AI Search Free no admite identidad gestionada | A | Documentación oficial | Modo dual (claves en Free, MI en Basic) |
-| LocalStack exige cuenta desde marzo de 2026 | Local | Documentación oficial | ElasticMQ (Apache-2.0) para SQS |
+| El emulador de AWS de la comunidad que se valoró exige cuenta desde marzo de 2026 | Local | Documentación oficial | ElasticMQ (Apache-2.0) para SQS; desde el checkpoint G→13, además, el AWS Emulator oficial para fidelidad e IaC (ElasticMQ se mantiene para ejecutar el sistema en local) |
 
 Calidad del troceo (guías largas, sin coste; `scripts/chunking_report.py --doc-type handbook`):
 
@@ -162,7 +189,9 @@ hace con el golden dataset (fase 5).
 | 58 avisos de proyección en el carril A | Documentos sin `category` o `city` en los metadatos del blob | Benignos: el campo queda vacío |
 | AI Search no se puede crear en `swedencentral` | `InsufficientResourcesAvailable`: región de alta demanda | `search_location = "francecentral"`; Foundry y el resto siguen en Suecia |
 
-Pendiente: AWS (Bedrock KB + S3 Vectors y SQS) y coste real con Cost Management tras unos días.
+Pendiente: AWS (Bedrock KB + S3 Vectors y SQS). El coste real de Azure con Cost Management se midió
+el 20-10-2026: indexar cuesta céntimos y lo que pesa es AI Search por horas
+([checkpoint 8→9](fase-9-8-checkpoint.md#6-coste-real-cost-management-1720-de-octubre)).
 
 ## 7. GCP (pasada 3.G)
 
@@ -206,6 +235,16 @@ uv run python -m indexer.worker
 
 [`adapters/pubsub.py`](../packages/genaipocs_core/src/genaipocs_core/adapters/pubsub.py) cumple el
 mismo `MessageBusPort` que los otros tres. Lo que cambia frente a una cola:
+
+```mermaid
+flowchart LR
+  P["Productor"] --> T["Tema"]
+  T --> SW["Suscripción .worker"]
+  SW --> W["Worker"]
+  SW -->|"5 entregas agotadas"| D["Tema .dlq"]
+  W -->|"error permanente"| D
+  D --> SD["Suscripción .dlq"]
+```
 
 | Concepto | Service Bus | SQS | Pub/Sub |
 |---|---|---|---|
@@ -370,7 +409,15 @@ mezclarlos rompería la asimetría `RETRIEVAL_DOCUMENT`/`RETRIEVAL_QUERY` sin ni
   RAG Engine admite `gemini-embedding-001` en `europe-west4` están sin confirmar: van a
   [pendientes](pendientes-cloud.md#fase-3-gcp) con su forma de comprobarlo.
 
-## 8. Checkpoint de entrevista
+## 8. Pendiente con coste
+
+- Azure: hecho (18-10-2026, [sección 6](#6-resultados-en-azure-18-10-2026)).
+- AWS: `terraform apply`, carril B con SQS + Titan v2 + S3 Vectors y carril A con Bedrock KB
+  ([pendientes-cloud.md](pendientes-cloud.md)).
+- GCP: Pub/Sub real, embeddings de Gemini, Agent Retrieval y RAG Engine, todos efímeros
+  ([pendientes de la 3.G](pendientes-cloud.md#fase-3-gcp)).
+
+## 9. Checkpoint de entrevista
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas de entrevista · fase 3](preguntas-entrevista.md#fase-3).

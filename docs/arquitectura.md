@@ -4,8 +4,9 @@ Un diagrama único de todo el sistema es ilegible. Aquí va por **niveles de zoo
 
 - **Nivel 0**: el sistema completo en una pantalla (el del [README](../README.md), ampliado con la
   puerta pública, la observabilidad y las evals).
-- **Nivel 1**: un zoom por bloque (modelos, RAG, tools, agente, multi-agente, escala,
-  observabilidad, evals). Cada uno con "qué contar en 30 segundos" y enlace a su fase.
+- **Nivel 1**: un zoom por bloque (capas del código, modelos, indexación, RAG, tools, agente,
+  multi-agente, escala, observabilidad, evals, calidad y despliegue). Cada uno con "qué contar en
+  30 segundos" y enlace a su fase.
 - **Nivel 2**: el recorrido de un caso real de punta a punta, para contarlo en una pizarra.
 
 Las tres nubes (Azure, AWS y GCP) aparecen en cada nivel: el código es el mismo y solo cambian los
@@ -18,7 +19,8 @@ adaptadores y el Terraform. Siglas y términos: [glosario](glosario.md). Pregunt
   [3. Indexación](#n1-indexacion) · [4. Retrieval (RAG)](#n1-rag) · [5. Tools y MCP](#n1-mcp) ·
   [6. Agente y harness](#n1-agente) · [7. Multi-agente](#n1-multiagente) ·
   [8. Edge y escala](#n1-escala) · [9. Observabilidad](#n1-observabilidad) ·
-  [10. Evals y LLMOps](#n1-evals) · [11. Despliegue en AWS, Azure y GCP](#n1-despliegue)
+  [10. Evals y LLMOps](#n1-evals) · [11. Calidad: de los tests a la nube](#n1-calidad) ·
+  [12. Despliegue en AWS, Azure y GCP](#n1-despliegue)
 - [Nivel 2 · Recorrido de un caso](#n2)
 
 <a id="n0"></a>
@@ -277,7 +279,7 @@ flowchart LR
   COL --> AZ["Azure: Application<br/>Insights"]
   COL --> GC["GCP: Cloud Trace ·<br/>Managed Prometheus"]
   COL -.->|"spans GenAI"| LF["Langfuse<br/>coste · prompts · scores"]
-  LOC --> AL["71 alertas de burn rate<br/>sobre 6 SLO → runbook"]
+  LOC --> AL["33 alertas, 24 de burn rate<br/>sobre 6 SLO → runbook"]
 ```
 
 **Qué contar:**
@@ -320,9 +322,53 @@ flowchart LR
   trayectoria propia (30 de 84 casos infravalorados).
   Detalle: [fase 5](fase-5-evals.md) y [fase 12](fase-12-evals-llmops.md).
 
+<a id="n1-calidad"></a>
+
+## Nivel 1 · 11. Calidad: de los tests a la nube
+
+Cada capa prueba lo que la anterior no puede, con coste 0 hasta llegar a la nube:
+
+```mermaid
+flowchart LR
+  U["Unitarios<br/>adaptadores memory · LLM guionizado"] --> I["Integración<br/>PostgreSQL · RabbitMQ · ElasticMQ<br/>Pub/Sub · Azurite · Redis · Valkey"]
+  I --> E["AWS Emulator<br/>SQS · S3 · S3 Vectors · KB<br/>+ terraform apply"]
+  E --> N["Nube<br/>modelos · IAM · búsqueda gestionada"]
+  N -.->|"lo que falta"| P["pendientes-cloud.md"]
+```
+
+Y la CI de cada PR, con un único check obligatorio para fusionar en `main`:
+
+```mermaid
+flowchart LR
+  PR["PR a main"] --> Q["quality<br/>ruff · mypy · pytest · prompts · Mermaid · alertas"]
+  PR --> EV["evals<br/>RAG · agentes x9 · ataques<br/>multi-agente x4 · drift"]
+  PR --> IMG["mcp-image · agents-image"]
+  PR --> TF["terraform<br/>aws · azure · gcp: validate · test"]
+  PR --> INT["integration<br/>PostgreSQL · colas · Azurite · Valkey"]
+  PR --> AE["aws-emulator<br/>tests + terraform apply"]
+  Q --> RG{{"release-gate"}}
+  EV --> RG
+  IMG --> RG
+  TF --> RG
+  INT --> RG
+  AE --> RG
+  RG -->|"revisión de Sergio"| M["merge commit"]
+```
+
+**Qué contar:**
+
+- **Pirámide de pruebas**: unitarios con adaptadores en memoria (deterministas, sin red), integración
+  con `docker compose` y emuladores oficiales (Pub/Sub, Azurite, Service Bus en local), y el AWS
+  Emulator, que además aplica y destruye el Terraform de AWS en cada PR con el estado en memoria.
+- Un verde contra un emulador prueba el **contrato de la API**, no el despliegue: IAM, modelos,
+  cuotas y búsqueda gestionada solo se validan en la nube ([pendientes](pendientes-cloud.md)).
+- Siete jobs en paralelo y un solo check obligatorio (`release-gate`): `main` no admite push
+  directo ni merge sin revisión. Detalle: [checkpoint G→13](fase-13-g-checkpoint.md) y
+  [fase 12](fase-12-evals-llmops.md).
+
 <a id="n1-despliegue"></a>
 
-## Nivel 1 · 11. Despliegue en AWS, Azure y GCP (objetivo de las fases 13–15)
+## Nivel 1 · 12. Despliegue en AWS, Azure y GCP (objetivo de las fases 13–15)
 
 ```mermaid
 flowchart LR
@@ -330,7 +376,7 @@ flowchart LR
     direction TB
     A1["API Gateway + WAF"] --> A2["ECS Fargate<br/>servicios y workers"]
     A2 --> A3["Bedrock · AgentCore"]
-    A2 --> A4[("Aurora PostgreSQL<br/>+ pgvector")]
+    A2 --> A4[("Aurora PostgreSQL<br/>+ pgvector · S3 Vectors")]
     A2 --> A5[["SQS"]]
     A2 --> A6[("ElastiCache")]
     A2 -.-> A7["X-Ray · CloudWatch"]
@@ -362,8 +408,9 @@ flowchart LR
 - Identidad sin secretos: IAM Roles ↔ Managed Identity ↔ cuentas de servicio; OIDC desde la CI
   (Workload Identity Federation en GCP).
 - Las piezas ya tienen su Terraform en `infra/terraform/{aws,azure,gcp}`, con lo que tiene coste
-  apagado por defecto. Las fases 13 (AWS), 14 (Azure) y 15 (GCP) lo componen en un despliegue
-  completo. Equivalencias completas en la [chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
+  apagado por defecto. El módulo de AWS ya se aplica entero contra el AWS Emulator en cada PR (job
+  `aws-emulator`), salvo el autoescalado de ECS y los targets del MCP gateway. Las fases 13 (AWS), 14 (Azure) y 15 (GCP) lo
+  componen en un despliegue completo. Equivalencias completas en la [chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
 
 ---
 

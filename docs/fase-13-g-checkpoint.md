@@ -11,7 +11,8 @@ reducir lo que queda en [pendientes-cloud.md](pendientes-cloud.md). Plan en
 | G→13.2 | `fe71124` | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
 | G→13.3 | `e926280` | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) e ingesta de la KB de punta a punta |
 | G→13.4 | `bd0bf6d` | Azure: Azurite para la subida incremental de blobs y emulador de Service Bus fijado en `2.0.1` |
-| G→13.5 | `864391e` y este commit | CI: job `aws-emulator` (tests + Terraform) y Azurite en `integration`; ElasticMQ se queda para ejecutar el sistema en local |
+| G→13.5 | `864391e`, `52526fc` | CI: job `aws-emulator` (tests + Terraform) y Azurite en `integration`; ElasticMQ se queda para ejecutar el sistema en local |
+| Cierre | (este commit) | Preguntas de entrevista, estado y repaso de toda la documentación (9 sabores, 3 nubes y diagramas) |
 
 ## 1. Concepto
 
@@ -326,7 +327,27 @@ día el contrato diverge entre los dos, manda el emulador oficial.
   que hace AWS, no lo que hace el emulador hoy.
 - GCP es la nube con menos cobertura local (sin Cloud Storage) y Azure no tiene nada para la IaC.
 
+## 10. Cierre: plan frente a lo hecho
+
+| Entregable del [plan](plan-fases.md#checkpoint-g-13) | Estado |
+|---|---|
+| Investigar AWS (artículo del AWS Emulator y otros), Azure y GCP en fuentes oficiales | ✅ [Sección 2](#2-inventario-por-nube-verificado-el-22-11-2026) |
+| Tabla por nube "servicio → emulador → qué permite probar y qué no" | ✅ Secciones 2.1–2.3 |
+| Decisión de cuáles se adoptan (perfiles, tests, CI) | ✅ [Sección 4](#4-decisión-22-11-2026-con-sergio): AWS Emulator (perfil `aws`, job `aws-emulator`), Azurite (perfil `azure`), Service Bus fijado |
+| Comparativa con ElasticMQ, Service Bus, Pub/Sub y los dobles | ✅ Secciones 3 y 8 |
+| Probar la IaC antes de desplegar (añadido al aprobar el plan) | ✅ [Sección 6](#6-terraform-de-aws-contra-el-emulador-g133): el módulo de AWS entero salvo el autoescalado de ECS |
+| Descartado | Emuladores de servicios que el repo no usa (Cosmos DB, Event Hubs, App Configuration, Firestore, Spanner, Bigtable) y emuladores de la comunidad para Cloud Storage |
+
+**Pendiente con coste:** ninguno nuevo. Ninguna casilla de
+[pendientes-cloud.md](pendientes-cloud.md) se cierra con un emulador; su cabecera explica qué
+cubren ya. Para la [fase 13](plan-fases.md): probar los targets del MCP gateway y el autoescalado de
+ECS en AWS, que el emulador no cubre.
+
+**Huecos del emulador 1.0.569 que se podrían reportar** en su repositorio (decisión de Sergio, es
+publicar): `PutScalingPolicy` con *metric math* (501), `ListTagsForResource` de AgentCore Control
+(501) y S3 Control inalcanzable por el prefijo de cuenta en el host (documentado por AWS).
+
 ## Checkpoint de entrevista
 
-Las preguntas se añaden a [preguntas-entrevista.md](preguntas-entrevista.md) al cerrar el
-checkpoint.
+Preguntas técnicas y de negocio en
+[preguntas-entrevista.md](preguntas-entrevista.md#checkpoint-g-13).

@@ -1,14 +1,16 @@
 # Runbook de incidentes · asistente y agentes de Genaipocs
 
 Qué hacer cuando salta una alerta. Cada alerta de [genaipocs.rules.yml](../infra/local/telemetry/rules/genaipocs.rules.yml)
-enlaza a su sección (`runbook_url`). Las reglas se generan desde los SLO del dominio
-(`domain/slo.py`) con `scripts/build_observability.py`; no se editan a mano.
+enlaza a su sección (`runbook_url`), y también las 36 políticas de Cloud Monitoring de GCP
+([genaipocs.alerts.yml](../infra/terraform/gcp/alerts/genaipocs.alerts.yml) y `alert_policies.json`),
+incluidas las que solo existen en GCP (backlog de Pub/Sub e ingesta de logs). Las reglas se generan
+desde los SLO del dominio (`domain/slo.py`) con `scripts/build_observability.py`; no se editan a mano.
 
 ## Cómo se trabaja una alerta
 
 1. **Reconocer** la alerta (quién la lleva) y abrir el canal del incidente si es una página.
 2. **Medir el impacto** en el dashboard `Genaipocs · GenAI` (Grafana :3001 en local): qué plan, qué ruta, qué agente, desde cuándo.
-3. **Ir del síntoma a la causa con una traza**: en Jaeger (:16686) buscar por `service.name` y por `error=true` o por el atributo de la sección; en Langfuse, si el problema es de calidad o de coste. Los logs JSON llevan `trace_id`: desde un error en los logs se salta a su traza.
+3. **Ir del síntoma a la causa con una traza**: en Jaeger (:16686) buscar por `service.name` y por `error=true` o por el atributo de la sección; en Langfuse, si el problema es de calidad o de coste. Los logs JSON llevan `trace_id`: desde un error en los logs se salta a su traza. En la nube, la misma traza (mismo `trace_id`) está en X-Ray y CloudWatch (AWS), Application Insights (Azure) o Cloud Trace con los logs enlazados de Cloud Logging (GCP).
 4. **Mitigar primero, arreglar después**: las palancas están en cada sección y casi todas son configuración (no hace falta desplegar código).
 5. **Cerrar** con una nota corta: qué pasó, cuánto presupuesto de error se gastó, qué se cambia para que no se repita (postmortem sin culpables si fue página).
 

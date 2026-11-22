@@ -3,7 +3,8 @@
 **Objetivo:** cerrar el ciclo de calidad continuo de un sistema agéntico. Antes de desplegar, un
 gate obligatorio comprueba qué hace el agente (trayectoria, parámetros, resolución) y que resiste
 ataques. En producción, un juez muestreado y la detección de drift avisan de que algo ha cambiado.
-Cada prompt tiene versión y cada cambio se decide con un experimento A/B, no a ojo.
+Cada prompt tiene versión y cada cambio se decide con un experimento A/B, no a ojo. En Azure, AWS
+y GCP (sección 7).
 
 | Subfase | Commit | Qué |
 |---|---|---|
@@ -38,13 +39,14 @@ flowchart LR
     direction TB
     AG["Especialistas"] -.->|"muestra"| JUDGE["Juez online<br/>AgentJudge"]
     JUDGE --> LF["Langfuse<br/>scores agent_*"]
-    JUDGE --> PM["Prometheus"]
+    JUDGE --> PM["Prometheus / Managed Prometheus"]
     AG -->|"intenciones, tools"| PM
     PM --> PSI["drift:psi<br/>DistributionDrift"] --> RB["Runbook #drift"]
   end
 
   GATE --> PROD
   DEC -->|"nueva versión de prompt"| LOCK
+  LOCK -.->|"copia"| PS["Langfuse / Agent Platform"]
   PSI -.->|"casos nuevos al dataset"| TRAJ
 ```
 
@@ -138,6 +140,15 @@ uv run python -m rag_evals.llmops.prompts lock
 uv run python -m rag_evals.llmops.prompts publish --apply     # Langfuse local
 ```
 
+```mermaid
+flowchart LR
+  GIT["prompts/*.md<br/>(Git, fuente)"] --> LOCK["prompts.lock.json<br/>(candado en la CI)"]
+  GIT -->|"publish"| LF["Langfuse"]
+  GIT -->|"publish --store gcp (12.G4)"| AP["Agent Platform"]
+  AG["Agente"] -->|"lee del paquete"| GIT
+  AG -.->|"generación enlazada a su versión"| LF
+```
+
 ### 12.7 · Experimentos A/B
 
 Un experimento es un YAML con variantes (sabor, prompt candidato, modelo, harness) que resuelven el
@@ -167,11 +178,11 @@ uv run python -m rag_evals.llmops.drift --check
 
 Todo con el modelo guionizado: mide el arnés y el harness, no la calidad del modelo.
 
-### 3.1 · Agentes (14 escenarios × 7 sabores)
+### 3.1 · Agentes (14 escenarios × 9 sabores)
 
 | Sabor | Superados | Resueltos | Trayectoria P / R | Parámetros | Invariantes |
 |---|---:|---:|---:|---:|---:|
-| native, langgraph, llamaindex, maf, strands, agentcore | 14/14 | 100 % | 100 % / 100 % | 100 % | 0 |
+| native, langgraph, llamaindex, maf, strands, adk, agentcore, agentplatform | 14/14 | 100 % | 100 % / 100 % | 100 % | 0 |
 | foundry | 13/14 | 100 % | 100 % / 100 % | 100 % | 0 |
 
 El hueco de Foundry es conocido y está en la baseline: el servicio gestiona el hilo y no compacta
@@ -181,7 +192,7 @@ la conversación larga (`compactaciones 0 < 1`).
 
 | Prueba | Resultado |
 |---|---|
-| Ataques de la fase 8.6 sin harness / con harness (7 sabores) | 0/6 contenidos / 6/6 contenidos, 4/4 benignos sin falso positivo |
+| Ataques de la fase 8.6 sin harness / con harness (9 sabores) | 0/6 contenidos / 6/6 contenidos, 4/4 benignos sin falso positivo |
 | PyRIT, 9 conversores | 52/54 ataques sin brecha, 0/36 benignos bloqueados |
 | promptfoo, 9 estrategias | 51/54 ataques sin brecha, 0/36 benignos bloqueados |
 | Acciones irreversibles sin una persona | 0 en todos los escenarios, sabores y mutaciones |
@@ -207,7 +218,7 @@ de 10 a 14 casos, la mayoría de experimentos acabarán en «falta muestra».
 | Prueba | Resultado |
 |---|---|
 | Detector (4 escenarios) | Semana normal estable; ola de cancelaciones con PSI 0,395 en intenciones (externo); regresión silenciosa con 0,570 en resolución (interno); poca muestra sin alerta |
-| Reglas de Prometheus | 77 válidas (`promtool check`), 15 escenarios en verde; PSI de 0,416 en PromQL igual al cálculo a mano |
+| Reglas de Prometheus | 77 válidas (`promtool check`) al cierre de la 12.8; 78 desde la 11.G2, con `MessageSettleFailures`, 15 escenarios en verde; PSI de 0,416 en PromQL igual al cálculo a mano |
 | Prompts | 19 con versión y candado; publicados en el Langfuse local (segunda pasada: `up_to_date`) |
 | Calidad | 1.187 tests, `mypy --strict` sin errores; 8 jobs de la CI en verde |
 
@@ -439,7 +450,7 @@ y necesitan un escenario de origen. El objetivo es un provider nuevo, `provider_
 
 **Aparcado (decidido con Sergio):** el atacante adaptativo con PyRIT. PyRIT 1.1 reescribió su API y
 ni Azure ni AWS lo tenían, así que sería trabajo nuevo y no paridad. Está en
-[ideas aparcadas](plan-fases.md), con el diseño: atacante sobre `LLMPort` y puntuador determinista
+[ideas aparcadas](plan-fases.md#ideas-aparcadas-sin-fase-asignada), con el diseño: atacante sobre `LLMPort` y puntuador determinista
 sobre las brechas del mundo.
 
 ### 12.G4 · Prompts en la gestión de prompts de Agent Platform

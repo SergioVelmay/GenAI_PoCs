@@ -252,7 +252,7 @@ de 7 sabores con `mini`).
 - [x] Azure (18-10-2026): `analytics_sql_demo.py` con 5 preguntas: 1 respondida, 1 escritura rechazada, 3 canceladas por el timeout de 3 s sobre 3 M de pedidos (escaladas). Bedrock pendiente.
 - [x] Azure: Content Safety (F0) frente al escudo heurístico con `rag_evals.shields` (24 textos): 7/12 cada uno, 9/12 juntos, 0 falsos positivos; Content Safety a ~2 s por llamada. Bedrock Guardrails pendiente.
 - [x] Tests de ataque con modelo real (`rag_evals.attacks --mode llm`): con harness, 0 invariantes en los 7 sabores. El harness ahora convierte el filtro de contenido del proveedor en un bloqueo.
-- [ ] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques (fase 12).
+- [x] Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para agentes y ataques: hechos en local en la [fase 12](fase-12-evals-llmops.md) (12.2, 12.4 y 12.5); lo que tiene coste sigue en la sección de la fase 12 de este documento.
 
 <a id="fase-8-gcp"></a>
 

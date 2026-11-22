@@ -14,7 +14,37 @@ mismo modelo guionizado, así que las diferencias que aparecen son del framework
 Lo específico de GCP (firmas de Gemini, ADK, Agent Runtime, Agent Identity y la Managed Agents
 API) está en [GCP (pasada 7.G)](#10-gcp-pasada-7g).
 
+| Subfase | Commit | Qué |
+|---|---|---|
+| 7.1 | `31d18f7` | Núcleo del agente, context engineering, skills y suite de evals de agentes |
+| 7.2 | `57bd5f1` | Sabores LangGraph y LlamaIndex con puentes al gateway |
+| 7.3 | `3afb910` | Sabores MAF y Strands con puentes al gateway |
+| 7.4 | `3dca43b` | Carril A (Foundry Agent Service y AgentCore) en local |
+| 7.5 | `6e3e408` | Comparativa de agentes y cierre de la fase |
+
+Los resultados en Azure (18-10-2026) son del [checkpoint 8→9](fase-9-8-checkpoint.md).
+
 ## 1. Piezas
+
+```mermaid
+flowchart LR
+  S["AgentSpec"] --> B["B: native"]
+  S --> C["C: langgraph, llamaindex, maf, strands, adk"]
+  S --> FA["A: foundry (servicio de Azure)"]
+  S --> AC["A: agentcore (AWS)"]
+  S --> AP["A: agentplatform (GCP)"]
+  AC -->|"aloja"| ST["strands"]
+  AP -->|"aloja"| AD["adk"]
+  B -->|"tools"| J["JournaledExecutor"]
+  C -->|"tools"| J
+  FA -->|"tools en tu backend"| J
+  B -->|"modelo"| L["LLMPort (gateway)"]
+  C -->|"modelo"| L
+```
+
+`agentcore` y `agentplatform` ejecutan dentro de su contenedor un sabor de framework (strands y adk),
+así que usan las mismas tools y el mismo gateway; `foundry` decide en el servicio y las tools se
+ejecutan en nuestro backend.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
@@ -49,18 +79,22 @@ API) está en [GCP (pasada 7.G)](#10-gcp-pasada-7g).
 
 | Sabor | Escenarios | Llamadas LLM | Reutilización de prefijo | Invariantes | Coste del framework (p50 / p95 ms) | Código del sabor + puente (líneas) |
 |---|---:|---:|---:|---:|---:|---:|
-| native | 14/14 | 50 | 67,8 % | 0 | 2,7 / 6,8 | 49 |
-| langgraph | 14/14 | 50 | 67,8 % | 0 | 11,9 / 20,3 | 154 + 163 |
-| llamaindex | 14/14 | 51 | 68,4 % | 0 | 20,5 / 64,2 | 131 + 174 |
-| maf | 14/14 | 50 | 67,8 % | 0 | 3,5 / 14,8 | 150 + 118 |
-| strands | 14/14 | 50 | 67,8 % | 0 | 7,3 / 11,8 | 110 + 186 |
-| foundry (emulado) | 13/14 | 48 | 68,7 % | 0 | 2,2 / 4,2 | 49 + 125 |
-| adk (7.G2) | 14/14 | 50 | 68,0 % (= native hoy) | 0 | 13,4 / 303,6 | 126 + 144 |
+| native | 14/14 | 50 | 68,0 % | 0 | 2,4 / 4,4 | 49 |
+| langgraph | 14/14 | 50 | 68,0 % | 0 | 8,0 / 14,1 | 154 + 163 |
+| llamaindex | 14/14 | 51 | 68,6 % | 0 | 18,0 / 38,7 | 131 + 174 |
+| maf | 14/14 | 50 | 68,0 % | 0 | 3,9 / 18,7 | 150 + 118 |
+| strands | 14/14 | 50 | 68,0 % | 0 | 5,3 / 8,2 | 110 + 186 |
+| adk (7.G2) | 14/14 | 50 | 68,0 % | 0 | 16,4 / 319,8 | 126 + 144 |
+| foundry (emulado) | 13/14 | 48 | 68,8 % | 0 | 2,0 / 3,8 | 49 + 125 |
+| agentcore (contrato en proceso, aloja strands) | 14/14 | 50 | 68,0 % | 0 | 6,5 / 41,6 | 29 + 76 |
 | agentplatform (7.G3, contrato en proceso, aloja adk) | 14/14 | 50 | 68,0 % | 0 | 18,6 / 36,5 | 41 + 104 |
-| agentcore (contrato en proceso, aloja strands) | 14/14 | 50 | 67,8 % | 0 | 7,3 / 13,2 | 29 + 76 |
 
-- **Paridad**: los sabores de framework y `agentcore` ejecutan exactamente las mismas tools, en
-  el mismo orden, que `native` en los 14 escenarios (test `test_framework_flavors_match_the_native_reference`).
+Fuente: [evals/reports/agents.md](../evals/reports/agents.md) (las latencias varían entre
+ejecuciones; las líneas de código son las medidas al escribir cada sabor).
+
+- **Paridad**: los sabores de framework (incluido `adk`), `agentcore` y `agentplatform` ejecutan
+  exactamente las mismas tools, en el mismo orden, que `native` en los 14 escenarios (test
+  `test_framework_flavors_match_the_native_reference`).
 - **LlamaIndex hace una llamada más** en el escenario de `max_iterations`: cuenta respuestas del
   modelo y corta *antes* de ejecutar las tools de la última, así que necesita N + 1.
 - **Foundry falla un escenario a propósito**: responde bien al hilo largo, pero no compacta; el
@@ -126,7 +160,21 @@ API) está en [GCP (pasada 7.G)](#10-gcp-pasada-7g).
 | Observabilidad | Foundry tracing + App Insights | AgentCore Observability + CloudWatch | Cloud Trace + Cloud Logging | LangSmith, OTel GenAI |
 | SDK "nativo" de la nube | Microsoft Agent Framework | Strands Agents | Agent Development Kit (ADK) | — |
 
-## 7. Recomendación por escenario
+<a id="7-recomendación-por-escenario"></a>
+
+## 7. Decisiones y límites: recomendación por escenario
+
+Decisiones comunes a todos los sabores (detalle en §2 y §5):
+
+- **Context engineering propio** (orden del prompt, compactación, preferencias, skills) en todos
+  los sabores, también en `adk`, en lugar del de cada framework.
+- **La identidad nunca la elige el modelo**: cada framework tiene su canal y el invariante
+  `identity_args` lo comprueba en los nueve.
+- **Todo modelo por nuestro `LLMPort`** (puentes) y toda tool por el `JournaledExecutor`.
+- Límites: `foundry` no compacta (el historial es del servicio, 13/14) y los sabores gestionados
+  se prueban en local con su contrato en proceso; la Managed Agents API no es sabor (Pre-GA, 7.G5).
+
+Recomendación por escenario:
 
 - **Flujos con pasos, ramas y aprobación humana (fase 8)** → LangGraph (estado explícito y
   checkpoint por paso) o el bucle propio si el flujo es pequeño.
@@ -165,13 +213,15 @@ de Foundry y Semantic Ranker), las tools por los servidores MCP en Docker y la A
 Hallazgo: con la pregunta "reembolso de gastronomía y mis pedidos", el agente `native` respondió
 con la política que trae `search_events` sin consultar la base de conocimiento, y afirmó que el
 cliente tenía "varias reservas de gastronomía" sin comprobarlo. Es el tipo de fallo que tiene que
-cazar la suite de agentes con LLM real y un juez (pendiente).
+cazar la suite de agentes con LLM real y un juez (el juez de agentes llegó en la
+[fase 12.2](fase-12-evals-llmops.md#122--llm-juez-de-agentes-calibrable)).
 
 <a id="suite-de-agentes-con-llm-real-18-10-2026"></a>
 
 ### Suite de agentes con LLM real (18-10-2026, ~0,08 $)
 
-`python -m rag_evals.agents --mode llm --budget-usd 0.50`: los 7 sabores con Azure OpenAI
+`python -m rag_evals.agents --mode llm --budget-usd 0.50`: los 7 sabores de entonces (`adk` y
+`agentplatform` llegaron en la 7.G) con Azure OpenAI
 (`gpt-4.1-mini`, porque todos los turnos ofrecen tools con efectos). Los 2 escenarios `harness`
 solo corren en `scripted`: guionizan un modelo que se porta mal (argumentos inválidos, bucles),
 algo que un modelo real no hace a voluntad.
@@ -200,7 +250,8 @@ Conclusiones:
   (qué tools, en qué orden, qué skill) es del modo `scripted`; con un modelo real se evalúa el
   resultado: escrituras esperadas, estado final del mundo, invariantes y contenido de la
   respuesta. Y el contenido no se puede comprobar con literales (formato de fechas, idioma,
-  sinónimos): hace falta un juez calibrado, como en la fase 5. Queda para la fase 12.
+  sinónimos): hace falta un juez calibrado, como en la fase 5. Hecho en la
+  [fase 12.2](fase-12-evals-llmops.md#122--llm-juez-de-agentes-calibrable) (LLM-juez de agentes calibrable).
 - Antes de la corrección del prompt, ningún sabor cargaba las skills ni pedía el reembolso
   (llamaba a `get_event` y se paraba). Con "carga la skill antes de la tarea" y "para reembolsar
   basta `request_refund`", el reembolso sale bien en todos.
@@ -232,9 +283,11 @@ servicio real ([informe](../evals/reports/azure/context-growth.md)):
 
 ## 9. Pendiente de validación con coste
 
-Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md): suite con LLM real
-(`--mode llm --budget-usd`), agente en Foundry (`--apply`), imagen del Runtime en ECR (fase 13) con
-`agentcore_enabled=true`, y estrategias de extracción de AgentCore Memory frente a la tool explícita.
+Ver la sección "Fase 7" de [pendientes con coste](pendientes-cloud.md). Hechos en Azure
+(18-10-2026): la suite con LLM real, el agente publicado en Foundry Agent Service y la
+comparativa de contexto en una conversación larga. Queda: la imagen del Runtime en ECR (fase 13)
+con `agentcore_enabled=true` y la memoria de AgentCore cableada; las estrategias de extracción de
+AgentCore Memory frente a la tool explícita pasaron a la fase 9.
 GCP: [pendientes de la 7.G](pendientes-cloud.md#fase-7-gcp): suite con Gemini (firmas reales y
 compactación), Sessions y Memory Bank con el motor *standalone*, el agente en Agent Runtime (fase
 15), Agent Identity con la política de acceso por tool y la prueba de *custom functions* de la
@@ -253,7 +306,7 @@ funcionen con Gemini. Coste 0: todo con dobles; lo real, en
 | 7.G2 | `7a8e408` | Sabor `adk` (puente `BaseLlm` → `LLMPort`) |
 | 7.G3 | `f027fe2` | Sabor `agentplatform` y `memory_bank.py` (Sessions + Memory Bank) |
 | 7.G4 | `1bad990` | Terraform `agent_platform.tf`, Agent Identity y política de IAM v3 por tool |
-| 7.G5 | (este commit) | *Spike* de la Managed Agents API, doc a tres nubes, cierre (los informes ya tenían los 9 sabores desde la 7.G3) |
+| 7.G5 | `319f9cc` | *Spike* de la Managed Agents API, doc a tres nubes, cierre (los informes ya tenían los 9 sabores desde la 7.G3) |
 
 ### Verificación previa (21-11-2026)
 
@@ -290,7 +343,8 @@ sus propios tipos, y ahí se perdía.
 - **Test de extremo a extremo por sabor** (`test_agent_signatures.py`): un `SigningLLM` envuelve
   al `ScenarioLLM`, firma como Gemini (solo la primera llamada de cada paso) y comprueba en
   cada petición de los 14 escenarios que cada firma vuelve intacta en `native`, `langgraph`,
-  `llamaindex`, `maf`, `strands` y `agentcore`. Se comprobó que caza la regresión: quitando la
+  `llamaindex`, `maf`, `strands` y `agentcore` (y en `adk` y `agentplatform` desde la 7.G2 y la
+  7.G3). Se comprobó que caza la regresión: quitando la
   firma del puente de Strands, falla en el primer escenario que encadena dos pasos con tools; sin
   la sustitución de LangGraph al compactar, también.
 - **Compactación** (cambio de plan): en Gemini 4 la firma va ligada al prefijo con el que se
@@ -319,7 +373,7 @@ uv run pytest services/booking_agent -k adk evals/tests/test_agent_signatures.py
 Resultado: **14/14, paridad exacta de tools con `native`, 0 invariantes, 6/6 ataques contenidos
 y 4/4 controles benignos** con el harness, y las firmas de Gemini de ida y vuelta. Con el mismo
 prefijo, ADK hace las mismas 50 llamadas y gasta los mismos tokens que el bucle propio; su p95
-(304 ms) es el arranque en frío del primer `Runner`.
+(~300 ms) es el arranque en frío del primer `Runner`.
 
 Hallazgos (21-11-2026):
 

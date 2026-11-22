@@ -4,8 +4,7 @@
 sea el framework que lo orquesta. El modelo **propone**; el código determinista **decide**.
 
 Todo vive en el paquete reutilizable `packages/harness` (módulo `harness`), que depende de
-`genaipocs_core` y nunca al revés. Los sabores de la fase 7 (siete, nueve con los de GCP de la
-7.G) lo usan sin cambiar una línea:
+`genaipocs_core` y nunca al revés. Los nueve sabores de la fase 7 lo usan sin cambiar una línea:
 el harness se engancha en los dos contratos que ya compartían (`ToolExecutor` y `AgentRuntime`).
 
 ## 1. Arquitectura: tres puntos de intercepción
@@ -38,7 +37,8 @@ flowchart LR
 | Acciones irreversibles | `ApprovalGate` + `ApprovalService` | Solicitud pendiente; el backend ejecuta lo aprobado, sin el modelo |
 
 `TurnTrace` (un `ContextVar`) recoge lo que pasa en el turno sin depender del framework:
-verificado en los siete sabores, también en los que ejecutan tools en tareas propias.
+verificado en los nueve sabores con la suite de ataques (§5), también en los que ejecutan tools
+en tareas propias.
 
 ## 2. Subfases
 
@@ -49,7 +49,7 @@ verificado en los siete sabores, también en los que ejecutan tools en tareas pr
 | 8.3 | Email a partners: plantilla obligatoria por construcción, datos prohibidos, tono, juez LLM opcional por etapas | `harness/rules/partner_email.py` |
 | 8.4 | Inyección directa e indirecta, PII (regex con checksum y Presidio), Prompt Shields frente a Bedrock Guardrails | `harness/security.py`, `harness/pii*.py`, `adapters/{azure_content_safety,bedrock_guardrails}.py` |
 | 8.5 | Human-in-the-loop: aprobación obligatoria, argumentos congelados, cuatro ojos, compare-and-set | `harness/approvals.py`, migración 0005, `PostgresApprovalStore` |
-| 8.6 | Tests de ataque en la suite de evals (7 sabores, modelo comprometido) y gate en CI | `rag_evals/attacks.py`, `evals/datasets/attack-scenarios-v1.jsonl` |
+| 8.6 | Tests de ataque en la suite de evals (7 sabores; 9 desde la 7.G; modelo comprometido) y gate en CI | `rag_evals/attacks.py`, `evals/datasets/attack-scenarios-v1.jsonl` |
 
 ## 3. Defensa en profundidad (nada depende de una sola capa)
 
@@ -82,6 +82,14 @@ El escudo es un puerto (`ContentShieldPort`): `GUARDRAILS__SHIELD=heuristic|azur
 cambia de proveedor sin tocar el harness (GCP: Model Armor, [§9](#9-gcp-pasada-8g)); el detector
 de PII, otro (`GUARDRAILS__PII=regex|presidio|gcp`). Terraform de los tres, desactivado por
 defecto (`content_safety_enabled`, `bedrock_guardrail_enabled`, `model_armor_enabled`).
+
+```mermaid
+flowchart LR
+  H["Harness"] -->|"ContentShieldPort"| SH["Escudo: heurístico, Content Safety, Bedrock Guardrails o Model Armor"]
+  H -->|"PiiDetector"| PII["PII: regex, Presidio o Sensitive Data Protection"]
+  SH -.->|"no responde: falla cerrado"| BL["Bloqueo"]
+  PII -.->|"no disponible: pii_fallback"| RX["Patrones con checksum"]
+```
 
 ## 5. Tests de ataque (8.6)
 
@@ -144,7 +152,7 @@ Invariantes nuevos en la suite de agentes (además de los de la fase 7):
 
 Hallazgo: el harness falla de forma segura, pero la mitad de las preguntas de negocio no caben
 en 3 s sobre la base transaccional. En producción, preguntas analíticas contra una réplica de
-lectura o un almacén (Redshift / Synapse) con vistas preagregadas, no contra el OLTP.
+lectura o un almacén (Redshift / Synapse / BigQuery) con vistas preagregadas, no contra el OLTP.
 
 **Escudos de contenido** (`python -m rag_evals.shields --shield azure`, 24 textos etiquetados:
 ataques directos, inyecciones en documentos y textos legítimos parecidos a un ataque;
@@ -181,8 +189,9 @@ ataques directos, inyecciones en documentos y textos legítimos parecidos a un a
 - Lo mismo con Bedrock y Bedrock Guardrails (`bedrock_guardrail_enabled=true`).
 - GCP: Model Armor, Sensitive Data Protection, la *floor setting* y los ataques con Gemini
   ([pendientes](pendientes-cloud.md#fase-8-gcp)).
-- Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para los tests de ataque
-  (fase 12).
+- ~~Red teaming automatizado (PyRIT / promptfoo) y juez de respuestas para los tests de ataque~~
+  (hecho en la [fase 12](fase-12-evals-llmops.md): juez de agentes en la 12.2, PyRIT offline en
+  la 12.4 y promptfoo en la 12.5; lo que tiene coste, en sus pendientes).
 
 ## 9. GCP (pasada 8.G)
 
@@ -330,9 +339,9 @@ uv run python -m rag_evals.attacks --mode llm --budget-usd 0.20               # 
   `--judge`, siempre en `azure/`; una ejecución con Gemini (pendiente de la 7.G) habría
   sobrescrito la de Azure de la fase 7, que además es la fuente de las respuestas reales de la
   calibración del juez (12.2). Ahora también por nube, y el informe de Azure se movió a `azure/`.
-- Quedan con `azure/` fijo los informes con coste de fases posteriores (`multiagent`,
-  `semantic_cache`, experimentos de LLMOps y `agent_calibration judge`): se arreglan en sus
-  pasadas (9.G, 10.G y 12.G), apuntado en el plan.
+- Quedaban con `azure/` fijo los informes con coste de fases posteriores (`multiagent`,
+  `semantic_cache`, experimentos de LLMOps y `agent_calibration judge`): se arreglaron en sus
+  pasadas (9.G, 10.G y 12.G) y hoy también van a la carpeta de su nube.
 - Doc a tres nubes: comparativa con columna GCP (§4), nueve sabores en los ataques (§5) y
   pendientes de GCP (§8).
 

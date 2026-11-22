@@ -1,4 +1,4 @@
-# Glosario e inventario de librerías · Fases 0–12
+# Glosario e inventario de librerías · Fases 0–12 y checkpoint G→13
 
 Chuleta para la entrevista: los términos y siglas que más se repiten en el repo y las librerías
 que usamos, con **qué son**, **para qué sirven** y **dónde aparecen aquí** (para poder anclar
@@ -41,7 +41,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Abstención** | Que el sistema diga "no lo sé" / escale cuando no tiene evidencia. | Métrica propia en las evals de RAG: "abstención correcta". |
 | **Temperatura / determinismo** | Cuánta aleatoriedad hay al elegir tokens. A 0 es más estable, pero nunca 100 % determinista. | Por eso los tests usan modelos guionizados y adaptadores en memoria. |
 | **Structured output** | Pedir al modelo una salida que cumple un esquema JSON (Pydantic) en vez de texto libre. | Triaje, extracción, juez: el dominio solo acepta lo que valida el esquema. |
-| **Tool / function calling** | El modelo no ejecuta nada: **propone** llamar a una función con argumentos; tu código la ejecuta y le devuelve el resultado. | Bucle manual en la fase 6.1; después, en 7 sabores de framework. |
+| **Tool / function calling** | El modelo no ejecuta nada: **propone** llamar a una función con argumentos; tu código la ejecuta y le devuelve el resultado. | Bucle manual en la fase 6.1; después, en los 9 sabores del agente (fase 7). |
 | **Agente** | LLM + tools + un bucle que decide el siguiente paso hasta terminar (patrón ReAct: razonar → actuar → observar). | `booking_agent` (reservas y reembolsos) y los especialistas del orquestador. |
 | **Agéntico** (*agentic*) | Sistema donde el LLM elige pasos/herramientas, no solo responde. Más potente y más difícil de controlar. | Todo el repo desde la fase 6. |
 | **Few-shot / zero-shot** | Dar (o no) ejemplos resueltos dentro del prompt. | Las descripciones de tools evitan ejemplos copiables (lección de la fase 6). |
@@ -62,6 +62,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **PTU / throughput aprovisionado** | Capacidad reservada de modelo a precio fijo (Azure PTU, Bedrock *Provisioned Throughput*). | Solo compensa con volumen estable; aquí, despliegues Standard (pago por uso). |
 | **Perfil de inferencia entre regiones** | En Bedrock, enrutar la misma petición a varias regiones para tener más cuota. | Respuesta estándar en AWS a un 429. |
 | **Converse API** | API unificada de Bedrock para chat y tools con cualquier modelo. | `adapters/bedrock.py`. |
+| ***Thought signatures*** | Firma opaca que Gemini 3/4 adjunta a la primera `functionCall` de cada paso: hay que devolverla en el historial (si falta o se duplica, error 400). | `ToolCall.signature` en el puerto, en base64; viaja por todos los sabores y se quita al compactar (2.G1, 7.G1). |
 | **Coste por petición** | Tokens × precio de cada modelo, medido por el gateway. | Fórmula de presupuesto: conversaciones × llamadas × tokens × precio. |
 
 <a id="g3"></a>
@@ -70,7 +71,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 
 | Término | Qué es | En este repo |
 |---|---|---|
-| **RAG** (*Retrieval-Augmented Generation*) | Buscar fragmentos relevantes y dárselos al modelo para que responda con ellos y los cite. | `services/retrieval` y `indexer`; 3 carriles × 2 nubes. |
+| **RAG** (*Retrieval-Augmented Generation*) | Buscar fragmentos relevantes y dárselos al modelo para que responda con ellos y los cite. | `services/retrieval` y `indexer`; 3 carriles × 3 nubes. |
 | **Chunk / chunking** | Trocear documentos en fragmentos indexables; el tamaño y el corte afectan a la calidad. | Troceo por estructura; de un 29 % a un 0 % de cortes en guías largas (fase 3). |
 | **Parent-child / auto-merging** | Indexar trozos pequeños (precisos) y devolver el padre grande (contexto). Auto-merging solo sube si aciertan varios hijos. | Fase 4, con LlamaIndex. |
 | **Ingesta event-driven** | Publicar un documento encola su indexación (no un batch nocturno). | RabbitMQ / SQS / Service Bus → `indexer`. |
@@ -80,7 +81,8 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **BM25** | Búsqueda léxica clásica (por palabras), buena con IDs, nombres y términos exactos. | `rank-bm25` en local; S3 Vectors no lo tiene. |
 | **Búsqueda híbrida** | Combinar léxica (BM25) y vectorial. | Medida en Azure: sola rindió **peor** (recall@5 0,79 vs 0,95); con reranker, la mejor (0,97). |
 | **RRF** (*Reciprocal Rank Fusion*) | Fusionar listas por **posición**, no por score (las escalas no son comparables). | Fusión de la híbrida (fase 4). |
-| **Reranking** | Un segundo modelo reordena los N candidatos con más precisión. | Semantic Ranker (Azure) ↔ Bedrock Rerank. |
+| **Reranking** | Un segundo modelo reordena los N candidatos con más precisión. | Semantic Ranker (Azure) ↔ Bedrock Rerank ↔ Ranking API (GCP). |
+| **Ranking API** | Reranker suelto de GCP (API Discovery Engine, la de Agent Search): reordena candidatos de cualquier origen por relevancia frente a la consulta. | `RerankerPort` con `RETRIEVAL__RERANKER=gcp`, tras la híbrida de Agent Retrieval (4.G1). |
 | **Top-k** | Número de fragmentos que se pasan al modelo. | Métricas @5 en las evals. |
 | **HyDE** (*Hypothetical Document Embeddings*) | El LLM escribe una respuesta hipotética y se busca con ella. | Probado: no mejoró y triplicó la latencia → descartado con datos. |
 | **Query rewriting** | El LLM reformula la consulta antes de buscar. | Igual que HyDE: medido y no adoptado. |
@@ -122,7 +124,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 |---|---|---|
 | **MCP** (*Model Context Protocol*) | Estándar para que un agente descubra y llame tools/recursos de un servidor ("USB-C de las tools"). | 3 servidores FastMCP en `services/mcp_servers` (fase 6). |
 | **`tools/list`** | Operación MCP que devuelve las tools y su esquema; la descripción es parte del contrato. | Contratos versionados en la CI. |
-| **MCP gateway / agent gateway** | Gateway delante de varios servidores MCP: un endpoint, auth, políticas, auditoría. | Propio en local; AgentCore Gateway ↔ APIM. |
+| **MCP gateway / agent gateway** | Gateway delante de varios servidores MCP: un endpoint, auth, políticas, auditoría. | Propio en local; AgentCore Gateway ↔ APIM ↔ Apigee / Agent Gateway (GCP). |
 | **A2A** (*Agent-to-Agent*) | Protocolo para que un agente llame a **otro agente** opaco (otro equipo, framework o nube). MCP = agente↔tools; A2A = agente↔agente. | Especialistas como servicios A2A (fase 9). |
 | **Agent Card** | Ficha pública de un agente A2A: qué sabe hacer y cómo autenticarse (no expone tools internas). | Una por especialista. |
 | **OAuth 2.x** | Estándar de autorización por tokens con permisos acotados. | Servidores MCP protegidos con OAuth (fase 6.3). |
@@ -131,6 +133,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Audience (`aud`)** | Para qué servicio se emitió el token; otro servicio debe rechazarlo. | Un audience por especialista A2A. |
 | **Token passthrough** | Reenviar el token del usuario a otro servicio. Antipatrón: rompe audiencia y auditoría. | Prohibido; AgentCore Gateway ni lo permite. |
 | **OBO / token exchange** (*On-Behalf-Of*, RFC 8693) | Cambiar un token por otro nuevo, para un servicio concreto y con menos permisos, en nombre del usuario. | El MCP gateway lo hace por servidor. |
+| **`signJwt`** | Operación de IAM de GCP que firma un JWT con la clave gestionada por Google de una cuenta de servicio, sin descargar claves. | GCP no tiene OBO nativo: `GcpTokenExchanger` firma el token de cada servidor MCP (`aud` y scope del servidor, `act` = gateway) (6.G2). |
 | **Mínimo privilegio / radio de impacto** | Dar solo los permisos necesarios para que un fallo o ataque afecte a lo mínimo. | Tres servidores MCP en vez de uno. |
 | **Cedar** | Lenguaje de políticas de autorización de AWS. | Políticas de AgentCore Gateway (comparativa). |
 | **Entra ID / Managed Identity ↔ IAM Role** | Identidad de personas y de servicios sin secretos en el código. | Regla del repo: nunca secretos; identidades gestionadas en la nube. |
@@ -146,7 +149,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 
 | Término | Qué es | En este repo |
 |---|---|---|
-| **Sabor** | Una implementación del mismo agente con otro framework/servicio, con la misma suite. | 7: nativo, LangGraph, LlamaIndex, MAF, Strands, Foundry Agent Service, AgentCore. |
+| **Sabor** | Una implementación del mismo agente con otro framework/servicio, con la misma suite. | 9: nativo, LangGraph, LlamaIndex, MAF, Strands y ADK (carril C); Foundry Agent Service, AgentCore (aloja `strands`) y `agentplatform` (Agent Runtime, aloja `adk`) (carril A). |
 | **`AgentRuntime` / `AgentSpec`** | Contrato común de todos los agentes / lo único que ven todos los sabores (prompt, tools, límites, fallback). | `booking_agent/spec.py`. |
 | **Context engineering** | Decidir **qué** entra en la ventana y en qué orden: instrucciones, memoria, tools, historial, documentos. | Lo estable primero (caché), lo variable al final, compactación con histéresis. |
 | **Compactación** | Resumir o recortar el historial al acercarse a un límite. | Política propia en todos los sabores salvo Foundry (no controlable). |
@@ -154,7 +157,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Diario de tools** (`JournaledExecutor`) | Registro de cada llamada a tool para auditar y comparar sabores. | Detectó bugs de frameworks (orden no determinista, JSON inválido silenciado). |
 | **Test de paridad** | El mismo escenario debe producir las mismas tools en todos los sabores/motores. | Fases 7 y 9. |
 | **Modelo guionizado** | LLM falso que devuelve respuestas predefinidas: tests deterministas y gratis. | Base de todas las suites de la CI. |
-| **Agente gestionado** | El proveedor ejecuta el bucle, la memoria y el escalado. | Foundry Agent Service ↔ Bedrock Agents / AgentCore Runtime. |
+| **Agente gestionado** | El proveedor ejecuta el bucle, la memoria y el escalado. | Foundry Agent Service ↔ Bedrock Agents / AgentCore Runtime ↔ Agent Runtime (GCP). |
 | **Skill** | Paquete de instrucciones que el agente carga solo cuando lo necesita. | Skills del `AgentSpec` y de `.claude/skills/` para los agentes de desarrollo (Copilot y Claude Code). |
 
 <a id="g7"></a>
@@ -193,8 +196,9 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Triaje → especialistas** | Un agente clasifica y deriva a Reembolsos, Creativo o Conocimiento. | Una tabla del dominio elige el especialista, no el LLM. |
 | **Sobre (*envelope*)** | Mensaje estructurado que pasa entre agentes (intención, idioma, urgencia, resumen), no el texto original. | −63 % de tokens y la inyección del cliente no llega al especialista. |
 | **Grafo / estado / checkpointer** | Flujo como nodos y aristas con un estado compartido que se guarda por hilo para reanudar. | LangGraph con checkpoints en PostgreSQL; MAF como alternativa. |
-| **Asíncrono / cola** | El que pide no espera: deja un mensaje y otro proceso lo atiende. Absorbe picos. | RabbitMQ en local, SQS en AWS, Service Bus en Azure. |
+| **Asíncrono / cola** | El que pide no espera: deja un mensaje y otro proceso lo atiende. Absorbe picos. | RabbitMQ en local, SQS en AWS, Service Bus en Azure, Pub/Sub en GCP. |
 | **At-least-once** | Las colas garantizan entregar **al menos** una vez: puede llegar duplicado. | Por eso todo consumidor es idempotente. |
+| ***Exactly-once* (Pub/Sub)** | Entrega de Pub/Sub que evita las **reentregas** de un mensaje ya confirmado; no evita los duplicados que publica el productor. | Primera capa de deduplicación del orquestador en GCP; no sustituye a la idempotencia (9.G3). |
 | **Idempotencia** | Repetir la misma operación produce el mismo efecto que hacerla una vez. | `Idempotency-Key` en la API; casos reclamados antes de llamar al LLM. |
 | **Compare-and-set (CAS)** | Actualizar solo si el valor sigue siendo el que leíste; evita carreras. | Avance del estado de los casos y de las aprobaciones. |
 | **Transactional outbox** | Guardar el cambio y el mensaje a publicar en la **misma transacción**; un relay lo publica después. | Cerró el doble triaje por emails duplicados (fase 10.5). |
@@ -221,6 +225,8 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Ley de Little** | Concurrencia = tasa de llegada × tiempo en el sistema. Dimensiona réplicas y colas. | Con 150 K TPM, más de 2 réplicas solo producen 429. |
 | **Autoescalado por cola** | Escalar workers por mensajes pendientes, no por CPU (un worker de LLM espera, no calcula). | KEDA en Container Apps ↔ ECS *target tracking* sobre SQS. |
 | **KEDA** (*Kubernetes Event-Driven Autoscaling*) | Autoescalador por eventos (colas, métricas) para Kubernetes y Container Apps. | Regla `azure-servicebus`. |
+| **CREMA** | Autoescalador de Google que lleva KEDA como servicio a los worker pools de Cloud Run (que no autoescalan solos). | Escalador `prometheus` con la PromQL del backlog de Pub/Sub; tiene coste fijo (una instancia siempre encendida) (10.G4). |
+| **Memorystore for Valkey** | Caché en memoria gestionada de GCP, compatible con Redis (Valkey es la bifurcación abierta de Redis). | GCRA y caché semántica con el mismo código (sin `TEXT` ni `SORTBY` en su búsqueda vectorial), autenticación IAM con TLS (10.G2). |
 | **Prueba de carga** | Simular muchos usuarios para encontrar el límite antes que los clientes. | Locust con 200 usuarios: de 6,8 a 75 req/s. |
 
 <a id="g10"></a>
@@ -233,19 +239,20 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Traza / span / `trace_id`** | Traza = recorrido completo de una petición; span = cada paso con su duración; `trace_id` las une. | Un caso = 14 spans con un solo `trace_id`, de `POST /cases` al resultado. |
 | **OpenTelemetry (OTel)** | Estándar abierto para instrumentar una vez y enviar a cualquier backend. | Detrás de `TelemetryPort`; el código no importa el SDK. |
 | **OTLP** (*OpenTelemetry Protocol*) | Formato/protocolo con el que se envía la telemetría. | De los servicios al collector; X-Ray acepta OTLP. |
-| **Collector** | Proceso intermedio que recibe, filtra (borra PII) y reenvía la telemetría. | Tres configuraciones: local, AWS (ADOT) y Azure. |
+| **Collector** | Proceso intermedio que recibe, filtra (borra PII) y reenvía la telemetría. | Cuatro configuraciones: local (`infra/local/telemetry/`), AWS (ADOT), Azure y GCP (`infra/otel/collector-*.yaml`). |
 | **Convención GenAI** | Nombres estándar de atributos para LLM (`gen_ai.request.model`, `gen_ai.usage.input_tokens`). | Spans de cada llamada al modelo. |
 | **Propagación de contexto / W3C `traceparent`** | Pasar el ID de la traza entre servicios y colas para que sea una sola traza. | Atributos de SQS, cabeceras AMQP, Service Bus, columna del outbox, cabecera A2A. |
 | **Métricas RED** | *Rate, Errors, Duration*: las tres básicas de un servicio. | Más las de GenAI: TTFT, tokens, coste, 429/503, caché. |
 | **SLI / SLO / SLA** | Indicador medido / objetivo interno ("99 % bien") / compromiso contractual con penalización. | 6 SLO en el dominio (`domain/slo.py`). |
 | **Presupuesto de error** | Lo que se permite fallar (100 % − SLO). Si se gasta rápido, se congela lo arriesgado. | Explicación a dirección de la fase 11. |
-| **Burn rate (multiventana)** | A qué velocidad se gasta el presupuesto; dos ventanas evitan falsas alarmas. | 14,4× en 1 h y 5 min despierta; 6×/3×/1× abre ticket. 71 reglas probadas con `promtool`. |
+| **Burn rate (multiventana)** | A qué velocidad se gasta el presupuesto; dos ventanas evitan falsas alarmas. | 14,4× en 1 h y 5 min despierta; 6×/3×/1× abre ticket. 78 reglas (45 de registro y 33 alertas, 24 de burn rate) probadas con `promtool`. |
 | **Runbook** | Guía paso a paso de qué hacer cuando salta una alerta. | `docs/runbook-incidentes.md`. |
 | **MTTD / MTTR** | Tiempo medio en **detectar** / en **resolver** un incidente. | KPI de negocio de la fase 11. |
 | **Muestreo (*sampling*)** | Guardar solo una parte de las trazas para controlar coste. | `TELEMETRY__SAMPLE_RATIO`. |
 | **Cardinalidad** | Número de combinaciones de etiquetas de una métrica; alta = caro y lento. | Las métricas nunca llevan IDs. |
 | **EMF / ADOT** | *Embedded Metric Format* (métricas dentro de logs de CloudWatch) / *AWS Distro for OpenTelemetry*. | Collector de AWS. |
-| **X-Ray / CloudWatch ↔ Application Insights / Azure Monitor** | Trazas y métricas gestionadas de cada nube. | Pendiente de validar en la nube. |
+| **X-Ray / CloudWatch ↔ Application Insights / Azure Monitor ↔ Cloud Trace / Cloud Monitoring** | Trazas y métricas gestionadas de cada nube. | Pendiente de validar en la nube. |
+| **Cloud Trace** | Trazas distribuidas de GCP; recibe OTLP por la Telemetry API (`telemetry.googleapis.com`) y enlaza los logs de Cloud Logging con la traza. | `collector-gcp.yaml` (11.G1); logs con `TELEMETRY__LOG_FORMAT=gcp` (11.G3). |
 
 <a id="g11"></a>
 
@@ -288,9 +295,13 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Proyecto (GCP)** | Unidad de aislamiento de GCP: facturación, cuotas, APIs e IAM cuelgan de él. Más fuerte que un grupo de recursos de Azure. | `GCP__PROJECT`; se crea a mano y Terraform gestiona lo de dentro. |
 | **Habilitar una API (GCP)** | En GCP cada servicio se enciende por proyecto antes de usarlo; si no, `SERVICE_DISABLED`. | `google_project_service` en `infra/terraform/gcp/main.tf`. |
 | **Gemini Enterprise Agent Platform** | Nombre actual de Vertex AI como plataforma de agentes y modelos (Agent Runtime, Sessions, Memory Bank, evaluación...). | Pasada GCP (fases 2.G–12.G). |
-| **Emulador** | Imitación local de un servicio de nube para probar sin cuenta ni coste. | ElasticMQ (SQS), Service Bus y Pub/Sub en `docker-compose.yml`. |
+| **Emulador** | Proceso local que habla el mismo protocolo que el servicio de la nube: el SDK no cambia, solo el *endpoint*. Sin cuenta, sin red y sin coste; nunca prueba IAM, cuotas ni modelos. | Oficiales: AWS Emulator (perfil `aws`), Azurite (`azure`), Service Bus 2.0.1 (`servicebus`) y Pub/Sub (`pubsub`); ElasticMQ (`sqs`, comunidad) para ejecutar el sistema en local (checkpoint G→13). |
+| **AWS Emulator** | Emulador oficial de AWS (CC0): un solo proceso para casi todas las API, generado de los mismos modelos de API que los SDK. HTTPS, SigV4 con claves nuevas en cada arranque; no evalúa IAM. | Imagen propia con la versión fijada (`1.0.569`) en `infra/local/aws-emulator/`; tests de SQS, S3, S3 Vectors y la KB, y el Terraform de AWS aplicado contra él en el job `aws-emulator` (G→13.2–13.5). |
+| **Azurite** | Emulador oficial de Azure Storage (MIT): Blob, Queue y Table. No comprueba RBAC ni identidad gestionada. | Perfil `azure` y job `integration`: subida incremental de blobs del carril A (`upload_if_changed`, G→13.4). |
+| **Fidelidad (de un emulador)** | Pruebas de fidelidad que pasa un emulador sobre el total; AWS las publica por servicio con cada release (`scores.json`). | `v1.0.569`: 78 % global; SQS 94 %, S3 92 %, S3 Vectors 99 %. Bedrock `Converse` no: los modelos, solo en la nube. |
+| **`terraform test` / `mock_provider`** | Tests de Terraform: con `mock_provider` se planifica con un proveedor simulado (sin nube); con `command = apply` contra un emulador se crea y destruye de verdad, con el estado en memoria. | Job `terraform` (mock, tres nubes) y `tests-emulator/` de AWS en el job `aws-emulator`: el emulador valida contra la API (aceptó `TOKEN_EXCHANGE` y rechazó un `accountId` vacío del presupuesto). |
 | **Branch protection / ruleset** | Reglas de GitHub sobre una rama: PR obligatoria, checks en verde, sin force-push. | `main` protegida con `proteger-main` y el check `release-gate` (desde la 0.G). |
-| **CI/CD** | Integración continua (calidad automática en cada push) y despliegue continuo. | GitHub Actions: ruff, mypy, pytest, gates de evals, validación de IaC. |
+| **CI/CD** | Integración continua (calidad automática en cada push) y despliegue continuo. | GitHub Actions: ruff, mypy, pytest, gates de evals, validación de IaC y el Terraform de AWS aplicado contra el AWS Emulator (job `aws-emulator`). |
 | **Datos sintéticos** | Datos generados con semilla, sin PII real. | `scripts/generate_synthetic_data.py`. |
 | **`✅ Hecha*`** | Implementación cerrada en local; falta validar en la nube. | `docs/pendientes-cloud.md`. |
 
@@ -412,7 +423,7 @@ equivalente o alternativa.
 | `opentelemetry-instrumentation-fastapi` / `-httpx` | Instrumentación automática de servidores y clientes HTTP. | Spans de cada petición sin tocar el código. | — |
 | OpenTelemetry Collector (`contrib`) | Proceso que recibe, transforma y reenvía telemetría. | Borra PII y enruta a Jaeger/Prometheus, X-Ray/CloudWatch (ADOT) o App Insights. | ADOT, Azure Monitor Agent. |
 | Jaeger | Visor de trazas distribuidas open source. | Trazas en local (`:16686`). | X-Ray ↔ Application Insights. |
-| Prometheus (+ `promtool`) | Base de datos de métricas por *scraping* y motor de alertas. | Métricas RED/GenAI, 71 reglas de burn rate probadas en la CI. | Amazon/Azure Managed Prometheus, CloudWatch. |
+| Prometheus (+ `promtool`) | Base de datos de métricas por *scraping* y motor de alertas. | Métricas RED/GenAI, 78 reglas (33 alertas, 24 de burn rate) probadas en la CI. | Amazon/Azure Managed Prometheus, CloudWatch. |
 | Grafana | Dashboards sobre métricas, trazas y logs. | Dashboard como código (`:3001`). | Amazon/Azure Managed Grafana. |
 
 <a id="l8"></a>
@@ -425,7 +436,7 @@ equivalente o alternativa.
 | `uvicorn` | Servidor ASGI que ejecuta FastAPI. | Arranque de todos los servicios. | Gunicorn + workers uvicorn, Hypercorn. |
 | `aio-pika` | Cliente AMQP asíncrono para RabbitMQ. | Colas de indexación y de casos en local. | `pika` (sync). |
 | `azure-servicebus` | SDK de Azure Service Bus. | Cola de Azure (y su emulador local). | SQS con `boto3`. |
-| `redis` | Cliente de Redis (sync/async). | Rate limit GCRA en Lua, cuota compartida de TPM, caché semántica. | ElastiCache (Valkey) ↔ Azure Managed Redis. |
+| `redis` | Cliente de Redis (sync/async). | Rate limit GCRA en Lua, cuota compartida de TPM, caché semántica. | ElastiCache (Valkey) ↔ Azure Managed Redis ↔ Memorystore for Valkey. |
 | `locust` | Herramienta de pruebas de carga escrita en Python. | 200 usuarios simulados contra el edge (fase 10.7). | k6, JMeter, Azure Load Testing. |
 
 <a id="l9"></a>
@@ -438,8 +449,8 @@ equivalente o alternativa.
 | `ruff` | Linter y formateador de Python muy rápido. | `ruff check` y `ruff format --check` en la CI. |
 | `mypy` | Comprobador de tipos estático. | Tipado estricto en todo el monorepo. |
 | `pytest` + `pytest-asyncio` | Framework de tests y soporte de async. | Tests unitarios; `-m integration` para los que necesitan Docker. |
-| Terraform | IaC multi-nube declarativa. | `infra/terraform/{aws,azure,gcp}`, `fmt -check` y `validate` en la CI. |
-| GitHub Actions | CI/CD integrado en GitHub. | Calidad, gates de evals, `release-gate`, validación de IaC. |
+| Terraform | IaC multi-nube declarativa. | `infra/terraform/{aws,azure,gcp}`, `fmt -check`, `validate` y `terraform test` (mock) en la CI; el de AWS, además, aplicado contra el AWS Emulator. |
+| GitHub Actions | CI/CD integrado en GitHub. | Calidad, gates de evals, `release-gate`, validación de IaC, job `aws-emulator`. |
 | `gh` | CLI de GitHub. | Vigilar la CI tras cada push. |
 
 <a id="l10"></a>
@@ -450,10 +461,13 @@ equivalente o alternativa.
 |---|---|---|
 | `pgvector/pgvector:pg17` | PostgreSQL 17 con pgvector. | Base de datos y vector store (por defecto). |
 | `rabbitmq:4-management` | Broker de mensajería AMQP con consola web. | Colas en local (por defecto). |
-| `softwaremill/elasticmq-native` | Emulador compatible con la API de SQS. | Perfil `sqs`. |
-| `servicebus-emulator` + `mssql/server` | Emulador oficial de Service Bus (necesita SQL Server). | Perfil `servicebus`. |
+| `softwaremill/elasticmq-native` | Emulador compatible con la API de SQS (comunidad). | Perfil `sqs` y job `integration`: ejecutar el sistema en local. |
+| `genaipocs-aws-emulator:1.0.569` | AWS Emulator oficial, imagen construida en local desde el RPM fijado (`infra/local/aws-emulator/`), telemetría apagada. | Perfil `aws` (`127.0.0.1:9297`) y job `aws-emulator`. |
+| `mcr.microsoft.com/azure-storage/azurite:3.38.0` | Azurite, emulador oficial de Azure Storage (solo Blob, en memoria). | Perfil `azure` y job `integration`. |
+| `servicebus-emulator:2.0.1` + `mssql/server` | Emulador oficial de Service Bus (necesita SQL Server). | Perfil `servicebus` (fuera de la CI: EULA y ~2 GB). |
 | `google-cloud-cli:<versión>-emulators` | CLI de Google con sus emuladores (Pub/Sub y otros), ~1,7 GB. | Perfil `pubsub` (`--host-port=0.0.0.0:8085`) y job `integration`. |
-| `redis` | Almacén en memoria clave-valor. | Perfil `scale` (y dependencia de Langfuse). |
+| `redis` | Almacén en memoria clave-valor. | Perfil `scale` (Redis 8) y dependencia de Langfuse (Redis 7). |
+| `valkey/valkey-bundle:9.0.8` | Valkey con sus módulos (búsqueda vectorial incluida), como Memorystore for Valkey. | Perfil `scale` y job `integration` (10.G2). |
 | `langfuse/langfuse` + worker, ClickHouse, MinIO | Langfuse v3 autoalojado (analítica en ClickHouse, ficheros en MinIO, compatible con S3). | Perfil `observability`. |
 | `otel/opentelemetry-collector-contrib`, `jaegertracing/jaeger`, `prom/prometheus`, `grafana/grafana` | Stack de telemetría. | Perfil `telemetry`. |
 | `genaipocs-mcp:local`, `genaipocs-agents:local` | Imágenes propias de los servidores MCP y de los especialistas A2A. | Perfiles `mcp` y `agents`. |
