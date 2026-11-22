@@ -1400,6 +1400,29 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    A/B con modelo real no son fiables. El drift y MLflow gestionado, al final: necesitan tráfico real
    para aportar.
 
+### GCP (pasada 12.G)
+
+**Técnicas**
+
+1. **Cambias el juez de Azure a Gemini: ¿qué tienes que vigilar?** Tres cosas:
+   - Que el juez sigue fijo y fuera del router (`gemini-4-argon`, nunca el que genera).
+   - Que su esquema cabe en el subconjunto de JSON Schema de Gemini, o la llamada da 400 solo en la nube.
+   - Que sus resultados no pisan los de Azure: cada nube escribe en su carpeta.
+
+   Y, sobre todo, recalibrar: el kappa de Azure no vale para Gemini. Las 32 muestras son las
+   mismas, así que los dos jueces se comparan con las mismas etiquetas humanas.
+2. **Un A/B de modelos sale «sin diferencia»: ¿te lo crees?** Antes compruebo que cada variante usó
+   su modelo. En la 12.G encontré que el A/B solo forzaba el modelo de Azure: con Gemini, las dos
+   variantes llamaban al mismo modelo y el resultado nulo era un artefacto. Ahora se fuerza en la
+   nube que genera, hay un test por nube y el coste por modelo del informe lo deja ver.
+
+**Negocio y stakeholders**
+
+1. **¿Por qué recalibrar el juez si ya está calibrado en Azure?** Porque el juez es un instrumento
+   de medida, y cambiar de modelo es cambiar de instrumento. Recalibrar cuesta unos céntimos y las
+   etiquetas humanas ya están hechas. No hacerlo es aprobar cambios en producción con una vara que
+   nadie ha medido.
+
 <a id="checkpoint-12-13"></a>
 
 ## Checkpoint 12→13 · Comunicar la arquitectura y añadir un proveedor ([doc](fase-13-12-checkpoint.md))

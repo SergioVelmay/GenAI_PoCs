@@ -16,7 +16,11 @@ Flujo (desde la raíz del repo):
     uv run python -m rag_evals.agent_calibration build        # coste 0: conjunto + plantilla
     # Sergio rellena evals/calibration/agents-labels-v1.csv a ciegas (sin ver el tipo)
     uv run python -m rag_evals.agent_calibration judge --budget-usd 0.30     # con coste
-    uv run python -m rag_evals.agent_calibration agreement    # coste 0: acuerdo humano-juez
+    uv run python -m rag_evals.agent_calibration agreement [--cloud gcp]     # coste 0
+
+El informe del juez va a la carpeta de la nube que juzga (`evals/reports/<nube>/`, 12.G1): una
+calibración con Gemini no sobrescribe la de Azure. El conjunto sigue saliendo de las respuestas
+reales de Azure de la fase 7 (`LLM_REPORT_PATH`): es el mismo para todos los jueces.
 """
 
 from __future__ import annotations
@@ -45,7 +49,7 @@ from rag_evals.agents.scenarios import SCENARIOS_PATH, Scenario, load_scenarios
 from rag_evals.agents.suite import SCRIPTED_ONLY_CATEGORIES, run_agent_suite
 from rag_evals.calibration import NON_ANSWER
 from rag_evals.metering import BudgetExceededError
-from rag_evals.retrieval_eval import CLOUD_REPORTS_DIR, REPORTS_DIR
+from rag_evals.retrieval_eval import REPORTS_DIR, Cloud, cloud_reports_dir, llm_reports_dir
 
 Kind = Literal["good", "real", "fabricated", "false_action", "non_answer"]
 YesNo = Literal["si", "no"]
@@ -389,13 +393,11 @@ def agreement(
     )
 
 
-def _report_path(judge: str) -> Path:
-    return CLOUD_REPORTS_DIR / f"agent-calibration-{judge}.json"
-
-
-def write_judged(judge: str, judged: Sequence[JudgedItem], cost: Mapping[str, object]) -> Path:
-    CLOUD_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = _report_path(judge)
+def write_judged(
+    judge: str, judged: Sequence[JudgedItem], cost: Mapping[str, object], out_dir: Path
+) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"agent-calibration-{judge}.json"
     items = [
         {
             "id": item.id,
@@ -465,6 +467,15 @@ def render_agreement(results: Sequence[Agreement], samples: int) -> str:
     return "\n".join(lines) + "\n"
 
 
+def agreement_dir(cloud: Cloud | None) -> Path:
+    """La carpeta pedida o, si no, la de la nube de `LLM_PROVIDER` (la que habrá juzgado)."""
+    if cloud is not None:
+        return cloud_reports_dir(cloud)
+    from genaipocs_core.config import Settings
+
+    return llm_reports_dir(Settings().llm_provider)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -473,7 +484,12 @@ def main() -> None:
     judge = commands.add_parser("judge", help="Puntúa el conjunto con el juez (con coste)")
     judge.add_argument("--judge", choices=["native"], default="native")
     judge.add_argument("--budget-usd", type=Decimal, required=True)
-    commands.add_parser("agreement", help="Acuerdo humano-juez (coste 0)")
+    agree = commands.add_parser("agreement", help="Acuerdo humano-juez (coste 0)")
+    agree.add_argument(
+        "--cloud",
+        choices=["azure", "aws", "gcp"],
+        help="Carpeta de informes que se compara (por defecto, la de LLM_PROVIDER)",
+    )
     args = parser.parse_args()
 
     if args.command == "build":
@@ -486,16 +502,16 @@ def main() -> None:
         cloud = build_cloud_models(args.budget_usd, agent=False, judge=args.judge)
         assert cloud.judge is not None
         judged = asyncio.run(judge_set(load_set(), cloud.judge))
-        path = write_judged(args.judge, judged, asdict(cloud.meter.snapshot()))
+        out_dir = cloud_reports_dir(cloud.cloud)
+        path = write_judged(args.judge, judged, asdict(cloud.meter.snapshot()), out_dir)
         scored = sum(i.error is None for i in judged)
         print(f"{path}: {scored} juzgadas, coste {cloud.meter.cost_usd} USD")
     else:
         labels = load_labels()
-        reports = [
-            load_judged(path) for path in sorted(CLOUD_REPORTS_DIR.glob("agent-calibration-*.json"))
-        ]
+        out_dir = agreement_dir(args.cloud)
+        reports = [load_judged(path) for path in sorted(out_dir.glob("agent-calibration-*.json"))]
         results = [agreement(name, items, labels) for name, items in reports]
-        out = CLOUD_REPORTS_DIR / "agent-calibration.md"
+        out = out_dir / "agent-calibration.md"
         out.write_text(render_agreement(results, len(load_set())), encoding="utf-8", newline="\n")
         print(out.read_text(encoding="utf-8"))
 

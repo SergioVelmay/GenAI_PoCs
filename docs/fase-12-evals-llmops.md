@@ -257,6 +257,57 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 12):
 - A/B con modelo real, MLflow gestionado y juez online con Azure OpenAI;
 - drift con tráfico real y drift de entrada por embeddings.
 
-## 7. Checkpoint de entrevista
+## 7. GCP (pasada 12.G)
+
+**Objetivo:** el mismo ciclo de calidad con Gemini. El juez de agentes y los A/B funcionan con
+Gemini y dejan sus informes en la carpeta de GCP. El **Gen AI Evaluation Service** sirve de
+contraste gestionado de la 12.1. Los prompts se publican en la gestión de prompts de Agent
+Platform y los experimentos se registran en **Vertex AI Experiments**. El drift ya llega a Managed
+Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
+[pendientes](pendientes-cloud.md#fase-12-gcp).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 12.G1 | `f98ed1e` + (este) | Juez de agentes con Gemini, informes con coste por nube y A/B de modelos que fuerza la nube que genera |
+
+### Verificación previa (22-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Métricas de trayectoria en `client.evals` (SDK `agentplatform` 2.7, el cliente de la 5.G2) | **No están.** El manejador de métricas por cómputo dice `TODO ... Add trajectory metrics once they are supported`. Solo trae `tool_name_match`, `tool_parameter_kv_match` y `tool_call_valid`, que comparan una llamada cada vez | Se piden con `EvaluationServiceClient.evaluate_instances` de `aiplatform_v1beta1` (`TrajectoryPrecisionInput` y las demás; Preview). No con el `EvalTask` antiguo: pide pandas y la [documentación](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/evaluation-overview) ya enseña `client.evals` como camino principal |
+| [Métricas de trayectoria](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-agents) | `trajectory_exact_match`, `in_order_match`, `any_order_match`, `precision`, `recall` y `single_tool_use`. La precisión y el recall miran el **conjunto** de tools llamadas | Las nuestras (12.1) miran la **subsecuencia ordenada**: la 12.G2 mide la diferencia escenario a escenario |
+| Rúbricas de agente en `client.evals` | `tool_use_quality_v2`, `hallucination_v2`, `final_response_quality_v2`, `multi_turn_trajectory_quality_v1` y `multi_turn_task_success_v1` | Contraste del `AgentJudge` sobre la calibración de agentes, como el de la 5.G2 |
+| [Gestión de prompts](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/model-reference/prompt-classes) (`client.prompts`) | `create_version` crea un prompt **nuevo** con su primera versión y `update(prompt_id)` le añade versiones. El `prompt_id` es el número de un Vertex Dataset | El adaptador de la 12.G4 busca cada prompt por su nombre visible antes de publicar |
+| [Vertex AI Experiments](https://cloud.google.com/vertex-ai/docs/experiments/log-data) | Vigente (documentación del 17-11-2026, sin aviso de retirada): `aiplatform.init(experiment=...)`, `start_run`, `log_params` y `log_metrics`. Sin *tags* | `VertexExperimentTracker` (12.G5) sobre el puerto que ya existe; las *tags* van como parámetros |
+| [promptfoo](https://www.promptfoo.dev/docs/red-team/configuration/) | `redteam.provider: vertex:<modelo>` con ADC para generar y juzgar | Configuración para GCP sin la generación remota (12.G3) |
+| `with_model` (A/B de modelos, 12.7) | Solo forzaba los despliegues de Azure: con Gemini o Bedrock, **las dos variantes usaban el mismo modelo** y el A/B salía «sin diferencia» sin avisar | `fix:` `f98ed1e` con test de regresión por nube |
+
+### 12.G1 · Juez de agentes con Gemini
+
+```powershell
+$env:LLM_PROVIDER = "gcp"
+uv run python -m rag_evals.agent_calibration judge --budget-usd 0.30   # → evals/reports/gcp/
+uv run python -m rag_evals.agent_calibration agreement --cloud gcp     # coste 0
+uv run python -m rag_evals.llmops.experiment run <yaml> --mode llm --budget-usd 0.40   # → gcp/experiments
+```
+
+- **El juez ya era Gemini desde la 5.G1** (`GEMINI__JUDGE_MODEL=gemini-4-argon`, fijo y fuera del
+  router). Lo que faltaba era dónde quedan los resultados: `agent_calibration judge|agreement` y
+  `experiment --mode llm` escribían siempre en `evals/reports/azure/`. Una calibración con Gemini
+  habría **sobrescrito la de Azure** con el mismo nombre de fichero. Ahora van a la carpeta de la
+  nube que juzga (`agreement --cloud` compara otra). Con esto ya no queda ninguna eval que escriba
+  siempre en `azure/`, y desaparece la constante `CLOUD_REPORTS_DIR`.
+- **El conjunto de calibración no cambia.** Sigue saliendo de las respuestas reales de Azure de la
+  fase 7: así todos los jueces puntúan las mismas 32 muestras y sus kappas se pueden comparar.
+- **Esquema y dominio.** El esquema del `AgentJudge` cabe en el subconjunto de JSON Schema de
+  Gemini. Un test lo lleva de punta a punta por `GeminiLLM`: Gemini etiqueta una acción que la
+  evidencia no respalda y es el dominio el que da la respuesta por **no aceptable**.
+- **Juez online** (12.3): se construye con solo GCP configurado y sigue apagado con
+  `ORCHESTRATOR__ONLINE_EVAL_RATE=0`.
+- **A/B de modelos** (`fix:` `f98ed1e`): `model:` en una variante fuerza los dos niveles del router
+  en la nube de `LLM_PROVIDER`. Los respaldos de otras nubes no se fuerzan: si el gateway cae a
+  uno, esa llamada no es de la variante, y se ve en el coste por modelo.
+
+## 8. Checkpoint de entrevista
 
 Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-12).

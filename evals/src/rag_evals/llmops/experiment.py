@@ -48,7 +48,7 @@ from rag_evals.agents.cloud import build_cloud_models
 from rag_evals.agents.scenarios import ATTACKS_PATH, SCENARIOS_PATH, load_scenarios
 from rag_evals.agents.suite import AgentReport, ScenarioOutcome, run_agent_suite
 from rag_evals.metering import CostMeter
-from rag_evals.retrieval_eval import REPORTS_DIR
+from rag_evals.retrieval_eval import REPORTS_DIR, Cloud, llm_cloud
 
 EXPERIMENTS_DIR = EVALS_DIR / "experiments"
 RUNS_DIR = EVALS_DIR.parent / ".experiments"
@@ -337,6 +337,19 @@ def build_tracker(kind: str) -> ExperimentTrackerPort:
     return JsonlExperimentTracker(RUNS_DIR)
 
 
+def report_dir(out: Path, mode: Literal["scripted", "llm"], cloud: Cloud | None = None) -> Path:
+    """Con el modelo guionizado, `out`; con LLM real, `<nube>/experiments` junto a `out`, la
+    nube de `LLM_PROVIDER` (la que generó y juzgó): un A/B con Gemini no sobrescribe el de Azure
+    (hasta la 12.G1 iba siempre a `azure/`)."""
+    if mode == "scripted":
+        return out
+    if cloud is None:
+        from genaipocs_core.config import Settings
+
+        cloud = llm_cloud(Settings().llm_provider)
+    return out.parent / cloud / "experiments"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -363,7 +376,7 @@ def main() -> None:
     control, treatment = results
     metric = spec.llm_metric if args.mode == "llm" and spec.llm_metric else spec.metric
     comparison = compare(control, treatment, metric, spec.alpha)
-    out: Path = args.out if args.mode == "scripted" else args.out.parent / "azure" / "experiments"
+    out = report_dir(args.out, args.mode)
     out.mkdir(parents=True, exist_ok=True)
     report = out / f"{spec.name}.md"
     report.write_text(render(spec, results, comparison), encoding="utf-8", newline="\n")

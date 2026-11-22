@@ -203,10 +203,19 @@ Plan original (antes del cambio):
 **12.G · Evals de agentes y LLMOps**
 
 - **Heredado de la 8.G4:** los experimentos de LLMOps (`--mode llm`) y `agent_calibration judge` escriben siempre en `evals/reports/azure/`: a la carpeta de la nube del juez.
-- 12.G1: juez de agentes con Gemini, métricas de trayectoria del Evaluation Service como contraste de la 12.1, promptfoo y PyRIT contra Gemini (aplazado).
-- 12.G2: publicación de prompts en la gestión de prompts de Agent Platform (dry-run), `VertexExperimentTracker` junto a MLflow, reglas de drift en Managed Service for Prometheus.
-- 12.G3: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.
-- 12.G4 (añadida el 20-11-2026, documental): **alinear el repo público con las buenas prácticas de GitHub**. Punto de partida (`gh api repos/SergioVelmay/GenAI_PoCs/community/profile`, 20-11-2026): *community profile* al **28 %**, solo con README; sin licencia, `CODE_OF_CONDUCT`, `CONTRIBUTING` ni plantillas de issues y PR; sin *topics*; la descripción no menciona GCP y el enlace de documentación apunta a `master` (la rama es `main`). Entregables: licencia (decidir cuál con Sergio), `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, plantillas de issues y de PR, descripción y *topics*, y medir el resultado (perfil de comunidad y, si aplica, OpenSSF Scorecard) antes y después. Sin el nombre real del cliente ni marcas de terceros en ninguno de esos ficheros.
+- ~~12.G1: juez de agentes con Gemini, métricas de trayectoria del Evaluation Service como contraste de la 12.1, promptfoo y PyRIT contra Gemini (aplazado).~~
+- ~~12.G2: publicación de prompts en la gestión de prompts de Agent Platform (dry-run), `VertexExperimentTracker` junto a MLflow, reglas de drift en Managed Service for Prometheus.~~
+- ~~12.G3: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.~~
+- **Al empezar (22-11-2026)** pasa a **siete** subfases (decidido con Sergio; verificación previa en la [fase 12](fase-12-evals-llmops.md#7-gcp-pasada-12g)):
+  - El cliente nuevo del Evaluation Service (`client.evals`) **no tiene las métricas de trayectoria** (`TODO` en el SDK 2.7). Se piden con `evaluate_instances` de `aiplatform_v1beta1` (Preview), no con el `EvalTask` antiguo.
+  - Bug encontrado: `with_model` solo forzaba el modelo de Azure, así que un A/B de modelos con Gemini comparaba el mismo modelo. Se arregla en el `fix:` `f98ed1e`.
+- 12.G1: juez de agentes con Gemini. Los informes con coste de `agent_calibration` y `experiment --mode llm` van a la carpeta de la nube que juzga. Esquema del juez dentro del subconjunto de Gemini y juez online con solo GCP.
+- 12.G2: Evaluation Service como contraste de la 12.1. Trayectoria por cómputo (`v1beta1`) sobre los 14 escenarios, y rúbricas `tool_use_quality` y `hallucination` sobre la calibración de agentes.
+- 12.G3: red teaming con Gemini. promptfoo con `vertex:` de generador y juez, sin generación remota. PyRIT con Gemini de atacante. Riesgo residual frente a Model Armor (aplazado).
+- 12.G4: prompts en la gestión de prompts de Agent Platform (`PromptStorePort`, dry-run por defecto).
+- 12.G5: `VertexExperimentTracker`, drift en Managed Prometheus (hecho en la 11.G2, solo se documenta) y doc de la fase 12 a tres nubes.
+- 12.G6: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.
+- 12.G7 (era la 12.G4; añadida el 20-11-2026, documental): **alinear el repo público con las buenas prácticas de GitHub**. Punto de partida (`gh api repos/SergioVelmay/GenAI_PoCs/community/profile`, 20-11-2026): *community profile* al **28 %**, solo con README; sin licencia, `CODE_OF_CONDUCT`, `CONTRIBUTING` ni plantillas de issues y PR; sin *topics*; la descripción no menciona GCP y el enlace de documentación apunta a `master` (la rama es `main`). Entregables: licencia (decidir cuál con Sergio), `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, plantillas de issues y de PR, descripción y *topics*, y medir el resultado (perfil de comunidad y, si aplica, OpenSSF Scorecard) antes y después. Sin el nombre real del cliente ni marcas de terceros en ninguno de esos ficheros.
 
 ### 3.5 Convenciones de la pasada
 

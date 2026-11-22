@@ -120,6 +120,74 @@ def test_native_judge_schema_fits_gemini() -> None:
     ) == {"const"}
 
 
+def test_agent_judge_schema_fits_gemini() -> None:
+    """12.G1: el juez de agentes con Gemini recibe el mismo esquema strict que con Azure."""
+    from genaipocs_core.application.agent_judge import AgentVerdict
+
+    assert gemini_unknown_keywords(response_schema_for(AgentVerdict).json_schema) == set()
+
+
+async def test_agent_judge_runs_on_gemini_and_the_domain_decides() -> None:
+    """De punta a punta con `GeminiLLM` y un doble de `Client.aio.models`: esquema en la
+    petición, prompt de sistema del juez y aceptación calculada por el dominio."""
+    from google.genai import types
+
+    from genaipocs_core.adapters.gemini import GeminiLLM
+    from genaipocs_core.application.agent_judge import (
+        JUDGE_INSTRUCTIONS,
+        AgentJudgeSample,
+        Evidence,
+        LLMAgentJudge,
+    )
+    from genaipocs_core.domain.agent_eval import Resolution
+
+    verdict = {
+        "claims": [{"claim": "El pedido está confirmado", "supported": True}],
+        "actions": [{"claim": "He reembolsado el pedido", "completed_in_evidence": False}],
+        "resolution": "resuelto",
+        "same_language": True,
+    }
+
+    class Models:
+        config: types.GenerateContentConfig | None = None
+
+        async def generate_content(
+            self, *, model: str, contents: list[types.Content], config: types.GenerateContentConfig
+        ) -> types.GenerateContentResponse:
+            Models.config = config
+            return types.GenerateContentResponse.model_validate(
+                {
+                    "candidates": [
+                        {
+                            "content": {"role": "model", "parts": [{"text": json.dumps(verdict)}]},
+                            "finishReason": "STOP",
+                        }
+                    ],
+                    "usageMetadata": {"promptTokenCount": 900, "candidatesTokenCount": 60},
+                    "modelVersion": model,
+                }
+            )
+
+        async def generate_content_stream(self, **_: Any) -> Any:
+            raise AssertionError("el juez no usa streaming")
+
+    judge = LLMAgentJudge(GeminiLLM(Models(), "gemini-4-argon", thinking_level="low"))
+    sample = AgentJudgeSample(
+        ("¿Me reembolsas el pedido?",),
+        "Tu pedido está confirmado y lo he reembolsado.",
+        (Evidence("get_order", "{}", '{"status": "confirmed"}'),),
+    )
+
+    judgement = await judge.judge(sample)
+
+    assert Models.config is not None
+    assert Models.config.response_json_schema is not None
+    assert JUDGE_INSTRUCTIONS in str(Models.config.system_instruction)
+    assert judgement.resolution is Resolution.RESOLVED and judgement.grounded == 1.0
+    # Afirma un reembolso que la evidencia no respalda: el dominio lo rechaza, no el modelo.
+    assert judgement.misstated_actions == 1 and not judgement.acceptable
+
+
 async def test_native_judge_rejects_verdicts_that_skip_contexts() -> None:
     verdict = {
         "answer_claims": [],

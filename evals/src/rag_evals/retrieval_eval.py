@@ -72,9 +72,8 @@ LLM_STRATEGIES: tuple[RetrievalStrategy, ...] = (
     "auto",
 )
 REPORTS_DIR = EVALS_DIR / "reports"
-# Informes con coste de Azure. Las evals de la fase 5 eligen la carpeta por nube
-# (`cloud_reports_dir`, `llm_reports_dir`); las de otras fases, en su pasada GCP.
-CLOUD_REPORTS_DIR = REPORTS_DIR / "azure"
+# Los informes con coste van a la carpeta de su nube (`cloud_reports_dir`, `llm_reports_dir`):
+# desde la 12.G1 ya no queda ninguna eval que escriba siempre en `azure/`.
 EMBEDDINGS = "hashing-1024"
 CLOUD_EMBEDDINGS: dict[Cloud, str] = {
     "azure": "azure:text-embedding-3-small-1024",

@@ -140,3 +140,17 @@ def test_model_variant_needs_a_real_provider() -> None:
 
     with pytest.raises(ValueError, match="proveedor real"):
         with_model(settings, "gpt-4.1-nano")
+
+
+def test_llm_experiment_reports_go_to_the_generating_cloud(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """12.G1: el informe con coste iba siempre a `azure/experiments`."""
+    from rag_evals.llmops.experiment import report_dir
+
+    out = tmp_path / "experiments"
+    monkeypatch.setenv("LLM_PROVIDER", "gcp")
+
+    assert report_dir(out, "scripted") == out
+    assert report_dir(out, "llm") == tmp_path / "gcp" / "experiments"
+    assert report_dir(out, "llm", "aws") == tmp_path / "aws" / "experiments"

@@ -338,3 +338,10 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
 - [ ] Juez online de los especialistas con Azure OpenAI: `ORCHESTRATOR__ONLINE_EVAL_RATE=0.2` y el flujo asíncrono con LLM real (pendiente de la fase 9); ver los scores `agent_*` en la traza del caso en Langfuse y el panel «Agentes: respuestas aceptables». Medir el coste por 1.000 turnos evaluados. Alertar sobre la tasa solo cuando el juez esté calibrado.
 - [ ] Drift con tráfico real (fase 12.8): llevar las reglas `drift:psi` y `DistributionDrift` a Amazon Managed Prometheus / Azure Monitor managed Prometheus (son las mismas reglas generadas) y compararlas con la detección de anomalías gestionada (CloudWatch Anomaly Detection, alertas dinámicas de Azure Monitor). Fijar `min_samples` con el volumen real tras 2 semanas de observación.
 - [ ] Drift de entrada por embeddings: distancia entre el centroide de las preguntas de la semana y el de referencia con embeddings reales (`text-embedding-3-small` / Titan), y comparar con Bedrock Model Monitor / Azure ML data drift. Con los embeddings `hashing` locales solo se valida el arnés.
+
+<a id="fase-12-gcp"></a>
+
+### GCP (pasada 12.G)
+
+- [ ] Calibrar el juez de agentes con Gemini (12.G1; con las etiquetas de Sergio ya puestas): `LLM_PROVIDER=gcp`, `uv run python -m rag_evals.agent_calibration judge --budget-usd 0.30` (32 muestras con `gemini-4-argon`) y `agreement --cloud gcp`. Comparar el kappa de `acceptable` con el de Azure; si sale peor, repetir con `GEMINI__JUDGE_THINKING_LEVEL=medium`.
+- [ ] Suite y A/B con Gemini y su juez: `rag_evals.agents --mode llm --flavor adk --judge native --budget-usd 0.20` y un A/B de modelo (`model: gemini-3.5-flash-lite` frente a `gemini-4-hydrogen`) con `experiment --mode llm` → `evals/reports/gcp/experiments/`. Comprobar en el coste por modelo que cada variante usó el suyo (el `fix:` `f98ed1e`).
