@@ -60,10 +60,10 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | CI sin secretos | Federated credentials de Entra ID | OIDC → `AssumeRoleWithWebIdentity` | Workload Identity Federation (pool + proveedor OIDC de GitHub) |
 | Secretos | Key Vault | Secrets Manager, KMS | Secret Manager, Cloud KMS |
 | Observabilidad | Application Insights, Azure Monitor | CloudWatch, X-Ray (OpenTelemetry en ambos) | Cloud Monitoring, Logging y Trace (OpenTelemetry) |
-| Trazas distribuidas | Application Insights (*transaction search*, mapa de aplicación) | X-Ray (Transaction Search sobre OTLP) | Cloud Trace (OTLP) |
-| Logs centralizados | Log Analytics (KQL) | CloudWatch Logs (Logs Insights) | Cloud Logging (Log Analytics con SQL) |
-| Métricas y alertas | Azure Monitor Metrics, *log search alerts* + *action groups* | CloudWatch Metrics (EMF), *alarms* + SNS | Cloud Monitoring (alertas en PromQL) + canales de notificación |
-| Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) | Collector de OpenTelemetry con los exporters `googlecloud` |
+| Trazas distribuidas | Application Insights (*transaction search*, mapa de aplicación) | X-Ray (Transaction Search sobre OTLP) | Cloud Trace por la Telemetry API (OTLP en `telemetry.googleapis.com`; logs enlazados con `logging.googleapis.com/trace`) |
+| Logs centralizados | Log Analytics (KQL) | CloudWatch Logs (Logs Insights) | Cloud Logging (Log Analytics con SQL; sin tope diario: exclusiones) |
+| Métricas y alertas | Azure Monitor Metrics, *log search alerts* + *action groups* | CloudWatch Metrics (EMF), *alarms* + SNS | Cloud Monitoring (una política por alerta PromQL, sin *recording rules*) + canales de notificación |
+| Distribución de OpenTelemetry | Azure Monitor OpenTelemetry Distro, exporter `azuremonitor` | ADOT (AWS Distro for OpenTelemetry) | Google-Built OpenTelemetry Collector: `otlp_http` + `googleclientauth` (Telemetry API) y `googlemanagedprometheus` |
 | Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability | Trazas de Agent Runtime en Cloud Trace |
 | Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana | Managed Service for Prometheus (Grafana autogestionado) |
 | Evals de RAG gestionadas (LLM-juez) | Foundry Evaluation (`GroundednessEvaluator`, `RelevanceEvaluator`, escala 1-5) | Bedrock Evaluations (RAG: *retrieve only* y *retrieve and generate*) | Gen AI Evaluation Service (`client.evals`, Preview): rúbrica `grounding` (0-1) y métricas LLM propias (`LLMMetric`) |
@@ -1268,6 +1268,79 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    gastamos muy deprisa, alerta y se congela lo arriesgado. Si sobra, podemos ir más rápido. Así
    la conversación deja de ser "¿hay errores?" (siempre los hay) y pasa a "¿estamos dentro de lo
    pactado?".
+
+### GCP (pasada 11.G)
+
+**Técnicas**
+
+1. **¿Cómo llevas la telemetría a GCP sin tocar el código?** Con el mismo collector y otro destino:
+   - Trazas y logs por OTLP a la Telemetry API, con `googleclientauth` y la cuenta de servicio
+     adjunta.
+   - Métricas a Managed Prometheus con `googlemanagedprometheus`.
+
+   Es el mismo patrón que X-Ray por OTLP con SigV4 en AWS. Las métricas no van por la Telemetry
+   API porque allí conservan los puntos del nombre y las reglas generadas no valdrían. Lo
+   comprobé en la CI: arranco el collector real contra un Cloud Monitoring falso y las 23
+   métricas llegan con el mismo nombre que en el Prometheus local.
+2. **¿Cómo portas alertas de Prometheus a Cloud Monitoring?** Generándolas desde la misma fuente
+   (`domain/slo.py`) y adaptando tres cosas:
+   - Cloud Monitoring no evalúa *recording rules*: el cálculo del SLI va dentro de cada alerta.
+   - Una política lleva una sola condición PromQL.
+   - Con consultas de más de 25 h, como el *burn rate* de 3 días, se evalúa cada 5 min y no hay
+     ventana de reintento.
+
+   Para demostrar que la expansión no cambia nada, las alertas de GCP pasan los mismos tests de
+   `promtool` que las locales. En Azure y AWS porté 2 alertas de muestra, en KQL y en Metrics
+   Insights; en GCP, las 36.
+3. **¿Cómo enlazas un log con su traza en GCP?** En Cloud Run, stdout llega solo a Cloud Logging;
+   basta con escribir sus campos:
+   - `severity`;
+   - `logging.googleapis.com/trace` con la ruta completa (`projects/<p>/traces/<id>`);
+   - `spanId`.
+
+   Con eso, el log aparece dentro de la traza en Cloud Trace. En AWS lo hace el `trace_id` que
+   indexa X-Ray, y en Azure el exporter de App Insights.
+4. **¿Qué pasa con los spans que emiten los propios frameworks de agentes?** Usan el proveedor
+   global de OTel que fija el arranque, así que salen aunque no los pidas. Al medirlos:
+   - ADK no metía contenido por defecto en la ruta que usamos.
+   - **Strands sí**, en eventos del span, que nuestro collector no limpiaba: una fuga de PII desde
+     la fase 11.
+   - Los dos duplican la llamada al modelo con sus tokens.
+
+   La solución tiene tres capas: apagar el contenido de los frameworks al arrancar, borrarlo en el
+   collector (atributos y eventos) y descartar sus spans en Langfuse para no contar el uso dos
+   veces.
+5. **¿Cómo pruebas que un caso es una sola traza a través de Pub/Sub?** Con el test de contrato de
+   los brokers: publico desde un contexto vacío, como otro proceso, y compruebo que el span
+   `process` es hijo del `send`, con la misma traza. Pasa contra RabbitMQ, SQS, Service Bus y el
+   emulador de Pub/Sub. El `traceparent` viaja en los atributos del mensaje, fuera del cuerpo.
+
+**Negocio y stakeholders**
+
+1. **¿Cuánto cuesta observar en GCP y cómo lo contienes?**
+   - Cloud Trace cobra por span, con 2,5 M gratis al mes.
+   - Logging cobra por GiB, con 50 GiB gratis.
+   - Managed Prometheus cobra por muestra.
+
+   GCP no tiene un tope diario de ingesta como Log Analytics: lo contengo con exclusiones (sondas
+   de salud y DEBUG no se ingieren) y con una alerta que avisa si el ritmo de logs va a salir del
+   tramo gratuito. Las 36 alertas son gratis hasta septiembre de 2027; después, unos 14 $/mes.
+   Si hubiera que recortar, empezaría por las de ventana de 3 días, que repiten lo que ya cubre
+   la de 1 día.
+2. **¿Cómo le cuentas a Legal o a Seguridad que las trazas no llevan datos de clientes?** Con
+   evidencia y en capas:
+   - Nuestros spans no llevan contenido salvo que se active, y entonces va redactado.
+   - Los frameworks lo tienen apagado al arrancar.
+   - El collector lo borra antes de cualquier backend.
+   - Un test busca el texto de un turno real en todos los spans.
+
+   Y con transparencia: al medir encontramos que Strands lo filtraba en eventos desde una fase
+   anterior; se corrigió y se añadió la prueba que lo habría detectado.
+3. **¿Por qué invertir en portar todas las alertas a GCP si los despliegues de producción irán en
+   AWS?** Porque la alerta es la que dice si un despliegue en otra nube funciona: sin ella, un
+   fallo se descubre por el cliente. En GCP el coste de portarlas fue bajo, porque habla PromQL y
+   se generan desde la misma fuente. Si Genaipocs moviera una parte del tráfico a Gemini (por
+   coste o como respaldo), tendría las mismas garantías de SLO desde el primer día.
 
 <a id="fase-12"></a>
 

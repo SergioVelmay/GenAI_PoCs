@@ -198,6 +198,7 @@ Plan original (antes del cambio):
 - 11.G2: alertas de Cloud Monitoring generadas desde `domain/slo.py` (una política PromQL por alerta, con los SLI expandidos), más las heredadas de la 10.G (backlog con `pubsub_backlog_promql()` y latido como métricas del catálogo) y aviso de ingesta de logs. Mismos tests de `promtool` sobre las alertas expandidas.
 - 11.G3: logs JSON con los campos de correlación de Cloud Logging (`TELEMETRY__LOG_FORMAT=gcp`), contenido apagado en los spans de ADK y borrado en el collector (atributos `gcp.vertex.agent.*` y eventos), una traza por el emulador de Pub/Sub de punta a punta, y el `fix:` de Strands.
 - 11.G4: doc de la fase 11 a tres nubes, preguntas de entrevista, pendientes y cierre.
+- **Hecha (22-11-2026)**: las cuatro, más el `fix:` `812f1f3` (Strands emitía el contenido del turno en eventos del span desde la fase 11). **Heredado para la 12.G:** las reglas de drift ya se generan también como políticas de Cloud Monitoring (`DistributionDrift`, 11.G2): la 12.G2 solo tiene que documentarlas, no portarlas; y si la 12.G añade alertas en `build_rules()`, llegan solas a GCP con su test de `promtool`.
 
 **12.G · Evals de agentes y LLMOps**
 

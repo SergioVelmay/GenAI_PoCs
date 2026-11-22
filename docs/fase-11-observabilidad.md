@@ -3,7 +3,8 @@
 **Objetivo:** saber en todo momento qué hace cada agente y cada llamada al modelo, cuánto cuesta y
 por qué falla, y enterarse antes que el usuario. Una sola instrumentación (OpenTelemetry con la
 convención GenAI) y un collector que decide el destino: Jaeger y Prometheus en local, Langfuse
-para el equipo de IA, Application Insights en Azure y X-Ray + CloudWatch en AWS.
+para el equipo de IA, Application Insights en Azure, X-Ray + CloudWatch en AWS y Cloud Trace +
+Managed Prometheus en GCP ([pasada 11.G](#7-gcp-pasada-11g)).
 
 | Subfase | Commit | Qué |
 |---|---|---|
@@ -40,6 +41,7 @@ flowchart LR
   COL -.->|"opcional, spans GenAI"| LF["Langfuse<br/>sesiones, coste, scores"]
   COL -.->|"Azure (11.7)"| AI["Application Insights<br/>+ Log Analytics"]
   COL -.->|"AWS (11.7)"| XR["X-Ray (OTLP)<br/>+ CloudWatch (EMF)"]
+  COL -.->|"GCP (11.G)"| CT["Cloud Trace y Logging (OTLP)<br/>+ Managed Prometheus"]
 
   EDGE -.->|"muestra 'miss'"| JUDGE["Evaluación online<br/>LLM-juez (apagada por coste)"] -.-> LF
 ```
@@ -55,8 +57,9 @@ flowchart LR
 | Dashboard y reglas generados | `adapters/prometheus.py`, `scripts/build_observability.py` → `infra/local/telemetry/` |
 | Evaluación online y scores | `application/online_eval.py`, `adapters/langfuse_scores.py` |
 | Runbook | [runbook-incidentes.md](runbook-incidentes.md) |
-| Collectors de nube | `infra/otel/collector-azure.yaml`, `infra/otel/collector-aws.yaml` |
-| Nube (desactivado por defecto) | `infra/terraform/{azure,aws}/observability.tf` (`observability_enabled`) |
+| Collectors de nube | `infra/otel/collector-azure.yaml`, `collector-aws.yaml`, `collector-gcp.yaml` |
+| Alertas de Cloud Monitoring (11.G2) | `adapters/cloud_monitoring.py` → `infra/terraform/gcp/alerts/` |
+| Nube (desactivado por defecto) | `infra/terraform/{azure,aws,gcp}/observability.tf` (`observability_enabled`) |
 
 ## 2. Qué se construye
 
@@ -117,17 +120,18 @@ docker compose --profile telemetry run --rm --entrypoint promtool prometheus tes
 
 ### 11.7 · Nube: Terraform desactivado y collectors
 
-| | Azure (`azure/observability.tf`) | AWS (`aws/observability.tf`) |
-|---|---|---|
-| Almacén | Log Analytics (30 días, tope diario `observability_daily_cap_gb = 0.5`) | Log groups `/genaipocs/{env}/app` (14 días) y `/metrics` (EMF, 3 días) |
-| Trazas | Application Insights basado en workspace, sin claves locales (`local_authentication_enabled = false`) | X-Ray por su endpoint OTLP (Transaction Search) + grupo `errors` |
-| Permiso del collector | Rol *Monitoring Metrics Publisher* (identidad) | Política IAM `otel_collector` (X-Ray y logs) para el rol de la tarea |
-| Aviso | Action group con email | Tema SNS con email |
-| Alerta de coste desbocado | Consulta KQL (5 min / 15 min): coste ×96 > 3 × presupuesto diario | Alarma con Metrics Insights: coste en 15 min > 3 × presupuesto / 96 |
-| Segunda alerta | *Burn rate* rápido de errores del modelo (> 14,4 × 1 %) | Backlog del outbox > 100 durante 10 min |
+| | Azure (`azure/observability.tf`) | AWS (`aws/observability.tf`) | GCP (`gcp/observability.tf`, 11.G) |
+|---|---|---|---|
+| Almacén | Log Analytics (30 días, tope diario `observability_daily_cap_gb = 0.5`) | Log groups `/genaipocs/{env}/app` (14 días) y `/metrics` (EMF, 3 días) | Bucket `_Default` de Cloud Logging (30 días) con exclusiones de sondas y DEBUG; sin tope diario |
+| Trazas | Application Insights basado en workspace, sin claves locales (`local_authentication_enabled = false`) | X-Ray por su endpoint OTLP (Transaction Search) + grupo `errors` | Cloud Trace por la Telemetry API (OTLP) |
+| Permiso del collector | Rol *Monitoring Metrics Publisher* (identidad) | Política IAM `otel_collector` (X-Ray y logs) para el rol de la tarea | `roles/telemetry.writer` y `roles/monitoring.metricWriter` para la cuenta de la aplicación |
+| Aviso | Action group con email | Tema SNS con email | Canal de notificación por email |
+| Alerta de coste desbocado | Consulta KQL (5 min / 15 min): coste ×96 > 3 × presupuesto diario | Alarma con Metrics Insights: coste en 15 min > 3 × presupuesto / 96 | `LlmCostRunaway` en PromQL, la misma regla que en local |
+| Segunda alerta | *Burn rate* rápido de errores del modelo (> 14,4 × 1 %) | Backlog del outbox > 100 durante 10 min | Las 36: SLO, operación, drift y plataforma (11.G2) |
 
 - Los collectors de nube (`infra/otel/`) son el local con otro destino: mismo OTLP, mismo `attributes/no-content`. Azure usa el exporter `azuremonitor` con `azureauth` (identidad gestionada, audiencia `https://monitor.azure.com/.default`); AWS usa `otlphttp` firmado con `sigv4auth` hacia X-Ray y `awsemf` para las métricas, declarando solo las dimensiones que usan las alarmas (cada combinación se factura).
-- La CI valida las tres configuraciones con la imagen del collector fijada (`validate`, sin enviar nada) y Terraform con `fmt`/`validate`.
+- GCP (11.G1): trazas y logs con `otlp_http` y `googleclientauth` a la Telemetry API, y métricas con `googlemanagedprometheus`.
+- La CI valida las cuatro configuraciones con la imagen del collector fijada (`validate`, sin enviar nada) y Terraform con `fmt`/`validate`.
 
 ```powershell
 cd infra/terraform/azure ; terraform fmt -check -recursive ; terraform init -backend=false ; terraform validate
@@ -183,20 +187,21 @@ Langfuse como observaciones `GENERATION`, `AGENT` y `TOOL`, con coste calculado 
 
 ## 4. Comparativa Azure ↔ AWS ↔ framework
 
-| Pieza | A. Gestionado (Azure / AWS) | B. Propio (este repo) | C. Framework / herramienta |
-|---|---|---|---|
-| Instrumentación | Azure Monitor OpenTelemetry Distro / ADOT (AWS Distro for OpenTelemetry) | `TelemetryPort` + `adapters/otel.py` con la convención GenAI | OpenLLMetry, OpenInference, instrumentación nativa de MAF / Strands / LangGraph |
-| Trazas | Application Insights (mapa de aplicación, *transaction search*) / X-Ray (Transaction Search sobre OTLP) | Jaeger en local | Langfuse, Arize Phoenix, LangSmith |
-| Trazas de agentes gestionados | Foundry Tracing (sobre App Insights) / AgentCore Observability (sobre CloudWatch) | Spans `invoke_agent` / `execute_tool` propios | Langfuse (sesiones, árbol de agentes) |
-| Métricas | Azure Monitor Metrics, Managed Prometheus / CloudWatch (EMF), Amazon Managed Prometheus | Prometheus con reglas generadas | — |
-| Dashboards | Workbooks, Managed Grafana / CloudWatch dashboards, Managed Grafana | Dashboard generado desde el catálogo | Grafana |
-| Alertas | Log search alerts + action groups / CloudWatch alarms + SNS | Reglas de Prometheus + `promtool` | Alertmanager |
-| Evals online y prompts | Foundry evaluations / Bedrock evaluations | `OnlineEvaluator` + juez | Langfuse (scores, datasets, prompts), Phoenix, LangSmith |
-| Pieza común | OpenTelemetry Collector (con exporter `azuremonitor` / imagen ADOT) | `infra/local/telemetry/otel-collector.yaml` e `infra/otel/` | — |
+| Pieza | A. Gestionado: Azure | A. Gestionado: AWS | A. Gestionado: GCP | B. Propio (este repo) | C. Framework / herramienta |
+|---|---|---|---|---|---|
+| Instrumentación | Azure Monitor OpenTelemetry Distro | ADOT (AWS Distro for OpenTelemetry) | Google-Built OpenTelemetry Collector + exporters de Google | `TelemetryPort` + `adapters/otel.py` con la convención GenAI | OpenLLMetry, OpenInference, instrumentación nativa de MAF / Strands / ADK |
+| Trazas | Application Insights (mapa de aplicación, *transaction search*) | X-Ray (Transaction Search sobre OTLP) | Cloud Trace por la Telemetry API (OTLP) | Jaeger en local | Langfuse, Arize Phoenix, LangSmith |
+| Logs enlazados con la traza | App Insights (exporter) | `trace_id` en JSON | `logging.googleapis.com/trace` en el JSON de stdout (`TELEMETRY__LOG_FORMAT=gcp`) | Logs JSON con `trace_id`/`span_id` | — |
+| Trazas de agentes gestionados | Foundry Tracing (sobre App Insights) | AgentCore Observability (sobre CloudWatch) | Trazado de Agent Runtime (sobre Cloud Trace) | Spans `invoke_agent` / `execute_tool` propios | Langfuse (sesiones, árbol de agentes) |
+| Métricas | Azure Monitor Metrics, Managed Prometheus | CloudWatch (EMF), Amazon Managed Prometheus | Managed Service for Prometheus | Prometheus con reglas generadas | — |
+| Dashboards | Workbooks, Managed Grafana | CloudWatch dashboards, Managed Grafana | Cloud Monitoring (PromQL, importa Grafana) | Dashboard generado desde el catálogo | Grafana |
+| Alertas | Log search alerts + action groups (2 portadas) | CloudWatch alarms + SNS (2 portadas) | Políticas PromQL + canal de notificación (**las 36**) | Reglas de Prometheus + `promtool` | Alertmanager |
+| Evals online y prompts | Foundry evaluations | Bedrock evaluations | Gen AI Evaluation Service | `OnlineEvaluator` + juez | Langfuse (scores, datasets, prompts), Phoenix, LangSmith |
+| Pieza común | Collector con `azuremonitor` | Imagen ADOT | Collector con `googleclientauth` y `googlemanagedprometheus` | `infra/local/telemetry/otel-collector.yaml` e `infra/otel/` | — |
 
 **Langfuse frente a un backend genérico:** Langfuse entiende de LLM (sesiones, prompts, coste por
 modelo, scores de evals, datasets), pero no de infraestructura: no sabe de colas, de 503 ni de
-Redis. Jaeger/X-Ray/App Insights ven todo el sistema con menos semántica GenAI. Por eso no se elige
+Redis. Jaeger, X-Ray, App Insights y Cloud Trace ven todo el sistema con menos semántica GenAI. Por eso no se elige
 uno: se instrumenta una vez con OTel y el collector reparte. Phoenix es la alternativa *open source*
 más cercana a Langfuse (muy fuerte en evals); LangSmith, la natural si todo es LangChain, pero es
 SaaS y ata el formato.
@@ -211,7 +216,10 @@ SaaS y ata el formato.
 - **Alertas por *burn rate*, no por umbral fijo.** Avisan de lo que importa (el presupuesto de error se acaba) y no despiertan a nadie por un pico de un minuto.
 - **Evaluación online apagada por defecto.** Un juez por respuesta duplicaría el coste: se muestrea, se limita por minuto y nunca bloquea al usuario.
 - **X-Ray por OTLP y no por el exporter `awsxray`.** El formato de segmentos convierte casi todos los atributos en metadatos no indexados; el endpoint OTLP guarda los `gen_ai.*` tal cual.
-- **Límites conocidos:** en la nube solo se han portado 2 alertas por plataforma (las 71 viven en Prometheus); no hay muestreo de cola (*tail sampling*); Langfuse sigue en v3 local; la evaluación online no se ha medido con un juez real; los collectors de nube están validados, pero no desplegados.
+- **En GCP, métricas por Managed Prometheus y no por la Telemetry API (11.G1).** Por OTLP las métricas conservan los puntos del nombre y harían falta otras reglas; por `googlemanagedprometheus` llegan con los mismos nombres que en local, comprobado en la CI contra un Cloud Monitoring falso.
+- **En GCP se portan todas las alertas (11.G2), no 2.** Cloud Monitoring habla PromQL: el generador solo expande las *recording rules* y adapta intervalos, y los mismos tests de `promtool` demuestran que no cambia el resultado. Gratis hasta septiembre de 2027.
+- **El contenido de los frameworks se apaga siempre (11.G3).** ADK y Strands emiten spans propios con el proveedor global; su contenido no pasa por nuestro redactor. Se apaga en el arranque y se borra en el collector (atributos y eventos), y Langfuse descarta sus spans porque duplican los tokens.
+- **Límites conocidos:** en Azure y AWS solo se han portado 2 alertas por plataforma (las 77 reglas viven en Prometheus; en GCP, las 36 alertas); no hay muestreo de cola (*tail sampling*); Langfuse sigue en v3 local; la evaluación online no se ha medido con un juez real; los collectors de nube están validados, pero no desplegados.
 
 ## 6. Pendiente con coste
 
@@ -221,7 +229,8 @@ Ver [pendientes-cloud.md](pendientes-cloud.md) (sección de la fase 11):
 - Transaction Search de X-Ray;
 - Foundry Tracing y AgentCore Observability frente a la instrumentación propia;
 - evaluación online con juez real y coste medido;
-- coste de ingesta y portar el resto de alertas.
+- coste de ingesta y portar el resto de alertas;
+- GCP: collector como sidecar de Cloud Run, traza real en Cloud Trace, las 36 alertas aplicadas (consultas de más de 25 h y métricas DELTA) y exclusiones de logs ([sección GCP](pendientes-cloud.md#fase-11-gcp)).
 
 ## 7. GCP (pasada 11.G)
 
@@ -235,7 +244,8 @@ test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
 |---|---|---|
 | 11.G1 | `345a7bb` | `collector-gcp.yaml`, nombres de las métricas comprobados con el collector real y `observability.tf` |
 | 11.G2 | `9da4188` | Las 36 alertas en Cloud Monitoring (PromQL), generadas desde `domain/slo.py` y probadas con `promtool` |
-| 11.G3 | — | Logs con los campos de Cloud Logging, spans de los frameworks sin contenido ni duplicados en Langfuse y una traza por el broker real |
+| 11.G3 | `c84cf65` + `812f1f3` | Logs con los campos de Cloud Logging, spans de los frameworks sin contenido ni duplicados en Langfuse y una traza por el broker real |
+| 11.G4 | este cierre | Doc a tres nubes, preguntas de entrevista, pendientes y estado |
 
 ### Verificación previa (22-11-2026)
 
