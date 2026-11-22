@@ -277,6 +277,12 @@ jobs:
           --health-interval 3s
           --health-timeout 5s
           --health-retries 10
+      # Azurite (G→13.5): Blob para la subida incremental del carril A de Azure (MIT, sin EULA).
+      # El comando por defecto de la imagen ya escucha en 0.0.0.0.
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite:3.38.0
+        ports:
+          - 10000:10000
       # Valkey con búsqueda (10.G2, motor de Memorystore): los tests de Redis se repiten aquí.
       # La imagen carga sus módulos con el comando por defecto.
       valkey-scale:
@@ -338,11 +344,70 @@ jobs:
           uv run python scripts/load_seed.py --truncate
           uv run python scripts/sql_benchmark.py --repeat 1
 
+  aws-emulator:
+    # Checkpoint G→13.5: AWS Emulator oficial con la misma imagen que el perfil `aws` de compose
+    # (RPM fijado, CC0, telemetría apagada). Adaptadores de AWS reales y Terraform aplicado contra
+    # él, sin cuenta ni coste. Job aparte: la imagen tarda en construirse y el Terraform ~3 min.
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # --user: en Linux, las claves y el certificado (modo 0600) quedan a nombre del runner y
+      # los tests pueden leerlos en .aws-emulator/9297/, la misma ruta que en local.
+      - name: Construir y arrancar el AWS Emulator (en segundo plano)
+        run: |
+          mkdir -p .aws-emulator
+          nohup sh -c 'docker build -q -t genaipocs-aws-emulator:ci infra/local/aws-emulator \
+            && docker run -d --name aws-emulator --user "$(id -u):$(id -g)" --memory=2g \
+              -p 127.0.0.1:9297:9297 -v "$PWD/.aws-emulator:/home/emulator/.aws/emulator" \
+              genaipocs-aws-emulator:ci --port 9297 --telemetry off' \
+            > /tmp/aws-emulator.log 2>&1 &
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias (lockfile obligatorio)
+        run: uv sync --all-packages --locked
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+
+      - name: Terraform init (sin backend)
+        working-directory: infra/terraform/aws
+        run: terraform init -backend=false -input=false
+
+      - name: Esperar al AWS Emulator
+        run: |
+          for i in $(seq 1 120); do
+            [ -f .aws-emulator/9297/ca.pem ] \
+              && curl -fsS --cacert .aws-emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health \
+              && exit 0
+            sleep 2
+          done
+          cat /tmp/aws-emulator.log; docker logs aws-emulator || true; exit 1
+
+      # Sin el emulador, estos tests se saltan: aquí un salto es un fallo.
+      - name: Tests de integración contra el emulador (SQS, S3, S3 Vectors, KB)
+        run: |
+          uv run pytest -m integration -k emulator -rs \
+            packages/genaipocs_core/tests/integration/test_aws_emulator.py \
+            packages/genaipocs_core/tests/integration/test_message_bus_contract.py \
+            | tee /tmp/pytest.log
+          ! grep -q "skipped" /tmp/pytest.log
+
+      - name: Terraform aplicado contra el emulador (estado en memoria)
+        working-directory: infra/terraform/aws
+        run: terraform test -test-directory=tests-emulator
+
+      - name: Logs del emulador
+        if: failure()
+        run: docker logs aws-emulator 2>&1 | tail -100 || true
+
   release-gate:
     # Gate obligatorio de despliegue (fase 12.1): un único check que resume todos los demás. Los
     # workflows de despliegue (fases 13 y 14) dependerán de él, no de cada job por separado.
     if: always()
-    needs: [quality, evals, mcp-image, agents-image, terraform, integration]
+    needs: [quality, evals, mcp-image, agents-image, terraform, integration, aws-emulator]
     runs-on: ubuntu-26.04
     steps:
       - name: Todos los jobs en verde
