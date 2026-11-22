@@ -58,6 +58,7 @@ uv run alembic -c packages/genaipocs_core/alembic.ini upgrade head
 uv run python scripts/generate_synthetic_data.py --scale small  # data/synthetic/ está en escala large: no regenerar sin preguntar
 docker compose up -d                                            # PostgreSQL+pgvector, RabbitMQ
 docker compose --profile observability|sqs|servicebus|pubsub|mcp|agents|scale up -d # Langfuse, colas, MCP, A2A, Redis
+docker compose --profile aws up -d                              # AWS Emulator oficial :9297 (SQS, S3, S3 Vectors, IaC; G→13)
 docker compose --profile telemetry up -d                        # collector, Jaeger :16686, Prometheus :9095, Grafana :3001
 uv run python -m rag_evals.gate ; uv run python -m rag_evals.agents --check ; uv run python -m rag_evals.attacks --check ; uv run python -m rag_evals.multiagent --check   # gates de evals (coste 0)
 uv run python -m rag_evals.redteam.mutations --check ; uv run python -m rag_evals.llmops.prompts check ; uv run python -m rag_evals.llmops.drift --check   # fase 12 (coste 0)

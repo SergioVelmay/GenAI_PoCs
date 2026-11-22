@@ -7,8 +7,8 @@ reducir lo que queda en [pendientes-cloud.md](pendientes-cloud.md). Plan en
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| G→13.1 | (este commit) | Inventario de emuladores oficiales por nube, comparativa con lo que ya usamos y decisión |
-| G→13.2 | | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
+| G→13.1 | `58f88e5` | Inventario de emuladores oficiales por nube, comparativa con lo que ya usamos y decisión |
+| G→13.2 | (este commit) | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
 | G→13.3 | | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) |
 | G→13.4 | | Azure: Azurite para la subida de blobs y emulador de Service Bus fijado en `2.0.1` |
 | G→13.5 | | CI: AWS Emulator y Azurite en el job `integration` |
@@ -156,7 +156,58 @@ flowchart LR
 | Emuladores de GCP (Firestore, Spanner, Bigtable, Datastore) | — | No se adoptan: el repo no los usa. Pub/Sub ya está |
 | Cloud Storage | — | Sin emulador oficial: sigue con dobles en memoria |
 
-## 5. Límites
+## 5. AWS Emulator en local (G→13.2)
+
+| Pieza | Dónde vive |
+|---|---|
+| Imagen (RPM `1.0.569` sobre Amazon Linux 2023, telemetría apagada) | `infra/local/aws-emulator/Dockerfile` |
+| Servicio `aws-emulator` (perfil `aws`, `127.0.0.1:9297`, 2 GB) | `docker-compose.yml` |
+| Claves y certificado de cada arranque (ignorado por Git) | `.aws-emulator/9297/` |
+| Fixture `aws_emulator` (factoría de clientes boto3; salta si no está) | `packages/genaipocs_core/tests/conftest.py` |
+| Contrato de mensajería con el broker `sqs-emulator` | `tests/integration/test_message_bus_contract.py` |
+| `S3VectorStore` real y subida a S3 del carril A | `tests/integration/test_aws_emulator.py` |
+
+```bash
+docker compose --profile aws build aws-emulator      # una vez (descarga el RPM, ~200 MB)
+docker compose --profile aws up -d
+uv run pytest -m integration -k "emulator or sqs"
+docker compose --profile aws stop                     # al parar borra claves y certificado
+```
+
+Cómo se conecta el cliente (lo que cambia frente a ElasticMQ):
+
+- **HTTPS con su propio certificado**: `verify=.aws-emulator/9297/ca.pem`. Se regenera en cada
+  arranque, así que se lee la ruta, nunca se copia.
+- **SigV4 de verdad**: las claves (`emulator_credentials`) son nuevas en cada arranque y el emulador
+  rechaza cualquier otra. Es una red de seguridad: con unas credenciales reales en el entorno, la
+  petición falla en vez de llegar a AWS. Los tests construyen la sesión con esas claves de forma
+  explícita y, además, comprueban la cuenta `000000000000`.
+- **Un endpoint para todos los servicios**: `Config(inject_host_prefix=False)` y S3 en *path style*.
+- Para ejecutar la aplicación (no los tests) contra el emulador no hace falta código: boto3 lee
+  `AWS_ENDPOINT_URL`, `AWS_CA_BUNDLE` y `AWS_SHARED_CREDENTIALS_FILE`
+  ([guía](https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html)).
+
+Resultados (22-11-2026, local, Docker Desktop):
+
+| Prueba | ElasticMQ 1.7.1 | AWS Emulator 1.0.569 |
+|---|---|---|
+| Contrato de mensajería (6 tests: entrega, trazas, reintento, DLQ por agotamiento y por error permanente) | 6/6 | 6/6 |
+| DLQ tras 3 entregas (`maxReceiveCount`) | 6,1 s | 6,2 s |
+| `S3VectorStore`: upsert idempotente, búsqueda coseno, filtro `$eq` y `$and`, borrado | — (sin S3 Vectors) | ✅ |
+| `BedrockKnowledgeBaseIngestion.upload`: documento UTF-8 + `.metadata.json` | — | ✅ |
+| Suite `pytest -m integration` con núcleo + perfil `aws` | — | 51 pasan, 43 se saltan (sin `sqs`, `servicebus`, `pubsub` ni `scale`) |
+
+Hallazgos:
+
+- **S3 Vectors calcula de verdad**: con vectores `[1,0,0]`, `[0.9,0.1,0]` y `[0,1,0]` devuelve
+  distancias 0, 0,0061 y 1 (coseno) y aplica el filtro de metadatos. Hasta ahora el adaptador solo
+  se probaba con dobles: es el primer test que valida su contrato con la API.
+- Arranque: ~1 s hasta `/__admin/health`. La imagen ocupa ~2 GB en Docker Desktop (el RPM,
+  ~200 MB, trae los modelos de todos los servicios); la construcción, ~40 s.
+- La ingesta de la Knowledge Base (`start_ingestion_job`) no se prueba aquí: necesita una KB, y
+  la creará Terraform en la G→13.3.
+
+## 6. Límites
 
 - Un test verde contra un emulador demuestra que el **contrato de la API** encaja, no que el despliegue
   funcione: IAM, red, cuotas y regiones solo se validan en la nube.
