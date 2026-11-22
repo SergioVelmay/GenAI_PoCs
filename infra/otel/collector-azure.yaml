@@ -48,6 +48,10 @@ processors:
       - {key: gen_ai.tool.call.result, action: delete}
       - {key: langfuse.observation.input, action: delete}
       - {key: langfuse.observation.output, action: delete}
+      # 11.G3: prompt de sistema (convención experimental) y contenido de los spans de ADK, por
+      # si alguien activa su captura por entorno (el arranque la apaga: defensa en profundidad).
+      - {key: gen_ai.system_instructions, action: delete}
+      - {pattern: ^gcp\.vertex\.agent\.(llm_request|llm_response|tool_call_args|tool_response|data)$, action: delete}
   # Región, suscripción y nombre del recurso como atributos: filtrar por réplica en el portal.
   resourcedetection:
     detectors: [env, azure]

@@ -36,6 +36,9 @@ class TraceIds:
 
     trace_id: str
     span_id: str
+    # Si el span se exporta (muestreo en la cabeza): Cloud Logging solo enlaza con trazas que
+    # existen (`logging.googleapis.com/trace_sampled`, 11.G3).
+    sampled: bool = True
 
 
 class SpanPort(Protocol):

@@ -234,7 +234,8 @@ test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
 | Subfase | Commit | Qué |
 |---|---|---|
 | 11.G1 | `345a7bb` | `collector-gcp.yaml`, nombres de las métricas comprobados con el collector real y `observability.tf` |
-| 11.G2 | — | Las 36 alertas en Cloud Monitoring (PromQL), generadas desde `domain/slo.py` y probadas con `promtool` |
+| 11.G2 | `9da4188` | Las 36 alertas en Cloud Monitoring (PromQL), generadas desde `domain/slo.py` y probadas con `promtool` |
+| 11.G3 | — | Logs con los campos de Cloud Logging, spans de los frameworks sin contenido ni duplicados en Langfuse y una traza por el broker real |
 
 ### Verificación previa (22-11-2026)
 
@@ -244,7 +245,7 @@ test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
 | [Métricas por OTLP](https://docs.cloud.google.com/stackdriver/docs/otlp-metrics/overview) | Se guardan como series de Prometheus, pero **conservan los puntos** del nombre (`genaipocs.llm.cost`) | Las 77 reglas generadas no valdrían tal cual. Las métricas van por el exporter `googlemanagedprometheus`, que traduce como el Prometheus local |
 | [Collector en Cloud Run](https://docs.cloud.google.com/stackdriver/docs/instrumentation/opentelemetry-collector-cloud-run) | Sidecar con la imagen de Google (`otelcol-google`), `googleclientauth`, `health_check` obligatorio y detector `gcp` | Mismo diseño. La CI valida con la imagen contrib ya fijada, que trae esos componentes |
 | [Alertas PromQL](https://cloud.google.com/monitoring/promql/create-promql-alerts) | Una condición por política y sin *recording rules*. Gratis hasta el 01-09-2027 ([coste](https://docs.cloud.google.com/monitoring/alerts/cost-control)) | La 11.G2 genera las alertas con los SLI expandidos dentro de cada consulta |
-| ADK 2.14 (telemetría instalada) | `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=true` por defecto, y usa el proveedor global de OTel, que fijamos nosotros | Fuga de prompts en `gcp.vertex.agent.*` hacia Jaeger o Cloud Trace: se corrige en la 11.G3 |
+| ADK 2.14 (telemetría instalada) | `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=true` por defecto, y usa el proveedor global de OTel, que fijamos nosotros | Se sospechó una fuga de prompts. **Medido en la 11.G3:** en la ruta que usamos no la hay por defecto; solo si se activa la convención experimental por entorno. La fuga real era de Strands (11.G3) |
 
 ### 11.G1 · Collector de GCP y Terraform
 
@@ -368,6 +369,51 @@ locales:
 - Evaluar cada 60 s y no cada 30 s reduce a la mitad los puntos devueltos.
 - Si hiciera falta recortar, primero las de ticket con ventana de 3 días: duplican lo que ya
   cubre la de 1 día.
+
+### 11.G3 · Logs enlazados con la traza y spans de los frameworks
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_telemetry.py -k gcp
+uv run pytest services/booking_agent/tests/test_harness_flavors.py -k "adk_ or startup_policy"
+docker compose --profile sqs --profile servicebus --profile pubsub up -d
+uv run pytest -m integration packages/genaipocs_core/tests/integration/test_message_bus_contract.py -k one_trace
+```
+
+**Logs que Cloud Logging enlaza con la traza** (`TELEMETRY__LOG_FORMAT=gcp`):
+
+- En Cloud Run, cada línea de stdout llega sola a Cloud Logging. No hace falta exporter de logs,
+  pero sí sus campos:
+  - `severity`: sin él, todo sale como DEFAULT y no se puede filtrar por nivel.
+  - `logging.googleapis.com/trace` con la ruta completa (`projects/<GCP__PROJECT>/traces/<id>`):
+    es lo que pinta el log dentro de la traza en Cloud Trace.
+  - `logging.googleapis.com/spanId` y `trace_sampled`.
+- `TraceIds` lleva ahora el flag de muestreo. Sin `GCP__PROJECT`, el arranque falla con un
+  mensaje claro: sin proyecto no se puede escribir la ruta de la traza.
+- Equivale a lo que en Azure hace el exporter de App Insights y en AWS el `trace_id` de X-Ray.
+
+**Spans propios de los frameworks.** `setup_observability` fija el proveedor global de OTel y los
+frameworks lo usan para emitir sus propios spans: ADK con el *scope* `gcp.vertex.agent` y Strands
+con `strands.telemetry.tracer`. Un test los reproduce con un proveedor global en memoria y un turno
+con tool (`test_harness_flavors.py`):
+
+| Medido | ADK 2.14 | Consecuencia |
+|---|---|---|
+| Contenido por defecto | **No** en sus atributos. La sospecha de la verificación previa no se confirma en la ruta que usamos | — |
+| Con la convención experimental activada por entorno (`OTEL_SEMCONV_STABILITY_OPT_IN`, `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY`) | **Sí**: `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.tool.call.arguments` | `silence_framework_content()` en el arranque fija `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` y `NO_CONTENT`. El test de control demuestra que sin la política se filtra y con ella no |
+| Duplicados | `generate_content` por cada llamada al modelo, **con los tokens**, además de nuestro `chat` | El reenvío a Langfuse descarta los spans de los frameworks por *scope*: si no, contaría el uso dos veces. En Jaeger y Cloud Trace siguen, sin contenido, porque enseñan los pasos internos del framework |
+
+- **Defensa en profundidad:** los cuatro collectors borran también `gen_ai.system_instructions`
+  y los atributos de contenido de ADK (`gcp.vertex.agent.llm_request`, `tool_call_args`...),
+  mientras conservan los IDs. Comprobado enviando un span al collector de GCP con salida `debug`.
+- **Por qué se apaga siempre y no según `TELEMETRY__CAPTURE_CONTENT`:** el contenido de los
+  frameworks no pasa por nuestro redactor de PII. Cuando se pide contenido, ya lo dan nuestros
+  spans, redactados.
+
+**Una traza a través del broker real.** El test de contrato
+`test_send_and_process_are_one_trace_through_the_real_broker` publica desde un contexto vacío,
+como si fuera otro proceso, y comprueba que el span `process` es hijo del `send`: padre, no
+*link*, y con la misma traza. Pasa con RabbitMQ, ElasticMQ (SQS), el emulador de Service Bus y el
+emulador de Pub/Sub. Hasta ahora, de punta a punta solo se probaba con el bus en memoria.
 
 ## 8. Checkpoint de entrevista
 

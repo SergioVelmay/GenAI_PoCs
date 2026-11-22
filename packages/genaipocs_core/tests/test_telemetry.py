@@ -26,6 +26,7 @@ from genaipocs_core.application.telemetry import (
     JsonLogFormatter,
     NullTelemetry,
     TelemetryLLMTracer,
+    configure_logging,
     genai,
     get_telemetry,
     redact_text,
@@ -225,6 +226,42 @@ def test_json_logs_carry_trace_ids_and_no_pii(telemetry: OTelTelemetry) -> None:
     assert line["message"] == "Reembolso para <EMAIL_ADDRESS>"
     assert line["case_id"] == "case_1"
     assert line["service"] == "edge_api"
+    assert "severity" not in line and not any(k.startswith("logging.googleapis") for k in line)
+
+
+def test_gcp_logs_carry_the_fields_cloud_logging_links_to_the_trace(
+    telemetry: OTelTelemetry,
+) -> None:
+    """11.G3: sin `logging.googleapis.com/trace` con la ruta completa, Cloud Trace no pinta el
+    log dentro de la traza; sin `severity`, todo sale como DEFAULT y no se puede filtrar."""
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(JsonLogFormatter(service="edge_api", gcp_project="genaipocs-dev"))
+    logger = logging.getLogger("test.telemetry.gcp")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    try:
+        with telemetry.span("x"):
+            ids = telemetry.current_ids()
+            logger.error("Fallo con %s", "ana@example.com")
+        logger.info("Fuera de cualquier span")
+    finally:
+        logger.removeHandler(handler)
+
+    inside, outside = (json.loads(line) for line in stream.getvalue().splitlines())
+    assert ids is not None
+    assert inside["severity"] == "ERROR"
+    assert inside["logging.googleapis.com/trace"] == f"projects/genaipocs-dev/traces/{ids.trace_id}"
+    assert inside["logging.googleapis.com/spanId"] == ids.span_id
+    assert inside["logging.googleapis.com/trace_sampled"] is True
+    assert inside["message"] == "Fallo con <EMAIL_ADDRESS>"
+    assert outside["severity"] == "INFO" and "logging.googleapis.com/trace" not in outside
+
+
+def test_gcp_log_format_needs_the_project() -> None:
+    with pytest.raises(ValueError, match="GCP__PROJECT"):
+        configure_logging(service="edge_api", log_format="gcp")
 
 
 @pytest.mark.parametrize(

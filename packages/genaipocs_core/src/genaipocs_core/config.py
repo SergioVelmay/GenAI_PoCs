@@ -270,7 +270,9 @@ class TelemetrySettings(BaseModel):
     capture_content: bool = False
     # Cada cuánto se envían las métricas al collector (fase 11.4).
     metrics_interval_seconds: float = Field(default=15.0, gt=0)
-    log_format: Literal["text", "json"] = "text"
+    # text: para leer en local. json: una línea JSON con trace_id/span_id (Azure, AWS).
+    # gcp: JSON con los campos que Cloud Logging enlaza con Cloud Trace (11.G3; usa GCP__PROJECT).
+    log_format: Literal["text", "json", "gcp"] = "text"
     log_level: str = "INFO"
 
 

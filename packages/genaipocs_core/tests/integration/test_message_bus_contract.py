@@ -13,6 +13,7 @@ Cada broker se salta si su emulador no está arrancado:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import socket
 import uuid
@@ -35,6 +36,7 @@ from google.pubsub_v1.services.subscriber.transports.grpc_asyncio import (
     SubscriberGrpcAsyncIOTransport,
 )
 
+from genaipocs_core.adapters.otel import recording_telemetry
 from genaipocs_core.adapters.pubsub import (
     LOCAL_PROJECT,
     PubSubMessageBus,
@@ -44,6 +46,7 @@ from genaipocs_core.adapters.pubsub import (
 from genaipocs_core.adapters.rabbitmq import RabbitMQMessageBus
 from genaipocs_core.adapters.servicebus import ServiceBusMessageBus
 from genaipocs_core.adapters.sqs import SqsMessageBus, queue_name
+from genaipocs_core.application.telemetry.messaging import TracedMessageBus
 from genaipocs_core.config import GcpSettings, PubSubSettings, get_settings
 from genaipocs_core.ports import Message, MessageBusPort, PermanentMessageError
 
@@ -255,6 +258,36 @@ async def test_trace_context_travels_outside_the_body(broker: Broker) -> None:
     got = await asyncio.wait_for(received.get(), TIMEOUT_S)
     assert dict(got.headers) == {"traceparent": traceparent}
     assert dict(got.payload) == {"n": 1}
+
+
+async def test_send_and_process_are_one_trace_through_the_real_broker(broker: Broker) -> None:
+    """11.G3: lo que en `test_trace_propagation` se prueba con un bus en memoria, aquí con el
+    broker de verdad (emulador de Pub/Sub incluido). El envío se hace desde un contexto vacío,
+    como otro proceso: la traza solo puede seguir por las cabeceras del mensaje."""
+    bus = TracedMessageBus(broker.bus, system="it")
+    done = asyncio.Event()
+
+    async def handler(message: Message) -> None:
+        done.set()
+
+    with recording_telemetry() as recorded:
+        await bus.subscribe(broker.topic, handler)
+        await asyncio.create_task(
+            bus.publish(broker.topic, {"n": 1}), context=contextvars.Context()
+        )
+        await asyncio.wait_for(done.wait(), TIMEOUT_S)
+        # El span `process` se cierra al volver el handler (después del `done`).
+        for _ in range(50):
+            if f"process {broker.topic}" in recorded.spans():
+                break
+            await asyncio.sleep(0.1)
+
+    spans = recorded.spans()
+    send, process = spans[f"send {broker.topic}"], spans[f"process {broker.topic}"]
+    assert send.context is not None and process.parent is not None
+    assert process.context is not None
+    assert process.context.trace_id == send.context.trace_id, recorded.tree()
+    assert process.parent.span_id == send.context.span_id  # Padre, no link.
 
 
 async def test_transient_failure_is_retried(broker: Broker) -> None:

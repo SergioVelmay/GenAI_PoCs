@@ -23,6 +23,7 @@ description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, 
 - `open_message_bus` devuelve un `TracedMessageBus`: `send {cola}` (PRODUCER) y `process {cola}` (CONSUMER, padre = cabeceras; cada reentrega es otro `process`). Padre y no *link*: un caso es una sola traza.
 - A2A: `RemoteSpecialist` abre `invoke_agent {especialista}` (CLIENT) e inyecta el contexto con un hook de httpx; el especialista abre el span SERVER con `TraceContextMiddleware`. Sin la instrumentación ASGI genérica (duplicaría el SERVER).
 - `approval_required` no marca el span de la tool como error (`PENDING_OUTCOMES`): queda en `genaipocs.tool.outcome`.
+- El contrato de brokers (`test_message_bus_contract.py`, 11.G3) comprueba `send` → `process` como una sola traza contra RabbitMQ, SQS, Service Bus y Pub/Sub reales.
 - Probar la propagación en contexto vacío (`asyncio.create_task(..., context=contextvars.Context())`): si no, el contexto heredado de asyncio oculta que no viaja.
 
 ## Métricas y SLO (fase 11.4)
@@ -66,5 +67,6 @@ description: "Observabilidad (fase 11): OpenTelemetry con la convención GenAI, 
 ## Contenido y PII
 
 - Prompts, respuestas, argumentos y resultados solo con `TELEMETRY__CAPTURE_CONTENT=true`, y siempre por `telemetry.content(texto)` (redactado). Errores: `record_error` guarda tipo, mensaje y pila redactados.
-- Logs JSON (`TELEMETRY__LOG_FORMAT=json`) con `trace_id`/`span_id` del span activo; mensaje, extras y excepción redactados.
+- Logs JSON (`TELEMETRY__LOG_FORMAT=json`) con `trace_id`/`span_id` del span activo; mensaje, extras y excepción redactados. En Cloud Run, `gcp` (11.G3): además `severity`, `logging.googleapis.com/trace` (`projects/<GCP__PROJECT>/traces/<id>`), `spanId` y `trace_sampled`; sin `GCP__PROJECT` falla al arrancar.
+- Frameworks (11.G3): ADK (`gcp.vertex.agent`) y Strands (`strands.telemetry.tracer`) emiten sus propios spans con el proveedor global. `silence_framework_content()` (en `configure_telemetry`) apaga siempre su contenido (`FRAMEWORK_CONTENT_OFF`): no pasa por nuestro redactor. Los collectors borran además `gen_ai.system_instructions` y los `gcp.vertex.agent.*` de contenido, y el reenvío a Langfuse descarta esos *scopes* (duplican los tokens de nuestro `chat`). Tests con proveedor global en memoria: `monkeypatch` de `trace._TRACER_PROVIDER` y del `_real_tracer` del ProxyTracer de ADK.
 - Con OTel activo no se usa el SDK de Langfuse (`build_tracer`): Langfuse recibe los spans por el collector.
