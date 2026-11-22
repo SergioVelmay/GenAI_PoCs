@@ -202,6 +202,26 @@ def test_trajectory_metrics_distinguish_order_and_extra_calls() -> None:
     assert trajectory_metrics([], ["search"]) == (0.0, 0.0)
 
 
+@pytest.mark.parametrize(
+    ("expected", "actual", "metrics"),
+    [
+        # Falta la primera esperada: antes daba (0, 0) porque su búsqueda consumía todo.
+        (["load_skill", "search_events", "list_sessions"], ["search_events", "list_sessions"],
+         (1.0, 2 / 3)),
+        (["load_skill", "get_order", "request_refund"], ["get_order", "request_refund"],
+         (1.0, 2 / 3)),
+        # Una esperada fuera de sitio no arrastra a las demás.
+        (["a", "b", "c"], ["b", "a", "c"], (2 / 3, 2 / 3)),
+        (["a", "a", "b"], ["a", "b"], (1.0, 2 / 3)),
+    ],
+)  # fmt: skip
+def test_trajectory_metrics_use_the_longest_common_subsequence(
+    expected: list[str], actual: list[str], metrics: tuple[float, float]
+) -> None:
+    """Regresión de la 12.G2 (lo destapó el contraste con la definición de GCP)."""
+    assert trajectory_metrics(expected, actual) == pytest.approx(metrics)
+
+
 def _execution(name: str, arguments: str) -> ToolExecution:
     return ToolExecution(ToolCall("c", name, arguments), "{}", None, 1.0)
 

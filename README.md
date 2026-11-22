@@ -1,10 +1,9 @@
-# GenAI_PoCs · Sistemas agénticos GenAI en Azure y AWS
+# GenAI_PoCs · Sistemas agénticos GenAI en Azure, AWS y GCP
 
 Pruebas de concepto didácticas que recorren el stack completo de un sistema agéntico de producción:
 SQL transaccional, capa de modelos con gateway, indexación event-driven, RAG híbrido, evals, tool
-calling y MCP, agentes en varios frameworks y harness de guardrails. Todo en **Azure y AWS** (y
-**GCP**, en curso), y cada pieza en hasta **tres carriles comparables** con el mismo dataset y las
-mismas evals.
+calling y MCP, agentes en varios frameworks y harness de guardrails. Todo en **Azure, AWS y GCP**, y cada pieza en hasta **tres carriles
+comparables** con el mismo dataset y las mismas evals.
 
 Caso de uso: **Genaipocs**, un marketplace global de experiencias y eventos (~300 M de usuarios) con
 agentes para usuarios internos (operaciones, soporte, partners) y para el público.
@@ -14,16 +13,17 @@ agentes para usuarios internos (operaciones, soporte, partners) y para el públi
 ```mermaid
 flowchart LR
   U[Cliente / operador] --> AG["booking_agent<br/>(9 sabores)"]
-  EM[Emails] --> OR["orchestrator<br/>triaje → especialistas<br/>(LangGraph · MAF · cola · A2A)"]
+  EM[Emails] --> OR["orchestrator<br/>triaje → especialistas<br/>(LangGraph · MAF · ADK · cola · A2A)"]
   OR --> H
   AG --> H["harness<br/>guardrails · HITL · validación"]
   H --> GW["LLM gateway<br/>routing · fallback · coste"]
   GW --> AZ[Azure OpenAI]
   GW --> BR[Bedrock]
+  GW --> GE[Gemini]
   H --> MCPG["MCP gateway"] --> MCP["MCP: catalog · ticketing · refunds"]
   MCP --> API["ticketing_api"] --> PG[(PostgreSQL)]
-  H --> RET["retrieval<br/>híbrido · rerank · citas"] --> VS[(pgvector · AI Search · S3 Vectors)]
-  SRC[Documentos] --> Q[[RabbitMQ · SQS · Service Bus]] --> IDX[indexer] --> VS
+  H --> RET["retrieval<br/>híbrido · rerank · citas"] --> VS[(pgvector · AI Search · S3 Vectors · Agent Retrieval)]
+  SRC[Documentos] --> Q[[RabbitMQ · SQS · Service Bus · Pub/Sub]] --> IDX[indexer] --> VS
   EV["evals<br/>RAG · agentes · ataques"] -.gate CI.-> AG
 ```
 
@@ -32,9 +32,9 @@ evals, despliegue) y el recorrido de un caso de punta a punta: [arquitectura.md]
 
 | Carril | Qué es | Ejemplos |
 |---|---|---|
-| **A. Gestionado** | El servicio de la nube hace el trabajo | Foundry Agent Service, Foundry IQ, Bedrock Knowledge Bases, AgentCore, Prompt Shields, Bedrock Guardrails |
-| **B. SDK nativo** | Código propio sobre los SDK | `openai`, `azure-search-documents`, `boto3` (Converse, S3 Vectors), gateway y bucle de tools propios |
-| **C. Framework** | Un framework de agentes/RAG | LlamaIndex, LangGraph, Microsoft Agent Framework, Strands, LiteLLM, RAGAS, DeepEval |
+| **A. Gestionado** | El servicio de la nube hace el trabajo | Foundry Agent Service, Foundry IQ, Bedrock Knowledge Bases, AgentCore, Prompt Shields, Bedrock Guardrails, RAG Engine, Agent Search, Agent Runtime, Model Armor |
+| **B. SDK nativo** | Código propio sobre los SDK | `openai`, `azure-search-documents`, `boto3` (Converse, S3 Vectors), `google-genai`, `google-cloud-*`, gateway y bucle de tools propios |
+| **C. Framework** | Un framework de agentes/RAG | LlamaIndex, LangGraph, Microsoft Agent Framework, Strands, ADK, LiteLLM, RAGAS, DeepEval |
 
 ## Estructura
 
@@ -98,12 +98,12 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 9 | Orquestación multi-agente (LangGraph, MAF, ADK, cola), A2A y evals de los cuatro motores | ✅* | [fase-9](docs/fase-9-multiagente.md) |
 | 10 | Escala: rate limiting, caché semántica, streaming, outbox, autoescalado por cola y pruebas de carga (Redis y Valkey) | ✅* | [fase-10](docs/fase-10-escala.md) |
 | 11 | Observabilidad: OpenTelemetry GenAI, propagación por colas y A2A, SLO y alertas como código, Langfuse, App Insights, X-Ray y Cloud Trace | ✅* | [fase-11](docs/fase-11-observabilidad.md) |
-| 12 | Evals de agentes (trayectoria, LLM-juez), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
+| 12 | Evals de agentes (trayectoria, LLM-juez, Gen AI Evaluation Service de contraste), red teaming con PyRIT y promptfoo, prompts versionados, A/B con MLflow y Vertex AI Experiments, y drift | ✅* | [fase-12](docs/fase-12-evals-llmops.md) |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan para añadir GCP | ✅ | [checkpoint](docs/fase-13-12-checkpoint.md) |
-| G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita), la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL), la 4.G (híbrida en Agent Retrieval con la Ranking API, RAG Engine y Agent Search con citas verificadas), la 5.G (juez Gemini, Gen AI Evaluation Service y fidelidad de RAG Engine y Agent Search) la 6.G (tools con Gemini, token por servidor con `signJwt` e Identity Platform, Agent Gateway + Agent Registry y Apigee), la 7.G (firmas de Gemini en todos los sabores, sabores `adk` y `agentplatform`, Sessions y Memory Bank, Agent Identity con política de acceso por tool), la 8.G (Model Armor como escudo que falla cerrado, PII con Sensitive Data Protection y caída a patrones, plantillas y *floor setting* en Terraform), la 9.G (ADK como cuarto motor del orquestador, Pub/Sub con *exactly-once*, A2A con ID tokens de Google en Cloud Run y espera humana con SLA en Workflows), la 10.G (backlog de Pub/Sub con PromQL y latido del plazo de ack, caché semántica y GCRA portables a Memorystore for Valkey, registro compartido de cachés de Gemini, worker pools con CREMA, Cloud Armor y carga desde un Cloud Run job) y la 11.G (collector hacia la Telemetry API y Managed Prometheus con los nombres comprobados, las 36 alertas en PromQL de Cloud Monitoring generadas desde los SLO, logs enlazados con Cloud Trace y spans de los frameworks sin contenido) | En curso | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) · [4.G](docs/fase-4-retrieval.md#gcp-pasada-4g) · [5.G](docs/fase-5-evals.md#8-gcp-pasada-5g) · [6.G](docs/fase-6-tools-mcp.md#9-gcp-pasada-6g) · [7.G](docs/fase-7-agentes.md#10-gcp-pasada-7g) · [8.G](docs/fase-8-harness.md#9-gcp-pasada-8g) · [9.G](docs/fase-9-multiagente.md#7-gcp-pasada-9g) · [10.G](docs/fase-10-escala.md#7-gcp-pasada-10g) · [11.G](docs/fase-11-observabilidad.md#7-gcp-pasada-11g) |
+| G | Pasada GCP: Gemini, Pub/Sub, Agent Retrieval (antes Vector Search), RAG Engine, ADK, Agent Runtime, Model Armor... en las fases 0–12. Hechas la 0.G (dependencias, Terraform de GCP, emulador de Pub/Sub), la 2.G (Gemini en el gateway: *thought signatures*, fallback entre tres nubes, caché implícita y explícita), la 3.G (Pub/Sub en el contrato de brokers, embeddings de Gemini, Agent Retrieval y RAG Engine con un corpus por ACL), la 4.G (híbrida en Agent Retrieval con la Ranking API, RAG Engine y Agent Search con citas verificadas), la 5.G (juez Gemini, Gen AI Evaluation Service y fidelidad de RAG Engine y Agent Search), la 6.G (tools con Gemini, token por servidor con `signJwt` e Identity Platform, Agent Gateway + Agent Registry y Apigee), la 7.G (firmas de Gemini en todos los sabores, sabores `adk` y `agentplatform`, Sessions y Memory Bank, Agent Identity con política de acceso por tool), la 8.G (Model Armor como escudo que falla cerrado, PII con Sensitive Data Protection y caída a patrones, plantillas y *floor setting* en Terraform), la 9.G (ADK como cuarto motor del orquestador, Pub/Sub con *exactly-once*, A2A con ID tokens de Google en Cloud Run y espera humana con SLA en Workflows), la 10.G (backlog de Pub/Sub con PromQL y latido del plazo de ack, caché semántica y GCRA portables a Memorystore for Valkey, registro compartido de cachés de Gemini, worker pools con CREMA, Cloud Armor y carga desde un Cloud Run job) la 11.G (collector hacia la Telemetry API y Managed Prometheus con los nombres comprobados, las 36 alertas en PromQL de Cloud Monitoring generadas desde los SLO, logs enlazados con Cloud Trace y spans de los frameworks sin contenido) y la 12.G (juez de agentes con Gemini, Evaluation Service como contraste de la trayectoria y del juez, riesgo residual frente a los detectores de PII, promptfoo con atacante LLM, prompts en Agent Platform y experimentos en Vertex AI Experiments) | ✅* | [plan](docs/fase-13-12-checkpoint.md#plan-gcp) · [0.G](docs/fase-0-cimientos.md#7-gcp-pasada-0g) · [2.G](docs/fase-2-modelos.md#10-gcp-pasada-2g) · [3.G](docs/fase-3-comparativa.md#7-gcp-pasada-3g) · [4.G](docs/fase-4-retrieval.md#gcp-pasada-4g) · [5.G](docs/fase-5-evals.md#8-gcp-pasada-5g) · [6.G](docs/fase-6-tools-mcp.md#9-gcp-pasada-6g) · [7.G](docs/fase-7-agentes.md#10-gcp-pasada-7g) · [8.G](docs/fase-8-harness.md#9-gcp-pasada-8g) · [9.G](docs/fase-9-multiagente.md#7-gcp-pasada-9g) · [10.G](docs/fase-10-escala.md#7-gcp-pasada-10g) · [11.G](docs/fase-11-observabilidad.md#7-gcp-pasada-11g) · [12.G](docs/fase-12-evals-llmops.md#7-gcp-pasada-12g) |
 | 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | [plan de fases](docs/plan-fases.md) |
 
-✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); falta AWS.
+✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure ya está validado (checkpoint 8→9, 3,76 €); faltan AWS y GCP (en GCP, todas las fases).
 
 Preguntas de entrevista (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
 modelo y una chuleta Azure → AWS → GCP: [preguntas-entrevista.md](docs/preguntas-entrevista.md). Siglas,
@@ -117,7 +117,7 @@ revisión) y solo si pasa el check `release-gate`, que resume todos los jobs de 
 GitHub Actions ejecuta en cada PR y en cada merge a `main`: lint, formato, `mypy --strict`, tests, evals deterministas con
 gate contra un baseline, tests de ataque en los 9 sabores, evals multi-agente en los 3 motores,
 build de las imágenes MCP y de especialistas A2A, dashboard y reglas de alerta al día y probadas
-con `promtool`, configuración de los collectors de OpenTelemetry, validación de Terraform y tests de integración con PostgreSQL, RabbitMQ, Redis y SQS emulado. Sin secretos y sin coste.
+con `promtool`, configuración de los collectors de OpenTelemetry, validación de Terraform de las tres nubes y tests de integración con PostgreSQL, RabbitMQ, Redis, Valkey, y SQS y Pub/Sub emulados. Sin secretos y sin coste.
 
 ## Desarrollo con IA
 
@@ -140,8 +140,8 @@ mensaje corto; la skill reconstruye el contexto desde el repo (plan, rama, PR dr
 Sesión nueva con `retomar-fase` solo si el contexto pasa del ~70 % o se sigue otro día:
 
 ```text
-Vamos a por la 12.G de la pasada GCP. Usa la skill iniciar-fase.       # fase nueva (rama fase/12-g desde main)
-Seguimos con la 12.G. Usa la skill retomar-fase.                      # fase empezada, en sesión nueva
+Vamos a por el checkpoint G→13. Usa la skill iniciar-fase.            # fase nueva (rama nueva desde main)
+Seguimos con el checkpoint G→13. Usa la skill retomar-fase.           # fase empezada, en sesión nueva
 revisado                                                              # commit + push + PR de la subfase
 dale                                                                  # empieza la subfase propuesta
 ```
@@ -165,3 +165,11 @@ perfiles aislados de las CLI:
 { "env": { "AZURE_CONFIG_DIR": "C:\\Users\\<usuario>\\.azure-genaipocs",
            "CLOUDSDK_CONFIG": "C:\\Users\\<usuario>\\.gcloud-genaipocs", "PYTHONUTF8": "1" } }
 ```
+
+## Contribuir y licencia
+
+Issues y PR pequeñas son bienvenidas: puesta en marcha, comandos de verificación y reglas en
+[CONTRIBUTING.md](CONTRIBUTING.md), con el [código de conducta](CODE_OF_CONDUCT.md). Las
+vulnerabilidades se informan en privado ([SECURITY.md](SECURITY.md)).
+
+Código y documentación con [licencia MIT](LICENSE).

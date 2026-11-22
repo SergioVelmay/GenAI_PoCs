@@ -185,7 +185,7 @@ Langfuse como observaciones `GENERATION`, `AGENT` y `TOOL`, con coste calculado 
 | La alerta de faithfulness no saltaba con datos reales | Con unidad `"1"`, el collector solo añade `_ratio` en gauges | Nombres verificados contra el collector real, no contra la documentación |
 | Un test de alerta por pico corto pasaba por casualidad | Con menos historia que la ventana larga, la ventana entera es el pico | Escenario con 7 h de historia |
 
-## 4. Comparativa Azure ↔ AWS ↔ framework
+## 4. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
 
 | Pieza | A. Gestionado: Azure | A. Gestionado: AWS | A. Gestionado: GCP | B. Propio (este repo) | C. Framework / herramienta |
 |---|---|---|---|---|---|

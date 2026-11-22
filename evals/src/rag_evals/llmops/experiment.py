@@ -1,8 +1,9 @@
 """Experimentos A/B offline (fase 12.7): variantes sobre los mismos casos, comparación pareada,
-decisión del dominio y registro en MLflow o JSONL.
+decisión del dominio y registro en JSONL, MLflow o Vertex AI Experiments.
 
     uv run python -m rag_evals.llmops.experiment run evals/experiments/harness-on-vs-off.yaml
     uv run python -m rag_evals.llmops.experiment run <yaml> --tracker mlflow    # extra llmops
+    uv run python -m rag_evals.llmops.experiment run <yaml> --tracker vertex    # GCP (12.G5)
     uv run python -m rag_evals.llmops.experiment run <yaml> --mode llm --budget-usd 0.40
     uv run python -m rag_evals.llmops.experiment assign <yaml> cus_0000001      # A/B online
 
@@ -48,7 +49,7 @@ from rag_evals.agents.cloud import build_cloud_models
 from rag_evals.agents.scenarios import ATTACKS_PATH, SCENARIOS_PATH, load_scenarios
 from rag_evals.agents.suite import AgentReport, ScenarioOutcome, run_agent_suite
 from rag_evals.metering import CostMeter
-from rag_evals.retrieval_eval import REPORTS_DIR
+from rag_evals.retrieval_eval import REPORTS_DIR, Cloud, llm_cloud
 
 EXPERIMENTS_DIR = EVALS_DIR / "experiments"
 RUNS_DIR = EVALS_DIR.parent / ".experiments"
@@ -327,6 +328,11 @@ def log_runs(
 
 
 def build_tracker(kind: str) -> ExperimentTrackerPort:
+    if kind == "vertex":
+        from genaipocs_core.adapters.experiment_trackers import VertexExperimentTracker
+        from genaipocs_core.config import Settings
+
+        return VertexExperimentTracker.from_settings(Settings())
     if kind == "mlflow":
         from genaipocs_core.adapters.experiment_trackers import MlflowExperimentTracker
 
@@ -337,6 +343,19 @@ def build_tracker(kind: str) -> ExperimentTrackerPort:
     return JsonlExperimentTracker(RUNS_DIR)
 
 
+def report_dir(out: Path, mode: Literal["scripted", "llm"], cloud: Cloud | None = None) -> Path:
+    """Con el modelo guionizado, `out`; con LLM real, `<nube>/experiments` junto a `out`, la
+    nube de `LLM_PROVIDER` (la que generó y juzgó): un A/B con Gemini no sobrescribe el de Azure
+    (hasta la 12.G1 iba siempre a `azure/`)."""
+    if mode == "scripted":
+        return out
+    if cloud is None:
+        from genaipocs_core.config import Settings
+
+        cloud = llm_cloud(Settings().llm_provider)
+    return out.parent / cloud / "experiments"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -344,7 +363,7 @@ def main() -> None:
     run.add_argument("spec", type=Path)
     run.add_argument("--mode", choices=["scripted", "llm"], default="scripted")
     run.add_argument("--budget-usd", type=Decimal)
-    run.add_argument("--tracker", choices=["jsonl", "mlflow", "none"], default="jsonl")
+    run.add_argument("--tracker", choices=["jsonl", "mlflow", "vertex", "none"], default="jsonl")
     run.add_argument("--out", type=Path, default=REPORTS_DIR / "experiments")
     assign = commands.add_parser("assign", help="Variante de una unidad en la A/B online")
     assign.add_argument("spec", type=Path)
@@ -358,12 +377,14 @@ def main() -> None:
         return
     if args.mode == "llm" and args.budget_usd is None:
         parser.error("--mode llm requiere --budget-usd (llamadas con coste)")
+    # Antes de las variantes: un tracker mal configurado no debe fallar después de pagar el LLM.
+    tracker = build_tracker(args.tracker) if args.tracker != "none" else None
     logging.getLogger("harness").setLevel(logging.ERROR)
     results, meter = asyncio.run(run_variants(spec, mode=args.mode, budget=args.budget_usd))
     control, treatment = results
     metric = spec.llm_metric if args.mode == "llm" and spec.llm_metric else spec.metric
     comparison = compare(control, treatment, metric, spec.alpha)
-    out: Path = args.out if args.mode == "scripted" else args.out.parent / "azure" / "experiments"
+    out = report_dir(args.out, args.mode)
     out.mkdir(parents=True, exist_ok=True)
     report = out / f"{spec.name}.md"
     report.write_text(render(spec, results, comparison), encoding="utf-8", newline="\n")
@@ -376,8 +397,8 @@ def main() -> None:
     print(f"Decisión: {comparison.verdict.decision.value} ({comparison.verdict.reason})")
     if meter is not None:
         print(f"Coste: {meter.snapshot().cost_usd} USD")
-    if args.tracker != "none":
-        ids = log_runs(build_tracker(args.tracker), spec, results, comparison, report, meter)
+    if tracker is not None:
+        ids = log_runs(tracker, spec, results, comparison, report, meter)
         print(f"Runs registrados en {args.tracker}: {', '.join(ids)}")
 
 

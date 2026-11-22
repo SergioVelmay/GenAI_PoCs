@@ -108,7 +108,9 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Gate / baseline** | Umbrales en la CI que bloquean un cambio si empeora respecto a una referencia guardada. | `rag_evals.gate`; `release-gate` en la fase 12. |
 | **Report → enforce** | Primero el gate solo informa; tras demostrarse estable, bloquea. | 15 ejecuciones sin ruido antes de `enforce`. |
 | **Invariante** | Regla que nunca puede romperse (fuga de ACL, reembolso sin aprobación). Se exige a 0, no en media. | En todas las suites. |
-| **Eval de trayectoria / parámetros / resolución** | Evaluar el **camino** del agente (tools en orden), sus **argumentos** y el **estado final** del mundo. | 14 escenarios × 7 sabores (fase 12.1). |
+| **Eval de trayectoria / parámetros / resolución** | Evaluar el **camino** del agente (tools en orden), sus **argumentos** y el **estado final** del mundo. | 14 escenarios × 9 sabores (fase 12.1). |
+| **Trayectoria: conjunto frente a orden** | Dos formas de puntuar las tools llamadas: mirar si cada nombre está en la otra lista (conjunto) o exigir el orden y el número de llamadas (subsecuencia común más larga). | Gen AI Evaluation Service usa el conjunto; el gate, el orden. El contraste (12.G2) sobre 84 trayectorias reales destapó un bug en el gate: 30 estaban infravaloradas. |
+| **Rúbrica gestionada** | Métrica de un servicio de evals en la que un LLM del proveedor puntúa con criterios que define el servicio. Rápida de adoptar, pero no se calibra ni se ajusta. | `hallucination_v2` y `final_response_quality_v2` del Evaluation Service frente al `AgentJudge`, con las mismas etiquetas humanas (12.G2). |
 | **Muestra estratificada / `--budget-usd`** | Evaluar con LLM una muestra representativa con tope de gasto. | Lo que tiene coste nunca corre en cada PR. |
 | **Eval online** | Puntuar con el juez una muestra del tráfico real en producción. | `OnlineEvaluator`, scores en Langfuse (apagado por defecto). |
 
@@ -253,9 +255,11 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 |---|---|---|
 | **Red teaming** | Atacar tu propio sistema como lo haría un adversario para encontrar fallos antes que él. | PyRIT y promptfoo (fases 12.4–12.5): 4 problemas encontrados. |
 | **Conversor / estrategia / mutación** | Transformaciones de un ataque (base64, leetspeak, traducción, role-play) para saltarse filtros. | 9 conversores de PyRIT y 9 estrategias de promptfoo, congelados en el repo. |
-| **Ataque adaptativo / Crescendo** | Un LLM atacante ajusta el ataque en varios turnos según las respuestas. | Fuera de la CI, con presupuesto (AI Red Teaming Agent de Foundry). |
+| **Ataque adaptativo / Crescendo** | Un LLM atacante ajusta el ataque en varios turnos según las respuestas. | Fuera de la CI, con presupuesto: AI Red Teaming Agent de Foundry y promptfoo con el atacante LLM de cada nube (12.G3). |
+| **Riesgo residual** | Lo que queda después de las mitigaciones y se acepta por escrito. La mitigación que se cite tiene que estar probada, no supuesta. | PII ofuscada (base64, hexadecimal, morse, homoglifos): el regex atrapa 12 de 20 variantes y ninguna de las 5 aceptadas; Sensitive Data Protection, por medir (12.G3). |
 | **LLMOps** | MLOps aplicado a LLM: versionar prompts, evaluar, desplegar, vigilar en producción. | Fase 12.6–12.8. |
-| **Prompt versionado / candado** | Cada prompt en Git con versión y hash en `prompts.lock.json`; cambiar texto sin subir versión rompe la CI. | Copia publicada en Langfuse para enlazar generación ↔ versión. |
+| **Prompt versionado / candado** | Cada prompt en Git con versión y hash en `prompts.lock.json`; cambiar texto sin subir versión rompe la CI. | Copia publicada en Langfuse (enlaza generación ↔ versión) y en la gestión de prompts de Agent Platform (12.G4). |
+| **Registro de experimentos** (*experiment tracking*) | Dónde queda cada ejecución de un A/B (parámetros, métricas, artefactos) para compararla después. | `ExperimentTrackerPort`: JSONL en la CI, MLflow (Azure ML, SageMaker) y Vertex AI Experiments, que no habla MLflow (12.G5). |
 | **A/B test pareado** | Comparar dos variantes **sobre los mismos casos**; elimina el ruido de casos distintos. | Harness sí/no: 7 a 0, p = 0,016. |
 | **McNemar exacto / casos discordantes** | Test estadístico para A/B pareados que solo mira los casos donde las variantes discrepan. | < 10 discordantes = "falta muestra". |
 | **p-valor** | Probabilidad de ver esa diferencia si en realidad no hubiera ninguna. < 0,05 suele considerarse significativo. | Regla de decisión escrita antes del experimento. |
@@ -393,8 +397,8 @@ equivalente o alternativa.
 | `azure-ai-evaluation` | Evaluadores de Foundry (groundedness, `ToolCallAccuracy`, `IntentResolution`). | Calibración frente al juez propio (~3× más caro). | Bedrock Evaluations. |
 | `langchain-community` | Integraciones de la comunidad LangChain. | Dependencia que necesita RAGAS (versión fijada). | — |
 | `pyrit` | *Python Risk Identification Toolkit* de Microsoft para red teaming de IA generativa. | Generar variantes de ataque con 9 conversores (fase 12.4). | Garak, AI Red Teaming Agent de Foundry (que lo usa por dentro). |
-| promptfoo (npm) | CLI de evals y red teaming de LLM con estrategias de jailbreak. | 9 estrategias locales sin generación remota (fase 12.5). | PyRIT, Garak. |
-| `mlflow` | Plataforma de experimentos: parámetros, métricas y artefactos de cada ejecución. | Registrar los A/B de prompts y harness (fase 12.7). | Azure ML ↔ SageMaker con MLflow gestionado. |
+| promptfoo (npm) | CLI de evals y red teaming de LLM con estrategias de jailbreak. | 9 estrategias locales sin generación remota (fase 12.5); con atacante y juez LLM de cada nube fuera de la CI (12.G3). | PyRIT, Garak. |
+| `mlflow` | Plataforma de experimentos: parámetros, métricas y artefactos de cada ejecución. | Registrar los A/B de prompts y harness (fase 12.7). | Azure ML ↔ SageMaker con MLflow gestionado; en GCP, Vertex AI Experiments con adaptador propio. |
 | `langfuse` | Plataforma open source de observabilidad de LLM: trazas, coste, prompts, scores. | Trazas de LLM, scores del juez online y copia de prompts versionados. | Arize Phoenix, LangSmith. |
 
 <a id="l7"></a>

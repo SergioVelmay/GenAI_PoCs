@@ -38,6 +38,7 @@ from rag_evals.agents.suite import run_agent_suite
 from rag_evals.attacks import render_markdown as render_attacks
 from rag_evals.attacks import run_attacks
 from rag_evals.metering import BudgetExceededError
+from rag_evals.retrieval_eval import REPORTS_DIR
 
 APPROVED = ("aprobado", "approved", "reembolsado", "he tramitado")
 
@@ -201,9 +202,7 @@ def _judgement(acceptable: bool) -> AgentJudgement:
     )
 
 
-def test_agreement_per_dimension_and_detection(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_agreement_per_dimension_and_detection(tmp_path: Path) -> None:
     judged = [
         JudgedItem("a", "good", _judgement(True), None),
         JudgedItem("b", "fabricated", _judgement(False), None),
@@ -225,10 +224,23 @@ def test_agreement_per_dimension_and_detection(
     assert set(result.detected) == set(EXPECTED_ACCEPTABLE)
     assert "| fake | 3 | 1 |" in render_agreement([result], 4)
     # El informe con coste se puede releer sin volver a pagar.
-    monkeypatch.setattr(agent_calibration, "CLOUD_REPORTS_DIR", tmp_path)
-    path = write_judged("fake", judged, {"cost_usd": "0"})
-    assert path.parent == tmp_path
+    path = write_judged("fake", judged, {"cost_usd": "0"}, tmp_path / "gcp")
+    assert path == tmp_path / "gcp" / "agent-calibration-fake.json"
     assert load_judged(path) == ("fake", judged)
+
+
+def test_agent_calibration_reports_go_to_the_judging_cloud(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """12.G1: hasta ahora `judge` y `agreement` usaban siempre `evals/reports/azure/`; una
+    calibración con Gemini habría sobrescrito la de Azure."""
+    monkeypatch.setenv("LLM_PROVIDER", "gcp")
+    reports = REPORTS_DIR
+
+    assert agent_calibration.agreement_dir(None) == reports / "gcp"
+    assert agent_calibration.agreement_dir("aws") == reports / "aws"
+    # El conjunto se sigue construyendo con las respuestas reales de Azure de la fase 7.
+    assert reports / "azure" / "agents-llm.json" == agent_calibration.LLM_REPORT_PATH
 
 
 async def test_budget_stop_keeps_what_was_already_judged() -> None:

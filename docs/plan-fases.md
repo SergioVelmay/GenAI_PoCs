@@ -181,5 +181,12 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   functions* en Agent Platform sale bien ([pendientes](pendientes-cloud.md#fase-7-gcp)) y deja de
   ser Pre-GA.
 - **Espera humana con SLA en Azure y AWS** (de la 9.G5): en GCP la hace Workflows (`await_callback` con plazo → `case.reviews`); el dominio (`ReviewHandler`, `CaseReviewService.expire`) ya es común. Faltan Step Functions con `.waitForTaskToken` y `TimeoutSeconds` y Durable Functions con `WaitForExternalEvent` y un temporizador: candidatas a las fases 13 y 14.
+- **Atacante adaptativo con PyRIT en las tres nubes** (de la 12.G3, decidido con Sergio): ataques
+  multiturno (`RedTeamingAttack`, `CrescendoAttack`) con el atacante como un `PromptTarget` propio
+  sobre `LLMPort` (cualquier nube, con `CostMeter`). El objetivo sería el agente con harness y el
+  puntuador, uno determinista sobre las brechas del mundo, sin juez LLM. PyRIT 1.1 reescribió su
+  API (objetivos, puntuadores y memoria), y ni Azure ni AWS lo tenían: es trabajo nuevo, no
+  paridad. Hasta entonces, promptfoo con atacante LLM (`redteam-llm-<nube>.yaml`) cubre la
+  generación de ataques.
 - Fijar la versión de `uv` en la CI (`version:` de `setup-uv` o `required-version`), igual que los
   Dockerfiles fijan `uv:0.12.17`.

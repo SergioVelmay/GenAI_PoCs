@@ -7,7 +7,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 
 ## Contexto
 
-- PoCs didácticas del stack completo de **sistemas agénticos GenAI** (RAG, tool calling, MCP, multi-agente, harness/guardrails, evals, observabilidad, seguridad, DevOps/LLMOps) en **Azure y AWS**, y **GCP** en curso (pasada GCP por las fases 0–12, plan en `docs/fase-13-12-checkpoint.md#plan-gcp`).
+- PoCs didácticas del stack completo de **sistemas agénticos GenAI** (RAG, tool calling, MCP, multi-agente, harness/guardrails, evals, observabilidad, seguridad, DevOps/LLMOps) en **Azure, AWS y GCP** (la pasada GCP por las fases 0–12 se cerró en la 12.G6; falta validarla en la nube: `docs/pendientes-cloud.md`; plan en `docs/fase-13-12-checkpoint.md#plan-gcp`).
 - **Plan completo de fases** (objetivo, entregables, compromisos heredados e ideas aparcadas): `docs/plan-fases.md`. Es la fuente de verdad: no hace falta que Sergio pegue el plan de una fase.
 - Usuario: **Sergio**. Objetivo: preparar entrevistas para **AI Technical Lead** de proyectos GenAI y agénticos en Genaipocs, y saber explicar y defender cada decisión.
 - El rol es **50 % liderazgo técnico** (arquitectura, decisiones y trade-offs, calidad, equipo) y **50 % negocio y stakeholders** (impacto, coste/ROI, riesgos, priorización, comunicar a perfiles no técnicos).
@@ -115,9 +115,9 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 9 | Multi-agente (Triaje → Reembolsos / Creativo / Conocimiento), A2A, asíncrono | ✅ Hecha* | ✅* | `docs/fase-9-multiagente.md` |
 | 10 | Escala: backpressure, rate limiting, caché semántica, autoescalado por colas, carga | ✅ Hecha* | ✅* | `docs/fase-10-escala.md` |
 | 11 | Observabilidad: OpenTelemetry GenAI, Langfuse, CloudWatch/X-Ray vs App Insights vs Cloud Trace | ✅ Hecha* | ✅* | `docs/fase-11-observabilidad.md` |
-| 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | 12.G | `docs/fase-12-evals-llmops.md` |
+| 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | ✅* | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
-| G | **Pasada GCP** por las fases 0–12 (hechas: 0.G, 2.G, 3.G, 4.G, 5.G, 6.G, 7.G, 8.G, 9.G, 10.G y 11.G; siguiente: **12.G**, rama `fase/12-g`) | | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
+| G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G; siguiente: **checkpoint G→13**) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | G→13 | Checkpoint: emuladores locales oficiales de AWS, Azure y GCP (tras cerrar la pasada GCP) | | | `docs/plan-fases.md#checkpoint-g-13` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |

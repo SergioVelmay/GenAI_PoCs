@@ -97,6 +97,25 @@ def test_gcp_judge_is_gemini_pinned_to_its_own_model_and_thinking() -> None:
     assert isinstance(build_judge_llm(settings, tracer=NullTracer()), FallbackLLM)
 
 
+def test_online_agent_judge_is_built_on_gemini_without_azure() -> None:
+    """12.G1: el juez online de los especialistas (12.3) con solo GCP configurado. Apagado con
+    `sample_rate = 0`, como en cualquier nube."""
+    from genaipocs_core.adapters.online_eval_factory import build_agent_evaluator
+    from genaipocs_core.application.agent_online_eval import AgentOnlineEvaluator
+
+    settings = Settings(
+        _env_file=None,
+        llm_provider=LLMProvider.GCP,
+        gcp=GcpSettings(project="genaipocs-dev"),
+        llm_gateway=LLMGatewaySettings.model_validate({"fallback_providers": ""}),
+    )
+
+    assert settings.provider_chain() == [LLMProvider.GCP]
+    evaluator = build_agent_evaluator(settings, sample_rate=0.2, max_per_minute=10)
+    assert isinstance(evaluator, AgentOnlineEvaluator)
+    assert build_agent_evaluator(settings, sample_rate=0, max_per_minute=10) is None
+
+
 @pytest.mark.parametrize(
     ("provider", "overrides"),
     [

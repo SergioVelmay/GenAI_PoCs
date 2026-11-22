@@ -14,8 +14,21 @@ de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 
 **Decisión de GCP (checkpoint 12→13):** región `europe-west4`, presupuesto de 100 $ con alertas al
 50, 75 y 100 % (intentando usar créditos de prueba) y `gcloud` aislado con `CLOUDSDK_CONFIG`. Los
-pendientes de GCP se añaden a la sección de cada fase durante la pasada GCP
-([plan](fase-13-12-checkpoint.md#plan-gcp)); Vector Search y RAG Engine serán efímeros, como AI Search.
+pendientes de GCP están en la sección de cada fase ([plan](fase-13-12-checkpoint.md#plan-gcp));
+Vector Search y RAG Engine serán efímeros, como AI Search.
+
+**Validación de GCP (pasada cerrada en la 12.G6, 22-11-2026).** Quedan 63 casillas abiertas: 5 de
+la fase 0, 7 de la 2, 4 de la 3, 4 de la 4, 4 de la 5, 4 de la 6, 5 de la 7, 5 de la 8, 6 de la 9,
+8 de la 10, 3 de la 11 y 8 de la 12. No es una tarea por casilla: se agrupan por lo que
+encienden, para pagar cada recurso con coste por hora una sola vez.
+
+| Sesión | Qué | Por qué en ese orden |
+|---|---|---|
+| 1 | [Fase 0](#fase-0) y [2.G](#fase-2-gcp): proyecto, APIs, presupuesto, ADC y Gemini | Coste 0 y céntimos. Desbloquea todo lo demás y da las **respuestas reales** con las que sustituir los dobles |
+| 2 | [3.G](#fase-3-gcp), [4.G](#fase-4-gcp) y [5.G](#fase-5-gcp): Pub/Sub, Agent Retrieval, RAG Engine y Agent Search, y sus evals | Los recursos efímeros de RAG se encienden una vez, se indexa, se evalúa y se apagan |
+| 3 | [6.G](#fase-6-gcp), [7.G](#fase-7-gcp) y [8.G](#fase-8-gcp): MCP en Cloud Run, Agent Runtime, Model Armor y SDP | Agentes y guardrails sobre los modelos ya validados. Apigee y Agent Gateway, solo si el presupuesto lo permite |
+| 4 | [9.G](#fase-9-gcp), [10.G](#fase-10-gcp) y [11.G](#fase-11-gcp): A2A, Workflows, Memorystore, CREMA, Cloud Armor y el collector | Lo que tiene coste por hora o por mes (Memorystore, worker pools, ALB): todo junto y apagado al terminar |
+| 5 | [12.G](#fase-12-gcp): juez Gemini, Evaluation Service, red teaming, prompts y experimentos | Céntimos, pero necesita las etiquetas humanas de la calibración |
 
 **Renombrado a Genaipocs (15-11-2026):** el código y Terraform usan ahora `genaipocs`. Los
 recursos de Azure que se crearon con el nombre antiguo **ya no existen** (Sergio los borró), pero
@@ -338,3 +351,16 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
 - [ ] Juez online de los especialistas con Azure OpenAI: `ORCHESTRATOR__ONLINE_EVAL_RATE=0.2` y el flujo asíncrono con LLM real (pendiente de la fase 9); ver los scores `agent_*` en la traza del caso en Langfuse y el panel «Agentes: respuestas aceptables». Medir el coste por 1.000 turnos evaluados. Alertar sobre la tasa solo cuando el juez esté calibrado.
 - [ ] Drift con tráfico real (fase 12.8): llevar las reglas `drift:psi` y `DistributionDrift` a Amazon Managed Prometheus / Azure Monitor managed Prometheus (son las mismas reglas generadas) y compararlas con la detección de anomalías gestionada (CloudWatch Anomaly Detection, alertas dinámicas de Azure Monitor). Fijar `min_samples` con el volumen real tras 2 semanas de observación.
 - [ ] Drift de entrada por embeddings: distancia entre el centroide de las preguntas de la semana y el de referencia con embeddings reales (`text-embedding-3-small` / Titan), y comparar con Bedrock Model Monitor / Azure ML data drift. Con los embeddings `hashing` locales solo se valida el arnés.
+
+<a id="fase-12-gcp"></a>
+
+### GCP (pasada 12.G)
+
+- [ ] Calibrar el juez de agentes con Gemini (12.G1; con las etiquetas de Sergio ya puestas): `LLM_PROVIDER=gcp`, `uv run python -m rag_evals.agent_calibration judge --budget-usd 0.30` (32 muestras con `gemini-4-argon`) y `agreement --cloud gcp`. Comparar el kappa de `acceptable` con el de Azure; si sale peor, repetir con `GEMINI__JUDGE_THINKING_LEVEL=medium`.
+- [ ] Suite y A/B con Gemini y su juez: `rag_evals.agents --mode llm --flavor adk --judge native --budget-usd 0.20` y un A/B de modelo (`model: gemini-3.5-flash-lite` frente a `gemini-4-hydrogen`) con `experiment --mode llm` → `evals/reports/gcp/experiments/`. Comprobar en el coste por modelo que cada variante usó el suyo (el `fix:` `f98ed1e`).
+- [ ] Trayectoria con el servicio (12.G2, < 0,01 $): `uv run python -m rag_evals.agents.gcp_eval --service` (gcloud aislado, `roles/aiplatform.user`). Comprobar que el servicio da lo documentado en las 84 trayectorias (`service_vs_documented` a 0). Confirmar los bordes no documentados (listas vacías) y si con `tool_input` relleno exige la entrada exacta. Si la API cambia de `v1beta1` a `v1` o llega a `client.evals`, migrar.
+- [ ] Rúbricas frente a las etiquetas humanas (12.G2, céntimos; con `agents-labels-v1.csv` relleno): `uv sync --all-packages --extra evals`, `uv run --no-sync python -m rag_evals.agents.gcp_rubrics judge` y `agreement`. Comparar el kappa de `grounded` (`hallucination_v2`) y de `acceptable` (`final_response_quality_v2`, mejor umbral) con el del `AgentJudge` de Azure y de Gemini. Anotar el coste real por muestra desde la facturación (el servicio no devuelve tokens).
+- [ ] Riesgo residual frente a Sensitive Data Protection (12.G3, 20 llamadas, céntimos): `uv run python -m rag_evals.redteam.residual --detector gcp` (`GCP__PROJECT`, gcloud aislado). ¿Ve SDP la tarjeta en base64, hexadecimal, morse u homoglifos? Si no la ve, la mitigación escrita en las baselines de la 12.4 y la 12.5 («el guardrail del proveedor») es falsa: corregirla en sus `reasons` y en el informe de red teaming.
+- [ ] promptfoo con Gemini de atacante (12.G3, presupuesto acordado antes): `REDTEAM_BUDGET_USD=0.50`, `LLM_PROVIDER=gcp` y `promptfoo redteam generate` + `redteam eval` con `redteam-llm-gcp.yaml` y `promptfoo_env()` (sin generación remota), `GOOGLE_CLOUD_PROJECT` y ADC. Comprobar antes que ningún plugin elegido exige la generación remota. Contar brechas (`unexpected_writes`) y respuestas que el juez marca como fallo, y revisar a mano una muestra de lo que el juez de promptfoo da por bueno.
+- [ ] Prompts en Agent Platform (12.G4, sin coste apreciable): `uv run python -m rag_evals.llmops.prompts publish --store gcp` (plan) y `--apply`. Comprobar en la consola los prompts del candado (22; los fragmentos no se publican) con su `git-vN-<sha>`, que una segunda pasada da `up_to_date` y que el filtro `display_name="..."` de `list` encuentra el prompt (si la API lo ignora, el adaptador vería prompts ajenos: el test de nombre duplicado lo pararía). Capturar las respuestas reales para el doble.
+- [ ] Experimentos en Vertex AI Experiments (12.G5, sin coste apreciable: metadatos): `uv run python -m rag_evals.llmops.experiment run evals/experiments/harness-on-vs-off.yaml --tracker vertex` (`GCP__PROJECT`, gcloud aislado, `roles/aiplatform.user`). Comprobar en la consola el experimento `harness-on-vs-off` con sus dos runs en `COMPLETE`, los parámetros `tag.*` y las métricas, y que una segunda ejecución añade dos runs nuevos sin chocar. La primera vez, Vertex crea el *metadata store* por defecto de la región: anotar si tarda o pide algún permiso más. Capturar las respuestas reales para el doble.

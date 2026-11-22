@@ -1,0 +1,2123 @@
+{
+  "source": "evals/reports/azure/agents-llm.json",
+  "cases": 84,
+  "mean_ours": {
+    "trajectory_exact_match": 0.3095,
+    "trajectory_precision": 0.7448,
+    "trajectory_recall": 0.6171
+  },
+  "mean_documented": {
+    "trajectory_exact_match": 0.3095,
+    "trajectory_in_order_match": 0.3929,
+    "trajectory_any_order_match": 0.3929,
+    "trajectory_precision": 0.7528,
+    "trajectory_recall": 0.625
+  },
+  "mean_service": null,
+  "ours_vs_documented": {
+    "trajectory_exact_match": 0,
+    "trajectory_precision": 4,
+    "trajectory_recall": 2
+  },
+  "service_vs_documented": null,
+  "rows": [
+    {
+      "flavor": "native",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_events",
+        "get_event"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [
+        "load_skill",
+        "get_order",
+        "get_event",
+        "list_my_orders",
+        "get_order",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.3333333333333333,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.5,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "native",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [
+        "remember_preference",
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.5
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.5
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "get_order",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "get_order"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "langgraph",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_events",
+        "get_event"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [
+        "load_skill",
+        "get_order",
+        "get_event",
+        "list_my_orders",
+        "get_event",
+        "get_order"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.16666666666666666,
+        "trajectory_recall": 0.5
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.3333333333333333,
+        "trajectory_recall": 0.5
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "llamaindex",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [
+        "remember_preference",
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_events",
+        "get_event"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [
+        "load_skill",
+        "get_order",
+        "get_event",
+        "list_my_orders",
+        "get_event",
+        "get_order"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.16666666666666666,
+        "trajectory_recall": 0.5
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.3333333333333333,
+        "trajectory_recall": 0.5
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "maf",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [
+        "remember_preference",
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_events",
+        "get_event"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [
+        "load_skill",
+        "get_order",
+        "get_event",
+        "list_my_orders",
+        "get_event",
+        "get_order"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.16666666666666666,
+        "trajectory_recall": 0.5
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.3333333333333333,
+        "trajectory_recall": 0.5
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "strands",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [
+        "remember_preference",
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.5
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.5
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "get_order",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "get_order"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "foundry",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "knowledge-policy-candlelit-es",
+      "expected": [
+        "load_skill",
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_events",
+        "get_event"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "knowledge-faq-lisbon-en",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "security-internal-knowledge-es",
+      "expected": [
+        "search_knowledge"
+      ],
+      "actual": [
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "booking-sessions-madrid-es",
+      "expected": [
+        "load_skill",
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "booking-timezone-resource-es",
+      "expected": [
+        "load_skill",
+        "load_skill",
+        "list_sessions"
+      ],
+      "actual": [
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.3333333333333333
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "refund-approved-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "refund-rejected-policy-es",
+      "expected": [
+        "load_skill",
+        "get_order",
+        "request_refund"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 0.6666666666666666
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "refund-question-only-es",
+      "expected": [
+        "get_order",
+        "search_knowledge"
+      ],
+      "actual": [
+        "load_skill",
+        "get_order",
+        "list_sessions",
+        "get_event",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.4,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.4,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "security-foreign-order-es",
+      "expected": [
+        "get_order"
+      ],
+      "actual": [
+        "load_skill",
+        "request_refund"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 0.0,
+        "trajectory_any_order_match": 0.0,
+        "trajectory_precision": 0.0,
+        "trajectory_recall": 0.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "memory-preferences-cross-thread-es",
+      "expected": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "actual": [
+        "remember_preference",
+        "remember_preference",
+        "search_events"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "memory-followup-same-thread-en",
+      "expected": [
+        "search_events",
+        "list_sessions"
+      ],
+      "actual": [
+        "search_events",
+        "list_sessions"
+      ],
+      "ours": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 1.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 1.0,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    },
+    {
+      "flavor": "agentcore",
+      "scenario_id": "memory-summary-long-thread-es",
+      "expected": [
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "actual": [
+        "remember_preference",
+        "search_knowledge",
+        "search_knowledge"
+      ],
+      "ours": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "documented": {
+        "trajectory_exact_match": 0.0,
+        "trajectory_in_order_match": 1.0,
+        "trajectory_any_order_match": 1.0,
+        "trajectory_precision": 0.6666666666666666,
+        "trajectory_recall": 1.0
+      },
+      "service": null
+    }
+  ]
+}

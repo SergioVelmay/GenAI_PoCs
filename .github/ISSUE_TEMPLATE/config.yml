@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Vulnerabilidad de seguridad
+    url: https://github.com/SergioVelmay/GenAI_PoCs/security/advisories/new
+    about: Infórmala en privado, nunca en un issue público (ver SECURITY.md).
+  - name: Cómo contribuir
+    url: https://github.com/SergioVelmay/GenAI_PoCs/blob/main/CONTRIBUTING.md
+    about: Puesta en marcha, comandos de verificación y reglas del proyecto.

@@ -8,7 +8,8 @@ Un diagrama único de todo el sistema es ilegible. Aquí va por **niveles de zoo
   observabilidad, evals). Cada uno con "qué contar en 30 segundos" y enlace a su fase.
 - **Nivel 2**: el recorrido de un caso real de punta a punta, para contarlo en una pizarra.
 
-Siglas y términos: [glosario](glosario.md). Preguntas y respuestas: [preguntas-entrevista.md](preguntas-entrevista.md).
+Las tres nubes (Azure, AWS y GCP) aparecen en cada nivel: el código es el mismo y solo cambian los
+adaptadores y el Terraform. Siglas y términos: [glosario](glosario.md). Preguntas y respuestas: [preguntas-entrevista.md](preguntas-entrevista.md).
 
 ## Índice
 
@@ -17,7 +18,7 @@ Siglas y términos: [glosario](glosario.md). Preguntas y respuestas: [preguntas-
   [3. Indexación](#n1-indexacion) · [4. Retrieval (RAG)](#n1-rag) · [5. Tools y MCP](#n1-mcp) ·
   [6. Agente y harness](#n1-agente) · [7. Multi-agente](#n1-multiagente) ·
   [8. Edge y escala](#n1-escala) · [9. Observabilidad](#n1-observabilidad) ·
-  [10. Evals y LLMOps](#n1-evals) · [11. Despliegue en AWS y Azure](#n1-despliegue)
+  [10. Evals y LLMOps](#n1-evals) · [11. Despliegue en AWS, Azure y GCP](#n1-despliegue)
 - [Nivel 2 · Recorrido de un caso](#n2)
 
 <a id="n0"></a>
@@ -27,13 +28,13 @@ Siglas y términos: [glosario](glosario.md). Preguntas y respuestas: [preguntas-
 ```mermaid
 flowchart LR
   PUB["Público<br/>(chat)"] --> EDGE["edge_api<br/>admisión · caché · SSE"]
-  INT["Operaciones<br/>y soporte"] --> AG["booking_agent<br/>(7 sabores)"]
+  INT["Operaciones<br/>y soporte"] --> AG["booking_agent<br/>(9 sabores)"]
   MAIL["Emails de clientes"] --> EDGE
   EDGE -->|"POST /cases"| ORQ["orchestrator<br/>triaje → especialistas"]
 
   AG & ORQ --> H["harness<br/>guardrails · aprobación humana"]
   EDGE --> RET
-  H --> GW["LLM gateway<br/>routing · fallback · coste"] --> LLM["Azure OpenAI · Bedrock"]
+  H --> GW["LLM gateway<br/>routing · fallback · coste"] --> LLM["Azure OpenAI · Bedrock · Gemini"]
   H --> MCP["MCP gateway → servidores MCP"] --> API["ticketing_api"] --> PG[("PostgreSQL")]
   H --> RET["retrieval<br/>híbrido · rerank · citas"] --> VS[("Vector store")]
   DOCS["Documentos"] --> Q[["Cola"]] --> IDX["indexer"] --> VS
@@ -67,7 +68,7 @@ flowchart TB
     APP["application/<br/>casos de uso"]
     DOM["domain/<br/>reglas de negocio (Python puro)"]
     PORTS["ports/<br/>typing.Protocol"]
-    ADP["adapters/<br/>memory · postgres · azure_* · bedrock*"]
+    ADP["adapters/<br/>memory · postgres · azure_* · bedrock* · gemini · gcp_*"]
   end
   SVC --> HAR --> CORE
   SVC --> APP
@@ -80,7 +81,7 @@ flowchart TB
 
 - Las flechas solo van hacia dentro: el dominio no importa nada externo; `harness` depende de
   `core`, nunca al revés.
-- Cada proveedor (Azure, AWS, Postgres) es un **adaptador** de un **puerto**; los tests usan el
+- Cada proveedor (Azure, AWS, GCP, Postgres) es un **adaptador** de un **puerto**; los tests usan el
   adaptador `memory` (deterministas, sin red ni coste).
 - El LLM propone; el **dominio decide** (`evaluate_refund`). Detalle: [fase 0](fase-0-cimientos.md).
 
@@ -97,6 +98,7 @@ flowchart LR
   Q --> O["Observado<br/>tokens · coste · trazas"]
   O --> AZ["Azure OpenAI"]
   O --> BR["Bedrock Converse"]
+  O --> GE["Gemini"]
   O -.-> LF[("Langfuse / OTel")]
 ```
 
@@ -106,7 +108,9 @@ flowchart LR
   responsabilidad (routing, fallback, resiliencia, cuota, observabilidad) sin que el código de
   negocio lo sepa.
 - Routing: 18/20 emails al modelo barato con 100 % de acierto; las escrituras, siempre al potente.
-- Prompt caching: lo estable primero (Azure automático, Bedrock con `cachePoint`).
+- Fallback entre las tres nubes (Azure → Bedrock → Gemini), configurable.
+- Prompt caching: lo estable primero (Azure automático, Bedrock con `cachePoint`, Gemini implícita
+  o explícita con `CachedContent`).
 - Detalle: [fase 2](fase-2-modelos.md) y resiliencia en la [fase 10](fase-10-escala.md).
 
 <a id="n1-indexacion"></a>
@@ -115,15 +119,15 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  SRC["Documento publicado<br/>(políticas, FAQs, fichas)"] --> Q[["Cola<br/>RabbitMQ · SQS · Service Bus"]]
+  SRC["Documento publicado<br/>(políticas, FAQs, fichas)"] --> Q[["Cola<br/>RabbitMQ · SQS · Service Bus · Pub/Sub"]]
   Q --> W["indexer (worker)"]
   W --> L{"¿Hash cambiado?<br/>(ledger)"}
   L -->|"no"| SKIP["Nada que hacer<br/>(0 embeddings)"]
   L -->|"sí"| CH["Chunking"] --> EMB["Embeddings"] --> UP["Upsert chunks nuevos<br/>→ borrar obsoletos"]
-  UP --> VS[("pgvector · AI Search · S3 Vectors")]
+  UP --> VS[("pgvector · AI Search · S3 Vectors<br/>· Agent Retrieval")]
   W -->|"falla N veces"| DLQ[["DLQ"]]
 
-  BLOB["S3 / Blob"] --> MAN["Carril A: Bedrock KB /<br/>indexer de AI Search"] --> VS
+  BLOB["S3 / Blob / Cloud Storage"] --> MAN["Carril A: Bedrock KB /<br/>indexer de AI Search / RAG Engine"] --> VS
 ```
 
 **Qué contar:**
@@ -131,8 +135,8 @@ flowchart LR
 - Por eventos, no por lotes: publicar un documento encola su indexación (frescura en minutos).
 - **Idempotente**: hash en un ledger (republicar 116 documentos = 0 embeddings) y orden
   upsert → borrado para que una consulta nunca vea el documento vacío.
-- Tres carriles con el mismo corpus: A gestionado (Bedrock KB / AI Search), B SDK propio, C
-  LlamaIndex. Detalle: [fase 3](fase-3-comparativa.md).
+- Tres carriles con el mismo corpus: A gestionado (Bedrock KB / AI Search / RAG Engine), B SDK
+  propio, C LlamaIndex. En GCP, RAG Engine filtra por corpus y no por metadatos: un corpus por ACL. Detalle: [fase 3](fase-3-comparativa.md).
 
 <a id="n1-rag"></a>
 
@@ -144,7 +148,7 @@ flowchart LR
   ACL --> BM["BM25<br/>(léxica)"]
   ACL --> VEC["Vectorial<br/>(embeddings)"]
   BM & VEC --> RRF["Fusión RRF"]
-  RRF --> RR["Reranker<br/>Semantic Ranker · Bedrock Rerank"]
+  RRF --> RR["Reranker<br/>Semantic Ranker · Bedrock Rerank<br/>· Ranking API"]
   RR --> PAR["Parent-child<br/>(contexto del padre)"]
   PAR --> GEN["Respuesta con citas<br/>literales"]
   GEN --> AB{"¿Hay evidencia?"}
@@ -177,7 +181,9 @@ flowchart LR
 - El modelo solo **propone** llamadas; la identidad sale del token, nunca de los argumentos.
 - Tres servidores por **mínimo privilegio**; el gateway da un único endpoint y cambia el token por
   uno nuevo para cada servidor (OBO), sin *token passthrough*.
-- En AWS, AgentCore Gateway; en Azure, APIM. Detalle: [fase 6](fase-6-tools-mcp.md).
+- En AWS, AgentCore Gateway; en Azure, APIM; en GCP, Apigee o Agent Gateway. GCP no tiene OBO
+  nativo: el gateway firma el token de cada servidor con `signJwt` de IAM, sin claves.
+  Detalle: [fase 6](fase-6-tools-mcp.md).
 
 <a id="n1-agente"></a>
 
@@ -186,7 +192,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   U["Usuario"] --> IN["Guardas de entrada<br/>inyección · PII"]
-  IN --> RT["AgentRuntime<br/>native · LangGraph · LlamaIndex · MAF<br/>Strands · Foundry · AgentCore"]
+  IN --> RT["AgentRuntime<br/>native · LangGraph · LlamaIndex · MAF<br/>Strands · ADK · Foundry · AgentCore<br/>· Agent Runtime"]
   RT <--> CTX["Context engineering<br/>prompt estable · memoria · compactación"]
   RT --> EX["JournaledExecutor + GuardedExecutor<br/>validación · políticas · diario"]
   EX --> TOOLS["Tools / MCP / RAG"]
@@ -197,12 +203,13 @@ flowchart LR
 
 **Qué contar:**
 
-- **Siete sabores** del mismo agente detrás de un contrato (`AgentRuntime`): el framework
+- **Nueve sabores** del mismo agente detrás de un contrato (`AgentRuntime`): el framework
   orquesta, pero identidad, tools, modelo y evals son nuestros.
 - El **harness** es el punto de paso obligatorio: "el modelo propone; el harness dispone".
-  Sin harness, 0/6 ataques contenidos; con harness, 6/6 en los siete sabores.
+  Sin harness, 0/6 ataques contenidos; con harness, 6/6 en los nueve sabores.
 - La última capa no es un filtro sino arquitectura: identidad fuera del modelo y aprobación
-  humana en lo irreversible. Detalle: [fase 7](fase-7-agentes.md) y [fase 8](fase-8-harness.md).
+  humana en lo irreversible. En GCP, el escudo es Model Armor y falla cerrado (la integración
+  directa en Gemini falla abierto y no se usa). Detalle: [fase 7](fase-7-agentes.md) y [fase 8](fase-8-harness.md).
 
 <a id="n1-multiagente"></a>
 
@@ -228,8 +235,9 @@ flowchart LR
 - Entre agentes viaja un **sobre** (intención, idioma, urgencia), no el email: −63 % de tokens y la
   inyección del cliente no llega al especialista.
 - **Idempotencia**: el caso se reclama antes de llamar al LLM y el *transactional outbox* evita
-  perder o duplicar mensajes. Mismo flujo en LangGraph, MAF y con colas; especialistas en proceso
-  o remotos por **A2A**. Detalle: [fase 9](fase-9-multiagente.md).
+  perder o duplicar mensajes. Mismo flujo en LangGraph, MAF, ADK y con colas; especialistas en proceso
+  o remotos por **A2A**. En GCP, ADK es el cuarto motor, la cola es Pub/Sub con *exactly-once*, A2A
+  va con ID tokens de Google y la espera humana con SLA, en Workflows. Detalle: [fase 9](fase-9-multiagente.md).
 
 <a id="n1-escala"></a>
 
@@ -245,7 +253,7 @@ flowchart LR
   C -->|"fallo"| M["Modelo con espera<br/>acotada (2 s)"]
   M -->|"saturado"| DEG["Respuesta degradada<br/>(citas literales)"] --> SSE
   M --> SSE
-  RL & C <--> R[("Redis")]
+  RL & C <--> R[("Redis / Valkey")]
 ```
 
 **Qué contar:**
@@ -254,7 +262,8 @@ flowchart LR
 - Caché semántica con **guarda de facetas** (ciudad, fecha, IDs): 12/17 paráfrasis reutilizadas y
   0 falsos aciertos. Con protección: de 6,8 a 75 req/s y TTFT p95 de 42 ms.
 - Workers escalados por **longitud de cola**, con el techo que pone la cuota del modelo
-  (ley de Little). Detalle: [fase 10](fase-10-escala.md).
+  (ley de Little). En GCP: Memorystore for Valkey (el mismo código), Cloud Armor delante y
+  workers en worker pools de Cloud Run escalados con CREMA. Detalle: [fase 10](fase-10-escala.md).
 
 <a id="n1-observabilidad"></a>
 
@@ -266,6 +275,7 @@ flowchart LR
   COL --> LOC["Local: Jaeger ·<br/>Prometheus · Grafana"]
   COL --> AWS["AWS: X-Ray ·<br/>CloudWatch (ADOT)"]
   COL --> AZ["Azure: Application<br/>Insights"]
+  COL --> GC["GCP: Cloud Trace ·<br/>Managed Prometheus"]
   COL -.->|"spans GenAI"| LF["Langfuse<br/>coste · prompts · scores"]
   LOC --> AL["71 alertas de burn rate<br/>sobre 6 SLO → runbook"]
 ```
@@ -275,7 +285,8 @@ flowchart LR
 - Se instrumenta **una vez** (convención GenAI de OTel detrás de un puerto) y el collector decide
   el destino: cambiar de backend es configuración.
 - El `traceparent` viaja por colas, outbox y A2A: un caso = 14 spans con un solo `trace_id`.
-- Sin PII en trazas ni métricas; alertas de burn rate multiventana, cada una con su runbook.
+- Sin PII en trazas ni métricas; alertas de burn rate multiventana, cada una con su runbook. En
+  GCP llegan **todas**: 36 políticas PromQL de Cloud Monitoring generadas desde los mismos SLO.
   Detalle: [fase 11](fase-11-observabilidad.md).
 
 <a id="n1-evals"></a>
@@ -295,7 +306,7 @@ flowchart LR
   PROD -->|"muestra"| JUDGE["Juez online<br/>(calibrado, kappa ≥ 0,6)"]
   PROD --> DRIFT["Drift (PSI)"]
   JUDGE & DRIFT -->|"casos nuevos"| PRE
-  AB["A/B pareado<br/>McNemar · MLflow"] -->|"nueva versión"| LOCK
+  AB["A/B pareado<br/>McNemar · MLflow / Vertex"] -->|"nueva versión"| LOCK
 ```
 
 **Qué contar:**
@@ -304,11 +315,14 @@ flowchart LR
 - Se evalúa el **resultado** (estado final, invariantes), no la redacción; el juez etiqueta
   hechos y el dominio decide.
 - Cerrar el ciclo: lo que detectan el juez online y el drift vuelve como casos al dataset.
+- Los servicios gestionados (evaluadores de Foundry, Bedrock Evaluations, Gen AI Evaluation
+  Service) sirven de **contraste, no de gate**: el de Google destapó un bug en la métrica de
+  trayectoria propia (30 de 84 casos infravalorados).
   Detalle: [fase 5](fase-5-evals.md) y [fase 12](fase-12-evals-llmops.md).
 
 <a id="n1-despliegue"></a>
 
-## Nivel 1 · 11. Despliegue en AWS y Azure (objetivo de las fases 13–14)
+## Nivel 1 · 11. Despliegue en AWS, Azure y GCP (objetivo de las fases 13–15)
 
 ```mermaid
 flowchart LR
@@ -330,15 +344,26 @@ flowchart LR
     Z2 --> Z6[("Managed Redis")]
     Z2 -.-> Z7["Application Insights"]
   end
-  GH["GitHub Actions<br/>OIDC · Terraform"] --> AWS & AZ
+  subgraph GCP["GCP (espejo)"]
+    direction TB
+    G1["Cloud Armor + ALB<br/>· Apigee"] --> G2["Cloud Run<br/>+ worker pools (CREMA)"]
+    G2 --> G3["Gemini · Agent Runtime"]
+    G2 --> G4[("Cloud SQL / AlloyDB<br/>· Agent Retrieval")]
+    G2 --> G5[["Pub/Sub"]]
+    G2 --> G6[("Memorystore<br/>for Valkey")]
+    G2 -.-> G7["Cloud Trace ·<br/>Managed Prometheus"]
+  end
+  GH["GitHub Actions<br/>OIDC · Terraform"] --> AWS & AZ & GCP
 ```
 
 **Qué contar:**
 
-- El mismo código en ambas nubes: solo cambian los **adaptadores** y el Terraform.
-- Identidad sin secretos: IAM Roles ↔ Managed Identity; OIDC desde la CI.
-- Aún no desplegado: es el plan de las fases 13 (AWS) y 14 (Azure). Equivalencias completas en la
-  [chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
+- El mismo código en las tres nubes: solo cambian los **adaptadores** y el Terraform.
+- Identidad sin secretos: IAM Roles ↔ Managed Identity ↔ cuentas de servicio; OIDC desde la CI
+  (Workload Identity Federation en GCP).
+- Las piezas ya tienen su Terraform en `infra/terraform/{aws,azure,gcp}`, con lo que tiene coste
+  apagado por defecto. Las fases 13 (AWS), 14 (Azure) y 15 (GCP) lo componen en un despliegue
+  completo. Equivalencias completas en la [chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
 
 ---
 
