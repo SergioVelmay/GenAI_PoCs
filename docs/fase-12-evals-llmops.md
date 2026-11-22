@@ -268,7 +268,8 @@ Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
 
 | Subfase | Commit | Qué |
 |---|---|---|
-| 12.G1 | `f98ed1e` + (este) | Juez de agentes con Gemini, informes con coste por nube y A/B de modelos que fuerza la nube que genera |
+| 12.G1 | `f98ed1e` + `91ba51a` | Juez de agentes con Gemini, informes con coste por nube y A/B de modelos que fuerza la nube que genera |
+| 12.G2 | `a523a67` + (este) | Evaluation Service como contraste: trayectoria por cómputo y rúbricas gestionadas. Destapó un bug en la precisión y el recall de la 12.1 |
 
 ### Verificación previa (22-11-2026)
 
@@ -307,6 +308,73 @@ uv run python -m rag_evals.llmops.experiment run <yaml> --mode llm --budget-usd 
 - **A/B de modelos** (`fix:` `f98ed1e`): `model:` en una variante fuerza los dos niveles del router
   en la nube de `LLM_PROVIDER`. Los respaldos de otras nubes no se fuerzan: si el gateway cae a
   uno, esa llamada no es de la variante, y se ve en el coste por modelo.
+
+### 12.G2 · Evaluation Service como contraste de la 12.1
+
+```powershell
+uv run python -m rag_evals.agents.gcp_eval                       # coste 0: propia frente a la documentada
+uv run python -m rag_evals.agents.gcp_eval --service             # + el servicio (< 0,01 $)
+uv run --no-sync python -m rag_evals.agents.gcp_rubrics judge    # rúbricas (extra evals, céntimos)
+uv run python -m rag_evals.agents.gcp_rubrics agreement          # coste 0, con las etiquetas
+```
+
+**Trayectoria** (`rag_evals.agents.gcp_eval`). Compara tres medidas sobre las 84 trayectorias
+reales de Azure de la fase 7 (7 sabores por 12 escenarios):
+
+- **La propia** (12.1).
+- **La documentada por Google**, calculada en local.
+- **La del servicio**, pedida a `EvaluateInstances` de `aiplatform_v1beta1`: una petición por
+  métrica, en lotes de 50.
+
+Solo se comparan nombres de tools (`tool_input` vacío): los parámetros ya los mide
+`expect.tool_args`, que admite un subconjunto de argumentos y el servicio no.
+
+| Métrica | Propia | Documentada |
+|---|---:|---:|
+| Exacta | 31 % | 31 % |
+| En orden (esperadas como subsecuencia) | — | 39 % |
+| En cualquier orden | — | 39 % |
+| Precisión | 74 % | 75 % |
+| Recall | 62 % | 62 % |
+
+**Hallazgo: la precisión y el recall de la 12.1 tenían un bug** (`fix:` `a523a67`).
+- **Qué pasaba:** cada tool esperada se buscaba consumiendo un iterador. Si faltaba la primera, la
+  búsqueda se comía la trayectoria entera y las demás ya no contaban.
+- **Ejemplo:** esperada `load_skill → search_events → list_sessions` y hecha
+  `search_events → list_sessions` daba 0 % / 0 %, en vez de 100 % / 67 %.
+- **Alcance:** 30 de los 84 casos estaban infravalorados. Antes del arreglo, la precisión media
+  salía 46 % en lugar de 74 %.
+- **Por qué no se vio antes:** con el modelo guionizado todas las trayectorias son exactas, así
+  que el gate y sus informes no cambian.
+- **Arreglo:** la subsecuencia común más larga (LCS), con un test de regresión.
+
+Lo destapó el contraste: 34 casos discrepaban de la definición de Google, demasiados para ser
+diferencias de criterio.
+
+**Las 6 diferencias que quedan son de criterio, no errores:**
+- **Repeticiones.** Google mira si el nombre está en la otra lista, así que una sola llamada a
+  `remember_preference` cubre las dos esperadas (recall 67 %). La propia exige las dos (33 %).
+- **Llamadas sobrantes.** Las llamadas de más con un nombre esperado (`get_order` dos veces) cuentan
+  como acierto para Google y no para la propia.
+
+Para un agente que reembolsa, contar una llamada repetida como acierto esconde justo lo que
+queremos ver, así que **el gate sigue con la propia**. El servicio queda como contraste y como
+lenguaje común con un equipo que ya use Agent Platform.
+
+**Rúbricas** (`rag_evals.agents.gcp_rubrics`, carril A frente al `AgentJudge`). Las 32 muestras de
+`agents-v1` van con lo que vio el agente: las instrucciones, el historial y cada tool como un par
+`function_call` / `function_response` en `intermediate_events`.
+
+- `hallucination_v2` se compara con `grounded`: parte la respuesta en afirmaciones, las contrasta
+  con las salidas de tools y la respuesta cuenta como respaldada con 1.
+- `final_response_quality_v2` se compara con `acceptable`: genera rúbricas a partir de las
+  instrucciones y la petición. `agreement` barre el umbral (0,6 a 1), igual que se calibra un
+  juez propio.
+- Una métrica que falla deja la muestra **sin puntuar**, nunca aprobada (*fail-closed*).
+
+**Cambio respecto al plan:** se usa `final_response_quality` en lugar de `tool_use_quality`. En la
+calibración, las variantes de una muestra comparten las mismas tools (solo cambia la respuesta) y
+no hay etiqueta humana de uso de tools, así que `tool_use_quality` no podía distinguir nada.
 
 ## 8. Checkpoint de entrevista
 

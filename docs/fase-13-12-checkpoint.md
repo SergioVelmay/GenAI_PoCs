@@ -210,7 +210,7 @@ Plan original (antes del cambio):
   - El cliente nuevo del Evaluation Service (`client.evals`) **no tiene las métricas de trayectoria** (`TODO` en el SDK 2.7). Se piden con `evaluate_instances` de `aiplatform_v1beta1` (Preview), no con el `EvalTask` antiguo.
   - Bug encontrado: `with_model` solo forzaba el modelo de Azure, así que un A/B de modelos con Gemini comparaba el mismo modelo. Se arregla en el `fix:` `f98ed1e`.
 - 12.G1: juez de agentes con Gemini. Los informes con coste de `agent_calibration` y `experiment --mode llm` van a la carpeta de la nube que juzga. Esquema del juez dentro del subconjunto de Gemini y juez online con solo GCP.
-- 12.G2: Evaluation Service como contraste de la 12.1. Trayectoria por cómputo (`v1beta1`) sobre los 14 escenarios, y rúbricas `tool_use_quality` y `hallucination` sobre la calibración de agentes.
+- 12.G2: Evaluation Service como contraste de la 12.1. Trayectoria por cómputo (`v1beta1`) sobre las trayectorias reales de Azure de la fase 7, y rúbricas `hallucination` y `final_response_quality` sobre la calibración de agentes. **Al hacerla:** `final_response_quality` sustituye a `tool_use_quality`, que no distingue las muestras (comparten tools). Además, el contraste destapó un bug en la precisión y el recall de la 12.1 (`fix:` `a523a67`).
 - 12.G3: red teaming con Gemini. promptfoo con `vertex:` de generador y juez, sin generación remota. PyRIT con Gemini de atacante. Riesgo residual frente a Model Armor (aplazado).
 - 12.G4: prompts en la gestión de prompts de Agent Platform (`PromptStorePort`, dry-run por defecto).
 - 12.G5: `VertexExperimentTracker`, drift en Managed Prometheus (hecho en la 11.G2, solo se documenta) y doc de la fase 12 a tres nubes.

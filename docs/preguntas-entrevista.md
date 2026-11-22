@@ -1415,6 +1415,13 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    su modelo. En la 12.G encontré que el A/B solo forzaba el modelo de Azure: con Gemini, las dos
    variantes llamaban al mismo modelo y el resultado nulo era un artefacto. Ahora se fuerza en la
    nube que genera, hay un test por nube y el coste por modelo del informe lo deja ver.
+3. **Tu métrica de trayectoria y la de Vertex dan números distintos: ¿cuál vale?** Depende de qué
+   quieras castigar. Google calcula la precisión y el recall mirando si el nombre está en la otra
+   lista: una sola llamada cubre dos esperadas y las llamadas repetidas cuentan como aciertos. La
+   mía usa la subsecuencia común más larga, que exige orden y número. Para un agente que
+   reembolsa, me quedo con la mía en el gate y uso el servicio de contraste. Y el contraste
+   destapó un bug en la mía: si faltaba la primera tool, todo daba 0. Estaban infravaloradas 30
+   de 84 trayectorias reales, y no se había visto porque las del gate eran exactas.
 
 **Negocio y stakeholders**
 
