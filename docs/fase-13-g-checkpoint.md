@@ -343,9 +343,10 @@ día el contrato diverge entre los dos, manda el emulador oficial.
 cubren ya. Para la [fase 13](plan-fases.md): probar los targets del MCP gateway y el autoescalado de
 ECS en AWS, que el emulador no cubre.
 
-**Huecos del emulador 1.0.569 que se podrían reportar** en su repositorio (decisión de Sergio, es
-publicar): `PutScalingPolicy` con *metric math* (501), `ListTagsForResource` de AgentCore Control
-(501) y S3 Control inalcanzable por el prefijo de cuenta en el host (documentado por AWS).
+**Huecos del emulador 1.0.569:** `PutScalingPolicy` con *metric math* (501), `ListTagsForResource`
+de AgentCore Control (501) y S3 Control inalcanzable por el prefijo de cuenta en el host
+(documentado por AWS). No se reportan en su repositorio (decisión de Sergio, 22-11-2026): al subir
+de versión, se mira en sus notas de release si ya están resueltos.
 
 ## Checkpoint de entrevista
 

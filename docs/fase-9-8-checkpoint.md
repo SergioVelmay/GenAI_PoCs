@@ -82,7 +82,7 @@ reescribir `main` rompería los hashes que citan los docs.
 
 | Decisión | Motivo |
 |---|---|
-| Suscripción *MSDN - Sergio Velasco*, perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
+| Suscripción personal de desarrollo (ya eliminada), perfil de `az` **aislado** (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`) | El perfil por defecto tiene una sesión de otra organización con un proceso activo: cambiarla le habría roto la autenticación |
 | Región `swedencentral` | La región de la UE con más modelos y cuota |
 | Modelos en **DataZoneStandard** (chat 200 K TPM, embeddings 50 K) | Procesamiento dentro de la UE (RGPD) con cuota suficiente (16 M TPM disponibles). La capacidad no se paga: se dimensiona según la carga (ver §5) |
 | Foundry **en Terraform** (`foundry.tf`) | Cuenta AI Services + proyecto + despliegues como código, en lugar del portal |

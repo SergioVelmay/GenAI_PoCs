@@ -134,6 +134,9 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   - `edge_api` detrás de un balanceador: fijar `--forwarded-allow-ips` de uvicorn (por defecto confía
     en `X-Forwarded-For` desde 127.0.0.1; ver `services/edge_api/src/edge_api/identity.py`).
   - Workflow de CI para los jueces LLM (manual o programado, con OIDC y `--budget-usd`).
+  - Carril A de evals en AWS: **Bedrock Evaluations** no tiene código (sí Foundry Evaluation en
+    Azure y Evaluation Service en GCP); implementarlo y medirlo con el mismo conjunto (fase 5,
+    detectado en el repaso del checkpoint G→13; decisión de Sergio: se trata en la 13).
 
 ## Fase 14 · Despliegue espejo en Azure
 

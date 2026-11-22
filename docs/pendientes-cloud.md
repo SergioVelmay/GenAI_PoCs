@@ -102,7 +102,7 @@ terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 
 ## Fase 2 · Capa de modelos ([doc](fase-2-modelos.md))
 
-- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`), suscripción *MSDN - Sergio Velasco* (17-10-2026).
+- [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`), suscripción personal de desarrollo, ya eliminada (17-10-2026).
 - [ ] **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
 - [x] **Azure AI Foundry** como código (`foundry.tf`): cuenta AI Services, proyecto `genaipocs` y despliegues `gpt-4.1-mini`, `gpt-4.1-nano` y `text-embedding-3-small` en `swedencentral`, **DataZoneStandard** (chat 200 K TPM desde el 18-10-2026; embeddings 50 K), con *Cognitive Services OpenAI User* y *Foundry User* para el usuario. `terraform apply` del grupo `rg-genaipocs-dev` (17 recursos; AI Search apagado) el 17-10-2026. Prueba de humo: `gpt-4.1-nano` responde con Entra ID (16 + 2 tokens, 0,0000024 $) y el embedding devuelve 1024 dimensiones. Hallazgos: el proyecto debe crearse en serie con los despliegues (409) y el rol "Azure AI User" se llama ahora "Foundry User". El 18-10-2026 los recursos se recrearon con nombres CAF (`aif-genaipocs-dev-swc-001`...), sin sufijo aleatorio.
 - [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
