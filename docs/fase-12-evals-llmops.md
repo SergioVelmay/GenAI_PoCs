@@ -31,7 +31,7 @@ flowchart LR
 
   subgraph EXP["Decidir un cambio"]
     AB["Experimento A/B<br/>mismos casos, McNemar"] --> DEC["domain/experiments.decide"]
-    AB --> TRK[("MLflow / JSONL")]
+    AB --> TRK[("MLflow / JSONL /<br/>Vertex AI Experiments")]
   end
 
   subgraph PROD["En producción"]
@@ -51,14 +51,15 @@ flowchart LR
 | Pieza | Dónde vive |
 |---|---|
 | Suite de agentes: trayectoria, `tool_args`, `resolved`, `breaches` | `evals/src/rag_evals/agents/suite.py`, baseline `evals/baselines/agent-scenarios-v1.json` |
+| Contraste con el Evaluation Service (12.G2) | `rag_evals/agents/gcp_eval.py` (trayectoria), `rag_evals/agents/gcp_rubrics.py` (rúbricas) |
 | Juez de agentes y regla de aceptación | `application/agent_judge.py`, `domain/agent_eval.py` |
 | Calibración del juez | `rag_evals/agent_calibration.py`, `evals/calibration/agents-v1.{jsonl,md}`, `agents-labels-v1.csv` |
 | Juez online | `application/online_eval.py` (`SampledEvaluator`), `application/agent_online_eval.py`, `adapters/online_eval_factory.py` |
 | Endurecimiento del harness | `harness/normalize.py`, `harness/pii.py` (`card_spans`, `system_prompt_leak_guard`) |
-| Red teaming | `rag_evals/redteam/{mutations,pyrit_offline,promptfoo,report}.py`, `evals/redteam/promptfoo/` |
-| Prompts versionados | `<paquete>/prompts/*.md`, `application/prompts.py` (`PromptCatalog`), `prompts.lock.json`, `adapters/langfuse_prompts.py` |
-| Experimentos A/B | `domain/experiments.py`, `adapters/experiment_trackers.py`, `rag_evals/llmops/experiment.py`, `evals/experiments/` |
-| Drift | `domain/drift.py`, `adapters/prometheus.py` (`drift_psi`), `rag_evals/llmops/drift.py`, [runbook](runbook-incidentes.md#drift) |
+| Red teaming | `rag_evals/redteam/{mutations,pyrit_offline,promptfoo,report,residual}.py`, `evals/redteam/promptfoo/` (`redteam-llm-gcp.yaml`, 12.G3) |
+| Prompts versionados | `<paquete>/prompts/*.md`, `application/prompts.py` (`PromptCatalog`), `prompts.lock.json`, `adapters/langfuse_prompts.py`, `adapters/agentplatform_prompts.py` (12.G4) |
+| Experimentos A/B | `domain/experiments.py`, `adapters/experiment_trackers.py` (JSONL, MLflow y Vertex, 12.G5), `rag_evals/llmops/experiment.py`, `evals/experiments/` |
+| Drift | `domain/drift.py`, `adapters/prometheus.py` (`drift_psi`), `rag_evals/llmops/drift.py`, [runbook](runbook-incidentes.md#drift); en GCP, `infra/terraform/gcp/alerts/` (11.G2) |
 
 ## 2. Qué se construye
 
@@ -210,17 +211,17 @@ de 10 a 14 casos, la mayoría de experimentos acabarán en «falta muestra».
 | Prompts | 19 con versión y candado; publicados en el Langfuse local (segunda pasada: `up_to_date`) |
 | Calidad | 1.187 tests, `mypy --strict` sin errores; 8 jobs de la CI en verde |
 
-## 4. Comparativa Azure ↔ AWS ↔ framework
+## 4. Comparativa Azure ↔ AWS ↔ GCP ↔ framework
 
-| Pieza | A. Gestionado (Azure / AWS) | B. Propio (este repo) | C. Framework / herramienta |
-|---|---|---|---|
-| Evals de agentes | Foundry agent evaluators (`IntentResolution`, `ToolCallAccuracy`, `TaskAdherence`) / AgentCore Evaluations y Bedrock model evaluation | `rag_evals.agents`: trayectoria, parámetros y resolución sobre el estado del mundo | DeepEval (`ToolCorrectness`), RAGAS (agent metrics), LangSmith trajectory evals |
-| LLM-juez | Evaluadores de Foundry con juez / Bedrock LLM-as-a-judge | `AgentJudge` + `domain/agent_eval` + calibración con kappa | G-Eval (DeepEval), Langfuse evaluators |
-| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) / sin equivalente directo: PyRIT o promptfoo sobre Bedrock | Mutaciones congeladas y gate de brechas | PyRIT, promptfoo, garak |
-| Guardrail del proveedor | Prompt Shields y Content Safety / Bedrock Guardrails | Harness local (fase 8) | NeMo Guardrails, Guardrails AI |
-| Prompts versionados | Prompts de Foundry / Bedrock Prompt Management | Ficheros en Git + candado + copia en Langfuse | Langfuse, LangSmith Hub, MLflow Prompt Registry |
-| Experimentos | Azure ML (MLflow) / SageMaker con MLflow gestionado | `domain/experiments` + trackers JSONL y MLflow | MLflow, Weights & Biases |
-| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor / SageMaker Model Monitor, CloudWatch Anomaly Detection | PSI en PromQL generado desde el dominio | Evidently, NannyML, whylogs |
+| Pieza | A. Gestionado: Azure | A. Gestionado: AWS | A. Gestionado: GCP | B. Propio (este repo) | C. Framework / herramienta |
+|---|---|---|---|---|---|
+| Evals de agentes | Foundry agent evaluators (`IntentResolution`, `ToolCallAccuracy`, `TaskAdherence`) | AgentCore Evaluations y Bedrock model evaluation | Gen AI Evaluation Service: métricas de trayectoria (`v1beta1`, Preview) y rúbricas de agente (12.G2) | `rag_evals.agents`: trayectoria, parámetros y resolución sobre el estado del mundo | DeepEval (`ToolCorrectness`), RAGAS (agent metrics), LangSmith trajectory evals |
+| LLM-juez | Evaluadores de Foundry con juez | Bedrock LLM-as-a-judge | Rúbricas gestionadas (`hallucination_v2`, `final_response_quality_v2`) y el `AgentJudge` con Gemini (12.G1) | `AgentJudge` + `domain/agent_eval` + calibración con kappa | G-Eval (DeepEval), Langfuse evaluators |
+| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | Sin equivalente directo: PyRIT o promptfoo sobre Bedrock | Sin equivalente directo: promptfoo con `vertex:` de atacante y juez (12.G3) | Mutaciones congeladas y gate de brechas | PyRIT, promptfoo, garak |
+| Guardrail del proveedor | Prompt Shields y Content Safety | Bedrock Guardrails | Model Armor y Sensitive Data Protection (riesgo residual, 12.G3) | Harness local (fase 8) | NeMo Guardrails, Guardrails AI |
+| Prompts versionados | Prompts de Foundry | Bedrock Prompt Management | Gestión de prompts de Agent Platform (12.G4) | Ficheros en Git + candado + copia en Langfuse o Agent Platform | Langfuse, LangSmith Hub, MLflow Prompt Registry |
+| Experimentos | Azure ML (MLflow) | SageMaker con MLflow gestionado | Vertex AI Experiments, sin MLflow (12.G5) | `domain/experiments` + trackers JSONL, MLflow y Vertex | MLflow, Weights & Biases |
+| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor | SageMaker Model Monitor, CloudWatch Anomaly Detection | Políticas PromQL de Cloud Monitoring sobre Managed Prometheus (11.G2) | PSI en PromQL generado desde el dominio | Evidently, NannyML, whylogs |
 
 ## 5. Decisiones y límites (para defenderlos)
 
@@ -271,7 +272,8 @@ Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
 | 12.G1 | `f98ed1e` + `91ba51a` | Juez de agentes con Gemini, informes con coste por nube y A/B de modelos que fuerza la nube que genera |
 | 12.G2 | `a523a67` + `376eb2b` | Evaluation Service como contraste: trayectoria por cómputo y rúbricas gestionadas. Destapó un bug en la precisión y el recall de la 12.1 |
 | 12.G3 | `3c5367d` | Riesgo residual frente a los detectores de PII y promptfoo con atacante LLM de cada nube |
-| 12.G4 | (este) | Prompts publicados en la gestión de prompts de Agent Platform |
+| 12.G4 | `926e824` | Prompts publicados en la gestión de prompts de Agent Platform |
+| 12.G5 | (este) | Experimentos en Vertex AI Experiments, drift en Managed Prometheus y doc a tres nubes |
 
 ### Verificación previa (22-11-2026)
 
@@ -281,7 +283,7 @@ Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
 | [Métricas de trayectoria](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-agents) | `trajectory_exact_match`, `in_order_match`, `any_order_match`, `precision`, `recall` y `single_tool_use`. La precisión y el recall miran el **conjunto** de tools llamadas | Las nuestras (12.1) miran la **subsecuencia ordenada**: la 12.G2 mide la diferencia escenario a escenario |
 | Rúbricas de agente en `client.evals` | `tool_use_quality_v2`, `hallucination_v2`, `final_response_quality_v2`, `multi_turn_trajectory_quality_v1` y `multi_turn_task_success_v1` | Contraste del `AgentJudge` sobre la calibración de agentes, como el de la 5.G2 |
 | [Gestión de prompts](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/model-reference/prompt-classes) (`client.prompts`) | `create_version` crea un prompt **nuevo** con su primera versión y `update(prompt_id)` le añade versiones. El `prompt_id` es el número de un Vertex Dataset | El adaptador de la 12.G4 busca cada prompt por su nombre visible antes de publicar |
-| [Vertex AI Experiments](https://cloud.google.com/vertex-ai/docs/experiments/log-data) | Vigente (documentación del 17-11-2026, sin aviso de retirada): `aiplatform.init(experiment=...)`, `start_run`, `log_params` y `log_metrics`. Sin *tags* | `VertexExperimentTracker` (12.G5) sobre el puerto que ya existe; las *tags* van como parámetros |
+| [Vertex AI Experiments](https://cloud.google.com/vertex-ai/docs/experiments/log-data) | Vigente (documentación del 17-11-2026, sin aviso de retirada): `aiplatform.init(experiment=...)`, `start_run`, `log_params` y `log_metrics`. Sin *tags* | `VertexExperimentTracker` (12.G5) sobre el puerto que ya existe, con la API de objetos (`ExperimentRun.create`) en lugar del run global de `init`; las *tags* van como parámetros |
 | [promptfoo](https://www.promptfoo.dev/docs/red-team/configuration/) | `redteam.provider: vertex:<modelo>` con ADC para generar y juzgar | Configuración para GCP sin la generación remota (12.G3) |
 | `with_model` (A/B de modelos, 12.7) | Solo forzaba los despliegues de Azure: con Gemini o Bedrock, **las dos variantes usaban el mismo modelo** y el A/B salía «sin diferencia» sin avisar | `fix:` `f98ed1e` con test de regresión por nube |
 
@@ -455,6 +457,49 @@ Lo que cambia es cómo se traduce a `client.prompts`:
 El plan en dry-run ya consulta Agent Platform (lectura sin coste). Dos nombres iguales son un error
 explícito: no se adivina cuál es el bueno. En ejecución nada cambia, porque el agente lee el prompt
 de su paquete y nunca del almacén: si Agent Platform cae, el agente sigue funcionando.
+
+### 12.G5 · Experimentos en Vertex AI Experiments y drift en Managed Prometheus
+
+```powershell
+uv run python -m rag_evals.llmops.experiment run evals/experiments/harness-on-vs-off.yaml --tracker vertex
+uv run pytest packages/genaipocs_core/tests/test_experiment_tracker_vertex.py
+```
+
+**Experimentos.** `VertexExperimentTracker` es el tercer adaptador de `ExperimentTrackerPort`,
+junto a JSONL y MLflow, así que el experimento y la decisión no cambian. Vertex AI Experiments **no
+habla MLflow**: en Azure y AWS basta con cambiar la URI de MLflow, pero en GCP hace falta un
+adaptador propio. Cómo se traduce el run:
+
+| Concepto | MLflow | Vertex AI Experiments |
+|---|---|---|
+| Experimento | `create_experiment` si no existe | `Experiment.get_or_create`; el nombre pasa a id válido (`[a-z0-9-]`) |
+| Run | `start_run(run_name=...)`, con id propio | `ExperimentRun.create`, cuyo id es `<experimento>-<run>` y no se puede repetir: lleva un sufijo aleatorio, porque `control` y `tratamiento` se repiten en cada ejecución |
+| *Tags* | `set_tags` | No hay: van como parámetros `tag.git_commit`, `tag.role` y `tag.decision` |
+| Artefactos | `log_artifact` sube el informe | Parámetro `artifacts` con la ruta relativa del informe. Subirlo a GCS tendría coste, y el informe ya está en Git |
+| Cierre | Al salir del `with` | `end_run()`; si no, el run se queda en `RUNNING` en la consola |
+
+Hay dos decisiones:
+- **API de objetos y no la global.** Se usa `ExperimentRun.create(..., project, location,
+  credentials)` y no `aiplatform.init` + `start_run`, para no depender del run «activo» del SDK,
+  que es estado global del proceso. Así el tracker convive con otros usos de `aiplatform`.
+- **El tracker se construye antes de las variantes.** Si falta `GCP__PROJECT`, el experimento
+  falla al empezar, no después de haber pagado el LLM con `--mode llm`. El cambio vale también
+  para MLflow.
+
+El doble de los tests imita `google.cloud.aiplatform`. Para que no se invente la API, un test
+comprueba que las llamadas del adaptador encajan en las firmas del SDK instalado, sin ejecutarlas.
+
+**Drift en Managed Prometheus (hecho en la 11.G2, aquí solo se documenta).** Las tres señales de
+la 12.8 ya llegan a GCP como políticas de Cloud Monitoring generadas desde `build_rules()`:
+`DistributionDrift-case-intents`, `-agent-tools` y `-agent-resolution`, en
+`infra/terraform/gcp/alerts/alert_policies.json`. Hay dos diferencias con Prometheus y las dos
+vienen de la ventana de 1 + 7 días, que pasa de las 25 h:
+- Cloud Monitoring evalúa cada 300 s, el mínimo para esa ventana.
+- La ventana de reintento se desactiva, así que la alerta salta en la primera evaluación.
+
+La *recording rule* `drift:psi` se expande dentro de cada política, y pasa los mismos tests de
+`promtool` que la local (el drift de intenciones salta y el estable no). Una alerta nueva de
+drift en el dominio llega sola a GCP. Ver la [11.G2](fase-11-observabilidad.md#11g2--alertas-de-cloud-monitoring-generadas).
 
 ## 8. Checkpoint de entrevista
 
