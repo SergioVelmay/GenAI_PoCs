@@ -130,6 +130,115 @@ async def test_bedrock_kb_upload_writes_document_and_metadata_sidecar(
         assert json.loads(sidecar["Body"].read()) == metadata_sidecar(document)
         assert sorted(o["Key"] for o in listed) == [key, f"{key}.metadata.json"]
     finally:
-        for obj in s3.list_objects_v2(Bucket=bucket).get("Contents", []):
-            s3.delete_object(Bucket=bucket, Key=obj["Key"])
-        s3.delete_bucket(Bucket=bucket)
+        _empty_and_delete_bucket(s3, bucket)
+
+
+async def test_bedrock_kb_ingestion_job_indexes_the_uploaded_documents(
+    aws_emulator: Callable[[str], Any],
+) -> None:
+    """Carril A de punta a punta (G→13.3): subir, sincronizar y esperar el job de ingesta.
+
+    La KB y su data source se crean como en `lane_a.tf`. El emulador completa el job y escribe
+    los vectores en el índice de S3 Vectors (sin llamar a un modelo de embeddings real).
+    """
+    suffix = uuid.uuid4().hex[:12]
+    iam, s3, vectors, agent = (
+        aws_emulator(name) for name in ("iam", "s3", "s3vectors", "bedrock-agent")
+    )
+    role_arn = iam.create_role(
+        RoleName=f"it-kb-{suffix}",
+        AssumeRolePolicyDocument=json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "bedrock.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ],
+            }
+        ),
+    )["Role"]["Arn"]
+    vector_bucket, bucket = f"it-kb-{suffix}", f"it-kb-docs-{suffix}"
+    vectors.create_vector_bucket(vectorBucketName=vector_bucket)
+    vectors.create_index(
+        vectorBucketName=vector_bucket,
+        indexName="knowledge-kb",
+        dataType="float32",
+        dimension=1024,
+        distanceMetric="cosine",
+        metadataConfiguration={
+            "nonFilterableMetadataKeys": ["AMAZON_BEDROCK_TEXT", "AMAZON_BEDROCK_METADATA"]
+        },
+    )
+    index_arn = vectors.get_index(vectorBucketName=vector_bucket, indexName="knowledge-kb")[
+        "index"
+    ]["indexArn"]
+    s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": "eu-west-1"})
+    kb_id = agent.create_knowledge_base(
+        name=f"it-kb-{suffix}",
+        roleArn=role_arn,
+        knowledgeBaseConfiguration={
+            "type": "VECTOR",
+            "vectorKnowledgeBaseConfiguration": {
+                "embeddingModelArn": (
+                    "arn:aws:bedrock:eu-west-1::foundation-model/amazon.titan-embed-text-v2:0"
+                ),
+                "embeddingModelConfiguration": {
+                    "bedrockEmbeddingModelConfiguration": {
+                        "dimensions": 1024,
+                        "embeddingDataType": "FLOAT32",
+                    }
+                },
+            },
+        },
+        storageConfiguration={
+            "type": "S3_VECTORS",
+            "s3VectorsConfiguration": {"indexArn": index_arn},
+        },
+    )["knowledgeBase"]["knowledgeBaseId"]
+    ds_id = agent.create_data_source(
+        knowledgeBaseId=kb_id,
+        name="docs",
+        dataSourceConfiguration={
+            "type": "S3",
+            "s3Configuration": {"bucketArn": f"arn:aws:s3:::{bucket}"},
+        },
+    )["dataSource"]["dataSourceId"]
+    ingestion = BedrockKnowledgeBaseIngestion(
+        s3=s3, agent=agent, bucket=bucket, knowledge_base_id=kb_id, data_source_id=ds_id
+    )
+    documents = [
+        KnowledgeDocument(
+            id=f"faq-{city}-es",
+            doc_type=DocumentType.FAQ,
+            language="es",
+            title=f"Preguntas frecuentes de {city}",
+            content=f"Las puertas abren 30 minutos antes en {city}.",
+        )
+        for city in ("madrid", "sevilla")
+    ]
+    try:
+        for document in documents:
+            await ingestion.upload(document)
+        job_id = await ingestion.start_sync()
+        result = await ingestion.wait(job_id, poll_s=0.5)
+
+        assert result.status == "COMPLETE"
+        assert (result.scanned, result.indexed, result.failed) == (2, 2, 0)
+        listed = vectors.list_vectors(vectorBucketName=vector_bucket, indexName="knowledge-kb")
+        assert len(listed["vectors"]) == 2
+    finally:
+        agent.delete_data_source(knowledgeBaseId=kb_id, dataSourceId=ds_id)
+        agent.delete_knowledge_base(knowledgeBaseId=kb_id)
+        vectors.delete_index(vectorBucketName=vector_bucket, indexName="knowledge-kb")
+        vectors.delete_vector_bucket(vectorBucketName=vector_bucket)
+        _empty_and_delete_bucket(s3, bucket)
+        iam.delete_role(RoleName=f"it-kb-{suffix}")
+
+
+def _empty_and_delete_bucket(s3: Any, bucket: str) -> None:
+    for obj in s3.list_objects_v2(Bucket=bucket).get("Contents", []):
+        s3.delete_object(Bucket=bucket, Key=obj["Key"])
+    s3.delete_bucket(Bucket=bucket)

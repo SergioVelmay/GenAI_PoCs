@@ -8,8 +8,8 @@ reducir lo que queda en [pendientes-cloud.md](pendientes-cloud.md). Plan en
 | Subfase | Commit | Qué |
 |---|---|---|
 | G→13.1 | `58f88e5` | Inventario de emuladores oficiales por nube, comparativa con lo que ya usamos y decisión |
-| G→13.2 | (este commit) | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
-| G→13.3 | | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) |
+| G→13.2 | `fe71124` | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
+| G→13.3 | (este commit) | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) e ingesta de la KB de punta a punta |
 | G→13.4 | | Azure: Azurite para la subida de blobs y emulador de Service Bus fijado en `2.0.1` |
 | G→13.5 | | CI: AWS Emulator y Azurite en el job `integration` |
 
@@ -57,7 +57,7 @@ para casi todas las API**: los servicios se generan de los mismos modelos de API
 | Estado | En memoria; se pierde al parar. 2 GB de RAM recomendados | Tests autocontenidos: cada uno crea sus recursos |
 | Límites | **No evalúa IAM** ni políticas de recursos; una región y una cuenta (`000000000000`); validado solo contra `us-west-2`; 501 `NotImplemented` en lo que no implementa | No sirve para probar seguridad |
 | Telemetría | **Activada por defecto** (datos de uso anónimos) | `EMULATOR_TELEMETRY=off` siempre |
-| IaC | La guía solo dice que el soporte de CloudFormation, Terraform y CDK "varía por servicio" | Experimento de la G→13.3 |
+| IaC | La guía solo dice que el soporte de CloudFormation, Terraform y CDK "varía por servicio" | Medido en la G→13.3 ([sección 6](#6-terraform-de-aws-contra-el-emulador-g133)): aplica todo el módulo salvo el autoescalado de ECS |
 
 **Fidelidad** = pruebas de fidelidad que pasa sobre el total, publicadas con cada release
 (`scores.json` de la `v1.0.569`: 35.751 de 46.037 en 356 servicios, un 78 %). Los servicios que usa
@@ -207,7 +207,61 @@ Hallazgos:
 - La ingesta de la Knowledge Base (`start_ingestion_job`) no se prueba aquí: necesita una KB, y
   la creará Terraform en la G→13.3.
 
-## 6. Límites
+## 6. Terraform de AWS contra el emulador (G→13.3)
+
+Hasta ahora el módulo `infra/terraform/aws` solo pasaba `validate`: todo lo caro está con
+`*_enabled = false` y nunca se había aplicado. `terraform test` con `command = apply` (el valor por
+defecto) lo aplica de verdad contra el emulador, con el estado **en memoria** (no toca
+`terraform.tfstate`) y destruye al terminar.
+
+```bash
+docker compose --profile aws up -d
+cd infra/terraform/aws
+terraform test -test-directory=tests-emulator        # ~3 min; 3 runs
+```
+
+| Pieza | Dónde vive |
+|---|---|
+| Test (`provider` del emulador + 3 `run`) | `infra/terraform/aws/tests-emulator/emulator.tftest.hcl` |
+| `account_id` explícito en el presupuesto | `infra/terraform/aws/main.tf` |
+| Ingesta de la KB de punta a punta (Python) | `tests/integration/test_aws_emulator.py` |
+
+El `provider` del test sustituye al del módulo y lleva **tres redes de seguridad** para que nada
+llegue a AWS: claves del emulador (AWS las rechaza), un proxy inexistente salvo para `127.0.0.1` y
+un `assert` de la cuenta `000000000000`. La segunda no es teórica: en la primera prueba, el
+provider leyó las etiquetas del bucket por **S3 Control**, que no estaba en `endpoints`, y la
+petición salió a `000000000000.s3-control.eu-west-1.amazonaws.com` (sin riesgo: firmada con claves
+que AWS no conoce; ver [lecciones](lecciones-aprendidas.md#verificación-y-ci)).
+
+Resultado por módulo (emulador 1.0.569, provider `hashicorp/aws` 6.67.0, 22-11-2026):
+
+| Módulo (`run`) | Recursos | Resultado |
+|---|---|---|
+| Base (`base`): colas y DLQ, S3, S3 Vectors (2 índices), IAM, **Knowledge Base + data source**, presupuesto | 15 | ✅ crea, lee y destruye |
+| `agentcore_enabled` (Memory + Runtime), `bedrock_guardrail_enabled` (guardrail + versión), `observability_enabled` (logs, X-Ray, SNS, 2 alarmas) | 20 | ✅ crea y destruye; la lectura de AgentCore da 501 (ver abajo) |
+| `mcp_gateway_enabled` sin targets: rol, proveedor OAuth con `TOKEN_EXCHANGE`, gateway | 4 | ✅: **la API acepta `TOKEN_EXCHANGE`**, que el provider no documenta (pendiente de la fase 13) |
+| Targets del gateway (`mcp_server_urls`) | 3 | ⚠️ fuera del test: el emulador hace el *tool discovery* contra la URL (como AWS) y el target queda `FAILED` sin servidores MCP públicos |
+| `queue_workers_enabled` (ECS, autoescalado por backlog) | 12 | ❌ fuera del test: `PutScalingPolicy` con *metric math* → **501** `NotImplemented` |
+| Ingesta (`start_ingestion_job` + `get_ingestion_job`) | — | ✅ `COMPLETE`, 2 escaneados, 2 indexados, 2 vectores en el índice (sin modelo real) |
+
+Ajustes que exigió el emulador, y por qué:
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| `terraform test` colgado 10 min | El provider 6.x lee las etiquetas de un bucket por S3 Control, que antepone la cuenta al host (`000000000000.127.0.0.1`): nunca llega al emulador y reintenta | `skip_requesting_account_id` + `skip_credentials_validation`: sin id de cuenta, el provider usa `GetBucketTagging` (código de `internal/service/s3/tags.go`) |
+| `CreateBudget`: `accountId` vacío | Sin id de cuenta en el provider | `account_id = data.aws_caller_identity.current.account_id` en `main.tf` (en AWS, el mismo valor) |
+| Refresh de AgentCore: 501 | `ListTagsForResource` de AgentCore Control no implementado | `plan_options { refresh = false }` en el `run` siguiente |
+
+Hallazgos:
+
+- **El emulador valida contra el modelo de API de AWS**, no contra lo que el provider documenta:
+  por eso `TOKEN_EXCHANGE` deja de ser una duda abierta (falta verlo con targets reales en la fase 13).
+- **Se comporta como AWS en lo asíncrono**: la KB tarda en borrarse (`DELETING`), el gateway target
+  intenta conectar con el servidor MCP y el job de ingesta pasa por `STARTING` → `COMPLETE`.
+- Lo que no implementa lo dice con un 501 explícito (`scaffolded but not implemented`), no con un
+  éxito falso: el fallo es visible y se puede reportar en su repositorio.
+
+## 7. Límites
 
 - Un test verde contra un emulador demuestra que el **contrato de la API** encaja, no que el despliegue
   funcione: IAM, red, cuotas y regiones solo se validan en la nube.

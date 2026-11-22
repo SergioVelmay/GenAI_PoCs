@@ -120,9 +120,11 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   - Colas del flujo asíncrono con DLQ en SQS y workers con `ORCHESTRATOR__BROKER=sqs` (fase 9).
   - ECS + *target tracking* por mensajes en cola (fase 10).
   - X-Ray Transaction Search, `observability_enabled` y collector ADOT (fase 11).
-  - Servidores MCP en HTTPS y `mcp_gateway_enabled` (fase 6); confirmar en el `plan` que
-    `grant_type = "TOKEN_EXCHANGE"` de `infra/terraform/aws/mcp_gateway.tf` es válido (el provider
-    no lo documenta).
+  - Servidores MCP en HTTPS y `mcp_gateway_enabled` (fase 6). `grant_type = "TOKEN_EXCHANGE"` de
+    `infra/terraform/aws/mcp_gateway.tf` ya lo acepta la API en el AWS Emulator (G→13.3, que valida
+    contra los modelos de API de AWS); falta verlo en AWS con los targets reales.
+  - Probar antes en el AWS Emulator: `terraform test -test-directory=tests-emulator` (G→13.3)
+    aplica el módulo entero salvo `queue_workers` (`PutScalingPolicy` con *metric math* da 501).
   - A2A con Cognito *client credentials* (fase 9).
   - `edge_api` detrás de un balanceador: fijar `--forwarded-allow-ips` de uvicorn (por defecto confía
     en `X-Forwarded-For` desde 127.0.0.1; ver `services/edge_api/src/edge_api/identity.py`).

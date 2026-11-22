@@ -101,6 +101,9 @@ resource "aws_iam_policy" "indexer_worker" {
 # ---------- Guardarraíl de coste ----------
 
 resource "aws_budgets_budget" "monthly" {
+  # Explícito (en AWS es el mismo valor que pone el provider): sin él, con
+  # skip_requesting_account_id (tests-emulator, G→13.3) la API recibe un accountId vacío.
+  account_id   = data.aws_caller_identity.current.account_id
   name         = "${local.name}-monthly"
   budget_type  = "COST"
   limit_amount = tostring(var.budget_limit_usd)
