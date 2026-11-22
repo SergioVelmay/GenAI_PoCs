@@ -91,6 +91,11 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   (EULA) de cualquier emulador; nada con coste; contenedores parados al terminar.
 - **Cubre:** "local y sin coste primero" (regla 5), testing de integración y equivalencia de
   nubes (cómo se prueba en local cada una).
+- **Plan aprobado (22-11-2026):** subfases G→13.1–G→13.5 en
+  [fase-13-g-checkpoint.md](fase-13-g-checkpoint.md). Se adoptan el **AWS Emulator** oficial
+  (imagen local con versión fijada, telemetría apagada) con `terraform test` + `apply` contra él
+  (estado en memoria) y **Azurite**; ElasticMQ se mantiene hasta comparar en la G→13.5; GCP no
+  tiene emuladores nuevos que el repo necesite (Cloud Storage no tiene oficial).
 
 ## Fase 13 · Despliegue en AWS (producción principal)
 

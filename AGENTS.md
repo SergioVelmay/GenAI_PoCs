@@ -118,7 +118,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | ✅* | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
 | G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G; siguiente: **checkpoint G→13**) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
-| G→13 | Checkpoint: emuladores locales oficiales de AWS, Azure y GCP (tras cerrar la pasada GCP) | | | `docs/plan-fases.md#checkpoint-g-13` |
+| G→13 | Checkpoint: emuladores locales oficiales de AWS, Azure y GCP (en curso, rama `fase/g-13`) | | | `docs/fase-13-g-checkpoint.md` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |
