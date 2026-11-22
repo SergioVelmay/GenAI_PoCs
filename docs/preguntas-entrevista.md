@@ -1431,6 +1431,12 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    - Si SDP tampoco las ve, la mitigación escrita es falsa y hay que decirlo, no mantenerla.
 
    Un riesgo aceptado tiene que tener la mitigación probada, no supuesta.
+5. **¿Dónde viven tus prompts: en Git, en Langfuse o en la consola de Agent Platform?** En Git, con
+   versión y candado. Langfuse y Agent Platform reciben una copia, publicada por el mismo puerto y
+   con la misma regla: la versión de Git es la del almacén y nunca se reescribe. En Agent Platform
+   cada prompt es un dataset con un número asignado por GCP, así que lo busco por nombre y uso el
+   número de versiones como versión. El agente lee el prompt del paquete, nunca del almacén: si el
+   almacén cae, el servicio no se entera.
 
 **Negocio y stakeholders**
 

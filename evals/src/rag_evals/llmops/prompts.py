@@ -1,9 +1,10 @@
-"""Prompts versionados (fase 12.6): candado en Git y publicación en Langfuse.
+"""Prompts versionados (fase 12.6): candado en Git y publicación en Langfuse o Agent Platform.
 
     uv run python -m rag_evals.llmops.prompts check           # la CI: falla si un texto cambia
                                                              # sin subir su versión
     uv run python -m rag_evals.llmops.prompts lock            # tras subir versiones a propósito
     uv run python -m rag_evals.llmops.prompts publish [--apply]   # dry-run por defecto
+    uv run python -m rag_evals.llmops.prompts publish --store gcp   # gestión de prompts (12.G4)
 
 Reglas del candado (`prompts.lock.json`, revisado en cada PR como cualquier código):
 - Texto distinto con la misma versión: error (el cambio silencioso es justo lo que se evita).
@@ -11,7 +12,7 @@ Reglas del candado (`prompts.lock.json`, revisado en cada PR como cualquier cód
 - Versión nueva sin el candado actualizado, prompt nuevo o borrado: error hasta ejecutar `lock`.
 - Versión que baja o que sube sin cambiar el texto: error.
 
-Publicación: la versión de Git ES la de Langfuse. Si la última publicada es la anterior, se crea
+Publicación: la versión de Git ES la del almacén. Si la última publicada es la anterior, se crea
 la nueva (etiquetas `production` y `git-vN`); si ya está y el texto coincide, nada; si no
 cuadra (texto distinto o versiones desalineadas), se para: nunca se reescribe una versión.
 """
@@ -150,7 +151,7 @@ def plan_publish(entries: Sequence[Entry], store: PromptStorePort) -> list[Publi
         elif published == prompt.version - 1:
             steps.append(PublishStep(prompt.name, prompt.version, "create"))
         else:
-            detail = f"Langfuse va por la {published}; Git, por la {prompt.version}"
+            detail = f"El almacén va por la {published}; Git, por la {prompt.version}"
             steps.append(PublishStep(prompt.name, prompt.version, "conflict", detail))
     return steps
 
@@ -180,7 +181,7 @@ def apply_publish(
         )
         if created != prompt.version:
             raise SystemExit(
-                f"{prompt.name}: Langfuse creó la {created}; Git dice {prompt.version}"
+                f"{prompt.name}: el almacén creó la {created}; Git dice {prompt.version}"
             )
         created_count += 1
     return created_count
@@ -198,7 +199,10 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("check", help="Falla si el candado no cuadra (lo ejecuta la CI)")
     commands.add_parser("lock", help="Actualiza el candado tras subir versiones")
-    publish = commands.add_parser("publish", help="Publica versiones nuevas en Langfuse")
+    publish = commands.add_parser("publish", help="Publica versiones nuevas en un almacén")
+    publish.add_argument(
+        "--store", choices=["langfuse", "gcp"], default="langfuse", help="gcp: Agent Platform"
+    )
     publish.add_argument("--apply", action="store_true", help="Sin esto, solo muestra el plan")
     args = parser.parse_args()
 
@@ -220,10 +224,18 @@ def main() -> None:
         return
     if check(entries, load_lock()):
         raise SystemExit("Antes de publicar, el candado debe cuadrar (check).")
-    from genaipocs_core.adapters.langfuse_prompts import LangfusePromptStore
     from genaipocs_core.config import Settings
 
-    store = LangfusePromptStore.from_settings(Settings().langfuse)
+    store: PromptStorePort
+    if args.store == "gcp":
+        from genaipocs_core.adapters.agentplatform_prompts import AgentPlatformPromptStore
+
+        # Incluso el plan (dry-run) consulta Agent Platform: lectura sin coste, gcloud aislado.
+        store = AgentPlatformPromptStore.from_settings(Settings())
+    else:
+        from genaipocs_core.adapters.langfuse_prompts import LangfusePromptStore
+
+        store = LangfusePromptStore.from_settings(Settings().langfuse)
     steps = plan_publish(entries, store)
     for step in steps:
         print(f"  {step.action:>10}  {step.name} v{step.version}  {step.detail}")

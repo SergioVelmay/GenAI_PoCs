@@ -270,7 +270,8 @@ Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
 |---|---|---|
 | 12.G1 | `f98ed1e` + `91ba51a` | Juez de agentes con Gemini, informes con coste por nube y A/B de modelos que fuerza la nube que genera |
 | 12.G2 | `a523a67` + `376eb2b` | Evaluation Service como contraste: trayectoria por cómputo y rúbricas gestionadas. Destapó un bug en la precisión y el recall de la 12.1 |
-| 12.G3 | (este) | Riesgo residual frente a los detectores de PII y promptfoo con atacante LLM de cada nube |
+| 12.G3 | `3c5367d` | Riesgo residual frente a los detectores de PII y promptfoo con atacante LLM de cada nube |
+| 12.G4 | (este) | Prompts publicados en la gestión de prompts de Agent Platform |
 
 ### Verificación previa (22-11-2026)
 
@@ -426,6 +427,34 @@ y necesitan un escenario de origen. El objetivo es un provider nuevo, `provider_
 ni Azure ni AWS lo tenían, así que sería trabajo nuevo y no paridad. Está en
 [ideas aparcadas](plan-fases.md), con el diseño: atacante sobre `LLMPort` y puntuador determinista
 sobre las brechas del mundo.
+
+### 12.G4 · Prompts en la gestión de prompts de Agent Platform
+
+```powershell
+uv run python -m rag_evals.llmops.prompts publish --store gcp            # plan (lee, sin coste)
+uv run python -m rag_evals.llmops.prompts publish --store gcp --apply    # publica
+```
+
+`AgentPlatformPromptStore` implementa el mismo `PromptStorePort` que Langfuse, así que el plan y
+las reglas no cambian:
+- Git es la fuente.
+- La versión de Git **es** la del almacén.
+- Nunca se reescribe una versión.
+- Con texto distinto y la misma versión, se para.
+
+Lo que cambia es cómo se traduce a `client.prompts`:
+
+| Concepto | Langfuse | Agent Platform |
+|---|---|---|
+| Prompt | Nombre | Vertex Dataset con `prompt_id` numérico; se busca por `display_name` |
+| Versión nueva | `create_prompt` (Langfuse la numera) | `create_version` la primera vez (crea el prompt); `update(prompt_id)` las siguientes |
+| Número de versión | El que devuelve Langfuse | Cuántas versiones tiene el dataset |
+| Metadatos | Etiquetas `production` y `git-vN`; `config` con commit y sha256 | Sin etiquetas: `version_display_name` = `git-vN-<sha7>` |
+| Formato | Texto | Un turno de usuario y un modelo obligatorio (`GEMINI__CHAT_MODEL`, solo referencia) |
+
+El plan en dry-run ya consulta Agent Platform (lectura sin coste). Dos nombres iguales son un error
+explícito: no se adivina cuál es el bueno. En ejecución nada cambia, porque el agente lee el prompt
+de su paquete y nunca del almacén: si Agent Platform cae, el agente sigue funcionando.
 
 ## 8. Checkpoint de entrevista
 
