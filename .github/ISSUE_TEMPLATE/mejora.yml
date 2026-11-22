@@ -1,0 +1,30 @@
+name: Idea o mejora
+description: Una pieza que falta, una equivalencia entre nubes que ha cambiado o un doc mejorable.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resuelve
+      description: Para Genaipocs o para quien aprende con el repo. El porqué antes que el cómo.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+      description: Qué cambiarías y en qué fase o carril (A gestionado, B SDK nativo, C framework).
+    validations:
+      required: true
+  - type: textarea
+    id: coste
+    attributes:
+      label: Coste y riesgos
+      description: Si necesita nube o tiene coste, cómo se probaría en local sin coste (el repo lo exige).
+  - type: checkboxes
+    id: reglas
+    attributes:
+      label: Reglas del proyecto
+      options:
+        - label: Sin nombres de empresas reales ni marcas comerciales de terceros (el cliente es Genaipocs).
+          required: true

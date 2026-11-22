@@ -1,0 +1,49 @@
+name: Error
+description: Algo no funciona como dice el código o la documentación.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisar. Si es una vulnerabilidad, **no la abras aquí**: usa
+        Security → Report a vulnerability (ver SECURITY.md).
+  - type: input
+    id: area
+    attributes:
+      label: Fase o componente
+      description: Fase del plan, servicio o paquete afectado.
+      placeholder: "fase 9 · orchestrator · ORCHESTRATOR__BROKER=pubsub"
+    validations:
+      required: true
+  - type: textarea
+    id: reproducir
+    attributes:
+      label: Cómo reproducirlo
+      description: Comandos exactos (uv run ...), variables relevantes (sin valores secretos) y si hace falta docker compose o un perfil.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Qué esperabas y qué ha pasado
+      description: Pega la salida o el error (sin datos personales ni claves).
+    validations:
+      required: true
+  - type: dropdown
+    id: entorno
+    attributes:
+      label: Dónde
+      options:
+        - Local (sin nube)
+        - Azure
+        - AWS
+        - GCP
+        - CI (GitHub Actions)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit
+      description: Salida de `git rev-parse --short HEAD`.

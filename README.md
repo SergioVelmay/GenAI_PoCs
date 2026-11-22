@@ -165,3 +165,11 @@ perfiles aislados de las CLI:
 { "env": { "AZURE_CONFIG_DIR": "C:\\Users\\<usuario>\\.azure-genaipocs",
            "CLOUDSDK_CONFIG": "C:\\Users\\<usuario>\\.gcloud-genaipocs", "PYTHONUTF8": "1" } }
 ```
+
+## Contribuir y licencia
+
+Issues y PR pequeñas son bienvenidas: puesta en marcha, comandos de verificación y reglas en
+[CONTRIBUTING.md](CONTRIBUTING.md), con el [código de conducta](CODE_OF_CONDUCT.md). Las
+vulnerabilidades se informan en privado ([SECURITY.md](SECURITY.md)).
+
+Código y documentación con [licencia MIT](LICENSE).
