@@ -17,6 +17,14 @@ de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 pendientes de GCP están en la sección de cada fase ([plan](fase-13-12-checkpoint.md#plan-gcp));
 Vector Search y RAG Engine serán efímeros, como AI Search.
 
+**Emuladores (checkpoint G→13, 22-11-2026).** Antes de cualquier `apply` en AWS, el módulo
+`infra/terraform/aws` ya se aplica entero contra el AWS Emulator en cada PR (job `aws-emulator`),
+salvo el autoescalado de ECS (`PutScalingPolicy` con *metric math*: 501) y los targets del MCP
+gateway; y SQS, S3, S3 Vectors y la ingesta de la KB tienen tests de integración contra él. Azure:
+la subida de blobs del carril A, contra Azurite. **Ninguna casilla se cierra por eso**: lo que se
+valida en la nube (modelos, IAM y Entra ID reales, AI Search, Vector Search, RAG Engine, Cloud
+Storage, cuotas) no lo cubre ningún emulador ([qué cubre cada uno](fase-13-g-checkpoint.md)).
+
 **Validación de GCP (pasada cerrada en la 12.G6, 22-11-2026).** Quedan 63 casillas abiertas: 5 de
 la fase 0, 7 de la 2, 4 de la 3, 4 de la 4, 4 de la 5, 4 de la 6, 5 de la 7, 5 de la 8, 6 de la 9,
 8 de la 10, 3 de la 11 y 8 de la 12. No es una tarea por casilla: se agrupan por lo que

@@ -10,8 +10,8 @@ reducir lo que queda en [pendientes-cloud.md](pendientes-cloud.md). Plan en
 | G→13.1 | `58f88e5` | Inventario de emuladores oficiales por nube, comparativa con lo que ya usamos y decisión |
 | G→13.2 | `fe71124` | AWS Emulator en `docker compose` (perfil `aws`) y tests de integración de SQS, S3 y S3 Vectors |
 | G→13.3 | `e926280` | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) e ingesta de la KB de punta a punta |
-| G→13.4 | (este commit) | Azure: Azurite para la subida incremental de blobs y emulador de Service Bus fijado en `2.0.1` |
-| G→13.5 | | CI: AWS Emulator y Azurite en el job `integration` |
+| G→13.4 | `bd0bf6d` | Azure: Azurite para la subida incremental de blobs y emulador de Service Bus fijado en `2.0.1` |
+| G→13.5 | `864391e` y este commit | CI: job `aws-emulator` (tests + Terraform) y Azurite en `integration`; ElasticMQ se queda para ejecutar el sistema en local |
 
 ## 1. Concepto
 
@@ -149,7 +149,7 @@ flowchart LR
 |---|---|---|
 | AWS Emulator | `infra/local/aws-emulator/Dockerfile`, perfil `aws` | **Se adopta** (G→13.2): imagen local construida con el RPM fijado (`1.0.569`), telemetría apagada |
 | Terraform de AWS contra el emulador | `infra/terraform/aws/tests-emulator/` | **Se adopta** (G→13.3): `terraform test` con `apply`, estado en memoria; no toca el estado local |
-| ElasticMQ | perfil `sqs`, CI | **Se mantiene** junto al AWS Emulator; se decide en la G→13.5 con datos |
+| ElasticMQ | perfil `sqs`, CI | **Se mantiene** (G→13.5): para ejecutar los servicios en local; el emulador, para fidelidad e IaC |
 | Azurite | perfil `azure` | **Se adopta** (G→13.4): MIT, prueba la subida incremental de blobs del carril A |
 | Emulador de Service Bus | perfil `servicebus` | Se fija en `2.0.1`; **sigue fuera de la CI** (EULA y ~2 GB con SQL Server) |
 | Event Hubs, Cosmos DB, App Configuration | — | No se adoptan: el repo no usa esos servicios |
@@ -291,7 +291,33 @@ Decisiones:
 - Lo que Azurite no prueba: la identidad gestionada (con la que sube el script en Azure) ni RBAC;
   tampoco el indexer de AI Search que lee esos blobs (sin emulador).
 
-## 8. Límites
+## 8. CI y decisión sobre ElasticMQ (G→13.5)
+
+| Job | Qué añade | Tiempo ([ejecución](https://github.com/SergioVelmay/GenAI_PoCs/actions/runs/45025956653)) |
+|---|---|---|
+| `aws-emulator` (nuevo) | Construye la imagen de `infra/local/aws-emulator/` en segundo plano mientras instala dependencias, la arranca con `docker run --user` (en Linux, las claves 0600 quedan a nombre del runner), 10 tests `-m integration -k emulator` (un salto cuenta como fallo) y `terraform test -test-directory=tests-emulator` (3/3) | 4 min 58 s, en paralelo: el emulador listo a ~1 min 20 s del inicio, tests 13 s, Terraform 3 min 12 s |
+| `integration` | Azurite 3.38.0 como servicio (`test_azurite.py`) | Sin cambio apreciable (~3 min 20 s) |
+| `release-gate` | Exige también `aws-emulator` | — |
+
+El job nuevo no alarga la CI: corre en paralelo y el camino crítico sigue siendo `quality`
+(~10 min). Misma imagen y misma ruta de claves que en local: el código de los tests no distingue
+dónde corre (era la alternativa al `.deb` del plan; el `.deb` habría exigido otra ruta para las
+claves).
+
+**ElasticMQ se queda** (decisión con datos):
+
+| Criterio | ElasticMQ | AWS Emulator |
+|---|---|---|
+| Contrato de mensajería | 6/6 | 6/6, mismos tiempos |
+| Arranque en la CI | Contenedor de servicio, sin construir | ~1 min 20 s (construcción + RPM de ~200 MB) |
+| Para **ejecutar los servicios** en local (`ORCHESTRATOR__BROKER=sqs`, `INDEXER__BROKER=sqs`) | HTTP, claves fijas, colas declaradas en `elasticmq.conf` | HTTPS con certificado y claves nuevos en cada arranque: habría que pasar `AWS_CA_BUNDLE` y las claves a cada servicio |
+| Fidelidad frente a AWS | Comunidad, sin medir | Oficial, medida por release (SQS 94 %) |
+
+Cada uno queda para lo que hace mejor: **ElasticMQ para ejecutar el sistema en local** (perfil
+`sqs`) y **el AWS Emulator para la fidelidad y la IaC** (perfil `aws` y job `aws-emulator`). Si un
+día el contrato diverge entre los dos, manda el emulador oficial.
+
+## 9. Límites
 
 - Un test verde contra un emulador demuestra que el **contrato de la API** encaja, no que el despliegue
   funcione: IAM, red, cuotas y regiones solo se validan en la nube.
