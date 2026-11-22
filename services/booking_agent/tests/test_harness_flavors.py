@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
 import pytest
+from google.adk.telemetry import tracing as adk_tracing
+from opentelemetry import trace
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from strands.telemetry import tracer as strands_tracer
 
 from booking_agent.flavors import FLAVORS, MANAGED_FLAVORS, create_agent
 from booking_agent.guardrails import guarded_agent, guarded_executor
@@ -24,6 +30,7 @@ from genaipocs_core.adapters.memory import (
     InMemoryPreferenceStore,
     InMemoryUnitOfWork,
 )
+from genaipocs_core.adapters.otel import FRAMEWORK_CONTENT_OFF, silence_framework_content
 from genaipocs_core.adapters.ticketing_local import UnitOfWorkTicketing
 from genaipocs_core.application.retrieval import RetrievalService
 from genaipocs_core.application.tools import FALLBACK_ANSWER, ToolContext, build_ticketing_tools
@@ -264,3 +271,136 @@ def test_gcp_pii_detector_requires_the_project() -> None:
     settings = Settings(_env_file=None, guardrails=GuardrailsSettings(pii="gcp"), gcp=GcpSettings())
     with pytest.raises(ValueError, match="GCP__PROJECT"):
         build_pii_detector(settings)
+
+
+# ------------------------------------------------------------------------------------------------
+# Fase 11.G3: los spans propios de los frameworks, con el proveedor global de OTel.
+#
+# En producción `setup_observability` fija el proveedor global, y ADK lo usa para sus propios spans
+# (`invoke_agent`, `generate_content`, `execute_tool`). Aquí se reproduce eso en memoria y se
+# comprueba qué emiten:
+#
+# - **Contenido**: con la convención experimental y la captura activadas por entorno, ADK escribe
+#   prompts, respuestas y argumentos en sus spans; `silence_framework_content` (lo que hace el
+#   arranque) lo apaga.
+# - **Duplicados**: el span `generate_content` de ADK lleva los tokens de la misma llamada que
+#   nuestro `chat`; por eso el reenvío a Langfuse descarta los spans de los frameworks.
+# ------------------------------------------------------------------------------------------------
+
+OPERATION = "gen_ai.operation.name"
+QUESTION = "¿Puedo devolver una entrada candlelit?"
+ANSWER = "Se admiten hasta 48 horas antes."
+# Lo que no debe aparecer en ningún span: la pregunta, la consulta a la tool, su resultado y la
+# respuesta.
+MARKERS = ("devolver una entrada", "reembolsos candlelit", "48 horas")
+OPT_IN = {
+    "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
+    "ADK_EXPERIMENTAL_TELEMETRY": "true",
+    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+}
+
+
+@pytest.fixture
+def global_spans(monkeypatch: pytest.MonkeyPatch) -> Iterator[InMemorySpanExporter]:
+    """Proveedor global de OTel en memoria solo durante el test (OTel no deja cambiarlo dos
+    veces por proceso: se sustituye el global del módulo y se restaura al acabar)."""
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER", provider)
+    # El tracer de ADK es un ProxyTracer que guarda el real la primera vez que lo usa.
+    monkeypatch.setattr(adk_tracing.tracer, "_real_tracer", None)
+    # Strands guarda su tracer (y con él el proveedor y la política de redacción) en un singleton.
+    monkeypatch.setattr(strands_tracer, "_tracer_instance", None)
+    for key in (*FRAMEWORK_CONTENT_OFF, *OPT_IN):
+        monkeypatch.delenv(key, raising=False)
+    yield exporter
+
+
+def _leaks(spans: Sequence[ReadableSpan]) -> list[str]:
+    """`<span>.<atributo>` (o `<span>/<evento>.<atributo>`) que contienen texto del turno."""
+    found = []
+    for span in spans:
+        places = [(span.name, span.attributes or {})]
+        places += [(f"{span.name}/{event.name}", event.attributes or {}) for event in span.events]
+        for where, attributes in places:
+            found += [
+                f"{where}.{key}"
+                for key, value in attributes.items()
+                if any(marker in str(value) for marker in MARKERS)
+            ]
+    return found
+
+
+async def _turn(flavor: str) -> None:
+    search = ToolCall("k1", "search_knowledge", json.dumps({"query": "reembolsos candlelit"}))
+    agent, _, _ = _agent(flavor, [[search], ANSWER], await _knowledge(BENIGN))
+    turn = await agent.respond("t1", QUESTION, ANA)
+    assert turn.stop_reason == "answer"
+
+
+def _scope(spans: Sequence[ReadableSpan], scope: str) -> list[ReadableSpan]:
+    return [s for s in spans if s.instrumentation_scope and s.instrumentation_scope.name == scope]
+
+
+async def test_adk_content_opt_in_leaks_without_the_startup_policy(
+    global_spans: InMemorySpanExporter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Control: si alguien activa la convención experimental, ADK escribe el turno entero."""
+    for key, value in OPT_IN.items():
+        monkeypatch.setenv(key, value)
+
+    await _turn("adk")
+
+    leaks = _leaks(global_spans.get_finished_spans())
+    assert any("gen_ai.input.messages" in leak for leak in leaks)
+    assert any("gen_ai.tool.call.arguments" in leak for leak in leaks)
+
+
+async def test_startup_policy_keeps_adk_spans_without_content(
+    global_spans: InMemorySpanExporter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for key, value in OPT_IN.items():
+        monkeypatch.setenv(key, value)
+    silence_framework_content()
+
+    await _turn("adk")
+
+    spans = global_spans.get_finished_spans()
+    assert _scope(spans, "gcp.vertex.agent"), "ADK debe emitir sus spans con el proveedor global"
+    assert _leaks(spans) == []
+
+
+async def test_adk_duplicates_the_model_call_with_its_tokens(
+    global_spans: InMemorySpanExporter,
+) -> None:
+    """Por qué Langfuse descarta los spans de los frameworks: contaría los tokens dos veces."""
+    await _turn("adk")
+
+    adk = _scope(global_spans.get_finished_spans(), "gcp.vertex.agent")
+    calls = [
+        s for s in adk if (s.attributes or {}).get("gen_ai.operation.name") == "generate_content"
+    ]
+    assert len(calls) == 2  # Una por llamada al modelo (pedir la tool y responder).
+    assert all((s.attributes or {}).get("gen_ai.usage.input_tokens") for s in calls)
+
+
+async def test_strands_writes_the_turn_in_span_events_by_default(
+    global_spans: InMemorySpanExporter,
+) -> None:
+    """Control del `fix:` de la 11.G3: sin la política, Strands mete la pregunta, el resultado de
+    la tool y la respuesta en eventos del span, que `attributes/no-content` no toca."""
+    await _turn("strands")
+
+    leaks = _leaks(global_spans.get_finished_spans())
+    assert any("/gen_ai." in leak for leak in leaks), leaks
+
+
+async def test_startup_policy_redacts_strands_events(global_spans: InMemorySpanExporter) -> None:
+    silence_framework_content()
+
+    await _turn("strands")
+
+    spans = global_spans.get_finished_spans()
+    assert _scope(spans, "strands.telemetry.tracer")
+    assert _leaks(spans) == []

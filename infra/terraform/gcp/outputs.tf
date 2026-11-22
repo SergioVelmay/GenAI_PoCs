@@ -172,3 +172,18 @@ output "load_test" {
     see_also = "docs/fase-10-escala.md (10.G5)"
   } : null
 }
+
+output "observability" {
+  description = "Variables del collector de GCP y canal de guardia (null si observability_enabled = false)."
+  value = var.observability_enabled ? {
+    collector_config     = "infra/otel/collector-gcp.yaml"
+    collector_env        = { GOOGLE_CLOUD_PROJECT = var.project_id, ENVIRONMENT = var.environment }
+    collector_identity   = google_service_account.app.email
+    oncall_channel       = google_monitoring_notification_channel.oncall[0].id
+    log_retention_days   = var.log_retention_days
+    log_exclusions       = keys(local.log_exclusions)
+    alert_policies       = length(local.alert_policies)
+    trace_explorer       = "https://console.cloud.google.com/traces/explorer?project=${var.project_id}"
+    prometheus_query_api = "https://monitoring.googleapis.com/v1/projects/${var.project_id}/location/global/prometheus"
+  } : null
+}

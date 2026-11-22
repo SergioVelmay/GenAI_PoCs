@@ -189,7 +189,16 @@ Plan original (antes del cambio):
 **11.G · Observabilidad**
 
 - **Heredado de la 10.G:** las alertas de backlog de Pub/Sub en Cloud Monitoring con la misma PromQL que `pubsub_backlog_promql()` (fuente única del adaptador y de CREMA), y las del latido (`lease_failures`, `ack_failures`, `expired_ack_deadlines_count`).
-- 11.G1: `infra/otel/collector-gcp.yaml` validado en la CI, propagación de `traceparent` por atributos de Pub/Sub (test con el emulador) y `observability.tf` (políticas de alerta en PromQL, canal de notificación, retención y exclusiones de logs).
+- **Replanteada al iniciarla (22-11-2026)**, con lo decidido con Sergio:
+  - La propagación de `traceparent` por Pub/Sub ya la cubría el test de contrato de la 3.G1.
+  - Las métricas van por `googlemanagedprometheus` y no por la Telemetry API, que conserva los puntos en los nombres.
+  - Se portan **todas** las alertas, no 2 de muestra, porque Cloud Monitoring habla PromQL.
+  - ADK y Strands emiten el contenido en sus spans por defecto: se corrige aquí; lo de Strands, con un `fix:` aparte.
+- 11.G1: `infra/otel/collector-gcp.yaml` (trazas y logs por la Telemetry API, métricas por Managed Prometheus) validado en la CI, `scripts/check_collector_gcp.py` (nombres de las métricas contra un Cloud Monitoring falso) y `observability.tf` (roles del collector, retención y exclusiones de logs, canal de guardia).
+- 11.G2: alertas de Cloud Monitoring generadas desde `domain/slo.py` (una política PromQL por alerta, con los SLI expandidos), más las heredadas de la 10.G (backlog con `pubsub_backlog_promql()` y latido como métricas del catálogo) y aviso de ingesta de logs. Mismos tests de `promtool` sobre las alertas expandidas.
+- 11.G3: logs JSON con los campos de correlación de Cloud Logging (`TELEMETRY__LOG_FORMAT=gcp`), contenido apagado en los spans de ADK y borrado en el collector (atributos `gcp.vertex.agent.*` y eventos), una traza por el emulador de Pub/Sub de punta a punta, y el `fix:` de Strands.
+- 11.G4: doc de la fase 11 a tres nubes, preguntas de entrevista, pendientes y cierre.
+- **Hecha (22-11-2026)**: las cuatro, más el `fix:` `812f1f3` (Strands emitía el contenido del turno en eventos del span desde la fase 11). **Heredado para la 12.G:** las reglas de drift ya se generan también como políticas de Cloud Monitoring (`DistributionDrift`, 11.G2): la 12.G2 solo tiene que documentarlas, no portarlas; y si la 12.G añade alertas en `build_rules()`, llegan solas a GCP con su test de `promtool`.
 
 **12.G · Evals de agentes y LLMOps**
 

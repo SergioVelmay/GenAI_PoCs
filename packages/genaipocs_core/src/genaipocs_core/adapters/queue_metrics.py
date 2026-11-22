@@ -112,12 +112,27 @@ PUBSUB_BACKLOG_METRIC = "pubsub_googleapis_com:subscription_num_unacked_messages
 MONITORING_URL = "https://monitoring.googleapis.com"
 
 
+def pubsub_subscription_selector(project: str, subscription: str, *, regex: bool = False) -> str:
+    """Selector de las métricas de una suscripción (`regex`: varias, p. ej. las `.worker`)."""
+    match = "=~" if regex else "="
+    return (
+        f'monitored_resource="pubsub_subscription",'
+        f'project_id="{project}",subscription_id{match}"{subscription}"'
+    )
+
+
 def pubsub_backlog_promql(project: str, subscription_id: str) -> str:
     """Mensajes sin confirmar de una suscripción, sumados entre regiones (fuente única)."""
     return (
-        f'sum({PUBSUB_BACKLOG_METRIC}{{monitored_resource="pubsub_subscription",'
-        f'project_id="{project}",subscription_id="{subscription_id}"}})'
+        f"sum({PUBSUB_BACKLOG_METRIC}{{{pubsub_subscription_selector(project, subscription_id)}}})"
     )
+
+
+def pubsub_backlog_by_subscription_promql(project: str, pattern: str) -> str:
+    """El mismo backlog para todas las suscripciones que casan con `pattern`, una serie por
+    suscripción: lo usan las alertas de Cloud Monitoring (11.G2), una incidencia por cola."""
+    selector = pubsub_subscription_selector(project, pattern, regex=True)
+    return f"sum by (subscription_id)({PUBSUB_BACKLOG_METRIC}{{{selector}}})"
 
 
 type TokenProvider = Callable[[], Awaitable[str]]

@@ -155,6 +155,31 @@ tests:
         exp_samples:
           - value: 1
 
+  # 11.G2: 1 rechazo por minuto (0,017/s) sostenido: ticket. Uno suelto cada 5 min (0,003/s)
+  # lo absorbe la idempotencia: nada.
+  - name: settle-failures-sustained
+    interval: 1m
+    input_series:
+      - series: 'genaipocs_messaging_settle_failures_total{messaging_operation_name="modack",messaging_destination_subscription_name="support.emails.worker"}'
+        values: '0+1x40'
+      - series: 'genaipocs_messaging_settle_failures_total{messaging_operation_name="ack",messaging_destination_subscription_name="case.outcomes.worker"}'
+        values: '0+0.2x40'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="MessageSettleFailures",alertstate="firing"})
+        eval_time: 30m
+        exp_samples:
+          - value: 1
+  - name: settle-failures-occasional
+    interval: 1m
+    input_series:
+      - series: 'genaipocs_messaging_settle_failures_total{messaging_operation_name="ack",messaging_destination_subscription_name="support.emails.worker"}'
+        values: '0+0.2x40'
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="MessageSettleFailures",alertstate="firing"}) or vector(0)
+        eval_time: 30m
+        exp_samples:
+          - value: 0
+
   # Faithfulness media de 0,6 con suficientes muestras: ticket. Con pocas muestras, nada
   # (cinco respuestas malas no son una tendencia).
   - name: faithfulness-drop

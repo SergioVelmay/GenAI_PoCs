@@ -11,8 +11,9 @@ El proveedor se registra también como global de OTel para que las instrumentaci
 
 from __future__ import annotations
 
+import os
 import traceback
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
@@ -269,6 +270,7 @@ class OTelTelemetry:
         return TraceIds(
             trace_id=trace.format_trace_id(context.trace_id),
             span_id=trace.format_span_id(context.span_id),
+            sampled=context.trace_flags.sampled,
         )
 
     def inject(self) -> dict[str, str]:
@@ -364,6 +366,41 @@ def _configured_exporters(settings: TelemetrySettings) -> list[SpanExporter]:
     return []
 
 
+# Fase 11.G3: los frameworks de agentes también usan el proveedor global de OTel y emiten sus
+# propios spans (ADK: `gcp.vertex.agent`; Strands: `strands.telemetry.tracer`). El contenido de un
+# turno solo sale por nuestros spans, redactado y con TELEMETRY__CAPTURE_CONTENT=true: el de los
+# frameworks se apaga siempre, porque no pasa por nuestro redactor.
+FRAMEWORK_SCOPES = ("gcp.vertex.agent", "strands.telemetry.tracer")
+FRAMEWORK_CONTENT_OFF = {
+    # ADK: contenido en sus atributos `gcp.vertex.agent.*` (por defecto, true).
+    "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
+    # Convención GenAI de OTel (ADK con la convención experimental, instrumentaciones genéricas).
+    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "NO_CONTENT",
+}
+
+
+# Strands emite el contenido en eventos del span (`gen_ai.user.message`, `gen_ai.choice`...) y solo
+# lo redacta con este token en OTEL_SEMCONV_STABILITY_OPT_IN; vacío = "redactar todo lo sensible".
+STRANDS_REDACT_ALL = "gen_ai_unredacted_attributes="
+SEMCONV_OPT_IN = "OTEL_SEMCONV_STABILITY_OPT_IN"
+
+
+def silence_framework_content(environ: MutableMapping[str, str] | None = None) -> None:
+    """Apaga el contenido de los spans de los frameworks. ADK lo lee al crear cada invocación y
+    Strands al crear su tracer (el primer agente): basta con fijarlo al arrancar.
+
+    `OTEL_SEMCONV_STABILITY_OPT_IN` es una lista que comparten otras instrumentaciones (HTTP,
+    bases de datos): se conserva lo que haya y solo se sustituye la lista de no redactados."""
+    env = os.environ if environ is None else environ
+    env.update(FRAMEWORK_CONTENT_OFF)
+    tokens = [
+        token.strip()
+        for token in env.get(SEMCONV_OPT_IN, "").split(",")
+        if token.strip() and not token.strip().startswith(STRANDS_REDACT_ALL)
+    ]
+    env[SEMCONV_OPT_IN] = ",".join([*tokens, STRANDS_REDACT_ALL])
+
+
 def configure_telemetry(
     settings: Settings,
     *,
@@ -377,6 +414,7 @@ def configure_telemetry(
     """
     if settings.telemetry.exporter == "none":
         return get_telemetry()
+    silence_framework_content()
     # OTel solo admite fijar el proveedor global una vez por proceso: si ya hay uno (dos apps
     # en el mismo proceso), se reutiliza.
     current = trace.get_tracer_provider()
@@ -416,12 +454,13 @@ def setup_observability(
     Con la configuración por defecto (`none` y logs de texto) no toca nada: los tests y los
     scripts siguen como estaban.
     """
-    if settings.telemetry.log_format == "json":
+    if settings.telemetry.log_format != "text":
         configure_logging(
             service=settings.telemetry.service_name or service_name,
-            log_format="json",
+            log_format=settings.telemetry.log_format,
             level=settings.telemetry.log_level,
             redact=redact,
+            gcp_project=settings.gcp.project,
         )
     telemetry = configure_telemetry(settings, service_name=service_name, redact=redact)
     if settings.telemetry.exporter != "none":

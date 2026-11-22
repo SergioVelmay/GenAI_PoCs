@@ -1,0 +1,126 @@
+# Collector en GCP (fase 11.G1): mismo receptor OTLP y mismos procesadores que en local
+# (infra/local/telemetry/otel-collector.yaml); solo cambia el destino. Se despliega como sidecar
+# de Cloud Run (fase 15) con la cuenta de servicio adjunta (roles de observability.tf). Sin claves.
+#
+#   servicios ──OTLP──▶ collector ──OTLP + token de Google──▶ Telemetry API (telemetry.googleapis.com)
+#                                 │                           ├─ trazas → Cloud Trace (gen_ai.* tal cual)
+#                                 │                           └─ logs   → Cloud Logging
+#                                 └──googlemanagedprometheus──▶ Managed Service for Prometheus
+#
+# Por qué dos caminos:
+# - Trazas y logs por la Telemetry API (OTLP nativo): es lo que recomienda Google desde 2025 y
+#   admite 1.024 atributos por span (la API propietaria de Cloud Trace se quedaba en 32). Es el
+#   equivalente del endpoint OTLP de X-Ray en AWS.
+# - Métricas por `googlemanagedprometheus`: traduce los nombres igual que el Prometheus local
+#   (puntos a `_`, unidad y `_total`), así que las reglas que genera `adapters/prometheus.py` valen
+#   tal cual en Cloud Monitoring (11.G2). Por la Telemetry API las métricas conservarían los puntos
+#   (`genaipocs.llm.cost`) y haría falta otro dialecto de PromQL.
+#
+# Variables: GOOGLE_CLOUD_PROJECT (proyecto de destino y de cuota) y ENVIRONMENT.
+#
+# Validar sin coste (no se autentica al validar):
+#   docker run --rm -v ${PWD}/infra/otel:/cfg:ro -e GOOGLE_CLOUD_PROJECT=genaipocs-dev -e ENVIRONMENT=dev `
+#     otel/opentelemetry-collector-contrib:0.163.1 validate --config=/cfg/collector-gcp.yaml
+
+extensions:
+  # Cloud Run exige un health check para el arranque del sidecar (startupProbe al :13133).
+  health_check:
+    endpoint: 0.0.0.0:13133
+  # Token de acceso de la cuenta de servicio adjunta (ADC). El proyecto de cuota viaja en la
+  # cabecera x-goog-user-project: la cuenta necesita serviceusage.services.use en él.
+  googleclientauth:
+    project: ${env:GOOGLE_CLOUD_PROJECT}
+    quota_project: ${env:GOOGLE_CLOUD_PROJECT}
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    timeout: 5s
+  # Igual que en local: prompts y respuestas no salen hacia el backend genérico.
+  attributes/no-content:
+    actions:
+      - {key: gen_ai.input.messages, action: delete}
+      - {key: gen_ai.output.messages, action: delete}
+      - {key: gen_ai.tool.call.arguments, action: delete}
+      - {key: gen_ai.tool.call.result, action: delete}
+      - {key: langfuse.observation.input, action: delete}
+      - {key: langfuse.observation.output, action: delete}
+      # 11.G3: prompt de sistema (convención experimental) y contenido de los spans de ADK, por
+      # si alguien activa su captura por entorno (el arranque la apaga: defensa en profundidad).
+      - {key: gen_ai.system_instructions, action: delete}
+      - {pattern: ^gcp\.vertex\.agent\.(llm_request|llm_response|tool_call_args|tool_response|data)$, action: delete}
+  # Fix de la 11.G3: Strands (y la convención GenAI antigua) mete el contenido en EVENTOS del span
+  # (`gen_ai.user.message`, `gen_ai.choice`, `gen_ai.client.inference.operation.details`), que
+  # `attributes/no-content` no toca. El arranque ya lo redacta; esto es la segunda barrera.
+  transform/no-event-content:
+    error_mode: ignore
+    trace_statements:
+      - context: spanevent
+        conditions:
+          - IsMatch(name, "^gen_ai[.]")
+        statements:
+          - delete_key(attributes, "content")
+          - delete_key(attributes, "message")
+          - delete_key(attributes, "gen_ai.input.messages")
+          - delete_key(attributes, "gen_ai.output.messages")
+          - delete_key(attributes, "gen_ai.system_instructions")
+  # Región, servicio y revisión de Cloud Run como atributos de recurso.
+  resourcedetection:
+    detectors: [env, gcp]
+    timeout: 2s
+    override: false
+  # La Telemetry API asigna cada span y cada log al proyecto de `gcp.project_id`.
+  resource/gcp_project_id:
+    attributes:
+      - {key: gcp.project_id, value: "${env:GOOGLE_CLOUD_PROJECT}", action: insert}
+
+exporters:
+  # Raíz del endpoint: el exporter añade /v1/traces y /v1/logs.
+  otlp_http/telemetry:
+    endpoint: https://telemetry.googleapis.com
+    encoding: proto
+    compression: gzip
+    auth:
+      authenticator: googleclientauth
+    # Si la API no responde, reintenta y encola en memoria (no bloquea la aplicación).
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+
+  googlemanagedprometheus:
+    project: ${env:GOOGLE_CLOUD_PROJECT}
+    metric:
+      # Como `resource_constant_labels` en local: entorno como etiqueta; `service.name` ya va en
+      # `job`. Nada de ids de instancia en las etiquetas (una serie nueva por réplica).
+      resource_filters:
+        - regex: ^deployment\.environment\.name$
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+
+service:
+  extensions: [health_check, googleclientauth]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource/gcp_project_id, attributes/no-content, transform/no-event-content, batch]
+      exporters: [otlp_http/telemetry]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [googlemanagedprometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource/gcp_project_id, batch]
+      exporters: [otlp_http/telemetry]

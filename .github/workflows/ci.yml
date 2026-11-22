@@ -77,9 +77,19 @@ jobs:
           docker run --rm -v "$PWD/infra/local/telemetry/rules:/rules:ro" \
             --entrypoint promtool prom/prometheus:v3.15.1 test rules /rules/tests/genaipocs.test.yml
 
-      # Fase 11.7: el collector local y los de Azure y AWS arrancan con su configuración (sin enviar
-      # nada). Credenciales ficticias: sigv4auth solo las resuelve, no firma.
-      - name: Configuración del collector (local, Azure, AWS)
+      # Fase 11.G2: las alertas de Cloud Monitoring (sin recording rules) pasan los mismos tests
+      # que las locales, más los de las alertas de plataforma de GCP.
+      - name: Alertas de Cloud Monitoring (promtool check + test)
+        run: |
+          docker run --rm -v "$PWD/infra/terraform/gcp/alerts:/alerts:ro" \
+            --entrypoint promtool prom/prometheus:v3.15.1 check rules /alerts/genaipocs.alerts.yml
+          docker run --rm -v "$PWD/infra/terraform/gcp/alerts:/alerts:ro" \
+            --entrypoint promtool prom/prometheus:v3.15.1 test rules \
+            /alerts/tests/genaipocs.test.yml /alerts/tests/platform.test.yml
+
+      # Fase 11.7 (y 11.G1): el collector local y los de Azure, AWS y GCP arrancan con su
+      # configuración (sin enviar nada). Credenciales ficticias: sigv4auth solo las resuelve, no firma.
+      - name: Configuración del collector (local, Azure, AWS, GCP)
         run: |
           image=otel/opentelemetry-collector-contrib:0.163.1
           docker run --rm -v "$PWD/infra/local/telemetry:/cfg:ro" "$image" \
@@ -90,6 +100,15 @@ jobs:
           docker run --rm -v "$PWD/infra/otel:/cfg:ro" \
             -e AWS_REGION=eu-west-1 -e ENVIRONMENT=ci -e AWS_ACCESS_KEY_ID=dummy -e AWS_SECRET_ACCESS_KEY=dummy \
             "$image" validate --config=/cfg/collector-aws.yaml
+          docker run --rm -v "$PWD/infra/otel:/cfg:ro" \
+            -e GOOGLE_CLOUD_PROJECT=genaipocs-ci -e ENVIRONMENT=ci \
+            "$image" validate --config=/cfg/collector-gcp.yaml
+
+      # Fase 11.G1: el exporter de Managed Prometheus nombra las métricas como el Prometheus local
+      # (si no, las alertas de Cloud Monitoring se quedarían sin datos). Contra un Cloud Monitoring
+      # falso, sin credenciales ni coste.
+      - name: Nombres de las métricas en Managed Prometheus (collector de GCP)
+        run: uv run python scripts/check_collector_gcp.py
 
   evals:
     # Evals deterministas (coste 0) contra el baseline versionado. Los jueces LLM no corren aquí.

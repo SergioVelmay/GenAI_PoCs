@@ -21,6 +21,11 @@ processors:
         - >-
           attributes["gen_ai.operation.name"] == nil
           and kind != SPAN_KIND_SERVER and kind != SPAN_KIND_CONSUMER
+        # 11.G3: los spans propios de ADK y Strands repiten la llamada al modelo con sus tokens
+        # (`generate_content`, `chat`): Langfuse contaría el uso dos veces. Siguen en Jaeger.
+        - >-
+          instrumentation_scope.name == "gcp.vertex.agent"
+          or instrumentation_scope.name == "strands.telemetry.tracer"
 
 exporters:
   otlp_http/langfuse:

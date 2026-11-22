@@ -311,6 +311,19 @@ pocos casos; Cloud Run escala a cero y se paga por petición; Gemini, céntimos 
 - [ ] Portar el resto de alertas de SLO a la nube (KQL / Metrics Insights) o usar Managed Prometheus / Amazon Managed Prometheus con las mismas reglas generadas.
 - [ ] Langfuse v4 (o Langfuse Cloud) y comparar con Arize Phoenix sobre la misma traza OTLP.
 
+<a id="fase-11-gcp"></a>
+
+### GCP (pasada 11.G)
+
+- [ ] `observability_enabled = true` y el collector `infra/otel/collector-gcp.yaml` como sidecar de Cloud Run (imagen `otelcol-google`, configuración en Secret Manager, `container-dependencies` y *startup probe* al :13133) con la cuenta de la aplicación. Servicios con `TELEMETRY__EXPORTER=otlp`. Comprobar la traza asíncrona completa en el Trace Explorer, con los `gen_ai.*` buscables, y las métricas en Metrics Explorer con PromQL (`sum(rate(genaipocs_llm_cost_USD_total[5m]))`).
+- [ ] Comprobar que las exclusiones de logs (sondas y DEBUG) quitan ingesta en *Logs Storage* y medir los GiB/mes y las muestras de Prometheus con la demo, para fijar el muestreo.
+- [ ] Aplicar las 36 políticas de alerta (11.G2) y comprobar tres cosas que no se pueden probar en local:
+  - Que Cloud Monitoring acepta las consultas de más de 25 h (*burn rate* de 3 días, drift de 1 + 7 días: el *lookback* largo está en preview) sobre métricas de Managed Prometheus.
+  - Que `increase`/`rate` dan lo esperado sobre las métricas DELTA de Google Cloud (`expired_ack_deadlines_count`, `billing/bytes_ingested`).
+  - Que llega el correo con la documentación y el enlace al runbook.
+  
+  Forzar `LlmCostRunaway` con la demo y un presupuesto bajo.
+
 ## Fase 12 · Evals de agentes, red teaming y LLMOps ([doc](fase-12-evals-llmops.md))
 
 - [ ] Etiquetar a ciegas `evals/calibration/agents-labels-v1.csv` (Sergio, coste 0) leyendo `agents-v1.md`.

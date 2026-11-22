@@ -104,3 +104,9 @@ model_armor_floor_setting_enabled = false
 load_test_enabled            = false
 load_test_image              = "" # europe-west4-docker.pkg.dev/<proyecto>/load/genaipocs-load:<tag>
 load_test_signing_key_secret = "" # secret con la clave privada de los tokens de prueba
+
+# Observabilidad (11.G1): roles del collector (infra/otel/collector-gcp.yaml), retención y
+# exclusiones de logs y canal de guardia. Se paga lo ingerido (spans, GiB de logs, muestras de
+# Prometheus). Output observability.
+observability_enabled = false
+log_retention_days    = 30

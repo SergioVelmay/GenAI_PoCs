@@ -69,6 +69,7 @@ variable "services" {
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "storage.googleapis.com",
+    "telemetry.googleapis.com", # 11.G1: OTLP de trazas y logs (collector-gcp.yaml)
     "vectorsearch.googleapis.com",
     "workflows.googleapis.com",
   ]
@@ -580,4 +581,29 @@ variable "load_test_signing_key_secret" {
   description = "Secret de Secret Manager con la clave privada de los tokens de prueba (vacío = sin montar)."
   type        = string
   default     = ""
+}
+
+# ---------- Fase 11.G1: observabilidad (observability.tf) ----------
+
+variable "observability_enabled" {
+  description = "Roles del collector (Telemetry API y Managed Prometheus), retención y exclusiones de logs, canal de guardia y alertas."
+  type        = bool
+  default     = false
+}
+
+variable "log_retention_days" {
+  description = "Retención del bucket _Default de Cloud Logging. Hasta 30 días va incluida en el precio de ingesta."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.log_retention_days >= 1 && var.log_retention_days <= 3650
+    error_message = "Cloud Logging admite de 1 a 3650 días."
+  }
+}
+
+variable "runbook_base_url" {
+  description = "Raíz del repo con docs/runbook-incidentes.md, para el enlace de cada alerta (11.G2)."
+  type        = string
+  default     = "https://github.com/SergioVelmay/GenAI_PoCs/blob/main"
 }

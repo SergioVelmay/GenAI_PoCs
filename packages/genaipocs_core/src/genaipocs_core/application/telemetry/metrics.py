@@ -124,6 +124,13 @@ CATALOG: dict[str, Instrument] = {
             "Duración del procesado de un mensaje (cada entrega).",
             LATENCY_BUCKETS,
         ),
+        # Fase 11.G2: el latido y las confirmaciones de Pub/Sub (10.G1) como métrica, para alertar.
+        _counter(
+            "genaipocs.messaging.settle_failures",
+            "{operation}",
+            "Confirmaciones (ack, nack) o renovaciones del plazo (modack) rechazadas por el "
+            "broker: el mensaje puede volver a entregarse.",
+        ),
         Instrument(
             "genaipocs.outbox.backlog",
             InstrumentKind.GAUGE,
@@ -176,6 +183,7 @@ STREAM_ERRORS = "genaipocs.stream.errors"
 CACHE_LOOKUPS = "genaipocs.cache.lookups"
 MESSAGES_SENT = "messaging.client.sent.messages"
 MESSAGE_PROCESS_DURATION = "messaging.process.duration"
+MESSAGE_SETTLE_FAILURES = "genaipocs.messaging.settle_failures"
 OUTBOX_BACKLOG = "genaipocs.outbox.backlog"
 EVAL_FAITHFULNESS = "genaipocs.eval.faithfulness"
 EVAL_SAMPLES = "genaipocs.eval.samples"
@@ -299,6 +307,18 @@ def message_processed(*, system: str, destination: str, seconds: float, error: s
                 genai.ERROR_TYPE: error,
             }
         ),
+    )
+
+
+def message_settle_failed(*, system: str, subscription: str, operation: str) -> None:
+    """`operation`: `ack`, `nack` o `modack` (renovación del plazo), como en la convención."""
+    counter(MESSAGE_SETTLE_FAILURES).add(
+        1,
+        {
+            "messaging.system": system,
+            "messaging.destination.subscription.name": subscription,
+            "messaging.operation.name": operation,
+        },
     )
 
 

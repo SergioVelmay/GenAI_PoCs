@@ -85,6 +85,27 @@ enlaza a su sección (`runbook_url`). Las reglas se generan desde los SLO del do
 - **Mirar**: logs del relay (`Fallo del relay del outbox`); `last_error` en `outbox_events`; estado del broker.
 - **Mitigar**: rearrancar el relay (`python -m orchestrator.worker relay`); si el broker rechaza, revisar credenciales y cuotas de la cola. Los eventos no se pierden: están en la base de datos.
 
+<a id="mensajeria"></a>
+### `MessageSettleFailures` · el broker rechaza confirmaciones o renovaciones
+
+- **Qué mide**: más de 0,01 rechazos/s durante 10 min de `ack`, `nack` o `modack` (la renovación del plazo, el latido de la 10.G1). Métrica `genaipocs.messaging.settle_failures`, por suscripción y operación.
+- **Mirar**: qué operación domina. Con `modack`, los turnos superan el plazo y el latido llega tarde (`PUBSUB__MAX_LEASE_S`, `ack_deadline_seconds` de la suscripción). Con `ack`, el plazo ya había caducado o la red falla. En Pub/Sub, `expired_ack_deadlines_count` de la suscripción.
+- **Mitigar**: el mensaje vuelve y la idempotencia del CaseStore evita el doble efecto, pero el modelo se paga otra vez. Subir el plazo o bajar el lote (`max_messages`) si los turnos son largos; revisar la red si son errores transitorios.
+
+<a id="backlog-colas"></a>
+### `PubSubBacklogGrowing` y `PubSubAckDeadlinesExpiring` · cola de Pub/Sub (solo GCP)
+
+- **Qué mide**: más de 100 mensajes sin confirmar en una suscripción `.worker` durante 10 min (la misma consulta que usan el autoescalador y CREMA, `pubsub_backlog_promql`); o plazos de ack vencidos de forma sostenida (`expired_ack_deadlines_count`).
+- **Mirar**: réplicas del worker pool frente al objetivo de CREMA (10.G4); errores del worker; si la cola es `case.outcomes`, sus consumidores (notificaciones, Workflows).
+- **Mitigar**: subir el máximo de réplicas o el objetivo de backlog por réplica; si los workers fallan, el mensaje acaba en la DLQ tras `max_deliveries` (revisarla antes de reintentar).
+
+<a id="ingesta-logs"></a>
+### `LogIngestionPace` · los logs van camino de salir del tramo gratuito (solo GCP)
+
+- **Qué mide**: GiB ingeridos en Cloud Logging en la última hora, proyectados a un día, por encima del ritmo que agota los 50 GiB gratis al mes.
+- **Mirar**: en *Logs Storage*, qué recurso y qué `log_id` crecen; si alguien dejó `TELEMETRY__LOG_LEVEL=DEBUG` (lo excluye `observability.tf`) o un bucle de errores.
+- **Mitigar**: añadir una exclusión en `observability.tf` (no hay tope diario como en Log Analytics: GCP solo deja filtrar), bajar el nivel de log o el muestreo.
+
 <a id="faithfulness"></a>
 ### `FaithfulnessDrop` · las respuestas se apoyan menos en las fuentes
 

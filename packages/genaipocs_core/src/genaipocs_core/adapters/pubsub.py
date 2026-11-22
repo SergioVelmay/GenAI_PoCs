@@ -61,6 +61,7 @@ from google.pubsub_v1.types import (
 )
 
 from genaipocs_core.adapters.gcp_auth import gcp_credentials
+from genaipocs_core.application.telemetry import metrics
 from genaipocs_core.config import GcpSettings, PubSubSettings
 from genaipocs_core.ports import Message, MessageHandler, PermanentMessageError
 from genaipocs_core.ports.messaging import propagated_headers
@@ -96,6 +97,8 @@ class EmulatorTopology:
 # Con exactly-once, el servidor explica cada `ack_id` fallido en los metadatos del error:
 # `PERMANENT_FAILURE_INVALID_ACK_ID` (caducado o ya confirmado) o `TRANSIENT_FAILURE_*`.
 EXACTLY_ONCE_ACK_FAILURE = "EXACTLY_ONCE_ACKID_FAILURE"
+# `messaging.system` de la convención de OTel (el mismo que `messaging_factory.MESSAGING_SYSTEMS`).
+MESSAGING_SYSTEM = "gcp_pubsub"
 TRANSIENT_ACK_FAILURE = "TRANSIENT_FAILURE"
 ACK_ATTEMPTS = 3
 # Plazo de ack por defecto de Pub/Sub si la suscripción no trae uno.
@@ -351,6 +354,7 @@ class PubSubMessageBus:
                 )
             except exceptions.GoogleAPICallError as exc:
                 self.lease_failures += 1
+                _settle_failed(subscription, "modack")
                 if exc.reason == EXACTLY_ONCE_ACK_FAILURE and not _transient_ack_failure(exc):
                     # El `ack_id` ya no vale (caducó antes del latido): renovar no sirve, el
                     # mensaje volverá y lo absorbe la idempotencia del handler.
@@ -364,6 +368,7 @@ class PubSubMessageBus:
     async def _ack(self, subscription: str, raw: ReceivedMessage, message_id: str) -> None:
         await self._settle(
             "ack",
+            subscription,
             message_id,
             lambda: self._subscriber.acknowledge(subscription=subscription, ack_ids=[raw.ack_id]),
         )
@@ -371,6 +376,7 @@ class PubSubMessageBus:
     async def _nack(self, subscription: str, raw: ReceivedMessage, message_id: str) -> None:
         await self._settle(
             "nack",
+            subscription,
             message_id,
             lambda: self._subscriber.modify_ack_deadline(
                 subscription=subscription, ack_ids=[raw.ack_id], ack_deadline_seconds=0
@@ -378,7 +384,11 @@ class PubSubMessageBus:
         )
 
     async def _settle(
-        self, operation: str, message_id: str, call: Callable[[], Awaitable[object]]
+        self,
+        operation: str,
+        subscription: str,
+        message_id: str,
+        call: Callable[[], Awaitable[object]],
     ) -> None:
         """Confirma o devuelve un mensaje sin tumbar el bucle de *pull* si Pub/Sub lo rechaza."""
         for attempt in range(1, ACK_ATTEMPTS + 1):
@@ -389,6 +399,7 @@ class PubSubMessageBus:
                 if _transient_ack_failure(exc) and attempt < ACK_ATTEMPTS:
                     continue
                 self.ack_failures += 1
+                _settle_failed(subscription, operation)
                 # Caducado o ya confirmado (exactly-once), o la red: puede volver a entregarse.
                 # Lo absorbe la idempotencia del handler (p. ej. las transiciones del CaseStore).
                 logger.warning(
@@ -475,3 +486,10 @@ def _transient_ack_failure(exc: exceptions.GoogleAPICallError) -> bool:
         return False
     metadata = exc.metadata or {}
     return any(str(value).startswith(TRANSIENT_ACK_FAILURE) for value in metadata.values())
+
+
+def _settle_failed(subscription: str, operation: str) -> None:
+    """Métrica de la 11.G2 (alerta `MessageSettleFailures`): la suscripción sin el proyecto."""
+    metrics.message_settle_failed(
+        system=MESSAGING_SYSTEM, subscription=subscription.rsplit("/", 1)[-1], operation=operation
+    )
