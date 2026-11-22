@@ -104,3 +104,39 @@ def test_mlflow_tracker_logs_params_metrics_and_artifacts(tmp_path: Path) -> Non
     run = client.get_run(run_id)
     assert run.data.params["flavor"] == "native" and run.data.metrics["p"] == 0.5
     assert [a.path for a in client.list_artifacts(run_id)] == ["informe.md"]
+
+
+@pytest.mark.parametrize(
+    ("provider", "section", "fields", "model"),
+    [
+        ("azure", "azure_openai", ("chat_deployment", "cheap_chat_deployment"), "gpt-4.1-nano"),
+        ("aws", "bedrock", ("chat_model_id", "cheap_chat_model_id"), "eu.amazon.nova-micro-v1:0"),
+        ("gcp", "gemini", ("chat_model", "cheap_chat_model"), "gemini-3.5-flash"),
+    ],
+)
+def test_model_variant_forces_the_generating_cloud(
+    provider: str, section: str, fields: tuple[str, str], model: str
+) -> None:
+    """Regresión: solo se forzaba Azure; con Gemini o Bedrock las dos variantes de un A/B de
+    modelos usaban el mismo modelo y el experimento salía «sin diferencia»."""
+    from genaipocs_core.config import LLMProvider, Settings
+    from rag_evals.agents.cloud import with_model
+
+    settings = Settings(_env_file=None, llm_provider=LLMProvider(provider))
+
+    forced = with_model(settings, model)
+
+    assert {getattr(getattr(forced, section), field) for field in fields} == {model}
+    assert with_model(settings, None) is settings
+    others = {"azure_openai", "bedrock", "gemini"} - {section}
+    assert all(getattr(forced, other) == getattr(settings, other) for other in others)
+
+
+def test_model_variant_needs_a_real_provider() -> None:
+    from genaipocs_core.config import LLMProvider, Settings
+    from rag_evals.agents.cloud import with_model
+
+    settings = Settings(_env_file=None, llm_provider=LLMProvider.SIMULATED)
+
+    with pytest.raises(ValueError, match="proveedor real"):
+        with_model(settings, "gpt-4.1-nano")
