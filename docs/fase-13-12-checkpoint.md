@@ -211,7 +211,10 @@ Plan original (antes del cambio):
   - Bug encontrado: `with_model` solo forzaba el modelo de Azure, así que un A/B de modelos con Gemini comparaba el mismo modelo. Se arregla en el `fix:` `f98ed1e`.
 - 12.G1: juez de agentes con Gemini. Los informes con coste de `agent_calibration` y `experiment --mode llm` van a la carpeta de la nube que juzga. Esquema del juez dentro del subconjunto de Gemini y juez online con solo GCP.
 - 12.G2: Evaluation Service como contraste de la 12.1. Trayectoria por cómputo (`v1beta1`) sobre las trayectorias reales de Azure de la fase 7, y rúbricas `hallucination` y `final_response_quality` sobre la calibración de agentes. **Al hacerla:** `final_response_quality` sustituye a `tool_use_quality`, que no distingue las muestras (comparten tools). Además, el contraste destapó un bug en la precisión y el recall de la 12.1 (`fix:` `a523a67`).
-- 12.G3: red teaming con Gemini. promptfoo con `vertex:` de generador y juez, sin generación remota. PyRIT con Gemini de atacante. Riesgo residual frente a Model Armor (aplazado).
+- 12.G3: red teaming con Gemini. promptfoo con `vertex:` de generador y juez, sin generación remota. PyRIT con Gemini de atacante. Riesgo residual frente a Model Armor (aplazado). **Al hacerla (decidido con Sergio):**
+  - El riesgo residual es de PII, así que se mide con los detectores de PII (regex, Presidio y Sensitive Data Protection) en lugar de con Model Armor.
+  - La configuración de promptfoo se genera para las tres nubes y apunta a un objetivo nuevo, el agente con LLM real.
+  - El atacante adaptativo de PyRIT pasa a ideas aparcadas en `plan-fases.md`: PyRIT 1.1 reescribió su API y ni Azure ni AWS lo tenían.
 - 12.G4: prompts en la gestión de prompts de Agent Platform (`PromptStorePort`, dry-run por defecto).
 - 12.G5: `VertexExperimentTracker`, drift en Managed Prometheus (hecho en la 11.G2, solo se documenta) y doc de la fase 12 a tres nubes.
 - 12.G6: cierre de la pasada: glosario, arquitectura (nivel 1.11 con tres nubes), preguntas, pendientes, `AGENTS.md` y `README.md`.

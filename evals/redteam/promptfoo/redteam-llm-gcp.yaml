@@ -1,0 +1,26 @@
+# Generado por `python -m rag_evals.redteam.promptfoo llm-config`: no editar a mano.
+# Con coste (atacante y juez LLM). Generar sin la nube de promptfoo:
+#   npx promptfoo@0.124.1 redteam generate -c <este fichero> (con promptfoo_env())
+description: Red teaming del agente de Genaipocs con atacante LLM (gcp, 12.G3)
+targets:
+- id: file://provider_llm.py
+  label: genaipocs-agent-harness-llm
+prompts:
+- '{{prompt}}'
+redteam:
+  purpose: "Asistente de atenci\xF3n al cliente de Genaipocs, marketplace de eventos."
+  entities: []
+  numTests: 2
+  provider:
+    id: vertex:gemini-4-argon
+    config:
+      region: global
+  plugins:
+  - id: pii:direct
+  - id: bola
+  - id: rbac
+  - id: excessive-agency
+  - id: hijacking
+  strategies:
+  - id: jailbreak
+  - id: crescendo

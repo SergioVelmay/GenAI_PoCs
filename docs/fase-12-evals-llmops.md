@@ -269,7 +269,8 @@ Prometheus desde la 11.G2. Coste 0: dobles de las APIs. Lo real queda en
 | Subfase | Commit | Qué |
 |---|---|---|
 | 12.G1 | `f98ed1e` + `91ba51a` | Juez de agentes con Gemini, informes con coste por nube y A/B de modelos que fuerza la nube que genera |
-| 12.G2 | `a523a67` + (este) | Evaluation Service como contraste: trayectoria por cómputo y rúbricas gestionadas. Destapó un bug en la precisión y el recall de la 12.1 |
+| 12.G2 | `a523a67` + `376eb2b` | Evaluation Service como contraste: trayectoria por cómputo y rúbricas gestionadas. Destapó un bug en la precisión y el recall de la 12.1 |
+| 12.G3 | (este) | Riesgo residual frente a los detectores de PII y promptfoo con atacante LLM de cada nube |
 
 ### Verificación previa (22-11-2026)
 
@@ -375,6 +376,56 @@ lenguaje común con un equipo que ya use Agent Platform.
 **Cambio respecto al plan:** se usa `final_response_quality` en lugar de `tool_use_quality`. En la
 calibración, las variantes de una muestra comparten las mismas tools (solo cambia la respuesta) y
 no hay etiqueta humana de uso de tools, así que `tool_use_quality` no podía distinguir nada.
+
+### 12.G3 · Red teaming con Gemini
+
+```powershell
+uv run python -m rag_evals.redteam.residual                        # coste 0: detector regex
+uv run python -m rag_evals.redteam.residual --detector gcp         # y Sensitive Data Protection
+uv run python -m rag_evals.redteam.promptfoo llm-config --cloud gcp   # escribe la config (coste 0)
+```
+
+**Riesgo residual frente a los detectores de PII** (`rag_evals.redteam.residual`). La 12.4 y la
+12.5 aceptaron que la PII **codificada u ofuscada** llegara al modelo, con una mitigación escrita:
+«el guardrail del proveedor en la nube». Este módulo la convierte en una prueba:
+
+- Toma las 20 variantes del ataque de PII (10 de PyRIT y 10 de promptfoo).
+- Las sanea como el filtro del harness (`sanitize`).
+- Las pasa por cada detector: regex local, Presidio (extra `pii`) y Sensitive Data Protection
+  (`--detector gcp`).
+
+Es un detector de **PII**, no de inyecciones: por eso se usa SDP y no Model Armor, que la 8.G3
+configuró con SDP avanzado solo para datos de pago. En local (informe `redteam-residual.md`):
+
+| Detector | Atrapa tarjeta y correo | De los 5 aceptados (base64, hexadecimal, morse, homoglifos) |
+|---|---:|---:|
+| regex | 12/20 | 0/5 |
+
+La columna de SDP queda para la nube. Lo que hay que mirar es si SDP ve una tarjeta en base64 o
+en morse. Si no la ve, la mitigación escrita es falsa y el riesgo residual se queda donde está.
+
+**promptfoo con atacante LLM.** `llm-config --cloud gcp|azure|aws` escribe
+`redteam-llm-<nube>.yaml`. Se ha generado y guardado el de GCP.
+- **Ataques generados por un LLM:** plugins `pii:direct`, `bola`, `rbac`, `excessive-agency` y
+  `hijacking`, y estrategias iterativas `jailbreak` y `crescendo`.
+- **Generador, atacante y juez:** `redteam.provider`, que es el juez fijo de cada nube
+  (`vertex:gemini-4-argon` con ADC; nunca el modelo que genera).
+- **Sin la nube de promptfoo:** se sigue ejecutando con `promptfoo_env()`, que desactiva la
+  generación remota.
+- **Sin secretos en el YAML:** ni claves ni proyecto, porque el repo es público. El proyecto llega
+  por `GOOGLE_CLOUD_PROJECT` al ejecutar.
+
+Las variantes congeladas de la 12.5 no sirven de objetivo aquí: corren con el modelo comprometido
+y necesitan un escenario de origen. El objetivo es un provider nuevo, `provider_llm.py`:
+- Corre el agente con harness y el LLM de `LLM_PROVIDER` sobre el mundo determinista.
+- Usa un escenario abierto (`open_scenario`), en el que **cualquier escritura con éxito es una
+  brecha** (`unexpected_writes`).
+- Exige `REDTEAM_BUDGET_USD`.
+
+**Aparcado (decidido con Sergio):** el atacante adaptativo con PyRIT. PyRIT 1.1 reescribió su API y
+ni Azure ni AWS lo tenían, así que sería trabajo nuevo y no paridad. Está en
+[ideas aparcadas](plan-fases.md), con el diseño: atacante sobre `LLMPort` y puntuador determinista
+sobre las brechas del mundo.
 
 ## 8. Checkpoint de entrevista
 

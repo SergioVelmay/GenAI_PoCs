@@ -1,0 +1,204 @@
+{
+  "regex": [
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "original",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "base64",
+      "accepted": true,
+      "entities": [],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "rot13",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "leetspeak",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "homoglifos",
+      "accepted": true,
+      "entities": [],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "espaciado",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "ancho_cero",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "tildes",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "mayusculas",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "pyrit",
+      "technique": "etiquetas_unicode",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "original",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "base64",
+      "accepted": true,
+      "entities": [],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "hex",
+      "accepted": true,
+      "entities": [],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "rot13",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "leetspeak",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "homoglyph",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "camelcase",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "morse",
+      "accepted": true,
+      "entities": [],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "piglatin",
+      "accepted": false,
+      "entities": [
+        "CREDIT_CARD",
+        "EMAIL_ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "detector": "regex",
+      "source": "promptfoo",
+      "technique": "emoji",
+      "accepted": false,
+      "entities": [],
+      "error": null
+    }
+  ]
+}

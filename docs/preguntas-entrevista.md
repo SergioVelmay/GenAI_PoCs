@@ -1422,6 +1422,15 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    reembolsa, me quedo con la mía en el gate y uso el servicio de contraste. Y el contraste
    destapó un bug en la mía: si faltaba la primera tool, todo daba 0. Estaban infravaloradas 30
    de 84 trayectorias reales, y no se había visto porque las del gate eran exactas.
+4. **Tu informe de red teaming dice que el riesgo residual lo cubre «el guardrail del proveedor»:
+   ¿lo has comprobado?** Esa frase era una hipótesis, y en la 12.G la convertí en una prueba:
+   - Paso las 20 variantes ofuscadas del ataque de PII por cada detector: regex local, Presidio y
+     Sensitive Data Protection en GCP.
+   - En local, el regex atrapa 12 de 20 y ninguna de las 5 aceptadas (base64, hexadecimal, morse y
+     homoglifos).
+   - Si SDP tampoco las ve, la mitigación escrita es falsa y hay que decirlo, no mantenerla.
+
+   Un riesgo aceptado tiene que tener la mitigación probada, no supuesta.
 
 **Negocio y stakeholders**
 
