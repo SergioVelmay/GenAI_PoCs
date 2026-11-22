@@ -14,8 +14,21 @@ de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 
 **Decisión de GCP (checkpoint 12→13):** región `europe-west4`, presupuesto de 100 $ con alertas al
 50, 75 y 100 % (intentando usar créditos de prueba) y `gcloud` aislado con `CLOUDSDK_CONFIG`. Los
-pendientes de GCP se añaden a la sección de cada fase durante la pasada GCP
-([plan](fase-13-12-checkpoint.md#plan-gcp)); Vector Search y RAG Engine serán efímeros, como AI Search.
+pendientes de GCP están en la sección de cada fase ([plan](fase-13-12-checkpoint.md#plan-gcp));
+Vector Search y RAG Engine serán efímeros, como AI Search.
+
+**Validación de GCP (pasada cerrada en la 12.G6, 22-11-2026).** Quedan 63 casillas abiertas: 5 de
+la fase 0, 7 de la 2, 4 de la 3, 4 de la 4, 4 de la 5, 4 de la 6, 5 de la 7, 5 de la 8, 6 de la 9,
+8 de la 10, 3 de la 11 y 8 de la 12. No es una tarea por casilla: se agrupan por lo que
+encienden, para pagar cada recurso con coste por hora una sola vez.
+
+| Sesión | Qué | Por qué en ese orden |
+|---|---|---|
+| 1 | [Fase 0](#fase-0) y [2.G](#fase-2-gcp): proyecto, APIs, presupuesto, ADC y Gemini | Coste 0 y céntimos. Desbloquea todo lo demás y da las **respuestas reales** con las que sustituir los dobles |
+| 2 | [3.G](#fase-3-gcp), [4.G](#fase-4-gcp) y [5.G](#fase-5-gcp): Pub/Sub, Agent Retrieval, RAG Engine y Agent Search, y sus evals | Los recursos efímeros de RAG se encienden una vez, se indexa, se evalúa y se apagan |
+| 3 | [6.G](#fase-6-gcp), [7.G](#fase-7-gcp) y [8.G](#fase-8-gcp): MCP en Cloud Run, Agent Runtime, Model Armor y SDP | Agentes y guardrails sobre los modelos ya validados. Apigee y Agent Gateway, solo si el presupuesto lo permite |
+| 4 | [9.G](#fase-9-gcp), [10.G](#fase-10-gcp) y [11.G](#fase-11-gcp): A2A, Workflows, Memorystore, CREMA, Cloud Armor y el collector | Lo que tiene coste por hora o por mes (Memorystore, worker pools, ALB): todo junto y apagado al terminar |
+| 5 | [12.G](#fase-12-gcp): juez Gemini, Evaluation Service, red teaming, prompts y experimentos | Céntimos, pero necesita las etiquetas humanas de la calibración |
 
 **Renombrado a Genaipocs (15-11-2026):** el código y Terraform usan ahora `genaipocs`. Los
 recursos de Azure que se crearon con el nombre antiguo **ya no existen** (Sergio los borró), pero

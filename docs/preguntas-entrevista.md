@@ -28,8 +28,8 @@ gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación).
 
 Azure es la experiencia, AWS el rol y GCP la tercera nube de la pasada GCP. En GCP, Vertex AI se
 presenta ahora como **Gemini Enterprise Agent Platform** (Agent Engine pasa a Agent Runtime); las
-APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas de GCP de las fases
-2–12 se confirman en su subfase de la pasada.
+APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas de GCP están
+confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta validar en la nube.
 
 | Necesidad | Azure (experiencia) | AWS (rol) | GCP |
 |---|---|---|---|
@@ -67,11 +67,11 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
 | Trazas de agentes gestionados | Foundry Tracing | AgentCore Observability | Trazas de Agent Runtime en Cloud Trace |
 | Prometheus y Grafana gestionados | Managed Prometheus, Managed Grafana | Amazon Managed Prometheus, Amazon Managed Grafana | Managed Service for Prometheus (Grafana autogestionado) |
 | Evals de RAG gestionadas (LLM-juez) | Foundry Evaluation (`GroundednessEvaluator`, `RelevanceEvaluator`, escala 1-5) | Bedrock Evaluations (RAG: *retrieve only* y *retrieve and generate*) | Gen AI Evaluation Service (`client.evals`, Preview): rúbrica `grounding` (0-1) y métricas LLM propias (`LLMMetric`) |
-| Evals de agentes y LLM-juez | Foundry evaluators (`ToolCallAccuracy`, `IntentResolution`) | Bedrock evaluations (LLM-as-a-judge), AgentCore Evaluations | Gen AI Evaluation Service (métricas de trayectoria) |
-| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | PyRIT o promptfoo contra Bedrock (sin servicio propio) | PyRIT o promptfoo contra Gemini (sin servicio propio) |
-| Prompts versionados | Prompts de Foundry | Bedrock Prompt Management | Gestión de prompts de Agent Platform |
-| Experimentos (MLflow gestionado) | Azure ML (URI de MLflow) | SageMaker con MLflow gestionado | Vertex AI Experiments |
-| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor | SageMaker Model Monitor, CloudWatch Anomaly Detection | Model Monitoring de Vertex AI, alertas de Cloud Monitoring |
+| Evals de agentes y LLM-juez | Foundry evaluators (`ToolCallAccuracy`, `IntentResolution`) | Bedrock evaluations (LLM-as-a-judge), AgentCore Evaluations | Gen AI Evaluation Service: trayectoria por cómputo (`evaluate_instances` de `v1beta1`, Preview; puntúa por conjunto, no por orden) y rúbricas `hallucination_v2` y `final_response_quality_v2` |
+| Red teaming | AI Red Teaming Agent de Foundry (sobre PyRIT) | PyRIT o promptfoo contra Bedrock (sin servicio propio) | promptfoo con `vertex:` de atacante y juez, sin generación remota (sin servicio propio) |
+| Prompts versionados | Prompts de Foundry | Bedrock Prompt Management | Gestión de prompts de Agent Platform (`client.prompts`: cada prompt es un Vertex Dataset; sin etiquetas, la versión de Git va en el nombre de la versión) |
+| Experimentos | Azure ML (URI de MLflow) | SageMaker con MLflow gestionado | Vertex AI Experiments (no habla MLflow: adaptador propio; sin *tags*) |
+| Drift | Azure ML data drift, alertas dinámicas de Azure Monitor | SageMaker Model Monitor, CloudWatch Anomaly Detection | Políticas PromQL de Cloud Monitoring sobre Managed Prometheus, generadas desde el dominio (11.G2) |
 | IaC y CI/CD | Bicep, Azure DevOps | CloudFormation/CDK, CodePipeline | Infrastructure Manager (Terraform gestionado), Cloud Build / Cloud Deploy (Terraform y GitHub Actions en las tres) |
 | Coste | Cost Management, presupuestos | Cost Explorer, AWS Budgets | Informes de Cloud Billing, presupuestos (ojo: miden neto de créditos por defecto) |
 
@@ -1437,6 +1437,18 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    cada prompt es un dataset con un número asignado por GCP, así que lo busco por nombre y uso el
    número de versiones como versión. El agente lee el prompt del paquete, nunca del almacén: si el
    almacén cae, el servicio no se entera.
+6. **¿Por qué en GCP no basta con cambiar la URI de MLflow, como en Azure y AWS?** Porque Vertex AI
+   Experiments no habla MLflow: tiene su propio modelo, sin *tags*, y cada run necesita un id único
+   dentro del experimento. Como el caso de uso registra a través de `ExperimentTrackerPort`, ha
+   bastado un adaptador:
+   - Las *tags* van como parámetros `tag.*`.
+   - El nombre de la variante lleva un sufijo aleatorio, porque `control` se repite en cada
+     ejecución.
+   - Uso la API de objetos (`ExperimentRun.create`) y no el run global de `aiplatform.init`, que es
+     estado del proceso.
+
+   Y el tracker se construye antes de ejecutar las variantes: una configuración rota falla antes
+   de pagar el LLM, no después.
 
 **Negocio y stakeholders**
 
@@ -1444,6 +1456,29 @@ APIs y los recursos de Terraform pueden conservar el nombre antiguo. Las filas d
    de medida, y cambiar de modelo es cambiar de instrumento. Recalibrar cuesta unos céntimos y las
    etiquetas humanas ya están hechas. No hacerlo es aprobar cambios en producción con una vara que
    nadie ha medido.
+2. **Dirección pregunta qué ha aportado montar las evals en una tercera nube.** Dos cosas que no
+   esperábamos:
+   - Comparar con el servicio de Google destapó un bug en nuestra métrica de trayectoria, que
+     infravaloraba 30 de 84 casos reales.
+   - Repetir el A/B de modelos con Gemini destapó que el experimento no cambiaba el modelo fuera de
+     Azure.
+
+   Ninguno se habría visto con una sola nube. El coste fue de cero euros: todo con dobles, y la
+   validación real cuesta céntimos. Además, si mañana Genaipocs necesita Gemini, el ciclo de calidad
+   ya funciona con él.
+3. **¿Usarías las métricas y rúbricas gestionadas en lugar de las tuyas?** Como contraste, sí; como
+   gate, no. Son rápidas de adoptar y sirven de segunda opinión independiente. Pero no las controlo:
+   - No puedo calibrarlas.
+   - Están en Preview y cambian de versión (`_v2`).
+   - La de trayectoria no castiga el orden, que en un reembolso importa.
+
+   Lo que bloquea un despliegue tiene que ser reproducible y estar en el repo. Lo gestionado vigila
+   que lo mío no se desvíe.
+4. **¿Qué gana el negocio con registrar los A/B en Vertex AI Experiments si ya hay un JSONL en
+   Git?** Visibilidad para quien no lee el repo. Producto o el equipo de datos ven en la consola qué
+   variantes se probaron, con qué métricas y qué decidió el dominio. La decisión no cambia, porque
+   la toma `decide()` antes de registrar. Si mañana se usa MLflow o W&B, es otro adaptador del
+   mismo puerto, sin tocar el experimento.
 
 <a id="checkpoint-12-13"></a>
 
