@@ -121,6 +121,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
 | G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | G→13 | Checkpoint: emuladores oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus 2.0.1); siguiente: **fase 13** | ✅ Hecha | — | `docs/fase-13-g-checkpoint.md` |
+| G→13 B | Checkpoint B: ajustes del plan antes de la fase 13 (índice del README por pasada GCP, conectores pendientes de Azure, AWS y GCP) | En curso (rama `fase/g-13-b`) | — | PR draft de la rama |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |
