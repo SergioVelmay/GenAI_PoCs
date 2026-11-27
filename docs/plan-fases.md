@@ -146,6 +146,14 @@ dobles en local y coste 0.
     **CodeBuild `buildspec.yml`**, para comparar con Bicep y Azure Pipelines.
 - **Entregables:** infraestructura reproducible y pipeline de despliegue con gates de evals.
 - **Cubre:** CI/CD, equivalencia de nubes (AWS) y producción.
+- **Primera decisión de la fase** (checkpoint G→13 B, 27-11-2026): la cuenta de AWS de Sergio es
+  de la **nueva experiencia** (proyecto en `eu-north-1`, sin root ni Identity Center, plan Free con
+  crédito hasta el 04-04-2027). Antes de proponer subfases, comprobar en `eu-north-1` Claude Haiku
+  4.5, Knowledge Bases, S3 Vectors y AgentCore, y si el proveedor de Terraform acepta las
+  credenciales de `aws login`; con eso, decidir con Sergio entre quedarse en el proyecto (crédito y
+  límite de gasto, una región; el repo pasaría de `eu-west-1` a `eu-north-1`) o activar las funciones
+  avanzadas (todo AWS, Organizations e Identity Center; irreversible). Detalle en
+  [preparar-cuentas-cloud.md](preparar-cuentas-cloud.md#11-aws-dos-tipos-de-cuenta).
 - **Heredado de fases anteriores** (detalle en [pendientes-cloud.md](pendientes-cloud.md)):
   - Imagen ARM64 del Runtime de AgentCore en ECR (fase 7).
   - Colas del flujo asíncrono con DLQ en SQS y workers con `ORCHESTRATOR__BROKER=sqs` (fase 9).
