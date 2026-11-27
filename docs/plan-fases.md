@@ -9,6 +9,7 @@ en el mismo commit que el cambio.
 - Pasada GCP por las fases 0–12: [plan de GCP](fase-13-12-checkpoint.md#plan-gcp) (subfases `N.G1`...).
 - Pasada de paridad (Azure, AWS y GCP iguales antes de desplegar): [conectores candidatos](conectores-candidatos.md#pasada-p) (subfases `N.P1`...).
 - Lo aplazado por coste o nube: [pendientes-cloud.md](pendientes-cloud.md).
+- Antes de las fases 13–15: [preparar las cuentas de Azure, AWS y GCP](preparar-cuentas-cloud.md) (tarjeta, créditos, limpieza e identidad).
 
 ## Cómo se trabaja cada fase
 
