@@ -13,7 +13,9 @@ de coste fijo) para tener identidad gestionada, Semantic Ranker y Foundry IQ. Pr
 de recursos: 100 €/mes con alertas al 50, 75 y 100 %. AWS, más adelante.
 
 **Decisión de GCP (checkpoint 12→13):** región `europe-west4`, presupuesto de 100 $ con alertas al
-50, 75 y 100 % (intentando usar créditos de prueba) y `gcloud` aislado con `CLOUDSDK_CONFIG`. Los
+50, 75 y 100 % y `gcloud` aislado con `CLOUDSDK_CONFIG`. Desde el 16-11-2026 el crédito de prueba
+ya no cubre Gemini ni Agent Platform: se paga con la cuenta de facturación activada
+([preparar las cuentas](preparar-cuentas-cloud.md), checkpoint G→13 B). Los
 pendientes de GCP están en la sección de cada fase ([plan](fase-13-12-checkpoint.md#plan-gcp));
 Vector Search y RAG Engine serán efímeros, como AI Search.
 
@@ -94,7 +96,7 @@ terraform -chdir=infra/terraform/gcp init
 terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 ```
 
-- [ ] **Cuenta y proyecto**: cuenta nueva con créditos de prueba, proyecto `genaipocs-dev-<sufijo>` vinculado a la cuenta de facturación y `gcloud` aislado con `CLOUDSDK_CONFIG`. Anotar la moneda de la cuenta (el presupuesto la hereda).
+- [ ] **Cuenta y proyecto** ([preparar las cuentas](preparar-cuentas-cloud.md)): cuenta de facturación de pago (el crédito de prueba ya no cubre Gemini ni Agent Platform), proyecto `genaipocs-dev-<sufijo>` vinculado a la cuenta de facturación y `gcloud` aislado con `CLOUDSDK_CONFIG`. Anotar la moneda de la cuenta (el presupuesto la hereda).
 - [ ] **`terraform apply`** de `infra/terraform/gcp` con `terraform.tfvars` (copia de la plantilla): 15 APIs, presupuesto de 100 con alertas al 50/75/100 % sobre el gasto **bruto**, cuenta de servicio `genaipocs-dev-app` con *impersonation* para el usuario y federación de GitHub Actions. Comprobar que llega el correo de prueba del canal de notificación.
 - [ ] **Suplantación desde local**: `GCP__IMPERSONATE_SERVICE_ACCOUNT` en el `.env` y `gcloud auth print-access-token --impersonate-service-account=<cuenta>` responde.
 - [ ] **Federación de la CI** (fase 15): workflow en `main` con `google-github-actions/auth` (`workload_identity_provider` y `service_account` de los outputs) y comprobar que un workflow de una PR **no** obtiene credenciales.
@@ -103,9 +105,9 @@ terraform -chdir=infra/terraform/gcp plan     # revisar antes del apply
 ## Fase 2 · Capa de modelos ([doc](fase-2-modelos.md))
 
 - [x] **Azure CLI** autenticada en un perfil aislado (`AZURE_CONFIG_DIR=%USERPROFILE%\.azure-genaipocs`), suscripción personal de desarrollo, ya eliminada (17-10-2026).
-- [ ] **AWS CLI** (`aws configure sso`, perfil en `BEDROCK__PROFILE`).
+- [ ] **AWS CLI**: instalada y con sesión (`aws login --region eu-north-1 --profile genaipocs`, checkpoint G→13 B.4); falta `BEDROCK__PROFILE=genaipocs` en el `.env` y la región que se decida al iniciar la [fase 13](plan-fases.md#fase-13--despliegue-en-aws-producción-principal) ([cuentas](preparar-cuentas-cloud.md#11-aws-dos-tipos-de-cuenta)).
 - [x] **Azure AI Foundry** como código (`foundry.tf`): cuenta AI Services, proyecto `genaipocs` y despliegues `gpt-4.1-mini`, `gpt-4.1-nano` y `text-embedding-3-small` en `swedencentral`, **DataZoneStandard** (chat 200 K TPM desde el 18-10-2026; embeddings 50 K), con *Cognitive Services OpenAI User* y *Foundry User* para el usuario. `terraform apply` del grupo `rg-genaipocs-dev` (17 recursos; AI Search apagado) el 17-10-2026. Prueba de humo: `gpt-4.1-nano` responde con Entra ID (16 + 2 tokens, 0,0000024 $) y el embedding devuelve 1024 dimensiones. Hallazgos: el proyecto debe crearse en serie con los despliegues (409) y el rol "Azure AI User" se llama ahora "Foundry User". El 18-10-2026 los recursos se recrearon con nombres CAF (`aif-genaipocs-dev-swc-001`...), sin sufijo aleatorio.
-- [ ] **Bedrock** (`eu-west-1`): habilitar el acceso a Claude Haiku 4.5 (formulario de Anthropic) y a Nova Lite.
+- [ ] **Bedrock** (`eu-west-1`): formulario de primer uso de Anthropic para Claude Haiku 4.5; Nova Lite y el resto se habilitan solos en la primera invocación, que acepta su EULA ([preparar las cuentas](preparar-cuentas-cloud.md)).
 - [x] Azure (18-10-2026): `llm_cache_benchmark.py` en los dos tiers (caché −58 % de coste, 98 % de tokens cacheados desde la 2.ª llamada) y `llm_gateway_demo.py` con `native`, `litellm` y router LLM (20/20; el router LLM duplica llamadas sin mejorar el enrutado). Trazas en Langfuse. Capacidad subida a 200 K TPM tras un 429 con 50 K. Detalle en [fase 2](fase-2-modelos.md).
 - [ ] AWS: repetir ambos scripts con `--provider aws` y probar el fallback entre proveedores.
 - [ ] Langfuse local sigue en la imagen `langfuse:3` (OSS v3, parches de seguridad hasta 31-01-2027). El SDK Python v4 es compatible (servidor ≥ 3.63.0). Valorar migrar a la imagen v4 en la fase 11. Ojo: las APIs de lectura nuevas del SDK v4 (`api.observations`, `api.metrics`) necesitan servidor v4; contra el v3 se usa `api.legacy.observations_v1`.

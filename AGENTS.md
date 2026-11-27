@@ -84,6 +84,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 - Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 falta AWS; y GCP en todas). No escribir "asterisco".
 - Pasada GCP: subfases `N.G1`, `N.G2`... por fase (`feat: fase 3.G1 - ...`), con paridad total con Azure y AWS; cada una actualiza el doc de su fase y la columna GCP de la tabla de estado.
+- Pasada de paridad: subfases `N.P1`, `N.P2`... por fase (`feat: fase 8.P1 - ...`, rama `fase/<N>-p`), con el alcance de `docs/conectores-candidatos.md#pasada-p`; cada una añade una sección "Paridad (pasada N.P)" al doc de su fase.
 - Informes de evals que se regeneran al pasar los gates (`evals/reports/*`): si solo cambian latencias (p50/p95), se restauran siempre sin preguntar con `uv run python scripts/restore_latency_reports.py` (JSON y Markdown: comprueba que solo cambian claves `*_ms` o columnas `ms` de las tablas y, si no, no toca nada; `git restore` sigue en `ask`) y se informa; si cambian campos o resultados, entran en el commit.
 
 ## Entorno y problemas conocidos
@@ -120,7 +121,9 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | 12 | Evals de agentes, red teaming, LLMOps (prompts versionados, A/B, drift) | ✅ Hecha* | ✅* | `docs/fase-12-evals-llmops.md` |
 | 12→13 | Checkpoint: glosario, arquitectura por niveles y plan de GCP | ✅ Hecha | — | `docs/fase-13-12-checkpoint.md` |
 | G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
-| G→13 | Checkpoint: emuladores oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus 2.0.1); siguiente: **fase 13** | ✅ Hecha | — | `docs/fase-13-g-checkpoint.md` |
+| G→13 | Checkpoint: emuladores oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus 2.0.1) | ✅ Hecha | — | `docs/fase-13-g-checkpoint.md` |
+| G→13 B | Checkpoint B: índice del README por pasada GCP, conectores contrastados con el repo, pasada de paridad y cuentas revisadas (`docs/preparar-cuentas-cloud.md`) | ✅ Hecha | — | `docs/fase-13-g-checkpoint-b.md` |
+| P | **Pasada de paridad**: Azure, AWS y GCP iguales antes de desplegar (subfases `N.P1`...); siguiente: **2.P** si se aceptan sus ampliaciones (si no, 5.P, el primer hueco de paridad) | | — | `docs/conectores-candidatos.md#pasada-p` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |
