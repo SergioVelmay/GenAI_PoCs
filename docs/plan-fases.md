@@ -7,6 +7,7 @@ en el mismo commit que el cambio.
 
 - Estado de cada fase: tabla de `AGENTS.md`. Lo hecho y medido: `docs/fase-N-*.md`.
 - Pasada GCP por las fases 0–12: [plan de GCP](fase-13-12-checkpoint.md#plan-gcp) (subfases `N.G1`...).
+- Pasada de paridad (Azure, AWS y GCP iguales antes de desplegar): [conectores candidatos](conectores-candidatos.md#pasada-p) (subfases `N.P1`...).
 - Lo aplazado por coste o nube: [pendientes-cloud.md](pendientes-cloud.md).
 
 ## Cómo se trabaja cada fase
@@ -102,6 +103,30 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   `integration`. **ElasticMQ se queda** (G→13.5) para ejecutar el sistema en local; el AWS Emulator,
   para la fidelidad y la IaC. Ninguna casilla de `pendientes-cloud.md` se cierra con emuladores.
 
+<a id="pasada-p"></a>
+
+## Pasada de paridad (P) · Azure, AWS y GCP iguales antes de desplegar
+
+Añadida el 27-11-2026 en el checkpoint G→13 B (decisión de Sergio: los despliegues de las fases 13,
+14 y 15 parten de las tres nubes iguales). Va **antes de la fase 13**.
+
+**Objetivo:** cerrar los huecos de paridad que dejaron las fases 0–12 (una nube tiene el servicio
+implementado y las otras no) y añadir los conectores gestionados de las tres nubes que se
+investigaron, con la misma mecánica que la pasada GCP: subfases `N.P1`..., rama `fase/<N>-p`,
+dobles en local y coste 0.
+
+- **Compromiso** (huecos de paridad): 5.P Bedrock Evaluations, 6.P API Center, 7.P memoria de
+  Foundry, 8.P PII con Azure AI Language y Comprehend, 9.P espera humana con Step Functions y Durable
+  Functions, 12.P prompts de Foundry y Bedrock Prompt Management, y MLflow gestionado de SageMaker y
+  Azure ML.
+- **Ampliaciones** (se deciden al iniciar cada `N.P`): prompt routing gestionado, mismo modelo por
+  otra nube, parsing gestionado, eventos gestionados, Event Hubs, Cosmos DB con vectores, DiskANN y
+  ScaNN, GraphRAG, AgentCore Policy e Identity saliente, Bedrock Agents, AgentCore Evaluations y AI
+  Red Teaming Agent, con sus equivalentes en las otras nubes.
+- **Detalle**, comprobación contra el repo y lo que se queda en los despliegues:
+  [conectores-candidatos.md](conectores-candidatos.md).
+- **Cubre:** equivalencia de nubes (Azure → AWS → GCP) con código, no solo con chuletas.
+
 ## Fase 13 · Despliegue en AWS (producción principal)
 
 **Objetivo:** llevar todo a la nube de Genaipocs con IaC y CI/CD.
@@ -134,9 +159,11 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   - `edge_api` detrás de un balanceador: fijar `--forwarded-allow-ips` de uvicorn (por defecto confía
     en `X-Forwarded-For` desde 127.0.0.1; ver `services/edge_api/src/edge_api/identity.py`).
   - Workflow de CI para los jueces LLM (manual o programado, con OIDC y `--budget-usd`).
-  - Carril A de evals en AWS: **Bedrock Evaluations** no tiene código (sí Foundry Evaluation en
-    Azure y Evaluation Service en GCP); implementarlo y medirlo con el mismo conjunto (fase 5,
-    detectado en el repaso del checkpoint G→13; decisión de Sergio: se trata en la 13).
+  - Carril A de evals en AWS (**Bedrock Evaluations**): asignado a la 13 en el checkpoint G→13,
+    **se adelanta a la 5.P** de la [pasada de paridad](#pasada-p) (checkpoint G→13 B). Aquí solo
+    se ejecuta en la nube.
+  - Los servicios de AWS que son configuración del despliegue (*usage plans*, AgentCore
+    Observability, KEDA en EKS, CDK, SAM local): [conectores-candidatos.md](conectores-candidatos.md#23-se-quedan-en-las-fases-de-despliegue).
 
 ## Fase 14 · Despliegue espejo en Azure
 
@@ -157,7 +184,10 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   tokens de servicio de Entra ID para A2A (fase 9), `--forwarded-allow-ips` como en la 13. Del
   checkpoint G→13: la subida incremental de blobs del carril A (`upload_if_changed`) ya está
   probada contra Azurite, pero no la identidad gestionada ni RBAC; y `azurerm` no puede apuntar a
-  ningún emulador, así que el primer `plan` de Azure es el real.
+  ningún emulador, así que el primer `plan` de Azure es el real. Del checkpoint G→13 B: los
+  servicios de Azure que son configuración del despliegue (APIM como AI gateway, Front Door + WAF,
+  Foundry Tracing, KEDA en AKS, Bicep, Functions Core Tools, Microsoft MCP Gateway):
+  [conectores-candidatos.md](conectores-candidatos.md#23-se-quedan-en-las-fases-de-despliegue).
 
 ## Fase 15 · Despliegue espejo en GCP
 
@@ -170,7 +200,8 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
 - **Heredado:** los pendientes de GCP de cada subfase `N.G` en
   [pendientes-cloud.md](pendientes-cloud.md). Del checkpoint G→13: Cloud Storage no tiene emulador
   oficial y ningún emulador de GCP sirve para aplicar el Terraform, así que su subida y la IaC solo
-  se validan en la nube.
+  se validan en la nube. Del checkpoint G→13 B: AlloyDB, KEDA en GKE e Infrastructure Manager
+  ([conectores-candidatos.md](conectores-candidatos.md#23-se-quedan-en-las-fases-de-despliegue)).
 
 ## Fase 16+ · Extras
 
@@ -200,7 +231,6 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   con el bucle `requires_action` → `function_result` como `foundry`, si la prueba de *custom
   functions* en Agent Platform sale bien ([pendientes](pendientes-cloud.md#fase-7-gcp)) y deja de
   ser Pre-GA.
-- **Espera humana con SLA en Azure y AWS** (de la 9.G5): en GCP la hace Workflows (`await_callback` con plazo → `case.reviews`); el dominio (`ReviewHandler`, `CaseReviewService.expire`) ya es común. Faltan Step Functions con `.waitForTaskToken` y `TimeoutSeconds` y Durable Functions con `WaitForExternalEvent` y un temporizador: candidatas a las fases 13 y 14.
 - **Atacante adaptativo con PyRIT en las tres nubes** (de la 12.G3, decidido con Sergio): ataques
   multiturno (`RedTeamingAttack`, `CrescendoAttack`) con el atacante como un `PromptTarget` propio
   sobre `LLMPort` (cualquier nube, con `CostMeter`). El objetivo sería el agente con harness y el
