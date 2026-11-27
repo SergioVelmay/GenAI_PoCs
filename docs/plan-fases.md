@@ -104,6 +104,15 @@ desplegar y reducir lo que hoy queda en `pendientes-cloud.md`.
   `integration`. **ElasticMQ se queda** (G→13.5) para ejecutar el sistema en local; el AWS Emulator,
   para la fidelidad y la IaC. Ninguna casilla de `pendientes-cloud.md` se cierra con emuladores.
 
+<a id="checkpoint-g-13-b"></a>
+
+## Checkpoint G→13 B · Ajustes del plan antes de desplegar
+
+**Hecho (27-11-2026, PR #18):** índice del README con una fila por pasada GCP, conectores
+contrastados con el repo, la pasada de paridad que sigue y las cuentas personales de las tres nubes
+revisadas (inventario sin coste; la región y el tipo de cuenta de AWS se deciden al iniciar la fase
+13). Detalle en [fase-13-g-checkpoint-b.md](fase-13-g-checkpoint-b.md).
+
 <a id="pasada-p"></a>
 
 ## Pasada de paridad (P) · Azure, AWS y GCP iguales antes de desplegar

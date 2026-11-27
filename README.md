@@ -118,6 +118,7 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 | 11.G | GCP · Observabilidad: Telemetry API y Managed Prometheus, 36 alertas PromQL generadas desde los SLO, logs enlazados con Cloud Trace | ✅* | [11.G](docs/fase-11-observabilidad.md#7-gcp-pasada-11g) |
 | 12.G | GCP · Evals de agentes y LLMOps: juez Gemini, Evaluation Service de contraste, promptfoo con atacante LLM, prompts en Agent Platform, Vertex AI Experiments | ✅* | [12.G](docs/fase-12-evals-llmops.md#7-gcp-pasada-12g) |
 | G→13 | Checkpoint: emuladores locales oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus fijado en 2.0.1; Pub/Sub ya estaba) | ✅ | [checkpoint](docs/fase-13-g-checkpoint.md) |
+| G→13 B | Checkpoint B: índice por pasada GCP, conectores contrastados con el repo, pasada de paridad en el plan y cuentas de las tres nubes revisadas | ✅ | [checkpoint](docs/fase-13-g-checkpoint-b.md) |
 | P | Pasada de paridad: Azure, AWS y GCP iguales antes de desplegar (Bedrock Evaluations, API Center, memoria de Foundry, PII de Azure y AWS, Step Functions y Durable Functions, prompts gestionados...) | Plan | [conectores candidatos](docs/conectores-candidatos.md#pasada-p) |
 | 13–16+ | Despliegue en AWS, Azure y GCP; extras | Plan | [plan de fases](docs/plan-fases.md) |
 

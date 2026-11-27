@@ -34,6 +34,7 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 | Necesidad | Azure (experiencia) | AWS (rol) | GCP |
 |---|---|---|---|
 | Unidad de aislamiento y facturación | Suscripción + grupo de recursos | Cuenta (Organizations) | **Proyecto**: facturación, cuotas, APIs e IAM cuelgan de él |
+| Cuenta de desarrollo y tope de gasto (G→13 B) | Prueba gratuita con límite de gasto; después, pago por uso con presupuestos | **Nueva experiencia**: proyecto con Builder ID, una región, `aws login` y **límite de gasto** duro; funciones avanzadas (irreversible) = Organizations e Identity Center con presupuestos | Prueba sin cobro automático; después, presupuestos sin tope duro (el crédito ya no cubre Gemini) |
 | Habilitar un servicio | Resource providers (casi siempre automático) | Implícito | **Cada API por proyecto** (`google_project_service`); sin ella, `SERVICE_DISABLED` |
 | Modelos | Azure OpenAI / AI Foundry | Bedrock (Converse API, perfiles de inferencia entre regiones) | Gemini en Agent Platform con `google-genai` (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`; endpoint `global` o multirregión `eu`) |
 | Prompt caching | Automático (prefijos ≥ 1024 tokens, escritura gratis) | Explícito con `cachePoint` (en Claude, escritura +25 %) | Implícito (≥ 4096, *best-effort*) o explícito con `CachedContent` (TTL, almacenamiento por hora; no en Gemini 4) |
@@ -1586,3 +1587,50 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    Firestore o Spanner, que no usamos: más contenedores sin valor. Tampoco adopté uno de la
    comunidad para Cloud Storage: la regla era "oficial", y su ausencia queda documentada como riesgo
    de GCP.
+
+<a id="checkpoint-g-13-b"></a>
+
+## Checkpoint G→13 B · Paridad entre nubes y cuentas antes de desplegar ([doc](fase-13-g-checkpoint-b.md))
+
+### Técnicas
+
+1. **¿Cómo sabes si tu sistema multinube tiene paridad de verdad?** Lo comprobé contra el código,
+   no contra la chuleta: busqué cada servicio en código, IaC y docs. Salieron huecos en los que una
+   nube tenía el servicio y las otras no. GCP tenía PII gestionado (Sensitive Data Protection),
+   prompts versionados y registro MCP; Azure y AWS, no. AWS no tenía carril A de evals. Los convertí
+   en una pasada propia (`N.P`) antes de desplegar, para que cada despliegue no herede un hueco
+   distinto.
+2. **¿Qué se queda en la fase de despliegue y qué no?** Lo que es código de dominio o un adaptador
+   detrás de un puerto va antes, en local y con dobles: PII, prompts o la espera humana con Step
+   Functions. Lo que es configuración de la infraestructura desplegada va con el despliegue: APIM
+   como AI gateway, Front Door, *usage plans*, KEDA. El criterio es si cambia la paridad del
+   producto o solo cómo se opera.
+3. **¿Qué diferencia una cuenta de AWS de la nueva experiencia de una clásica?** La nueva usa
+   proyectos con AWS Builder ID, sin usuario root. Tiene una sola región, que se asigna por país
+   (`eu-north-1` en España), y una lista cerrada de servicios: sin IAM Identity Center,
+   Organizations ni Comprehend. Controla el gasto con un límite duro. Las credenciales salen de
+   `aws login` y son temporales, sin claves. Activar las funciones avanzadas la convierte en una
+   organización clásica, de forma **irreversible**. En Azure, lo más parecido es pasar de una
+   suscripción de prueba a pago por uso bajo un tenant propio.
+4. **¿Cómo evitas tocar la nube equivocada?** Con perfiles de CLI aislados por proyecto
+   (`AZURE_CONFIG_DIR`, `CLOUDSDK_CONFIG`, perfil de AWS con nombre) y comprobando la cuenta **en un
+   paso aparte** antes de cualquier inventario, `plan` o borrado. Aprendí esto último por un error:
+   un inventario de solo lectura recorrió una suscripción corporativa porque el perfil "aislado"
+   seguía con la sesión del trabajo.
+
+### Negocio y stakeholders
+
+1. **¿Por qué retrasar el despliegue para hacer una pasada de paridad?** Porque desplegar con
+   huecos multiplica el coste: cada fase de despliegue tendría que implementar y además desplegar,
+   con la factura corriendo. Hacerlo antes, en local y con coste 0, deja en las fases 13–15 solo
+   lo que necesita nube. Para Genaipocs, eso significa que la promesa de "podemos movernos de nube"
+   es verificable, no un diagrama.
+2. **¿Cómo planteas a dirección la elección de cuenta en AWS?** Es control de gasto frente a
+   capacidad de empresa. El proyecto de la nueva experiencia tiene crédito y un **tope de gasto
+   duro**, pero una sola región y no tiene Organizations. Las funciones avanzadas dan lo que tendría
+   Genaipocs en producción (multicuenta, SCP, SSO), son irreversibles y cambian el tope por
+   presupuestos con alertas. No lo decidí en abstracto: queda como primer paso de la fase 13,
+   después de comprobar qué servicios hay en la región.
+3. **¿Qué dejaste fuera?** Los conectores OSS, SaaS y de modelos locales: no aportan paridad entre
+   nubes y los modelos locales chocan con una regla del proyecto (solo modelos cloud). Quedan como
+   backlog con su encaje en los puertos, para elegirlos cuando una fase lo pida.
