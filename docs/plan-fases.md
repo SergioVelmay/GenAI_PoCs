@@ -17,7 +17,7 @@ en el mismo commit que el cambio.
    Azure ↔ AWS ↔ GCP ↔ framework.
 2. **Implementación** pequeña, incremental y ejecutable en local (`docker compose`).
 3. **Revisión de Sergio** antes de cada commit.
-4. **Checkpoint de entrevista**: preguntas técnicas y de negocio en `preguntas-entrevista.md`.
+4. **Preguntas y respuestas**: preguntas técnicas y de negocio en `preguntas-y-respuestas.md`.
 
 Los carriles (A gestionado, B SDK nativo, C framework) se aplican solo donde tienen sentido. AWS es
 la nube de "producción" de Genaipocs; Azure y GCP son espejos.
@@ -129,10 +129,15 @@ dobles en local y coste 0.
   Foundry, 8.P PII con Azure AI Language y Comprehend, 9.P espera humana con Step Functions y Durable
   Functions, 12.P prompts de Foundry y Bedrock Prompt Management, y MLflow gestionado de SageMaker y
   Azure ML.
-- **Ampliaciones** (se deciden al iniciar cada `N.P`): prompt routing gestionado, mismo modelo por
-  otra nube, parsing gestionado, eventos gestionados, Event Hubs, Cosmos DB con vectores, DiskANN y
-  ScaNN, GraphRAG, AgentCore Policy e Identity saliente, Bedrock Agents, AgentCore Evaluations y AI
-  Red Teaming Agent, con sus equivalentes en las otras nubes.
+- **Ampliaciones** (se deciden al iniciar cada `N.P`): prompt routing gestionado, parsing
+  gestionado, eventos gestionados, Event Hubs, Cosmos DB con vectores, DiskANN y ScaNN, GraphRAG,
+  AgentCore Policy e Identity saliente, Bedrock Agents, AgentCore Evaluations y AI Red Teaming
+  Agent, con sus equivalentes en las otras nubes.
+- **2.P (✅ Hecha\*, 28-11-2026, PR #19):** entra el router gestionado de las tres nubes (en AWS, con Nova:
+  el router de Bedrock no admite Claude, y se documenta como hallazgo). "Mismo modelo por otra
+  nube" sale de la pasada y pasa a [extras](#fase-16--extras): primero se quiere medir cómo cambia
+  el comportamiento con el proveedor de cada nube (OpenAI en Azure, Anthropic y Amazon en AWS,
+  Gemini en GCP).
 - **Detalle**, comprobación contra el repo y lo que se queda en los despliegues:
   [conectores-candidatos.md](conectores-candidatos.md).
 - **Cubre:** equivalencia de nubes (Azure → AWS → GCP) con código, no solo con chuletas.
@@ -163,6 +168,10 @@ dobles en local y coste 0.
   límite de gasto, una región; el repo pasaría de `eu-west-1` a `eu-north-1`) o activar las funciones
   avanzadas (todo AWS, Organizations e Identity Center; irreversible). Detalle en
   [preparar-cuentas-cloud.md](preparar-cuentas-cloud.md#11-aws-dos-tipos-de-cuenta).
+  Dos datos más de la verificación de la 2.P (28-11-2026): el router gestionado de Bedrock (Nova)
+  **no está en `eu-north-1`** (sí en `eu-west-1`, `eu-central-1` y `eu-west-3` con perfil `eu.`), y
+  Anthropic ya marca Claude Haiku 4.5 como *legacy* (sucesor: Haiku 5.5; en Bedrock no tiene fecha
+  de fin antes de mayo de 2027): decidir aquí si el modelo `strong` de AWS pasa a Haiku 5.5.
 - **Heredado de fases anteriores** (detalle en [pendientes-cloud.md](pendientes-cloud.md)):
   - Imagen ARM64 del Runtime de AgentCore en ECR (fase 7).
   - Colas del flujo asíncrono con DLQ en SQS y workers con `ORCHESTRATOR__BROKER=sqs` (fase 9).
@@ -231,6 +240,14 @@ dobles en local y coste 0.
 - Modelos *self-hosted* (vLLM en EKS/AKS/GKE con GPU) frente a la API gestionada.
 - **Text-to-SQL analítico** sobre un *data warehouse* (Redshift / Athena frente a Fabric / Synapse
   frente a BigQuery). La fase 8 cubre solo el text-to-SQL operativo.
+- **Mismo modelo por otra nube** (sacado de la 2.P el 28-11-2026): fallback "mismo modelo, otra
+  nube" con Claude en las tres (Bedrock, Foundry y Agent Platform) en vez de "otro modelo". Se
+  retoma después de medir el comportamiento entre proveedores. Detalle y verificación en
+  [conectores-candidatos.md](conectores-candidatos.md#mismo-modelo).
+- **Modelos de decisión** (*System One*, investigados el 28-11-2026): Microsoft-Decision,
+  Gemini Decision, Jev o Strands Decider detrás de un `DecisionPort`, para routing, triaje, juez de
+  primer filtro y guardrails. Aún sin paridad entre nubes ni madurez. Detalle y dónde encaja:
+  [conectores-candidatos.md](conectores-candidatos.md#modelos-de-decision).
 
 ## Ideas aparcadas (sin fase asignada)
 
@@ -242,9 +259,11 @@ dobles en local y coste 0.
   subida de esas librerías puede romper los adaptadores sin que nadie lo vea.
 - **Clasificador de seguridad** basado en un modelo razonador sin capa de respuesta (Sergio lo
   mencionó al principio; sin referencia concreta). Encajaría en el routing (fase 2) o como guardrail
-  (fase 8). Alternativas conocidas: modelos de política como Llama Guard o gpt-oss-safeguard.
-- **Repaso de entrevista** (del checkpoint 12→13): historias STAR, OWASP LLM Top 10, EU AI Act,
-  fine-tuning frente a RAG, multimodal, FinOps y un simulacro.
+  (fase 8). Alternativas conocidas: modelos de política como Llama Guard o gpt-oss-safeguard, y
+  los [modelos de decisión](conectores-candidatos.md#modelos-de-decision) (28-11-2026).
+- **Repaso final** (del checkpoint 12→13): casos contados con el método STAR, OWASP LLM Top 10,
+  EU AI Act, fine-tuning frente a RAG, multimodal, FinOps y un ejercicio práctico de presentación
+  de la arquitectura.
 - **Sabor `managedagents`** (de la 7.G5): la Managed Agents API (Antigravity) como décimo sabor,
   con el bucle `requires_action` → `function_result` como `foundry`, si la prueba de *custom
   functions* en Agent Platform sale bien ([pendientes](pendientes-cloud.md#fase-7-gcp)) y deja de

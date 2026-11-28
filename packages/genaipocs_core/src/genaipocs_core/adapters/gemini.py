@@ -37,7 +37,13 @@ from google.genai import Client, errors, types
 
 from genaipocs_core.adapters.gcp_auth import gcp_credentials
 from genaipocs_core.adapters.gemini_cache import CachePrefix, ExplicitCache
-from genaipocs_core.config import GcpSettings, GeminiSettings, ScaleRedisSettings, ThinkingLevel
+from genaipocs_core.config import (
+    GcpSettings,
+    GeminiSettings,
+    RoutingPreference,
+    ScaleRedisSettings,
+    ThinkingLevel,
+)
 from genaipocs_core.ports import (
     ChatMessage,
     LLMContentFilterError,
@@ -327,11 +333,17 @@ class GeminiLLM:
         *,
         thinking_level: ThinkingLevel = "",
         explicit_cache: ExplicitCache | None = None,
+        routing_preference: RoutingPreference | None = None,
     ) -> None:
+        if routing_preference is not None and (thinking_level or explicit_cache is not None):
+            # El modelo lo elige el router: ni el razonamiento ni una caché ligada a un modelo
+            # concreto tienen sentido (y un nivel válido en uno da 400 en otro).
+            raise LLMError("Con Model Optimizer no se fijan thinking_level ni caché explícita.")
         self._models = models
         self._model = model
         self._thinking_level = thinking_level
         self._explicit_cache = explicit_cache
+        self._routing_preference = routing_preference
 
     @property
     def explicit_cache(self) -> ExplicitCache | None:
@@ -369,6 +381,17 @@ class GeminiLLM:
             )
         return cls(client.aio.models, model, thinking_level=thinking_level, explicit_cache=explicit)
 
+    @classmethod
+    def router_from_settings(cls, gcp: GcpSettings, gemini: GeminiSettings) -> Self:
+        """Model Optimizer (2.P, experimental): un único "modelo" que elige el de Gemini según
+        `GEMINI__ROUTER_PREFERENCE`; el elegido llega en `model_version`. Siempre con la caché
+        implícita: la explícita va ligada a un modelo concreto."""
+        return cls(
+            gemini_client(gcp, gemini).aio.models,
+            gemini.router_model,
+            routing_preference=gemini.router_preference,
+        )
+
     async def _request(
         self,
         messages: Sequence[ChatMessage],
@@ -387,6 +410,12 @@ class GeminiLLM:
                 else None
             ),
         )
+        if self._routing_preference is not None:
+            config.model_selection_config = types.ModelSelectionConfig(
+                feature_selection_preference=types.FeatureSelectionPreference(
+                    self._routing_preference
+                )
+            )
         if response_schema is not None:
             config.response_mime_type = "application/json"
             config.response_json_schema = dict(response_schema.json_schema)

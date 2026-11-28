@@ -522,6 +522,6 @@ flowchart LR
   (`workflows.callbacks.send`); en la fase 15, la consola de operaciones detrás de IAP pondrá la
   identidad verificada.
 
-## 8. Checkpoint de entrevista
+## 8. Preguntas y respuestas
 
-Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-9).
+Preguntas técnicas y de negocio: [preguntas-y-respuestas.md](preguntas-y-respuestas.md#fase-9).

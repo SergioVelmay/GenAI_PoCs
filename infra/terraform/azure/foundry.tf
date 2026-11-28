@@ -124,6 +124,35 @@ resource "azurerm_cognitive_deployment" "judge" {
   depends_on = [azurerm_cognitive_deployment.embedding]
 }
 
+# ---------- Router gestionado (pasada 2.P) ----------
+# `model-router`: un clasificador entrenado por Microsoft elige el modelo de cada petición
+# (LLM_GATEWAY__ROUTER=managed). azurerm no modela `properties.routing` (modo y subconjunto):
+# va con azapi. Coste: tarifa por millón de tokens de entrada + el modelo elegido; sin coste fijo.
+# Con Data Zone Standard nunca enruta a Claude (solo hay versiones Global Standard).
+resource "azapi_resource" "model_router" {
+  count     = var.foundry_enabled && var.model_router_enabled ? 1 : 0
+  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-10-01-preview"
+  name      = var.model_router.name
+  parent_id = azurerm_cognitive_account.foundry[0].id
+
+  body = {
+    sku = {
+      name     = var.foundry_deployment_sku
+      capacity = var.model_router.capacity_k_tpm
+    }
+    properties = {
+      model = { format = "OpenAI", name = "model-router", version = var.model_router.version }
+      routing = {
+        mode = var.model_router.mode
+        # Subconjunto: los mismos modelos que elige el routing propio, para comparar decisiones.
+        models = [for m in var.model_router.models : { format = "OpenAI", name = m.name, version = m.version }]
+      }
+    }
+  }
+
+  depends_on = [azurerm_cognitive_deployment.judge]
+}
+
 # ---------- Permisos para desarrollar en local con `az login` ----------
 
 resource "azurerm_role_assignment" "me_foundry_openai" {

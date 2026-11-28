@@ -47,6 +47,9 @@ class AzureOpenAISettings(BaseModel):
     embedding_deployment: str = "text-embedding-3-small"
     # Juez de evals: modelo distinto y más capaz que el generador (sesgo de autopreferencia).
     judge_deployment: str = "gpt-4.1"
+    # Router gestionado (2.P, `LLM_GATEWAY__ROUTER=managed`): despliegue de `model-router`, con el
+    # modo (Balanced/Quality/Cost) y el subconjunto de modelos fijados en el despliegue.
+    router_deployment: str = "model-router"
 
 
 class BedrockSettings(BaseModel):
@@ -58,6 +61,10 @@ class BedrockSettings(BaseModel):
     judge_model_id: str = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
     # Bedrock Rerank (p. ej. Cohere Rerank 3.5); la disponibilidad depende de la region.
     rerank_model_arn: str = ""
+    # Router gestionado (2.P, `LLM_GATEWAY__ROUTER=managed`): ARN de un prompt router, p. ej. el
+    # de Nova por defecto (`aws bedrock list-prompt-routers`). Solo enruta dentro de una familia
+    # (Nova o Llama; no Claude) y no está en todas las regiones (no en eu-north-1).
+    prompt_router_arn: str = ""
 
 
 class GcpSettings(BaseModel):
@@ -80,6 +87,8 @@ class GcpSettings(BaseModel):
 # Profundidad de razonamiento de Gemini 3+/4 (sustituye a `thinking_budget`). Vacío = el valor
 # por defecto del modelo. Cada modelo admite un subconjunto: `minimal` da 400 en Gemini 4.
 type ThinkingLevel = Literal["", "minimal", "low", "medium", "high"]
+# Preferencia del router gestionado de Gemini (Model Optimizer, 2.P).
+type RoutingPreference = Literal["PRIORITIZE_QUALITY", "BALANCED", "PRIORITIZE_COST"]
 
 
 class GeminiSettings(BaseModel):
@@ -111,6 +120,10 @@ class GeminiSettings(BaseModel):
     # Razonamiento del juez, propio (no el del generador): `low` acota coste y latencia por
     # muestra; si la calibración en la nube da peor kappa que Azure, probar `medium`.
     judge_thinking_level: ThinkingLevel = "low"
+    # Router gestionado (2.P, `LLM_GATEWAY__ROUTER=managed`): Model Optimizer (experimental),
+    # que elige el modelo de Gemini según la preferencia. El razonamiento lo decide él.
+    router_model: str = "model-optimizer-exp-04-09"
+    router_preference: RoutingPreference = "BALANCED"
     # Tiempo máximo de una llamada (el SDK no reintenta: los reintentos son del gateway).
     timeout_seconds: float = 120.0
     # implicit: Gemini cachea solo los prefijos repetidos (best-effort, sin coste de escritura).
@@ -154,7 +167,9 @@ class PubSubSettings(BaseModel):
 class LLMGatewaySettings(BaseModel):
     # native: gateway propio (carril B). litellm: Router de LiteLLM (carril C).
     engine: Literal["native", "litellm"] = "native"
-    router: Literal["heuristic", "llm"] = "heuristic"
+    # heuristic / llm: clasificador propio. managed (2.P): el router gestionado de cada nube
+    # (`AZURE_OPENAI__ROUTER_DEPLOYMENT`, `BEDROCK__PROMPT_ROUTER_ARN`, `GEMINI__ROUTER_MODEL`).
+    router: Literal["heuristic", "llm", "managed"] = "heuristic"
     # Proveedores a los que saltar, en orden, si el principal (`LLM_PROVIDER`) falla (2.G2: con
     # tres nubes, una cadena). En el entorno, separados por comas: `aws,gcp`. Vacío = sin fallback.
     fallback_providers: Annotated[tuple[LLMProvider, ...], NoDecode] = ()

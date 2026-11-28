@@ -1,6 +1,6 @@
 """Tools de ticketing para el agente de atención al cliente de Genaipocs.
 
-Decisiones de diseño (las que se defienden en una entrevista):
+Decisiones de diseño (las que hay que saber defender):
 - La identidad del cliente viene de `ToolContext` (token autenticado), nunca del modelo: así
   un prompt injection no puede leer ni reembolsar pedidos de otra persona (confused deputy).
 - Cada tool devuelve una *proyección*: solo los campos que el modelo necesita (sin email,

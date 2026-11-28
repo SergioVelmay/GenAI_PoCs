@@ -5,7 +5,7 @@
                         ├─▶ knowledge ─┘        └─(resto)──────▶ output
                         └─▶ (default) unroutable
 
-Diferencias con LangGraph que importan en una entrevista:
+Diferencias con LangGraph que conviene saber explicar:
 - Mensajes tipados en lugar de un estado compartido: cada `Executor` declara qué tipo recibe y
   qué tipo envía (`WorkflowContext[Out, WorkflowOut]`); el enrutado por tipo se valida al
   construir el grafo. LangGraph comparte un `TypedDict` y cada nodo devuelve actualizaciones.

@@ -524,6 +524,6 @@ La *recording rule* `drift:psi` se expande dentro de cada política, y pasa los 
 `promtool` que la local (el drift de intenciones salta y el estable no). Una alerta nueva de
 drift en el dominio llega sola a GCP. Ver la [11.G2](fase-11-observabilidad.md#11g2--alertas-de-cloud-monitoring-generadas).
 
-## 8. Checkpoint de entrevista
+## 8. Preguntas y respuestas
 
-Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-12).
+Preguntas técnicas y de negocio: [preguntas-y-respuestas.md](preguntas-y-respuestas.md#fase-12).

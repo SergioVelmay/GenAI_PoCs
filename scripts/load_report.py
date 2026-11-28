@@ -83,7 +83,7 @@ def main() -> None:
         "",
         "Generado con `scripts/load_report.py` a partir de los CSV de Locust "
         "(`loadtests/locustfile.py`, forma `FestivalOnSale`). Análisis y conclusiones: "
-        "[fase-10-escala.md](../../../docs/fase-10-escala.md#pruebas-de-carga).",
+        "[fase-10-escala.md](../../../docs/fase-10-escala.md#107--pruebas-de-carga-e-informe-de-límites).",
         "",
     ]
     for prefix in args.prefixes:

@@ -5,7 +5,7 @@ description: Explica un concepto técnico de forma didáctica y anclada en este 
 
 # Explicar un concepto
 
-Sergio prepara entrevistas de AI Technical Lead (50 % técnico, 50 % negocio y stakeholders; producción en AWS): necesita entenderlo, saber defenderlo y saber explicarlo a quien no es técnico.
+Sergio aprende el rol de AI Technical Lead (50 % técnico, 50 % negocio y stakeholders; producción en AWS): necesita entenderlo, saber defenderlo y saber explicarlo a quien no es técnico.
 
 1. **Definición en una frase**, sin jerga innecesaria.
 2. **Equivalencia** con algo que ya domina (Azure, Foundry, MAF, FastMCP, AI Search, Bicep, Azure DevOps) y su traducción a **AWS** (y a GCP si aporta).
@@ -13,6 +13,6 @@ Sergio prepara entrevistas de AI Technical Lead (50 % técnico, 50 % negocio y s
 4. **Azure ↔ AWS ↔ GCP ↔ framework** si aplica.
 5. **Trampas habituales** o límites.
 6. **Por qué le importa a Genaipocs**: impacto en negocio, coste o riesgo, en 2–3 frases que entendería un stakeholder no técnico.
-7. **Preguntas de entrevista**: una técnica y una de negocio, con respuesta modelo de 2–3 frases cada una.
+7. **Preguntas y respuestas**: una técnica y una de negocio, con respuesta modelo de 2–3 frases cada una.
 
 Si la pregunta es "por qué pasa X" (un test saltado, un aviso de la CI), comprobarlo primero con evidencia (salida del comando, código) y decir si es correcto o si estamos ignorando algo. No implementar cambios salvo que Sergio lo pida.

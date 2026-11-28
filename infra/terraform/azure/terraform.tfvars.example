@@ -21,6 +21,8 @@ search_enabled = false
 # Fase 2: Foundry (cuenta AI Services + proyecto + despliegues). Sin coste fijo, pago por token.
 foundry_enabled        = true
 foundry_deployment_sku = "DataZoneStandard" # procesamiento dentro de la UE (RGPD)
+# Pasada 2.P: router gestionado `model-router` (tarifa por token de entrada + el modelo elegido).
+model_router_enabled = false
 
 # Fase 8.4: Content Safety F0 (gratuito, cuota mensual limitada; 1 por suscripción).
 content_safety_enabled = true

@@ -1,10 +1,10 @@
 # Glosario e inventario de librerías · Fases 0–12 y checkpoint G→13
 
-Chuleta para la entrevista: los términos y siglas que más se repiten en el repo y las librerías
+Chuleta de repaso: los términos y siglas que más se repiten en el repo y las librerías
 que usamos, con **qué son**, **para qué sirven** y **dónde aparecen aquí** (para poder anclar
 cada respuesta en algo construido). Las respuestas largas viven en
-[preguntas-entrevista.md](preguntas-entrevista.md); la equivalencia de servicios, en su
-[chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
+[preguntas-y-respuestas.md](preguntas-y-respuestas.md); la equivalencia de servicios, en su
+[chuleta Azure → AWS → GCP](preguntas-y-respuestas.md#chuleta).
 
 Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a alguien de negocio
 (una frase) y la columna "En este repo" como la evidencia que das si piden detalle.
@@ -55,6 +55,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Gateway** (genérico) | Punto de entrada único que centraliza lo transversal (auth, cuotas, logs) delante de varios servicios. | Hay tres: LLM gateway, MCP gateway y el edge (`edge_api`). |
 | **LLM gateway** | Capa entre el código y los proveedores de modelos: routing, fallback, cuotas, coste, trazas. | `adapters/llm_factory.build_gateway`; propio o LiteLLM tras el mismo puerto (fase 2). |
 | **Model routing** | Elegir el modelo más barato capaz para cada petición. | Triaje: 18/20 emails al modelo barato con 100 % de acierto; las escrituras siempre al potente. |
+| **Router gestionado** | Servicio de la nube que elige el modelo de cada petición con un clasificador propio del proveedor. | 2.P: Foundry model router, Bedrock prompt router y Model Optimizer detrás de `LLM_GATEWAY__ROUTER=managed`, con la regla de dominio delante. |
 | **Fallback** | Si un modelo/proveedor falla, pasar a otro configurado. | Configuración del gateway; en los agentes, fallback determinista al agotar iteraciones. |
 | **Prompt caching** | El proveedor reutiliza el prefijo estable del prompt: menos coste y latencia. | Azure: automático ≥ 1.024 tokens (98 % cacheado, −58 % coste). Bedrock: explícito con `cachePoint`. |
 | **TPM / RPM** | *Tokens/Requests Per Minute*: la cuota de un despliegue de modelo. | Un 429 con 50 K TPM y prompts de 10 K; la cuota es el techo del autoescalado (fase 10). |
@@ -318,7 +319,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Build vs buy** | Construir o comprar (servicio gestionado). | Comprar lo que no diferencia; construir dominio, harness y evals. |
 | **Lock-in** | Dependencia de un proveedor difícil de abandonar. | Mitigado con puertos y Terraform en las tres nubes. |
 | **Opcionalidad** | Poder cambiar de proveedor de forma barata cuando convenga, sin estar en varios a la vez (multi-cloud activo-activo multiplica la operación). | La pasada GCP: tercera nube con las mismas evals. |
-| **PoC → piloto → producción** | Prueba de concepto, uso real acotado y despliegue general, con criterios de salida. | Transversales de `preguntas-entrevista.md`. |
+| **PoC → piloto → producción** | Prueba de concepto, uso real acotado y despliegue general, con criterios de salida. | Transversales de `preguntas-y-respuestas.md`. |
 | **RGPD / DPO** | Reglamento europeo de protección de datos / delegado de protección de datos. | Datos sintéticos y redacción de PII. |
 | **Postmortem sin culpables** | Análisis de un incidente centrado en el sistema, no en personas, con acciones. | Cada ataque encontrado se convierte en test de regresión. |
 

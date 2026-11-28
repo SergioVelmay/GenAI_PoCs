@@ -345,7 +345,7 @@ uv run python -m rag_evals.attacks --mode llm --budget-usd 0.20               # 
 - Doc a tres nubes: comparativa con columna GCP (§4), nueve sabores en los ataques (§5) y
   pendientes de GCP (§8).
 
-## 10. Checkpoint de entrevista
+## 10. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 8](preguntas-entrevista.md#fase-8).
+[preguntas y respuestas · fase 8](preguntas-y-respuestas.md#fase-8).

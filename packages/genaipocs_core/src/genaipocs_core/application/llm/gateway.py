@@ -458,12 +458,20 @@ class ObservedLLM:
         prices: PriceTable,
         name: str,
         metadata: Mapping[str, str] | None = None,
+        router: str | None = None,
     ) -> None:
         self._inner = inner
         self._tracer = tracer
         self._prices = prices
         self._name = name
         self._metadata = dict(metadata or {})
+        # Router gestionado (2.P) delante del modelo: su tarifa se suma al coste.
+        self._router = router
+
+    def _cost(self, response: LLMResponse) -> Decimal | None:
+        if self._router is None:
+            return self._prices.cost(response.model, response.usage)
+        return self._prices.routed_cost(self._router, response.model, response.usage)
 
     async def complete(
         self,
@@ -493,7 +501,7 @@ class ObservedLLM:
         except Exception as exc:
             observation.fail(exc)
             raise
-        observation.finish(response, cost_usd=self._prices.cost(response.model, response.usage))
+        observation.finish(response, cost_usd=self._cost(response))
         return response
 
     async def stream(
@@ -516,8 +524,7 @@ class ObservedLLM:
                     observation.first_token()
                     first = False
                 if isinstance(event, LLMResponse):
-                    cost = self._prices.cost(event.model, event.usage)
-                    observation.finish(event, cost_usd=cost)
+                    observation.finish(event, cost_usd=self._cost(event))
                     finished = True
                 yield event
         except BaseException as exc:
