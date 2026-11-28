@@ -378,7 +378,7 @@ Hallazgos (21-11-2026):
 - **Imagen de los servidores**: `google-auth` no está en la imagen de `mcp-servers` (como
   `azure-identity` para Entra): el gateway en Cloud Run (fase 15) necesitará el extra `gcp`.
 
-## 10. Checkpoint de entrevista
+## 10. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 6](preguntas-entrevista.md#fase-6).
+[preguntas y respuestas · fase 6](preguntas-y-respuestas.md#fase-6).

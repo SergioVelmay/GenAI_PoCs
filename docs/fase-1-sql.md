@@ -163,7 +163,7 @@ PostgreSQL, Azure Database for PostgreSQL Flexible Server, Cloud SQL o AlloyDB),
 autenticación sin contraseña, llega con los despliegues de las fases 13–15
 ([plan](plan-fases.md)).
 
-## 10. Checkpoint de entrevista
+## 10. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 1](preguntas-entrevista.md#fase-1).
+[preguntas y respuestas · fase 1](preguntas-y-respuestas.md#fase-1).

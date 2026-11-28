@@ -124,8 +124,8 @@ ver [pendientes con coste](docs/pendientes-cloud.md).
 
 ✅* = implementación y pruebas locales cerradas; falta la validación en la nube ([pendientes](docs/pendientes-cloud.md)). En las fases 2–8, Azure se validó en el checkpoint 8→9 (3,76 €); faltan AWS y GCP (en GCP, todas las fases). Aviso: la suscripción de Azure de entonces se perdió el 20-11-2026; los resultados se conservan como histórico y los recursos se rehacen en otra suscripción ([pendientes](docs/pendientes-cloud.md)).
 
-Preguntas de entrevista (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
-modelo y una chuleta Azure → AWS → GCP: [preguntas-entrevista.md](docs/preguntas-entrevista.md). Siglas,
+Preguntas y respuestas (técnicas y de negocio/stakeholders) de todas las fases, con respuestas
+modelo y una chuleta Azure → AWS → GCP: [preguntas-y-respuestas.md](docs/preguntas-y-respuestas.md). Siglas,
 términos y librerías del proyecto: [glosario.md](docs/glosario.md).
 
 ## Calidad y CI

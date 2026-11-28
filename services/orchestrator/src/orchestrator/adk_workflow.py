@@ -9,7 +9,7 @@ Por qué un `Workflow` de grafo y no un `LlmAgent` con `sub_agents`: con `sub_ag
 quien decide el traspaso (*agent transfer*). Aquí el triaje clasifica y la ruta la fija el
 DOMINIO (`ctx.route = envelope.specialist`), igual que en LangGraph y MAF.
 
-Diferencias con LangGraph y MAF que importan en una entrevista:
+Diferencias con LangGraph y MAF que conviene saber explicar:
 - Rutas como valores: cada nodo marca `ctx.route` y el mapa de la arista elige el destino
   (`{"refunds": nodo, ...}`); `DEFAULT_ROUTE` es la red de seguridad, como el `Default` de MAF.
 - Human-in-the-loop con `RequestInput`: el nodo cede una petición (una *function call*

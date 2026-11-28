@@ -1,10 +1,10 @@
 # Glosario e inventario de librerías · Fases 0–12 y checkpoint G→13
 
-Chuleta para la entrevista: los términos y siglas que más se repiten en el repo y las librerías
+Chuleta de repaso: los términos y siglas que más se repiten en el repo y las librerías
 que usamos, con **qué son**, **para qué sirven** y **dónde aparecen aquí** (para poder anclar
 cada respuesta en algo construido). Las respuestas largas viven en
-[preguntas-entrevista.md](preguntas-entrevista.md); la equivalencia de servicios, en su
-[chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
+[preguntas-y-respuestas.md](preguntas-y-respuestas.md); la equivalencia de servicios, en su
+[chuleta Azure → AWS → GCP](preguntas-y-respuestas.md#chuleta).
 
 Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a alguien de negocio
 (una frase) y la columna "En este repo" como la evidencia que das si piden detalle.
@@ -318,7 +318,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Build vs buy** | Construir o comprar (servicio gestionado). | Comprar lo que no diferencia; construir dominio, harness y evals. |
 | **Lock-in** | Dependencia de un proveedor difícil de abandonar. | Mitigado con puertos y Terraform en las tres nubes. |
 | **Opcionalidad** | Poder cambiar de proveedor de forma barata cuando convenga, sin estar en varios a la vez (multi-cloud activo-activo multiplica la operación). | La pasada GCP: tercera nube con las mismas evals. |
-| **PoC → piloto → producción** | Prueba de concepto, uso real acotado y despliegue general, con criterios de salida. | Transversales de `preguntas-entrevista.md`. |
+| **PoC → piloto → producción** | Prueba de concepto, uso real acotado y despliegue general, con criterios de salida. | Transversales de `preguntas-y-respuestas.md`. |
 | **RGPD / DPO** | Reglamento europeo de protección de datos / delegado de protección de datos. | Datos sintéticos y redacción de PII. |
 | **Postmortem sin culpables** | Análisis de un incidente centrado en el sistema, no en personas, con acciones. | Cada ataque encontrado se convierte en test de regresión. |
 

@@ -228,8 +228,7 @@ uv run pytest packages/genaipocs_core/tests/integration/test_pubsub_emulator.py 
 GCP: crear el proyecto, `terraform apply` del módulo `gcp` y conectar la CI por federación de
 identidad ([pendientes-cloud.md](pendientes-cloud.md#fase-0)).
 
-## 11. Checkpoint de entrevista
+## 11. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 0](preguntas-entrevista.md#fase-0), con una subsección de la
-pasada GCP.
+[preguntas y respuestas · fase 0](preguntas-y-respuestas.md#fase-0), incluidas las de GCP.

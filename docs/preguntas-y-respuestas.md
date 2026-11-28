@@ -1,26 +1,31 @@
-# Preguntas de entrevista · AI Technical Lead en Genaipocs
+# Preguntas y respuestas (Q&A) · aprendizaje del proyecto Genaipocs
 
-Recopilatorio único para preparar la entrevista: preguntas técnicas y de negocio/stakeholders de
-cada fase, con una respuesta modelo anclada en lo que se ha construido en este repo. Los docs de
-fase explican el detalle; aquí está lo que hay que saber contar.
+Recopilatorio único para aprender y repasar lo investigado y construido: preguntas técnicas y de
+negocio/stakeholders de cada fase, con una respuesta modelo anclada en lo que hay en este repo. Los
+docs de fase explican el detalle; aquí está lo esencial, en formato de pregunta y respuesta.
 
-**El rol:** 50 % liderazgo técnico (arquitectura, decisiones, calidad, equipo) y 50 % negocio y
-gestión de stakeholders (impacto, coste, riesgo, priorización, comunicación). Producción en **AWS**.
+**Perspectiva:** la del AI Technical Lead del proyecto: 50 % liderazgo técnico (arquitectura,
+decisiones, calidad, equipo) y 50 % negocio y gestión de stakeholders (impacto, coste, riesgo,
+priorización, comunicación). Producción en **AWS**.
+
+**Sin secciones por nube:** cada fase tiene sus preguntas técnicas y de negocio; las generales (del
+gateway, de la arquitectura) no nombran ninguna nube, y las de Azure, AWS, GCP o de un framework
+abierto lo dicen en la propia pregunta o en la respuesta.
 
 ## Índice
 
-- [Cómo responder](#como-responder) · [Chuleta Azure → AWS → GCP](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
+- [Cómo están construidas las respuestas](#como-responder) · [Chuleta Azure → AWS → GCP](#chuleta) · [Transversales: liderazgo y stakeholders](#transversales)
 - Siglas, términos y librerías: [glosario e inventario](glosario.md) · Diagramas por niveles: [arquitectura](arquitectura.md)
-- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12) · [checkpoint 12→13](#checkpoint-12-13) · [checkpoint G→13](#checkpoint-g-13)
+- Fases: [0](#fase-0) · [1](#fase-1) · [2](#fase-2) · [3](#fase-3) · [4](#fase-4) · [5](#fase-5) · [6](#fase-6) · [7](#fase-7) · [8](#fase-8) · [checkpoint 8→9](#checkpoint-8-9) · [9](#fase-9) · [10](#fase-10) · [11](#fase-11) · [12](#fase-12) · [checkpoint 12→13](#checkpoint-12-13) · [checkpoint G→13](#checkpoint-g-13) · [checkpoint G→13 B](#checkpoint-g-13-b)
 
 <a id="como-responder"></a>
 
-## Cómo responder
+## Cómo están construidas las respuestas
 
-- **Técnica**: decisión → por qué → qué se sacrifica (trade-off) → cómo se verifica (un dato o un test concreto). Terminar con una evidencia: "lo medí", "hay un test que lo demuestra".
-- **Negocio**: problema de Genaipocs → impacto (KPI) → opciones con coste y riesgo → recomendación → cómo se mide el éxito. Primero la versión de 30 segundos; el detalle, si lo piden.
-- **Nube**: responder primero en AWS y después "en Azure, donde tengo 7 años de experiencia, el equivalente es…". Convierte la falta de experiencia en AWS en experiencia transferible.
-- Decir "no lo sé, lo comprobaría así…" es mejor que inventar. Es lo mismo que pedimos al RAG: abstenerse antes que alucinar.
+- **Técnica**: decisión → por qué → qué se sacrifica (trade-off) → cómo se verifica (un dato o un test concreto). Termina con una evidencia: "lo medí", "hay un test que lo demuestra".
+- **Negocio**: problema de Genaipocs → impacto (KPI) → opciones con coste y riesgo → recomendación → cómo se mide el éxito. Primero la versión de 30 segundos; después, el detalle.
+- **Nube**: primero AWS (producción de Genaipocs) y después el equivalente en Azure, la nube que mejor conozco, y en GCP si aporta. Así lo aprendido en una nube se traslada a las otras.
+- "No lo sé, lo comprobaría así…" es mejor que inventar. Es lo mismo que pedimos al RAG: abstenerse antes que alucinar.
 
 <a id="chuleta"></a>
 
@@ -142,6 +147,26 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    tests de integración y los que tienen coste van aparte y se ejecutan de forma explícita.
 4. **¿Por qué uv?** Resolución y sincronización muy rápidas, workspaces nativos y lockfile
    multiplataforma; `--locked` en CI garantiza builds reproducibles.
+5. **¿Qué cambia al llevar el mismo sistema a GCP?** Tres cosas que no tienen equivalente directo.
+   El *proyecto* es la unidad de facturación, cuotas e IAM, más fuerte que un grupo de recursos.
+   Cada API se habilita por proyecto (`google_project_service`), y hay que añadirla al plan de
+   infraestructura. Y la identidad va por cuentas de servicio que se suplantan, sin claves. Lo demás
+   (dominio, puertos, evals, harness) no cambia: en la 0.G solo se añadieron configuración, IaC y
+   un emulador.
+6. **¿Cómo das acceso a GCP a la CI sin guardar claves?** Con Workload Identity Federation: GitHub
+   emite un token OIDC por ejecución y STS lo cambia por uno temporal de una cuenta de servicio. Es
+   el `AssumeRoleWithWebIdentity` de AWS. El matiz importante es la condición: en `identity.tf` uso
+   los IDs numéricos del repositorio y del dueño (los nombres se pueden volver a registrar) y solo
+   `refs/heads/main`, así que una PR con el workflow modificado no obtiene credenciales.
+7. **Al añadir el SDK de una nube nueva el lock no resolvía. ¿Qué hiciste? (GCP)** `google-genai` iba
+   por la 3.0 y ADK, el framework que lo envuelve, exigía `<3`. En un monorepo con varios
+   frameworks manda el techo del framework, no la última versión del SDK. Por eso metí todas las
+   dependencias de GCP en una subfase propia y temprana, con la suite completa, la CI y la imagen
+   de agentes como prueba: descubrirlo cinco fases después cuesta mucho más.
+8. **¿Cómo evitas que un proveedor nuevo "funcione" por accidente? (GCP)** Las raíces de composición
+   eligen el adaptador con una cadena de `if` cuyo último caso era Bedrock. Al añadir `gcp` al enum,
+   el sistema habría construido Bedrock sin avisar. Ahora un proveedor declarado sin adaptador
+   lanza un error que dice en qué fase llega, y un test lo fija.
 
 ### Negocio y stakeholders
 
@@ -155,45 +180,17 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 3. **¿Cómo explicas Clean Architecture a un product manager?** Como enchufes estándar: el negocio
    es el aparato y los proveedores de IA o de nube son los enchufes. Cambiar de proveedor por precio
    o por calidad es cambiar el adaptador, no rehacer el producto.
-
-### GCP (pasada 0.G)
-
-**Técnicas**
-
-1. **¿Qué cambia al llevar el mismo sistema a GCP?** Tres cosas que no tienen equivalente directo.
-   El *proyecto* es la unidad de facturación, cuotas e IAM, más fuerte que un grupo de recursos.
-   Cada API se habilita por proyecto (`google_project_service`), y hay que añadirla al plan de
-   infraestructura. Y la identidad va por cuentas de servicio que se suplantan, sin claves. Lo demás
-   (dominio, puertos, evals, harness) no cambia: en la 0.G solo se añadieron configuración, IaC y
-   un emulador.
-2. **¿Cómo das acceso a GCP a la CI sin guardar claves?** Con Workload Identity Federation: GitHub
-   emite un token OIDC por ejecución y STS lo cambia por uno temporal de una cuenta de servicio. Es
-   el `AssumeRoleWithWebIdentity` de AWS. El matiz importante es la condición: en `identity.tf` uso
-   los IDs numéricos del repositorio y del dueño (los nombres se pueden volver a registrar) y solo
-   `refs/heads/main`, así que una PR con el workflow modificado no obtiene credenciales.
-3. **Al añadir el SDK de una nube nueva el lock no resolvía. ¿Qué hiciste?** `google-genai` iba
-   por la 3.0 y ADK, el framework que lo envuelve, exigía `<3`. En un monorepo con varios
-   frameworks manda el techo del framework, no la última versión del SDK. Por eso metí todas las
-   dependencias de GCP en una subfase propia y temprana, con la suite completa, la CI y la imagen
-   de agentes como prueba: descubrirlo cinco fases después cuesta mucho más.
-4. **¿Cómo evitas que un proveedor nuevo "funcione" por accidente?** Las raíces de composición
-   eligen el adaptador con una cadena de `if` cuyo último caso era Bedrock. Al añadir `gcp` al enum,
-   el sistema habría construido Bedrock sin avisar. Ahora un proveedor declarado sin adaptador
-   lanza un error que dice en qué fase llega, y un test lo fija.
-
-**Negocio y stakeholders**
-
-1. **Producción está en AWS. ¿Para qué una tercera nube?** No para operar en tres a la vez, que
+4. **Producción está en AWS. ¿Para qué una tercera nube? (GCP)** No para operar en tres a la vez, que
    multiplica el coste operativo. Es *opcionalidad*: poder mover una pieza (por ejemplo, el
    proveedor de modelos) por precio, calidad o una caída regional. La prueba de que la arquitectura
    es portable es que la base para GCP cupo en cuatro subfases pequeñas, con coste 0 y las mismas
    evals. Esa prueba también da poder de negociación con el proveedor actual.
-2. **Finanzas teme la factura de una cuenta nueva. ¿Qué controles pones el primer día?** El
+5. **Finanzas teme la factura de una cuenta nueva. ¿Qué controles pones el primer día? (GCP)** El
    presupuesto existe antes que cualquier recurso, con alertas al 50, 75 y 100 % y previsión al
    100 %. Mide el gasto *bruto*: por defecto GCP descuenta los créditos de prueba y las alertas no
    saltarían hasta agotarlos. Además, lo que se cobra por hora nace apagado (`*_enabled = false`) y
    se enciende solo en sesiones de trabajo.
-3. **¿Cómo explicas la protección de `main` a alguien no técnico?** Como la firma de dos personas
+6. **¿Cómo explicas la protección de `main` a alguien no técnico? (GCP)** Como la firma de dos personas
    en un pago: nada llega a la versión buena sin pasar por una revisión y por todas las
    comprobaciones automáticas (el check `release-gate`). Aplica también a quien administra el
    repositorio y a la IA que escribe código.
@@ -216,6 +213,11 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    toda la creación. Coste: no va en transacción y puede quedar `INVALID`.
 5. **Una consulta no mejora con índices, ¿qué haces?** Si es analítica (recorre todo), sacarla del
    OLTP: réplica de lectura de Aurora, vista materializada o warehouse (Redshift/Athena).
+6. **¿Qué cambia en la capa SQL al pasar a GCP?** Nada del código: esquema, migraciones,
+   bloqueos e idempotencia son PostgreSQL estándar; cambia la cadena de conexión. En GCP elegiría
+   Cloud SQL para PostgreSQL (o AlloyDB si hay mezcla analítica, por su motor columnar) con
+   autenticación IAM, el equivalente de IAM database authentication en Aurora y de Entra ID en
+   Flexible Server. Se despliega en la fase 15.
 
 ### Negocio y stakeholders
 
@@ -230,18 +232,7 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    consulta tarda ~640 ms y recorre los 3 M de pedidos con o sin índices, compitiendo con las
    compras. Negocio con ellos la frescura real que necesitan y la sirvo desde una réplica o un
    warehouse.
-
-### GCP (pasada 0.G, documental)
-
-La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en la comparativa de su
-[doc](fase-1-sql.md#7-comparativa-azure--aws--gcp--framework).
-
-1. **Técnica · ¿Qué cambia en la capa SQL al pasar a GCP?** Nada del código: esquema, migraciones,
-   bloqueos e idempotencia son PostgreSQL estándar; cambia la cadena de conexión. En GCP elegiría
-   Cloud SQL para PostgreSQL (o AlloyDB si hay mezcla analítica, por su motor columnar) con
-   autenticación IAM, el equivalente de IAM database authentication en Aurora y de Entra ID en
-   Flexible Server. Se despliega en la fase 15.
-2. **Negocio · Finanzas quiere los ingresos por ciudad y en GCP está BigQuery. ¿Lo usas?** Sí,
+4. **Finanzas quiere los ingresos por ciudad y en GCP está BigQuery. ¿Lo usas?** Sí,
    pero fuera del camino transaccional: la consulta de ~640 ms sobre 3 M de pedidos va a BigQuery
    (consultas federadas a Cloud SQL o una réplica), como iría a Redshift o Athena en AWS. Así las
    compras no compiten con los informes.
@@ -270,6 +261,36 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
 5. **¿LiteLLM o gateway propio?** LiteLLM da rapidez y cobertura de proveedores; el propio da control
    y tests deterministas. Aquí conviven tras el mismo puerto y, medidos con los mismos 20 emails,
    dan la misma calidad (20/20), el mismo enrutado y el mismo coste: se elige por control y operación.
+6. **¿Qué tuviste que cambiar en el puerto para añadir Gemini?** Un campo: `ToolCall.signature`.
+   Gemini 3 y 4 devuelven una *thought signature*, un estado opaco de su razonamiento, en la
+   primera llamada a tool de cada paso, y si no se la devuelves en el turno siguiente responde 400.
+   El SDK lo hace solo si reenvías sus objetos, pero nuestro historial es neutro (`ChatMessage`),
+   así que la firma tiene que viajar en él: es lo único que sobrevive a reintentos, fallback y
+   checkpoints. Va en base64 para que el historial siga siendo JSON.
+7. **¿Qué pasa si el gateway salta a Gemini a mitad de una conversación que empezó en Azure?** Las
+   llamadas de Azure no tienen firma y Gemini daría 400. Google documenta un valor ficticio
+   (`skip_thought_signature_validator`) para ese caso, que el adaptador pone solo en la primera
+   llamada de cada paso (duplicarla también da 400). Es un "último recurso" que degrada algo el
+   razonamiento, pero mantiene vivo el fallback, que es lo que importa en una caída.
+8. **¿Cómo encadenas tres nubes en el fallback y qué cambia entre tu gateway y LiteLLM? (GCP)** Una
+   lista ordenada (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`). Cada eslabón tiene su propio
+   breaker y su cuota. Un 429 salta al siguiente sin reintentar; un 5xx se reintenta con backoff y
+   después salta. En LiteLLM es la misma cadena declarada como *fallbacks* del Router. La
+   diferencia que encontré fue la firma de Gemini: LiteLLM la mete dentro del id de la llamada para
+   clientes OpenAI, y un id de 100 caracteres en base64 rompe el salto a Bedrock, que solo acepta
+   `[a-zA-Z0-9_-]`. Por eso el adaptador la saca a `ToolCall.signature`, igual que en el carril B.
+9. **Caché implícita o explícita en Gemini: ¿cuál eliges?** La implícita es gratis pero no está
+   garantizada. La explícita (`CachedContent`) garantiza el 90 % de descuento a cambio de pagar
+   la escritura y el almacenamiento por hora, y congela sistema y tools (no pueden ir en la
+   petición). Con un manual de 9 K tokens en Flash-Lite, la explícita compensa a partir de unas 5
+   peticiones por hora con el mismo prefijo. Además, Gemini 4 no la admite: el adaptador degrada
+   a la implícita en vez de fallar, porque una optimización de coste nunca debe tumbar una
+   petición.
+10. **¿Por qué el adaptador de Gemini ignora la temperatura?** Porque los modelos actuales (3.5+ y
+   Gemini 4) la ignoran y Google anuncia que la rechazará. Lo comprobé en la documentación antes de
+   escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran
+   *legacy*. Lo que se controla es `thinking_level`, por tier, porque el razonamiento se factura
+   como salida: Hydrogen piensa en `high` por defecto y eso multiplica coste y latencia.
 
 ### Negocio y stakeholders
 
@@ -286,56 +307,18 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    lo difícil al potente y las evals confirman que la calidad no baja. En el triaje de soporte, 18
    de 20 emails fueron al modelo barato con un 100 % de acierto. Y un router "inteligente" con otro
    LLM tomó las mismas decisiones a un 42 % más de coste: lo sencillo ganó, y lo demuestro con datos.
-
-### GCP (pasada 2.G)
-
-**Técnicas**
-
-1. **¿Qué tuviste que cambiar en el puerto para añadir Gemini?** Un campo: `ToolCall.signature`.
-   Gemini 3 y 4 devuelven una *thought signature*, un estado opaco de su razonamiento, en la
-   primera llamada a tool de cada paso, y si no se la devuelves en el turno siguiente responde 400.
-   El SDK lo hace solo si reenvías sus objetos, pero nuestro historial es neutro (`ChatMessage`),
-   así que la firma tiene que viajar en él: es lo único que sobrevive a reintentos, fallback y
-   checkpoints. Va en base64 para que el historial siga siendo JSON.
-2. **¿Qué pasa si el gateway salta a Gemini a mitad de una conversación que empezó en Azure?** Las
-   llamadas de Azure no tienen firma y Gemini daría 400. Google documenta un valor ficticio
-   (`skip_thought_signature_validator`) para ese caso, que el adaptador pone solo en la primera
-   llamada de cada paso (duplicarla también da 400). Es un "último recurso" que degrada algo el
-   razonamiento, pero mantiene vivo el fallback, que es lo que importa en una caída.
-4. **¿Cómo encadenas tres nubes en el fallback y qué cambia entre tu gateway y LiteLLM?** Una
-   lista ordenada (`LLM_GATEWAY__FALLBACK_PROVIDERS=aws,gcp`). Cada eslabón tiene su propio
-   breaker y su cuota. Un 429 salta al siguiente sin reintentar; un 5xx se reintenta con backoff y
-   después salta. En LiteLLM es la misma cadena declarada como *fallbacks* del Router. La
-   diferencia que encontré fue la firma de Gemini: LiteLLM la mete dentro del id de la llamada para
-   clientes OpenAI, y un id de 100 caracteres en base64 rompe el salto a Bedrock, que solo acepta
-   `[a-zA-Z0-9_-]`. Por eso el adaptador la saca a `ToolCall.signature`, igual que en el carril B.
-5. **Caché implícita o explícita en Gemini: ¿cuál eliges?** La implícita es gratis pero no está
-   garantizada. La explícita (`CachedContent`) garantiza el 90 % de descuento a cambio de pagar
-   la escritura y el almacenamiento por hora, y congela sistema y tools (no pueden ir en la
-   petición). Con un manual de 9 K tokens en Flash-Lite, la explícita compensa a partir de unas 5
-   peticiones por hora con el mismo prefijo. Además, Gemini 4 no la admite: el adaptador degrada
-   a la implícita en vez de fallar, porque una optimización de coste nunca debe tumbar una
-   petición.
-3. **¿Por qué el adaptador de Gemini ignora la temperatura?** Porque los modelos actuales (3.5+ y
-   Gemini 4) la ignoran y Google anuncia que la rechazará. Lo comprobé en la documentación antes de
-   escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran
-   *legacy*. Lo que se controla es `thinking_level`, por tier, porque el razonamiento se factura
-   como salida: Hydrogen piensa en `high` por defecto y eso multiplica coste y latencia.
-
-**Negocio y stakeholders**
-
-1. **Google duplica los precios de dos modelos en las próximas semanas. ¿Qué haces?** Es el riesgo
+4. **Google duplica los precios de dos modelos en las próximas semanas. ¿Qué haces?** Es el riesgo
    de proveedor que justifica el gateway: los precios viven en una tabla versionada (ya con las
    subidas), el coste se mide por petición y cambiar de modelo es configuración, no un proyecto.
    Antes de cambiar, las evals de la fase 5 dicen si el modelo alternativo mantiene la calidad, así
    que la decisión se toma con datos de coste y calidad, no por miedo a la factura.
-2. **Dirección pregunta: ¿tres proveedores de modelos no es complicarse?** El código de negocio
+5. **Dirección pregunta: ¿tres proveedores de modelos no es complicarse? (GCP)** El código de negocio
    solo conoce un puerto, así que el tercer proveedor ha sido un adaptador más (tres subfases sin
    tocar casos de uso). A cambio, el asistente de Genaipocs sigue respondiendo si una nube se cae o
    agota su cuota, y negociamos precios con alternativas reales. Lo que sí cuesta es operarlo:
    tres cuotas, tres facturas y evals que validen cada modelo. Por eso en producción dejaría AWS
    como principal y las otras dos como respaldo, no reparto de tráfico.
-3. **¿Cómo explicas la caché de prompts a Finanzas?** Como un descuento por repetir: el manual de
+6. **¿Cómo explicas la caché de prompts a Finanzas? (GCP)** Como un descuento por repetir: el manual de
    políticas que acompaña a cada pregunta se cobra entero la primera vez y un 90 % más barato las
    siguientes. En una nube el descuento es automático pero no garantizado; en otra lo garantizas
    pagando un pequeño "alquiler" por hora. Decidimos con el benchmark, por volumen: con tráfico
@@ -369,6 +352,36 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    la causa no era el servicio sino nuestro script: resubía todos los blobs y eso cambia su
    fecha de modificación. Con una comprobación de MD5 antes de subir, 0 cambios = 0 procesados.
    Lección: "gestionado" no te quita la responsabilidad de la idempotencia.
+7. **¿Qué cambia al llevar tu cola de SQS a Pub/Sub?** Que Pub/Sub separa el tema (donde se
+   publica) de la suscripción (donde viven los mensajes): los workers comparten una suscripción
+   para repartirse el trabajo, y publicar en un tema sin suscripciones pierde el mensaje. Por eso
+   la DLQ es un tema **con su propia suscripción**. El reintento es un *nack* y el backoff lo pone
+   la `retry_policy` de la suscripción; el error permanente se publica a mano en la DLQ, como en
+   SQS. El mismo test de contrato que pasan RabbitMQ, SQS y Service Bus lo pasa Pub/Sub contra el
+   emulador (5 de 5), con una diferencia: Pub/Sub exige un mínimo de 5 entregas antes de la DLQ.
+8. **¿Qué permiso se olvida casi todo el mundo con la DLQ de Pub/Sub?** El del agente de servicio
+   de Pub/Sub: tiene que poder publicar en el tema DLQ y suscribirse a la suscripción original. Sin
+   eso, la dead-letter policy aparece configurada pero no mueve nada y el mensaje se reintenta
+   para siempre. En `pubsub.tf` va explícito, junto con los permisos por recurso de la app.
+9. **¿Por qué Agent Retrieval y no Vector Search en GCP?** Porque Vector Search 2.0 salió GA en
+   marzo de 2026 con otro nombre (Agent Retrieval) y otro modelo: *collections* que guardan el
+   objeto JSON con su vector, filtros tipo `$eq` y pago por uso, mucho más cerca de S3 Vectors.
+   Vector Search 1.0 obliga a desplegar un endpoint con VMs por horas aunque nadie consulte. Lo vi
+   en la verificación previa, no en el plan, que tenía una semana: por eso cada fase empieza
+   comprobando la documentación. Al adaptarlo aparecieron tres bordes que el puerto oculta: IDs
+   RFC1035 (hash determinista), ausencia de *upsert* (crear o reemplazar) y números que vuelven
+   como `float` (metadatos también en JSON).
+10. **Gemini pide `task_type` en los embeddings: ¿qué cambia?** El vector de un documento y el de
+   una consulta se optimizan distinto (`RETRIEVAL_DOCUMENT` frente a `RETRIEVAL_QUERY`), algo que
+   ni Azure OpenAI ni Titan hacen. El puerto ya separaba `embed_texts` de `embed_query`, así que
+   encajó sin tocarlo. Además, recorto a 1024 dimensiones (Matryoshka) para usar el mismo esquema
+   en las tres nubes y normalizo yo, porque Google solo garantiza la norma a 3072.
+11. **¿Cómo garantizas la ACL en RAG Engine si su filtro por metadatos está en preview?** No me
+   apoyo en él: un corpus por nivel de acceso (`public` e `internal`) y la ACL se aplica eligiendo a
+   qué corpus se pregunta. Es separación física de datos en lugar de un filtro que, si falla en
+   silencio, enseña el manual interno a un cliente. El coste es la poda: si un documento pasa de
+   público a interno, primero se importa en el corpus nuevo y después se borra del viejo. Es la
+   misma regla que en todo el repo: una función en preview nunca va en el camino de la seguridad.
 
 ### Negocio y stakeholders
 
@@ -382,49 +395,11 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
 3. **Operaciones cambia una política y quiere que el asistente la sepa ya.** La ingesta es por
    eventos: publicar el documento encola su indexación. Acordaría un objetivo de frescura (p. ej.,
    minutos) y lo mediría como latencia de ingesta, con alertas sobre la DLQ.
-
-### GCP (pasada 3.G)
-
-**Técnicas**
-
-1. **¿Qué cambia al llevar tu cola de SQS a Pub/Sub?** Que Pub/Sub separa el tema (donde se
-   publica) de la suscripción (donde viven los mensajes): los workers comparten una suscripción
-   para repartirse el trabajo, y publicar en un tema sin suscripciones pierde el mensaje. Por eso
-   la DLQ es un tema **con su propia suscripción**. El reintento es un *nack* y el backoff lo pone
-   la `retry_policy` de la suscripción; el error permanente se publica a mano en la DLQ, como en
-   SQS. El mismo test de contrato que pasan RabbitMQ, SQS y Service Bus lo pasa Pub/Sub contra el
-   emulador (5 de 5), con una diferencia: Pub/Sub exige un mínimo de 5 entregas antes de la DLQ.
-2. **¿Qué permiso se olvida casi todo el mundo con la DLQ de Pub/Sub?** El del agente de servicio
-   de Pub/Sub: tiene que poder publicar en el tema DLQ y suscribirse a la suscripción original. Sin
-   eso, la dead-letter policy aparece configurada pero no mueve nada y el mensaje se reintenta
-   para siempre. En `pubsub.tf` va explícito, junto con los permisos por recurso de la app.
-3. **¿Por qué Agent Retrieval y no Vector Search en GCP?** Porque Vector Search 2.0 salió GA en
-   marzo de 2026 con otro nombre (Agent Retrieval) y otro modelo: *collections* que guardan el
-   objeto JSON con su vector, filtros tipo `$eq` y pago por uso, mucho más cerca de S3 Vectors.
-   Vector Search 1.0 obliga a desplegar un endpoint con VMs por horas aunque nadie consulte. Lo vi
-   en la verificación previa, no en el plan, que tenía una semana: por eso cada fase empieza
-   comprobando la documentación. Al adaptarlo aparecieron tres bordes que el puerto oculta: IDs
-   RFC1035 (hash determinista), ausencia de *upsert* (crear o reemplazar) y números que vuelven
-   como `float` (metadatos también en JSON).
-4. **Gemini pide `task_type` en los embeddings: ¿qué cambia?** El vector de un documento y el de
-   una consulta se optimizan distinto (`RETRIEVAL_DOCUMENT` frente a `RETRIEVAL_QUERY`), algo que
-   ni Azure OpenAI ni Titan hacen. El puerto ya separaba `embed_texts` de `embed_query`, así que
-   encajó sin tocarlo. Además, recorto a 1024 dimensiones (Matryoshka) para usar el mismo esquema
-   en las tres nubes y normalizo yo, porque Google solo garantiza la norma a 3072.
-5. **¿Cómo garantizas la ACL en RAG Engine si su filtro por metadatos está en preview?** No me
-   apoyo en él: un corpus por nivel de acceso (`public` e `internal`) y la ACL se aplica eligiendo a
-   qué corpus se pregunta. Es separación física de datos en lugar de un filtro que, si falla en
-   silencio, enseña el manual interno a un cliente. El coste es la poda: si un documento pasa de
-   público a interno, primero se importa en el corpus nuevo y después se borra del viejo. Es la
-   misma regla que en todo el repo: una función en preview nunca va en el camino de la seguridad.
-
-**Negocio y stakeholders**
-
-1. **¿Te cuesta algo tener la ingesta preparada para una tercera nube?** En código, un adaptador
+4. **¿Te cuesta algo tener la ingesta preparada para una tercera nube? (GCP)** En código, un adaptador
    de unas 300 líneas y una línea en la factoría: el caso de uso, el ledger y los tests no
    cambian. En la nube, Pub/Sub cuesta 0 a este volumen (10 GiB al mes gratis). El valor para
    Genaipocs es poder negociar con los proveedores y mover cargas sin reescribir la ingesta.
-2. **Dirección pregunta si el RAG gestionado de GCP sale más barato que el de AWS.** Depende del
+5. **Dirección pregunta si el RAG gestionado de GCP sale más barato que el de AWS.** Depende del
    uso, no del precio por consulta. Bedrock KB sobre S3 Vectors no tiene coste fijo; RAG Engine en
    su nivel Basic levanta un Spanner que se paga por horas aunque nadie pregunte, y AI Search Basic
    ronda los 70 €/mes. Para conocimiento interno con poco tráfico, AWS; para un asistente con uso
@@ -477,6 +452,36 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
     engañosa: los fallos venían del esquema (permitía varias consultas y texto libre en los
     filtros), no de la técnica. Lo arreglé haciendo imposible el error en el esquema y volví a
     medir antes de decidir.
+13. **¿Cómo haces búsqueda híbrida en Agent Retrieval? (GCP)** Con `batch_search_data_objects`: una
+   búsqueda vectorial y una de texto completo en la misma petición, fusionadas en el servidor con
+   RRF (`Ranker(rrf)`), como la híbrida de AI Search. La ACL viaja como filtro JSON en cada
+   búsqueda (`{"acl": {"$in": [...]}}` dentro de un `$and`, porque el filtro admite dos niveles
+   de anidación) y se vuelve a comprobar en cada resultado: uno fuera del alcance es un error, no
+   algo que se descarta. Incluso BM25 solo pasa por el batch, para que el score sea siempre el
+   documentado del ranker.
+14. **Agent Retrieval trae un reranker integrado. ¿Por qué no es tu reranker por defecto? (GCP)** Porque
+   la documentación dice que, si el ranking falla, el batch devuelve el RRF **sin avisar**. Medirías
+   un sistema y estarías sirviendo otro. En Azure pedimos lo contrario (`semantic_error_mode=fail`).
+   Por defecto uso la Ranking API como `RerankerPort`, que falla de forma explícita, y el
+   integrado queda como motor de la comparativa hasta comprobar en la nube cómo se comporta.
+15. **¿Qué ve la Ranking API de tus datos? (GCP)** Solo el título y el texto de candidatos que la app ya
+   autorizó, con su posición como id. Pido la respuesta sin detalles y aplico el orden sobre mis
+   registros originales: el servicio no puede cambiar un texto ni colar un documento. Un id
+   desconocido, repetido o un score no finito es un error, igual que con Bedrock Rerank.
+16. **¿Qué tiene de especial validar las citas de Gemini con RAG Engine?** Tres cosas. Los
+   offsets de cada segmento van en **bytes UTF-8**: si cortas el texto en Python con ellos, la
+   cita se desplaza en cuanto hay una tilde, y en un marketplace en español la hay en casi todas
+   las frases. Cada petición admite **un solo corpus**: con la ACL partida en corpus, un usuario
+   interno exige dos consultas y fusionarlas por posición, porque las distancias de almacenes
+   distintos no se comparan. Y todo el texto no blanco debe estar cubierto por un segmento: lo
+   que el modelo diga sin fuente invalida la respuesta, como en Bedrock.
+17. **GCP tiene dos RAG gestionados, RAG Engine y Agent Search. ¿En qué se diferencian para tu
+   ACL?** En RAG Engine el filtro por metadatos está en preview, así que separé los datos en un
+   corpus por nivel de acceso; en Agent Search el filtro sobre `structData` es GA y lo uso como
+   en AI Search, comprobando además cada fragmento por su ruta. La regla es la misma en las tres
+   nubes: la seguridad no se apoya en una función en preview y todo lo que devuelve el servicio
+   se vuelve a comprobar. Y un detalle que solo se ve leyendo el SDK: el troceo de Agent Search
+   no admite Markdown, así que el corpus se sube como HTML.
 
 ### Negocio y stakeholders
 
@@ -498,58 +503,18 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    validación real del carril gestionado aparecieron seis fallos que los tests locales no podían
    ver (versión de API, valores por defecto, formato de citas). Cada uno quedó con su test de
    regresión basado en la respuesta real capturada.
-
-### GCP (pasada 4.G)
-
-**Técnicas**
-
-1. **¿Cómo haces búsqueda híbrida en Agent Retrieval?** Con `batch_search_data_objects`: una
-   búsqueda vectorial y una de texto completo en la misma petición, fusionadas en el servidor con
-   RRF (`Ranker(rrf)`), como la híbrida de AI Search. La ACL viaja como filtro JSON en cada
-   búsqueda (`{"acl": {"$in": [...]}}` dentro de un `$and`, porque el filtro admite dos niveles
-   de anidación) y se vuelve a comprobar en cada resultado: uno fuera del alcance es un error, no
-   algo que se descarta. Incluso BM25 solo pasa por el batch, para que el score sea siempre el
-   documentado del ranker.
-2. **Agent Retrieval trae un reranker integrado. ¿Por qué no es tu reranker por defecto?** Porque
-   la documentación dice que, si el ranking falla, el batch devuelve el RRF **sin avisar**. Medirías
-   un sistema y estarías sirviendo otro. En Azure pedimos lo contrario (`semantic_error_mode=fail`).
-   Por defecto uso la Ranking API como `RerankerPort`, que falla de forma explícita, y el
-   integrado queda como motor de la comparativa hasta comprobar en la nube cómo se comporta.
-3. **¿Qué ve la Ranking API de tus datos?** Solo el título y el texto de candidatos que la app ya
-   autorizó, con su posición como id. Pido la respuesta sin detalles y aplico el orden sobre mis
-   registros originales: el servicio no puede cambiar un texto ni colar un documento. Un id
-   desconocido, repetido o un score no finito es un error, igual que con Bedrock Rerank.
-
-4. **¿Qué tiene de especial validar las citas de Gemini con RAG Engine?** Tres cosas. Los
-   offsets de cada segmento van en **bytes UTF-8**: si cortas el texto en Python con ellos, la
-   cita se desplaza en cuanto hay una tilde, y en un marketplace en español la hay en casi todas
-   las frases. Cada petición admite **un solo corpus**: con la ACL partida en corpus, un usuario
-   interno exige dos consultas y fusionarlas por posición, porque las distancias de almacenes
-   distintos no se comparan. Y todo el texto no blanco debe estar cubierto por un segmento: lo
-   que el modelo diga sin fuente invalida la respuesta, como en Bedrock.
-
-5. **GCP tiene dos RAG gestionados, RAG Engine y Agent Search. ¿En qué se diferencian para tu
-   ACL?** En RAG Engine el filtro por metadatos está en preview, así que separé los datos en un
-   corpus por nivel de acceso; en Agent Search el filtro sobre `structData` es GA y lo uso como
-   en AI Search, comprobando además cada fragmento por su ruta. La regla es la misma en las tres
-   nubes: la seguridad no se apoya en una función en preview y todo lo que devuelve el servicio
-   se vuelve a comprobar. Y un detalle que solo se ve leyendo el SDK: el troceo de Agent Search
-   no admite Markdown, así que el corpus se sube como HTML.
-
-**Negocio y stakeholders**
-
-1. **¿Cuánto cuesta añadir el reranker de GCP y cuándo lo pagarías?** Por uso: del orden de 1 $
+5. **¿Cuánto cuesta añadir el reranker de GCP y cuándo lo pagarías?** Por uso: del orden de 1 $
    por 1000 consultas y sin recurso fijo, como Bedrock Rerank; el Semantic Ranker de Azure va
    dentro de AI Search Basic (~70 €/mes, con 1000 consultas gratis). En Azure, el ranker subió el
    recall@5 de 0,79 a 0,97 a cambio de ~40 ms. Lo pagaría si el golden dataset muestra la misma
    mejora en GCP; si no, vector solo, que en Azure ya daba 0,95.
-2. **Operaciones quiere que el asistente interno use también el manual de empleados. ¿Qué
+6. **Operaciones quiere que el asistente interno use también el manual de empleados. ¿Qué
    implica en GCP?** Que el usuario interno pregunta a dos corpus (público e interno) y la
    respuesta generada solo admite uno por petición: o se responde desde el interno, o se usa la
    recuperación entre corpus, que está en preview. Lo planteo como decisión de producto con su
    riesgo, no como detalle técnico: separar los datos por ACL es lo que garantiza que un cliente
    nunca vea el manual, y ese aislamiento vale más que la comodidad de una sola consulta.
-3. **Dirección pregunta qué RAG gestionado de GCP elegirías para el asistente de clientes.**
+7. **Dirección pregunta qué RAG gestionado de GCP elegirías para el asistente de clientes.**
    Agent Search por coste y operación: se paga por consulta (unos 4 $ por 1000, con 10 000
    gratis al mes) y no tiene coste por hora, mientras que RAG Engine en su nivel básico paga un
    Spanner aunque nadie pregunte. Además trae abstenciones ante preguntas adversarias. La
@@ -588,6 +553,28 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    autopreferencia). En este repo el router mandaba los dos al mismo modelo sin que nadie lo
    decidiera; ahora el juez es `gpt-4.1`, fijo y fuera del router, y el informe desglosa el coste
    por modelo para que se vea.
+8. **Cambias el juez de Azure a Gemini. ¿Qué puede romperse sin que nadie lo vea?** Tres
+   cosas que encontré al hacerlo: que el juez acabe siendo el generador por una variable de
+   entorno (la fábrica ahora lo rechaza en las tres nubes, no solo en los valores por defecto);
+   que los informes de una nube pisen los de otra (mismos nombres en la misma carpeta: la
+   calibración de Azure se habría perdido); y que el esquema de salida estructurada no lo acepte
+   el otro proveedor (Gemini admite un subconjunto de JSON Schema, así que un test revisa todos
+   los esquemas de los jueces). Y el kappa no se hereda: un juez nuevo se calibra otra vez con las
+   mismas etiquetas humanas.
+9. **¿Cómo pruebas sin coste un SDK en Preview que solo habla con la nube? (GCP)** En dos capas. Los
+   tests de la CI usan los tipos reales del SDK (cargan sin dependencias pesadas) para construir
+   respuestas con la forma exacta del servicio. Y, con el extra instalado, ejecuto el flujo
+   completo de `client.evals.evaluate` sustituyendo solo la llamada HTTP: así veo lo que un doble
+   no ve, como que el contexto viaja en un campo *extra* del caso y, si faltara, la fidelidad
+   saldría 0 sin un solo error. La primera ejecución real captura respuestas para sustituir los
+   dobles.
+10. **Tienes cuatro servicios gestionados de RAG (Foundry IQ, Bedrock KB, RAG Engine, Agent
+   Search). ¿Cómo comparas sus respuestas?** Con la misma muestra del golden dataset y el mismo
+   juez calibrado (`managed_eval`): cada respuesta se juzga frente a los textos que ella misma
+   cita, y una respuesta sin citas cuenta como no fiel sin gastar juez. Se mide fidelidad,
+   abstención correcta, fugas de ACL y latencia; los rechazos del guardarraíl de citas y los
+   bloqueos de contenido son estados, no errores. El informe va a la carpeta de la nube del
+   servicio evaluado, no a la del juez.
 
 ### Negocio y stakeholders
 
@@ -615,37 +602,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    lo calibré: acierta igual que nuestro juez en fidelidad, pero cuesta ~3 veces más y, con su
    escala 1-5, el umbral importa (exigiendo la nota máxima no servía para nada). Lo dejo para
    revisiones periódicas en el portal, que es lo que ve negocio, y el juez propio para la CI.
-
-### GCP (pasada 5.G)
-
-**Técnicas**
-
-1. **Cambias el juez de Azure a Gemini. ¿Qué puede romperse sin que nadie lo vea?** Tres
-   cosas que encontré al hacerlo: que el juez acabe siendo el generador por una variable de
-   entorno (la fábrica ahora lo rechaza en las tres nubes, no solo en los valores por defecto);
-   que los informes de una nube pisen los de otra (mismos nombres en la misma carpeta: la
-   calibración de Azure se habría perdido); y que el esquema de salida estructurada no lo acepte
-   el otro proveedor (Gemini admite un subconjunto de JSON Schema, así que un test revisa todos
-   los esquemas de los jueces). Y el kappa no se hereda: un juez nuevo se calibra otra vez con las
-   mismas etiquetas humanas.
-2. **¿Cómo pruebas sin coste un SDK en Preview que solo habla con la nube?** En dos capas. Los
-   tests de la CI usan los tipos reales del SDK (cargan sin dependencias pesadas) para construir
-   respuestas con la forma exacta del servicio. Y, con el extra instalado, ejecuto el flujo
-   completo de `client.evals.evaluate` sustituyendo solo la llamada HTTP: así veo lo que un doble
-   no ve, como que el contexto viaja en un campo *extra* del caso y, si faltara, la fidelidad
-   saldría 0 sin un solo error. La primera ejecución real captura respuestas para sustituir los
-   dobles.
-3. **Tienes cuatro servicios gestionados de RAG (Foundry IQ, Bedrock KB, RAG Engine, Agent
-   Search). ¿Cómo comparas sus respuestas?** Con la misma muestra del golden dataset y el mismo
-   juez calibrado (`managed_eval`): cada respuesta se juzga frente a los textos que ella misma
-   cita, y una respuesta sin citas cuenta como no fiel sin gastar juez. Se mide fidelidad,
-   abstención correcta, fugas de ACL y latencia; los rechazos del guardarraíl de citas y los
-   bloqueos de contenido son estados, no errores. El informe va a la carpeta de la nube del
-   servicio evaluado, no a la del juez.
-
-**Negocio y stakeholders**
-
-1. **El evaluador gestionado de Google no tiene la métrica que necesitas. ¿Qué haces?**
+7. **El evaluador gestionado de Google no tiene la métrica que necesitas. ¿Qué haces?**
    Lo que hice con la relevancia: no cambiar de criterio para adaptarme a la herramienta. El
    servicio permite definir una métrica propia con un juez LLM; la escribí con la misma escala y
    el mismo criterio que validaron las etiquetas humanas, versionada como cualquier prompt, y así
@@ -684,6 +641,32 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    sesión como si fuera el de un evento, o copiaba el ID de ejemplo de la descripción. Lo arreglé
    con prefijos exactos por tipo de ID, sin ejemplos copiables, y diciendo en el prompt que la
    política la aplica el dominio. Y aun así, las escrituras van al modelo potente.
+8. **¿Cómo haces On-Behalf-Of en GCP?** No existe tal cual. Google STS es RFC 8693, pero solo
+   cambia un token externo por un *access token* de Google para llamar a APIs de Google; no emite
+   un JWT con el audience de un servidor tuyo, que es lo que dan Entra OBO y AgentCore Identity.
+   Lo resolví haciendo del gateway el STS **sin claves**: valida el ID token de Identity Platform
+   y pide a IAM (`signJwt`) que firme, con la clave gestionada por Google de su cuenta de
+   servicio, un JWT por servidor con su `aud`, su `scope`, el cliente en `sub` y el gateway en
+   `act`. Los servidores lo validan con el JWKS público de la cuenta. La cuenta solo tiene un rol
+   propio con `signJwt`: `Token Creator` le dejaría actuar como ella en todo Google Cloud.
+9. **Identity Platform frente a Cognito o Entra como IdP de clientes: ¿qué cambia en el
+   gateway? (GCP)** Que autentica pero no autoriza: sus ID tokens llevan `aud` = proyecto y ningún
+   scope. El gateway exige un usuario válido de ese proyecto y decide él qué scope recibe cada
+   servidor. A cambio, el `customer_id` viaja como *custom claim* puesto por el backend al dar de
+   alta al cliente, que resuelve lo que con Entra quedó abierto (mapear `oid` → cliente sin una
+   tabla). Un usuario autenticado sin ese claim no obtiene ningún token de servidor.
+10. **Gemini en el bucle de tools: ¿qué hay que cuidar?** Las *thought signatures*: Gemini
+   devuelve un estado opaco en la primera llamada de cada paso y exige recibirlo en el turno
+   siguiente (si no, `400`). Lo probé con una conversación de reembolso de tres turnos: dos
+   lecturas en paralelo con la firma solo en la primera, sus resultados agrupados en un turno y
+   la escritura con su propia firma. Cualquier capa que reconstruya el historial (puentes de
+   frameworks, checkpoints) tiene que conservar `ToolCall.signature`.
+11. **Agent Gateway frente a AgentCore Gateway.** AgentCore es un endpoint MCP que agrega
+   servidores y hace el token exchange. Agent Gateway gobierna la **salida** de agentes que corren
+   en Agent Runtime o GKE: solo deja pasar a destinos registrados en Agent Registry, todo está
+   denegado hasta que una política de IAM da permiso al agente por servidor o por tool, y las
+   credenciales las pone Agent Identity (API key, 2LO o 3LO con consentimiento), no un OBO. Es más
+   gobierno de red e identidad que agregación.
 
 ### Negocio y stakeholders
 
@@ -703,48 +686,14 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    potente cuesta ~0,001 $ por turno. Un reembolso mal gestionado cuesta una reclamación y
    tiempo de soporte. La regla es simple y auditable: si el turno puede cambiar algo, modelo
    potente.
-
-### GCP (pasada 6.G)
-
-**Técnicas**
-
-1. **¿Cómo haces On-Behalf-Of en GCP?** No existe tal cual. Google STS es RFC 8693, pero solo
-   cambia un token externo por un *access token* de Google para llamar a APIs de Google; no emite
-   un JWT con el audience de un servidor tuyo, que es lo que dan Entra OBO y AgentCore Identity.
-   Lo resolví haciendo del gateway el STS **sin claves**: valida el ID token de Identity Platform
-   y pide a IAM (`signJwt`) que firme, con la clave gestionada por Google de su cuenta de
-   servicio, un JWT por servidor con su `aud`, su `scope`, el cliente en `sub` y el gateway en
-   `act`. Los servidores lo validan con el JWKS público de la cuenta. La cuenta solo tiene un rol
-   propio con `signJwt`: `Token Creator` le dejaría actuar como ella en todo Google Cloud.
-2. **Identity Platform frente a Cognito o Entra como IdP de clientes: ¿qué cambia en el
-   gateway?** Que autentica pero no autoriza: sus ID tokens llevan `aud` = proyecto y ningún
-   scope. El gateway exige un usuario válido de ese proyecto y decide él qué scope recibe cada
-   servidor. A cambio, el `customer_id` viaja como *custom claim* puesto por el backend al dar de
-   alta al cliente, que resuelve lo que con Entra quedó abierto (mapear `oid` → cliente sin una
-   tabla). Un usuario autenticado sin ese claim no obtiene ningún token de servidor.
-3. **Gemini en el bucle de tools: ¿qué hay que cuidar?** Las *thought signatures*: Gemini
-   devuelve un estado opaco en la primera llamada de cada paso y exige recibirlo en el turno
-   siguiente (si no, `400`). Lo probé con una conversación de reembolso de tres turnos: dos
-   lecturas en paralelo con la firma solo en la primera, sus resultados agrupados en un turno y
-   la escritura con su propia firma. Cualquier capa que reconstruya el historial (puentes de
-   frameworks, checkpoints) tiene que conservar `ToolCall.signature`.
-4. **Agent Gateway frente a AgentCore Gateway.** AgentCore es un endpoint MCP que agrega
-   servidores y hace el token exchange. Agent Gateway gobierna la **salida** de agentes que corren
-   en Agent Runtime o GKE: solo deja pasar a destinos registrados en Agent Registry, todo está
-   denegado hasta que una política de IAM da permiso al agente por servidor o por tool, y las
-   credenciales las pone Agent Identity (API key, 2LO o 3LO con consentimiento), no un OBO. Es más
-   gobierno de red e identidad que agregación.
-
-**Negocio y stakeholders**
-
-1. **¿Apigee o Agent Gateway para los servidores MCP de Genaipocs?** Depende de quién llama. Para
+5. **¿Apigee o Agent Gateway para los servidores MCP de Genaipocs?** Depende de quién llama. Para
    nuestros agentes en Agent Runtime, Agent Gateway: gobierno por agente y por tool con IAM. Para
    partners que integran sus agentes contra nuestro catálogo, Apigee: productos de API, cuotas por
    cliente, analítica y lista de tools por proxy, como un canal de producto. El coste también
    decide: Apigee de pago por uso ronda 365 $/mes por entorno antes de la primera llamada; la
    evaluación es gratis 60 días y no vale para producción. Lo generé todo desde los contratos
    versionados para que ninguna de las dos listas de tools se desalinee del código.
-2. **Seguridad pregunta quién firma los tokens de los servidores en GCP. ¿Qué respondes?** Google,
+6. **Seguridad pregunta quién firma los tokens de los servidores en GCP. ¿Qué respondes?** Google,
    con una clave que no sale de su infraestructura y rota sola; nosotros solo tenemos permiso para
    pedir firmas con esa cuenta, y cada firma queda en la auditoría de IAM. Cada token dura cinco
    minutos, vale para un único servidor y dice quién actúa por quién. Y un aviso que doy antes de
@@ -783,6 +732,51 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    servicio guarda también las salidas de las tools y cuesta un 33 % más, y no recorta hasta
    acercarse a la ventana del modelo. Gestionarla tú da control de coste y de qué se recuerda; el
    servicio da menos código. En soporte con conversaciones largas, lo haría yo.
+8. **Cambias el modelo a Gemini y el agente de LangGraph empieza a dar `400` en el segundo paso.
+   ¿Qué miras?** Las *thought signatures*: Gemini devuelve con la primera llamada a tool de cada
+   paso un estado opaco de su razonamiento y exige recibirlo de vuelta. Cada framework reconstruye
+   el historial con sus tipos y, si no tiene dónde guardarlo, lo pierde: en Strands hay un campo
+   nativo (`reasoningSignature`); en LangChain, LlamaIndex y MAF lo llevé en sus metadatos. Lo
+   cubre un test que firma como Gemini y comprueba la ida y vuelta en los 14 escenarios de cada sabor.
+9. **¿Y qué pasa con las firmas al compactar el historial? (GCP)** En Gemini 4 la firma va ligada al
+   prefijo con el que se generó, y el resumen lo cambia. El parámetro que lo toleraba ya no está
+   documentado, así que no dependo de él: al compactar, el historial conservado va sin firmas y el
+   adaptador manda el validador de *skip* documentado. El coste es razonar algo peor solo en ese
+   turno, que con la histéresis ocurre pocas veces. Lo valido con el modelo real antes de darlo por bueno.
+10. **¿Qué te encontraste al meter ADK detrás de tus contratos?** Tres cosas que un "hello world"
+   no enseña. Escribe su propio prompt de sistema (añade una línea en inglés con su nombre), así
+   que el puente envía el prefijo común. Sustituye `{clave}` del estado de sesión dentro de las
+   instrucciones, así que la identidad no va en el estado sino en la tool del turno. Y trata el
+   límite de iteraciones como un fallo del nodo, con traza en ERROR: lo cambié por un
+   `before_model_callback` que responde con el fallback. Con eso, 14/14, la misma trayectoria y
+   los mismos tokens que el bucle propio, y 6/6 ataques contenidos.
+11. **ADK trae compactación de eventos. ¿Por qué no la usas?** Porque resume después de la
+   invocación y mete el resumen como un turno del propio agente, y yo lo quiero antes del turno
+   y marcado como datos (defensa frente a inyecciones que queden en el historial). Además
+   conserva las firmas de Gemini en los eventos que retiene, que es justo lo que en Gemini 4
+   puede dar `400` tras cambiar el prefijo. La nuestra funciona igual en todos los sabores.
+12. **Agent Runtime frente a AgentCore Runtime: ¿qué cambia para la seguridad?** Los dos ejecutan
+   tu contenedor con un contrato HTTP, pero AgentCore pone el usuario en una cabecera que solo
+   puede fijar quien tiene `InvokeAgentRuntimeForUser`; en Agent Runtime el `user_id` va en el
+   cuerpo y lo puede poner cualquiera con permiso de `query`. Así que la frontera es IAM: solo
+   la cuenta de servicio del backend autenticado puede invocar el agente, y el dueño del hilo se
+   vuelve a comprobar dentro. Con la memoria pasa algo parecido: Sessions no tiene escritura
+   condicional como AgentCore, así que la concurrencia optimista tiene una ventana que hay que
+   conocer.
+13. **¿Cómo limitas qué tools puede usar un agente desplegado en GCP?** Con identidad y política,
+   no con la lista de tools del prompt. El agente corre con Agent Identity (un principal por
+   agente, sin cuenta de servicio que custodiar) y toda su salida pasa por Agent Gateway, que
+   deniega por defecto. Una política de acceso de IAM v3 le da `egressViaIAP` por servidor MCP y
+   tool registrados en Agent Registry, generada desde los contratos de los servidores; en AWS es
+   la lista de targets y tools del AgentCore Gateway. La escribí para que falle cerrada: si el
+   *handshake* no casa con la condición, se deniega y se ve en la validación, nunca al revés.
+14. **¿Por qué no usas la Managed Agents API de Google para el agente de reservas?** Porque es
+   Pre-GA y sus condiciones prohíben producción y datos confidenciales, y porque el agente
+   decide dentro de un sandbox con sus propias tools (código, web, MCP directo). Para que fuera un
+   sabor, todas las tools que tocan datos de Genaipocs tendrían que volver a mi harness: la
+   Gemini API lo permite con *custom functions* (`requires_action`), pero en Agent Platform no está
+   documentado para agentes. Lo dejé como prueba de céntimos y, aun así, heredaría el límite de
+   Foundry: el historial es del servicio y no lo compacto yo.
 
 ### Negocio y stakeholders
 
@@ -801,77 +795,24 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    formato. Le daría tres cifras separadas: tareas resueltas, errores reales con su impacto y
    errores bloqueados por las defensas (aquí, un reembolso ajeno que frenó el backend). Y un plan
    para medir mejor antes de decidir nada con ese dato.
-
-### GCP (pasada 7.G)
-
-**Técnicas**
-
-1. **Cambias el modelo a Gemini y el agente de LangGraph empieza a dar `400` en el segundo paso.
-   ¿Qué miras?** Las *thought signatures*: Gemini devuelve con la primera llamada a tool de cada
-   paso un estado opaco de su razonamiento y exige recibirlo de vuelta. Cada framework reconstruye
-   el historial con sus tipos y, si no tiene dónde guardarlo, lo pierde: en Strands hay un campo
-   nativo (`reasoningSignature`); en LangChain, LlamaIndex y MAF lo llevé en sus metadatos. Lo
-   cubre un test que firma como Gemini y comprueba la ida y vuelta en los 14 escenarios de cada sabor.
-2. **¿Y qué pasa con las firmas al compactar el historial?** En Gemini 4 la firma va ligada al
-   prefijo con el que se generó, y el resumen lo cambia. El parámetro que lo toleraba ya no está
-   documentado, así que no dependo de él: al compactar, el historial conservado va sin firmas y el
-   adaptador manda el validador de *skip* documentado. El coste es razonar algo peor solo en ese
-   turno, que con la histéresis ocurre pocas veces. Lo valido con el modelo real antes de darlo por bueno.
-3. **¿Qué te encontraste al meter ADK detrás de tus contratos?** Tres cosas que un "hello world"
-   no enseña. Escribe su propio prompt de sistema (añade una línea en inglés con su nombre), así
-   que el puente envía el prefijo común. Sustituye `{clave}` del estado de sesión dentro de las
-   instrucciones, así que la identidad no va en el estado sino en la tool del turno. Y trata el
-   límite de iteraciones como un fallo del nodo, con traza en ERROR: lo cambié por un
-   `before_model_callback` que responde con el fallback. Con eso, 14/14, la misma trayectoria y
-   los mismos tokens que el bucle propio, y 6/6 ataques contenidos.
-4. **ADK trae compactación de eventos. ¿Por qué no la usas?** Porque resume después de la
-   invocación y mete el resumen como un turno del propio agente, y yo lo quiero antes del turno
-   y marcado como datos (defensa frente a inyecciones que queden en el historial). Además
-   conserva las firmas de Gemini en los eventos que retiene, que es justo lo que en Gemini 4
-   puede dar `400` tras cambiar el prefijo. La nuestra funciona igual en todos los sabores.
-5. **Agent Runtime frente a AgentCore Runtime: ¿qué cambia para la seguridad?** Los dos ejecutan
-   tu contenedor con un contrato HTTP, pero AgentCore pone el usuario en una cabecera que solo
-   puede fijar quien tiene `InvokeAgentRuntimeForUser`; en Agent Runtime el `user_id` va en el
-   cuerpo y lo puede poner cualquiera con permiso de `query`. Así que la frontera es IAM: solo
-   la cuenta de servicio del backend autenticado puede invocar el agente, y el dueño del hilo se
-   vuelve a comprobar dentro. Con la memoria pasa algo parecido: Sessions no tiene escritura
-   condicional como AgentCore, así que la concurrencia optimista tiene una ventana que hay que
-   conocer.
-6. **¿Cómo limitas qué tools puede usar un agente desplegado en GCP?** Con identidad y política,
-   no con la lista de tools del prompt. El agente corre con Agent Identity (un principal por
-   agente, sin cuenta de servicio que custodiar) y toda su salida pasa por Agent Gateway, que
-   deniega por defecto. Una política de acceso de IAM v3 le da `egressViaIAP` por servidor MCP y
-   tool registrados en Agent Registry, generada desde los contratos de los servidores; en AWS es
-   la lista de targets y tools del AgentCore Gateway. La escribí para que falle cerrada: si el
-   *handshake* no casa con la condición, se deniega y se ve en la validación, nunca al revés.
-7. **¿Por qué no usas la Managed Agents API de Google para el agente de reservas?** Porque es
-   Pre-GA y sus condiciones prohíben producción y datos confidenciales, y porque el agente
-   decide dentro de un sandbox con sus propias tools (código, web, MCP directo). Para que fuera un
-   sabor, todas las tools que tocan datos de Genaipocs tendrían que volver a mi harness: la
-   Gemini API lo permite con *custom functions* (`requires_action`), pero en Agent Platform no está
-   documentado para agentes. Lo dejé como prueba de céntimos y, aun así, heredaría el límite de
-   Foundry: el historial es del servicio y no lo compacto yo.
-
-**Negocio y stakeholders**
-
-1. **El equipo quiere probar Gemini en el agente de soporte "cambiando una variable". ¿Qué le
+5. **El equipo quiere probar Gemini en el agente de soporte "cambiando una variable". ¿Qué le
    dices?** Que el gateway lo permite, pero que cambiar de proveedor no es gratis aunque el código
    compile: cada modelo tiene contratos propios (aquí, las firmas de razonamiento) que rompen en
    producción, no en local. Por eso pedí primero un test de contrato por framework y una prueba
    con presupuesto acotado (céntimos) antes de enviarle tráfico real.
-2. **Un equipo en GCP pregunta si debe usar ADK o LangGraph.** ADK si van a desplegar en Agent
+6. **Un equipo en GCP pregunta si debe usar ADK o LangGraph.** ADK si van a desplegar en Agent
    Runtime y quieren Sessions, Memory Bank y el ecosistema de Google con poco código; LangGraph
    si el flujo tiene pasos, ramas y aprobaciones que conviene ver como grafo, y quieren ser
    portables. Les enseñaría la tabla de la suite: con los contratos propios, los dos hacen las
    mismas llamadas y gastan lo mismo, así que la decisión es de equipo y plataforma, no de coste.
-3. **Legal pregunta qué recuerda el asistente de cada cliente en GCP y si se puede borrar.**
+7. **Legal pregunta qué recuerda el asistente de cada cliente en GCP y si se puede borrar.**
    Solo tres preferencias de una lista cerrada (idioma, ciudad, categoría favorita), guardadas
    cuando el cliente lo pide y con su identificador como ámbito en Memory Bank; no activo la
    extracción automática por LLM, que guardaba planes puntuales como preferencias. Borrarlas es
    borrar las memorias de ese ámbito, y las conversaciones viven en sesiones con caducidad. Es
    fácil de explicar y de auditar, que es lo que pide un regulador.
-4. **Seguridad pregunta qué pasa si alguien inyecta al agente una orden de reembolsar a otra
-   cuenta.** Que hay tres barreras que no dependen del modelo: el harness valida y bloquea la
+8. **Seguridad pregunta qué pasa si alguien inyecta al agente una orden de reembolsar a otra
+   cuenta. (GCP)** Que hay tres barreras que no dependen del modelo: el harness valida y bloquea la
    escritura, el servidor MCP solo acepta el cliente del token, y en GCP la política de acceso
    puede quitar al agente la tool de reembolsos entera (`agent_platform_mcp_tools`) si ese
    agente no la necesita. Se cuenta como "el agente solo tiene las llaves de las puertas que usa",
@@ -904,6 +845,24 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    de 12, sin falsos positivos. Los tres que pasan los para la arquitectura: las escrituras
    requieren aprobación y la autorización está en el backend. Además, Content Safety F0 tarda ~2 s
    por llamada: hay que pensar en el tier y en paralelizarlo.
+7. **Gemini puede aplicar Model Armor él solo con `model_armor_config`. ¿Por qué llamas tú a
+   Model Armor?** Por dos motivos. Esa integración solo existe en unas pocas regiones y no en el
+   endpoint `global`, donde sirvo Gemini 4. Y, sobre todo, **falla abierto**: si Model Armor no
+   responde, la petición sigue sin revisar. Mi escudo va detrás del mismo puerto que Prompt
+   Shields y Bedrock Guardrails y falla cerrado: si un filtro no se ejecutó y nada coincidió, no
+   lo doy por bueno. La integración del proyecto (*floor settings*) la dejo como red de seguridad,
+   no como control principal.
+8. **Tu detector de PII es un servicio en la nube. ¿Qué pasa si se cae? (GCP)** El filtro no manda el
+   texto sin redactar ni devuelve un error al cliente: cae a los patrones locales con checksum
+   (tarjetas, NIF/NIE, IBAN, email, teléfono) y marca el turno con `pii_fallback`. Lo que se pierde
+   en ese rato son los nombres de persona, y queda medido. Lo mismo si la respuesta no es fiable:
+   hallazgos truncados o una posición fuera del texto cuentan como caída, no como "sin PII".
+9. **¿Para qué quieres una *floor setting* si ya tienes el escudo en el harness? (GCP)** Para lo que no
+   pasa por el harness: un notebook, una prueba o un servicio nuevo que llame a Gemini directamente.
+   Es el mínimo del proyecto, como la política de contenido de un despliegue en Azure. La activo
+   primero en modo solo inspección con registros, para medir falsos positivos y coste en tokens
+   antes de bloquear; los registros del texto evaluado los dejo apagados en la plantilla del
+   harness porque llevan PII.
 
 ### Negocio y stakeholders
 
@@ -923,33 +882,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    tiempo máximo. Al probarlo con 3 M de pedidos, 3 de 5 preguntas superaron los 3 s y se
    escalaron a un analista: la seguridad funcionaba, pero la base transaccional no es el sitio.
    La propuesta a negocio: réplica de lectura o almacén con vistas agregadas antes de abrirlo.
-
-### GCP (pasada 8.G)
-
-**Técnicas**
-
-1. **Gemini puede aplicar Model Armor él solo con `model_armor_config`. ¿Por qué llamas tú a
-   Model Armor?** Por dos motivos. Esa integración solo existe en unas pocas regiones y no en el
-   endpoint `global`, donde sirvo Gemini 4. Y, sobre todo, **falla abierto**: si Model Armor no
-   responde, la petición sigue sin revisar. Mi escudo va detrás del mismo puerto que Prompt
-   Shields y Bedrock Guardrails y falla cerrado: si un filtro no se ejecutó y nada coincidió, no
-   lo doy por bueno. La integración del proyecto (*floor settings*) la dejo como red de seguridad,
-   no como control principal.
-2. **Tu detector de PII es un servicio en la nube. ¿Qué pasa si se cae?** El filtro no manda el
-   texto sin redactar ni devuelve un error al cliente: cae a los patrones locales con checksum
-   (tarjetas, NIF/NIE, IBAN, email, teléfono) y marca el turno con `pii_fallback`. Lo que se pierde
-   en ese rato son los nombres de persona, y queda medido. Lo mismo si la respuesta no es fiable:
-   hallazgos truncados o una posición fuera del texto cuentan como caída, no como "sin PII".
-3. **¿Para qué quieres una *floor setting* si ya tienes el escudo en el harness?** Para lo que no
-   pasa por el harness: un notebook, una prueba o un servicio nuevo que llame a Gemini directamente.
-   Es el mínimo del proyecto, como la política de contenido de un despliegue en Azure. La activo
-   primero en modo solo inspección con registros, para medir falsos positivos y coste en tokens
-   antes de bloquear; los registros del texto evaluado los dejo apagados en la plantilla del
-   harness porque llevan PII.
-
-**Negocio y stakeholders**
-
-1. **Seguridad pide pasar toda la PII por el servicio gestionado de GCP. ¿Qué preguntas antes?**
+5. **Seguridad pide pasar toda la PII por el servicio gestionado de GCP. ¿Qué preguntas antes?**
    Tres: latencia (es una llamada más en cada turno, y Google desaconseja el detector de nombres
    donde la latencia importa), coste (se cobra por bytes con un mínimo de 1 KB por llamada, así
    que cada mensaje corto cuenta como 1 KB) y falsos positivos (en un marketplace de eventos, un
@@ -1028,6 +961,28 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    irreversible pasa por aprobaciones idempotentes. Lo encontré con RabbitMQ real: dos copias del
    mismo email llegaban a la vez y ambas pagaban el triaje. Guardar y publicar no eran atómicos;
    lo cerré en la fase 10.5 con un *transactional outbox*.
+6. **¿Cómo montarías el router con ADK sin que el LLM decida el traspaso?** Con un workflow de
+   grafo (`google.adk.workflow`), no con un `LlmAgent` con `sub_agents`: ahí el traspaso es una
+   *function call* del modelo. El nodo de triaje marca `ctx.route` con el especialista que sale
+   de la tabla del dominio y el mapa de rutas de la arista elige el nodo; `DEFAULT_ROUTE` manda a
+   una persona lo que no encaje. Da el mismo resultado que LangGraph y MAF con el mismo guion.
+7. **¿Dónde vive el estado de un caso en pausa con ADK y cómo se reanuda en otra réplica?** En la
+   sesión (`session_id = case_id`): eventos y `state` en JSON. La revisión es un `RequestInput`,
+   una *function call* de larga duración; se reanuda enviando una `FunctionResponse` con su id y
+   la misma `invocation_id` desde cualquier réplica que comparta el servicio de sesiones. Los
+   nodos completados no se repiten, así que el triaje se paga una vez.
+8. **Si activas exactly-once en Pub/Sub, ¿puedes quitar la deduplicación del `CaseStore`?** No.
+   Exactly-once solo evita reentregar un mensaje ya confirmado; el mismo email publicado dos
+   veces (buzón, reintento del productor, relay del outbox) llega con otro `message_id` y pasa.
+   Además, el `ack` puede fallar si el turno del LLM supera el plazo, y el mensaje vuelve. Es una
+   primera capa más débil que SQS FIFO; la garantía es el alta única por email y las
+   transiciones CAS. En AWS: SQS FIFO con `MessageDeduplicationId` (ventana de 5 min).
+9. **¿Cómo autentica el orquestador a los especialistas en Cloud Run si los ID tokens de Google
+   no llevan scope?** Con dos capas: Cloud Run solo deja pasar a quien tiene `roles/run.invoker`
+   (la cuenta del orquestador) y el especialista vuelve a verificar el token contra el JWKS de
+   Google, su *custom audience* y que el `email` verificado esté en su lista. El token va en
+   `Authorization`, porque en `X-Serverless-Authorization` llega sin firma. En AWS sería Cognito
+   client credentials con scope o IAM SigV4; en Azure, Managed Identity con app roles.
 
 ### Negocio y stakeholders
 
@@ -1042,42 +997,12 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
 3. **¿Qué dejarías fuera de la primera versión?** El supervisor, la memoria compartida entre
    agentes y la autoaprobación por importe. Primero router + aprobación humana en todo lo que sale
    hacia el cliente, medir dos o tres semanas y automatizar solo donde los datos lo justifiquen.
-
-### GCP (pasada 9.G)
-
-**Técnicas**
-
-1. **¿Cómo montarías el router con ADK sin que el LLM decida el traspaso?** Con un workflow de
-   grafo (`google.adk.workflow`), no con un `LlmAgent` con `sub_agents`: ahí el traspaso es una
-   *function call* del modelo. El nodo de triaje marca `ctx.route` con el especialista que sale
-   de la tabla del dominio y el mapa de rutas de la arista elige el nodo; `DEFAULT_ROUTE` manda a
-   una persona lo que no encaje. Da el mismo resultado que LangGraph y MAF con el mismo guion.
-2. **¿Dónde vive el estado de un caso en pausa con ADK y cómo se reanuda en otra réplica?** En la
-   sesión (`session_id = case_id`): eventos y `state` en JSON. La revisión es un `RequestInput`,
-   una *function call* de larga duración; se reanuda enviando una `FunctionResponse` con su id y
-   la misma `invocation_id` desde cualquier réplica que comparta el servicio de sesiones. Los
-   nodos completados no se repiten, así que el triaje se paga una vez.
-3. **Si activas exactly-once en Pub/Sub, ¿puedes quitar la deduplicación del `CaseStore`?** No.
-   Exactly-once solo evita reentregar un mensaje ya confirmado; el mismo email publicado dos
-   veces (buzón, reintento del productor, relay del outbox) llega con otro `message_id` y pasa.
-   Además, el `ack` puede fallar si el turno del LLM supera el plazo, y el mensaje vuelve. Es una
-   primera capa más débil que SQS FIFO; la garantía es el alta única por email y las
-   transiciones CAS. En AWS: SQS FIFO con `MessageDeduplicationId` (ventana de 5 min).
-4. **¿Cómo autentica el orquestador a los especialistas en Cloud Run si los ID tokens de Google
-   no llevan scope?** Con dos capas: Cloud Run solo deja pasar a quien tiene `roles/run.invoker`
-   (la cuenta del orquestador) y el especialista vuelve a verificar el token contra el JWKS de
-   Google, su *custom audience* y que el `email` verificado esté en su lista. El token va en
-   `Authorization`, porque en `X-Serverless-Authorization` llega sin firma. En AWS sería Cognito
-   client credentials con scope o IAM SigV4; en Azure, Managed Identity con app roles.
-
-**Negocio y stakeholders**
-
-1. **¿Por qué un cuarto motor si ya hay tres?** No para producción: para que la decisión de nube
+4. **¿Por qué un cuarto motor si ya hay tres? (GCP)** No para producción: para que la decisión de nube
    no la imponga el framework. El contrato `SpecialistAgent` y el dataset son los mismos; si
    Genaipocs desplegara en GCP con Agent Runtime, el motor nativo es ADK y ya está probado con
    las mismas evals. En producción elegiría uno y documentaría por qué.
-2. **Un caso de reembolso lleva dos días pendiente de aprobación: ¿cómo lo evitas y qué le
-   cuentas a operaciones?** Con un SLA de revisión: Workflows espera la decisión con un callback y
+5. **Un caso de reembolso lleva dos días pendiente de aprobación: ¿cómo lo evitas y qué le
+   cuentas a operaciones? (GCP)** Con un SLA de revisión: Workflows espera la decisión con un callback y
    un plazo (12 h por defecto); si vence, el dominio caduca la solicitud **sin ejecutar** el
    reembolso y escala el caso a una persona con prioridad. A operaciones le enseñaría "casos
    pendientes más antiguos que el SLA" (objetivo: 0) y el tiempo hasta la decisión. Workflows no
@@ -1124,6 +1049,45 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    El techo lo pone la cuota del modelo, no las réplicas. Con 150 K TPM y 4.000 tokens por caso,
    más de 2 réplicas solo producen 429; lo calculo con la ley de Little antes de fijar
    `max_replicas`.
+6. **¿Cómo escalas workers de Pub/Sub si su API no dice cuántos mensajes hay?** Con Cloud
+   Monitoring: `subscription/num_unacked_messages_by_region`, consultada con PromQL. Se muestrea
+   cada 60 s y aparece hasta 2 min después.
+   - En GCP, el escalador es CREMA, que es KEDA como servicio de Cloud Run, sobre un worker pool.
+   - En AWS, SQS da el número al momento por API. En Azure, KEDA lee Service Bus directamente.
+
+   Con ese retraso, el enfriamiento antes de bajar a cero tiene que ser mayor que el desfase. Y un
+   hueco en la métrica no se lee como "cola vacía": el controlador no toca las réplicas.
+7. **Un turno del agente tarda más que el plazo de ack: ¿qué pasa y cómo lo arreglas? (GCP)** Pub/Sub
+   da el mensaje por perdido y se lo entrega a otra réplica: se paga el modelo dos veces y, con
+   *exactly-once*, el `ack` del primero falla. Lo arreglo con un latido de `modifyAckDeadline`
+   a mitad de cada plazo mientras el handler trabaja, con un techo (`max_lease`) para que un
+   handler colgado no retenga el mensaje para siempre.
+   - Lo medí con el emulador: con latido, 1 entrega; sin latido, 2.
+   - En AWS es `ChangeMessageVisibility`; en Service Bus, `renew_message_lock`.
+8. **Pasas la caché semántica de Redis a un Valkey gestionado: ¿qué puede romperse?** La
+   compatibilidad de protocolo no cubre los módulos. Probándolo contra Valkey en local salieron
+   tres cosas que con Redis 8 no se veían:
+   - un *hash tag* en el prefijo del índice, que Valkey rechaza;
+   - RESP3, porque Valkey contesta a `FT.SEARCH` con otra forma: se fija RESP2;
+   - `DROPINDEX DD`, que Valkey no tiene.
+
+   Además, Memorystore no admite `TEXT` ni `SORTBY`: el índice se queda en TAG + VECTOR y el
+   orden se hace en el cliente. Por eso los tests de integración corren contra los dos motores
+   en la CI. En AWS, ElastiCache con Valkey tiene el mismo riesgo; en Azure, Managed Redis es
+   Redis.
+9. **¿Por qué Cloud Armor y además un rate limiter en el edge?** Hacen cosas distintas. Cloud
+   Armor, en el balanceador, corta inundaciones por IP o por token antes de que lleguen a Cloud Run
+   (y a la factura), pero no sabe el plan del usuario: va dentro del JWT. El edge aplica el límite
+   fino por plan con GCRA en Valkey y devuelve el `Retry-After` exacto. Los umbrales de Cloud Armor
+   son holgados (detrás de un NAT hay mucha gente). En AWS: AWS WAF con *rate-based rules* delante
+   del ALB; en Azure: Front Door WAF o APIM.
+10. **¿Cómo harías una prueba de carga en GCP si no hay un Azure Load Testing?** Con el mismo
+   locustfile en un Cloud Run job de 8 vCPU y `--processes -1`: un maestro y un worker por CPU
+   dentro del contenedor, porque el modo distribuido de Locust necesita red entre maestro y
+   workers, y las instancias de Cloud Run no se ven. Los CSV van a Cloud Storage y se genera el
+   mismo informe que en local. Por defecto apunta al edge tras Cloud Armor, así que prueba también
+   el perímetro. Para más carga, GKE Autopilot efímero. En AWS sería la solución *Distributed Load
+   Testing* o Locust en ECS.
 
 ### Negocio y stakeholders
 
@@ -1153,66 +1117,19 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
 
    Dejaría fuera el autoescalado fino y la caché multi-región. Antes de la venta pediría ampliar
    la cuota del modelo con el proveedor, porque es el techo que ninguna réplica supera.
-
-### GCP (pasada 10.G)
-
-**Técnicas**
-
-1. **¿Cómo escalas workers de Pub/Sub si su API no dice cuántos mensajes hay?** Con Cloud
-   Monitoring: `subscription/num_unacked_messages_by_region`, consultada con PromQL. Se muestrea
-   cada 60 s y aparece hasta 2 min después.
-   - En GCP, el escalador es CREMA, que es KEDA como servicio de Cloud Run, sobre un worker pool.
-   - En AWS, SQS da el número al momento por API. En Azure, KEDA lee Service Bus directamente.
-
-   Con ese retraso, el enfriamiento antes de bajar a cero tiene que ser mayor que el desfase. Y un
-   hueco en la métrica no se lee como "cola vacía": el controlador no toca las réplicas.
-2. **Un turno del agente tarda más que el plazo de ack: ¿qué pasa y cómo lo arreglas?** Pub/Sub
-   da el mensaje por perdido y se lo entrega a otra réplica: se paga el modelo dos veces y, con
-   *exactly-once*, el `ack` del primero falla. Lo arreglo con un latido de `modifyAckDeadline`
-   a mitad de cada plazo mientras el handler trabaja, con un techo (`max_lease`) para que un
-   handler colgado no retenga el mensaje para siempre.
-   - Lo medí con el emulador: con latido, 1 entrega; sin latido, 2.
-   - En AWS es `ChangeMessageVisibility`; en Service Bus, `renew_message_lock`.
-3. **Pasas la caché semántica de Redis a un Valkey gestionado: ¿qué puede romperse?** La
-   compatibilidad de protocolo no cubre los módulos. Probándolo contra Valkey en local salieron
-   tres cosas que con Redis 8 no se veían:
-   - un *hash tag* en el prefijo del índice, que Valkey rechaza;
-   - RESP3, porque Valkey contesta a `FT.SEARCH` con otra forma: se fija RESP2;
-   - `DROPINDEX DD`, que Valkey no tiene.
-
-   Además, Memorystore no admite `TEXT` ni `SORTBY`: el índice se queda en TAG + VECTOR y el
-   orden se hace en el cliente. Por eso los tests de integración corren contra los dos motores
-   en la CI. En AWS, ElastiCache con Valkey tiene el mismo riesgo; en Azure, Managed Redis es
-   Redis.
-4. **¿Por qué Cloud Armor y además un rate limiter en el edge?** Hacen cosas distintas. Cloud
-   Armor, en el balanceador, corta inundaciones por IP o por token antes de que lleguen a Cloud Run
-   (y a la factura), pero no sabe el plan del usuario: va dentro del JWT. El edge aplica el límite
-   fino por plan con GCRA en Valkey y devuelve el `Retry-After` exacto. Los umbrales de Cloud Armor
-   son holgados (detrás de un NAT hay mucha gente). En AWS: AWS WAF con *rate-based rules* delante
-   del ALB; en Azure: Front Door WAF o APIM.
-5. **¿Cómo harías una prueba de carga en GCP si no hay un Azure Load Testing?** Con el mismo
-   locustfile en un Cloud Run job de 8 vCPU y `--processes -1`: un maestro y un worker por CPU
-   dentro del contenedor, porque el modo distribuido de Locust necesita red entre maestro y
-   workers, y las instancias de Cloud Run no se ven. Los CSV van a Cloud Storage y se genera el
-   mismo informe que en local. Por defecto apunta al edge tras Cloud Armor, así que prueba también
-   el perímetro. Para más carga, GKE Autopilot efímero. En AWS sería la solución *Distributed Load
-   Testing* o Locust en ECS.
-
-**Negocio y stakeholders**
-
-1. **Con 10 réplicas, ¿cuántas cachés explícitas de Gemini pagas por el mismo prompt?** Sin
+4. **Con 10 réplicas, ¿cuántas cachés explícitas de Gemini pagas por el mismo prompt?** Sin
    coordinación, 10: diez escrituras y diez almacenamientos por hora del mismo texto. Con un
    registro compartido en Valkey (`SET NX` con el TTL de la caché) se paga una: las demás la
    reutilizan y, si dos la crean a la vez, la perdedora borra la suya al momento. Lo que se acepta:
    que ninguna réplica borre al apagarse y que la caché viva hasta su TTL. En AWS y Azure no hace
    falta, porque la caché del prompt es implícita y del proveedor.
-2. **El autoescalador de GCP cuesta 40-50 $/mes aunque no haya tráfico: ¿merece la pena?** En Cloud
+5. **El autoescalador de GCP cuesta 40-50 $/mes aunque no haya tráfico: ¿merece la pena?** En Cloud
    Run, los worker pools no escalan solos, y CREMA es un servicio siempre encendido. Para el
    piloto, lo apago fuera de las ventanas de venta (Terraform, efímero). En producción, se compara
    con lo que ahorra: workers a 0 la mayor parte del día y, en un pico, hasta el techo de la cuota
    del modelo. Si el tráfico fuera constante, un mínimo fijo de instancias sin CREMA sería más
    barato y más simple.
-3. **¿Dónde pondrías el techo de tokens del modelo: en el gateway de la nube o en el nuestro?** En
+6. **¿Dónde pondrías el techo de tokens del modelo: en el gateway de la nube o en el nuestro? (GCP)** En
    el nuestro, porque es el único que conoce el plan del cliente, el coste estimado de cada llamada
    y la alternativa (degradar a una respuesta extractiva en lugar de devolver 429). Las políticas
    gestionadas (token policies del Agent Gateway, en *preview*; `llm-token-limit` de APIM) las
@@ -1260,6 +1177,47 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    de LLM: sesiones, prompts, coste por modelo, scores. X-Ray o App Insights ven el sistema
    entero: colas, 503, Redis. Con OTel instrumento una vez y mando cada span a quien lo
    aprovecha. LangSmith encaja si todo es LangChain, pero es SaaS y ata el formato.
+6. **¿Cómo llevas la telemetría a GCP sin tocar el código?** Con el mismo collector y otro destino:
+   - Trazas y logs por OTLP a la Telemetry API, con `googleclientauth` y la cuenta de servicio
+     adjunta.
+   - Métricas a Managed Prometheus con `googlemanagedprometheus`.
+
+   Es el mismo patrón que X-Ray por OTLP con SigV4 en AWS. Las métricas no van por la Telemetry
+   API porque allí conservan los puntos del nombre y las reglas generadas no valdrían. Lo
+   comprobé en la CI: arranco el collector real contra un Cloud Monitoring falso y las 23
+   métricas llegan con el mismo nombre que en el Prometheus local.
+7. **¿Cómo portas alertas de Prometheus a Cloud Monitoring?** Generándolas desde la misma fuente
+   (`domain/slo.py`) y adaptando tres cosas:
+   - Cloud Monitoring no evalúa *recording rules*: el cálculo del SLI va dentro de cada alerta.
+   - Una política lleva una sola condición PromQL.
+   - Con consultas de más de 25 h, como el *burn rate* de 3 días, se evalúa cada 5 min y no hay
+     ventana de reintento.
+
+   Para demostrar que la expansión no cambia nada, las alertas de GCP pasan los mismos tests de
+   `promtool` que las locales. En Azure y AWS porté 2 alertas de muestra, en KQL y en Metrics
+   Insights; en GCP, las 36.
+8. **¿Cómo enlazas un log con su traza en GCP?** En Cloud Run, stdout llega solo a Cloud Logging;
+   basta con escribir sus campos:
+   - `severity`;
+   - `logging.googleapis.com/trace` con la ruta completa (`projects/<p>/traces/<id>`);
+   - `spanId`.
+
+   Con eso, el log aparece dentro de la traza en Cloud Trace. En AWS lo hace el `trace_id` que
+   indexa X-Ray, y en Azure el exporter de App Insights.
+9. **¿Qué pasa con los spans que emiten los propios frameworks de agentes? (GCP)** Usan el proveedor
+   global de OTel que fija el arranque, así que salen aunque no los pidas. Al medirlos:
+   - ADK no metía contenido por defecto en la ruta que usamos.
+   - **Strands sí**, en eventos del span, que nuestro collector no limpiaba: una fuga de PII desde
+     la fase 11.
+   - Los dos duplican la llamada al modelo con sus tokens.
+
+   La solución tiene tres capas: apagar el contenido de los frameworks al arrancar, borrarlo en el
+   collector (atributos y eventos) y descartar sus spans en Langfuse para no contar el uso dos
+   veces.
+10. **¿Cómo pruebas que un caso es una sola traza a través de Pub/Sub?** Con el test de contrato de
+   los brokers: publico desde un contexto vacío, como otro proceso, y compruebo que el span
+   `process` es hijo del `send`, con la misma traza. Pasa contra RabbitMQ, SQS, Service Bus y el
+   emulador de Pub/Sub. El `traceparent` viaja en los atributos del mensaje, fuera del cuerpo.
 
 ### Negocio y stakeholders
 
@@ -1288,56 +1246,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    gastamos muy deprisa, alerta y se congela lo arriesgado. Si sobra, podemos ir más rápido. Así
    la conversación deja de ser "¿hay errores?" (siempre los hay) y pasa a "¿estamos dentro de lo
    pactado?".
-
-### GCP (pasada 11.G)
-
-**Técnicas**
-
-1. **¿Cómo llevas la telemetría a GCP sin tocar el código?** Con el mismo collector y otro destino:
-   - Trazas y logs por OTLP a la Telemetry API, con `googleclientauth` y la cuenta de servicio
-     adjunta.
-   - Métricas a Managed Prometheus con `googlemanagedprometheus`.
-
-   Es el mismo patrón que X-Ray por OTLP con SigV4 en AWS. Las métricas no van por la Telemetry
-   API porque allí conservan los puntos del nombre y las reglas generadas no valdrían. Lo
-   comprobé en la CI: arranco el collector real contra un Cloud Monitoring falso y las 23
-   métricas llegan con el mismo nombre que en el Prometheus local.
-2. **¿Cómo portas alertas de Prometheus a Cloud Monitoring?** Generándolas desde la misma fuente
-   (`domain/slo.py`) y adaptando tres cosas:
-   - Cloud Monitoring no evalúa *recording rules*: el cálculo del SLI va dentro de cada alerta.
-   - Una política lleva una sola condición PromQL.
-   - Con consultas de más de 25 h, como el *burn rate* de 3 días, se evalúa cada 5 min y no hay
-     ventana de reintento.
-
-   Para demostrar que la expansión no cambia nada, las alertas de GCP pasan los mismos tests de
-   `promtool` que las locales. En Azure y AWS porté 2 alertas de muestra, en KQL y en Metrics
-   Insights; en GCP, las 36.
-3. **¿Cómo enlazas un log con su traza en GCP?** En Cloud Run, stdout llega solo a Cloud Logging;
-   basta con escribir sus campos:
-   - `severity`;
-   - `logging.googleapis.com/trace` con la ruta completa (`projects/<p>/traces/<id>`);
-   - `spanId`.
-
-   Con eso, el log aparece dentro de la traza en Cloud Trace. En AWS lo hace el `trace_id` que
-   indexa X-Ray, y en Azure el exporter de App Insights.
-4. **¿Qué pasa con los spans que emiten los propios frameworks de agentes?** Usan el proveedor
-   global de OTel que fija el arranque, así que salen aunque no los pidas. Al medirlos:
-   - ADK no metía contenido por defecto en la ruta que usamos.
-   - **Strands sí**, en eventos del span, que nuestro collector no limpiaba: una fuga de PII desde
-     la fase 11.
-   - Los dos duplican la llamada al modelo con sus tokens.
-
-   La solución tiene tres capas: apagar el contenido de los frameworks al arrancar, borrarlo en el
-   collector (atributos y eventos) y descartar sus spans en Langfuse para no contar el uso dos
-   veces.
-5. **¿Cómo pruebas que un caso es una sola traza a través de Pub/Sub?** Con el test de contrato de
-   los brokers: publico desde un contexto vacío, como otro proceso, y compruebo que el span
-   `process` es hijo del `send`, con la misma traza. Pasa contra RabbitMQ, SQS, Service Bus y el
-   emulador de Pub/Sub. El `traceparent` viaja en los atributos del mensaje, fuera del cuerpo.
-
-**Negocio y stakeholders**
-
-1. **¿Cuánto cuesta observar en GCP y cómo lo contienes?**
+4. **¿Cuánto cuesta observar en GCP y cómo lo contienes?**
    - Cloud Trace cobra por span, con 2,5 M gratis al mes.
    - Logging cobra por GiB, con 50 GiB gratis.
    - Managed Prometheus cobra por muestra.
@@ -1347,7 +1256,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    tramo gratuito. Las 36 alertas son gratis hasta septiembre de 2027; después, unos 14 $/mes.
    Si hubiera que recortar, empezaría por las de ventana de 3 días, que repiten lo que ya cubre
    la de 1 día.
-2. **¿Cómo le cuentas a Legal o a Seguridad que las trazas no llevan datos de clientes?** Con
+5. **¿Cómo le cuentas a Legal o a Seguridad que las trazas no llevan datos de clientes? (GCP)** Con
    evidencia y en capas:
    - Nuestros spans no llevan contenido salvo que se active, y entonces va redactado.
    - Los frameworks lo tienen apagado al arrancar.
@@ -1356,7 +1265,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
 
    Y con transparencia: al medir encontramos que Strands lo filtraba en eventos desde una fase
    anterior; se corrigió y se añadió la prueba que lo habría detectado.
-3. **¿Por qué invertir en portar todas las alertas a GCP si los despliegues de producción irán en
+6. **¿Por qué invertir en portar todas las alertas a GCP si los despliegues de producción irán en
    AWS?** Porque la alerta es la que dice si un despliegue en otra nube funciona: sin ella, un
    fallo se descubre por el cliente. En GCP el coste de portarlas fue bajo, porque habla PromQL y
    se generan desde la misma fuente. Si Genaipocs moviera una parte del tráfico a Gemini (por
@@ -1402,6 +1311,51 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    resolución sin cambiar lo que se pide, es interno (prompt, modelo del proveedor, índice). En AWS,
    las mismas reglas en Amazon Managed Prometheus o CloudWatch Anomaly Detection; en Azure, Managed
    Prometheus o alertas dinámicas.
+6. **Cambias el juez de Azure a Gemini: ¿qué tienes que vigilar?** Tres cosas:
+   - Que el juez sigue fijo y fuera del router (`gemini-4-argon`, nunca el que genera).
+   - Que su esquema cabe en el subconjunto de JSON Schema de Gemini, o la llamada da 400 solo en la nube.
+   - Que sus resultados no pisan los de Azure: cada nube escribe en su carpeta.
+
+   Y, sobre todo, recalibrar: el kappa de Azure no vale para Gemini. Las 32 muestras son las
+   mismas, así que los dos jueces se comparan con las mismas etiquetas humanas.
+7. **Un A/B de modelos sale «sin diferencia»: ¿te lo crees? (GCP)** Antes compruebo que cada variante usó
+   su modelo. En la 12.G encontré que el A/B solo forzaba el modelo de Azure: con Gemini, las dos
+   variantes llamaban al mismo modelo y el resultado nulo era un artefacto. Ahora se fuerza en la
+   nube que genera, hay un test por nube y el coste por modelo del informe lo deja ver.
+8. **Tu métrica de trayectoria y la de Vertex dan números distintos: ¿cuál vale?** Depende de qué
+   quieras castigar. Google calcula la precisión y el recall mirando si el nombre está en la otra
+   lista: una sola llamada cubre dos esperadas y las llamadas repetidas cuentan como aciertos. La
+   mía usa la subsecuencia común más larga, que exige orden y número. Para un agente que
+   reembolsa, me quedo con la mía en el gate y uso el servicio de contraste. Y el contraste
+   destapó un bug en la mía: si faltaba la primera tool, todo daba 0. Estaban infravaloradas 30
+   de 84 trayectorias reales, y no se había visto porque las del gate eran exactas.
+9. **Tu informe de red teaming dice que el riesgo residual lo cubre «el guardrail del proveedor»:
+   ¿lo has comprobado? (GCP)** Esa frase era una hipótesis, y en la 12.G la convertí en una prueba:
+   - Paso las 20 variantes ofuscadas del ataque de PII por cada detector: regex local, Presidio y
+     Sensitive Data Protection en GCP.
+   - En local, el regex atrapa 12 de 20 y ninguna de las 5 aceptadas (base64, hexadecimal, morse y
+     homoglifos).
+   - Si SDP tampoco las ve, la mitigación escrita es falsa y hay que decirlo, no mantenerla.
+
+   Un riesgo aceptado tiene que tener la mitigación probada, no supuesta.
+10. **¿Dónde viven tus prompts: en Git, en Langfuse o en la consola de Agent Platform?** En Git, con
+   versión y candado. Langfuse y Agent Platform reciben una copia, publicada por el mismo puerto y
+   con la misma regla: la versión de Git es la del almacén y nunca se reescribe. En Agent Platform
+   cada prompt es un dataset con un número asignado por GCP, así que lo busco por nombre y uso el
+   número de versiones como versión. El agente lee el prompt del paquete, nunca del almacén: si el
+   almacén cae, el servicio no se entera.
+11. **¿Por qué en GCP no basta con cambiar la URI de MLflow, como en Azure y AWS?** Porque Vertex AI
+   Experiments no habla MLflow: tiene su propio modelo, sin *tags*, y cada run necesita un id único
+   dentro del experimento. Como el caso de uso registra a través de `ExperimentTrackerPort`, ha
+   bastado un adaptador:
+   - Las *tags* van como parámetros `tag.*`.
+   - El nombre de la variante lleva un sufijo aleatorio, porque `control` se repite en cada
+     ejecución.
+   - Uso la API de objetos (`ExperimentRun.create`) y no el run global de `aiplatform.init`, que es
+     estado del proceso.
+
+   Y el tracker se construye antes de ejecutar las variantes: una configuración rota falla antes
+   de pagar el LLM, no después.
 
 ### Negocio y stakeholders
 
@@ -1419,64 +1373,11 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    calibrar el juez (unas horas de una persona y menos de 1 $), porque sin eso el juez online y los
    A/B con modelo real no son fiables. El drift y MLflow gestionado, al final: necesitan tráfico real
    para aportar.
-
-### GCP (pasada 12.G)
-
-**Técnicas**
-
-1. **Cambias el juez de Azure a Gemini: ¿qué tienes que vigilar?** Tres cosas:
-   - Que el juez sigue fijo y fuera del router (`gemini-4-argon`, nunca el que genera).
-   - Que su esquema cabe en el subconjunto de JSON Schema de Gemini, o la llamada da 400 solo en la nube.
-   - Que sus resultados no pisan los de Azure: cada nube escribe en su carpeta.
-
-   Y, sobre todo, recalibrar: el kappa de Azure no vale para Gemini. Las 32 muestras son las
-   mismas, así que los dos jueces se comparan con las mismas etiquetas humanas.
-2. **Un A/B de modelos sale «sin diferencia»: ¿te lo crees?** Antes compruebo que cada variante usó
-   su modelo. En la 12.G encontré que el A/B solo forzaba el modelo de Azure: con Gemini, las dos
-   variantes llamaban al mismo modelo y el resultado nulo era un artefacto. Ahora se fuerza en la
-   nube que genera, hay un test por nube y el coste por modelo del informe lo deja ver.
-3. **Tu métrica de trayectoria y la de Vertex dan números distintos: ¿cuál vale?** Depende de qué
-   quieras castigar. Google calcula la precisión y el recall mirando si el nombre está en la otra
-   lista: una sola llamada cubre dos esperadas y las llamadas repetidas cuentan como aciertos. La
-   mía usa la subsecuencia común más larga, que exige orden y número. Para un agente que
-   reembolsa, me quedo con la mía en el gate y uso el servicio de contraste. Y el contraste
-   destapó un bug en la mía: si faltaba la primera tool, todo daba 0. Estaban infravaloradas 30
-   de 84 trayectorias reales, y no se había visto porque las del gate eran exactas.
-4. **Tu informe de red teaming dice que el riesgo residual lo cubre «el guardrail del proveedor»:
-   ¿lo has comprobado?** Esa frase era una hipótesis, y en la 12.G la convertí en una prueba:
-   - Paso las 20 variantes ofuscadas del ataque de PII por cada detector: regex local, Presidio y
-     Sensitive Data Protection en GCP.
-   - En local, el regex atrapa 12 de 20 y ninguna de las 5 aceptadas (base64, hexadecimal, morse y
-     homoglifos).
-   - Si SDP tampoco las ve, la mitigación escrita es falsa y hay que decirlo, no mantenerla.
-
-   Un riesgo aceptado tiene que tener la mitigación probada, no supuesta.
-5. **¿Dónde viven tus prompts: en Git, en Langfuse o en la consola de Agent Platform?** En Git, con
-   versión y candado. Langfuse y Agent Platform reciben una copia, publicada por el mismo puerto y
-   con la misma regla: la versión de Git es la del almacén y nunca se reescribe. En Agent Platform
-   cada prompt es un dataset con un número asignado por GCP, así que lo busco por nombre y uso el
-   número de versiones como versión. El agente lee el prompt del paquete, nunca del almacén: si el
-   almacén cae, el servicio no se entera.
-6. **¿Por qué en GCP no basta con cambiar la URI de MLflow, como en Azure y AWS?** Porque Vertex AI
-   Experiments no habla MLflow: tiene su propio modelo, sin *tags*, y cada run necesita un id único
-   dentro del experimento. Como el caso de uso registra a través de `ExperimentTrackerPort`, ha
-   bastado un adaptador:
-   - Las *tags* van como parámetros `tag.*`.
-   - El nombre de la variante lleva un sufijo aleatorio, porque `control` se repite en cada
-     ejecución.
-   - Uso la API de objetos (`ExperimentRun.create`) y no el run global de `aiplatform.init`, que es
-     estado del proceso.
-
-   Y el tracker se construye antes de ejecutar las variantes: una configuración rota falla antes
-   de pagar el LLM, no después.
-
-**Negocio y stakeholders**
-
-1. **¿Por qué recalibrar el juez si ya está calibrado en Azure?** Porque el juez es un instrumento
+4. **¿Por qué recalibrar el juez si ya está calibrado en Azure? (GCP)** Porque el juez es un instrumento
    de medida, y cambiar de modelo es cambiar de instrumento. Recalibrar cuesta unos céntimos y las
    etiquetas humanas ya están hechas. No hacerlo es aprobar cambios en producción con una vara que
    nadie ha medido.
-2. **Dirección pregunta qué ha aportado montar las evals en una tercera nube.** Dos cosas que no
+5. **Dirección pregunta qué ha aportado montar las evals en una tercera nube. (GCP)** Dos cosas que no
    esperábamos:
    - Comparar con el servicio de Google destapó un bug en nuestra métrica de trayectoria, que
      infravaloraba 30 de 84 casos reales.
@@ -1486,7 +1387,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
    Ninguno se habría visto con una sola nube. El coste fue de cero euros: todo con dobles, y la
    validación real cuesta céntimos. Además, si mañana Genaipocs necesita Gemini, el ciclo de calidad
    ya funciona con él.
-3. **¿Usarías las métricas y rúbricas gestionadas en lugar de las tuyas?** Como contraste, sí; como
+6. **¿Usarías las métricas y rúbricas gestionadas en lugar de las tuyas? (GCP)** Como contraste, sí; como
    gate, no. Son rápidas de adoptar y sirven de segunda opinión independiente. Pero no las controlo:
    - No puedo calibrarlas.
    - Están en Preview y cambian de versión (`_v2`).
@@ -1494,7 +1395,7 @@ La fase 1 no tuvo subfases propias en GCP: se cubrió en la [0.G](#fase-0) y en 
 
    Lo que bloquea un despliegue tiene que ser reproducible y estar en el repo. Lo gestionado vigila
    que lo mío no se desvíe.
-4. **¿Qué gana el negocio con registrar los A/B en Vertex AI Experiments si ya hay un JSONL en
+7. **¿Qué gana el negocio con registrar los A/B en Vertex AI Experiments si ya hay un JSONL en
    Git?** Visibilidad para quien no lee el repo. Producto o el equipo de datos ven en la consola qué
    variantes se probaron, con qué métricas y qué decidió el dominio. La decisión no cambia, porque
    la toma `decide()` antes de registrar. Si mañana se usa MLflow o W&B, es otro adaptador del

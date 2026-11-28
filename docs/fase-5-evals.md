@@ -480,7 +480,7 @@ recuperaría y no habría respuesta redactada que juzgar.
   `JudgeVerdict`, si `grounding_v2` está en `europe-west4`, el coste real del servicio (no
   devuelve tokens) y si `--dest` hace visible la ejecución en la consola.
 
-## 10. Checkpoint de entrevista
+## 10. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 5](preguntas-entrevista.md#fase-5).
+[preguntas y respuestas · fase 5](preguntas-y-respuestas.md#fase-5).

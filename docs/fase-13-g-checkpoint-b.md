@@ -11,7 +11,7 @@ personales revisadas. Sin código de producto ni coste. PR #18 (rama `fase/g-13-
 | B.2 | `154315a` | Conectores candidatos contrastados con el repo ([conectores-candidatos.md](conectores-candidatos.md)) y **pasada de paridad (P)** en el [plan](plan-fases.md#pasada-p) |
 | B.3 | `7e1e53a` | Guía para preparar las cuentas ([preparar-cuentas-cloud.md](preparar-cuentas-cloud.md)): tarjeta, créditos, limpieza, identidad y modelos |
 | B.4 | `e5b9ea5` | Inventario de las cuentas personales, guía corregida para la nueva experiencia de AWS y cuatro lecciones |
-| Cierre | último commit de la PR #18 | Este doc, preguntas de entrevista y estado |
+| Cierre | último commit de la PR #18 | Este doc, preguntas y respuestas y estado |
 
 ## 1. Plan resultante
 
@@ -93,6 +93,6 @@ Ninguno nuevo. Las cuentas quedan revisadas para las sesiones de
 [pendientes-cloud.md](pendientes-cloud.md). En la fase 2 de ese fichero, la AWS CLI ya tiene sesión;
 falta `BEDROCK__PROFILE` con la región que se decida en la fase 13.
 
-## Checkpoint de entrevista
+## Preguntas y respuestas
 
-Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#checkpoint-g-13-b).
+Preguntas técnicas y de negocio: [preguntas-y-respuestas.md](preguntas-y-respuestas.md#checkpoint-g-13-b).

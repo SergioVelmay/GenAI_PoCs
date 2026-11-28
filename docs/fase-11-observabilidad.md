@@ -259,7 +259,7 @@ test`. Lo real queda en [pendientes](pendientes-cloud.md#fase-11-gcp).
 | 11.G1 | `345a7bb` | `collector-gcp.yaml`, nombres de las métricas comprobados con el collector real y `observability.tf` |
 | 11.G2 | `9da4188` | Las 36 alertas en Cloud Monitoring (PromQL), generadas desde `domain/slo.py` y probadas con `promtool` |
 | 11.G3 | `c84cf65` + `812f1f3` | Logs con los campos de Cloud Logging, spans de los frameworks sin contenido ni duplicados en Langfuse y una traza por el broker real |
-| 11.G4 | este cierre | Doc a tres nubes, preguntas de entrevista, pendientes y estado |
+| 11.G4 | este cierre | Doc a tres nubes, preguntas y respuestas, pendientes y estado |
 
 ### Verificación previa (22-11-2026)
 
@@ -439,6 +439,6 @@ como si fuera otro proceso, y comprueba que el span `process` es hijo del `send`
 *link*, y con la misma traza. Pasa con RabbitMQ, ElasticMQ (SQS), el emulador de Service Bus y el
 emulador de Pub/Sub. Hasta ahora, de punta a punta solo se probaba con el bus en memoria.
 
-## 8. Checkpoint de entrevista
+## 8. Preguntas y respuestas
 
-Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-11).
+Preguntas técnicas y de negocio: [preguntas-y-respuestas.md](preguntas-y-respuestas.md#fase-11).

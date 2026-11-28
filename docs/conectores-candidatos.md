@@ -31,7 +31,7 @@ el código es solo en comentarios de equivalencias (`infra/terraform/gcp/workflo
 
 Misma mecánica que la pasada GCP: subfases `N.P1`, `N.P2`... por fase (`feat: fase 8.P1 - ...`),
 una rama y una PR por fase (`fase/<N>-p`), código y Terraform con dobles en local y coste 0 (regla
-5), sección "Paridad (pasada N.P)" en el doc de la fase, preguntas en `preguntas-entrevista.md` y lo
+5), sección "Paridad (pasada N.P)" en el doc de la fase, preguntas en `preguntas-y-respuestas.md` y lo
 real en `pendientes-cloud.md`. Al iniciar cada `N.P` se comprueban la API instalada y el estado del
 servicio (GA o preview) antes de proponer las subfases.
 

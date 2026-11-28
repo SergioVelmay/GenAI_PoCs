@@ -396,7 +396,7 @@ cifras reales saldrán del benchmark en la nube.
 - [ ] GCP: prueba de humo de los dos modelos de Gemini y respuestas reales capturadas para
   sustituir los dobles ([pendientes](pendientes-cloud.md#fase-2-gcp)).
 
-## 13. Checkpoint de entrevista
+## 13. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 2](preguntas-entrevista.md#fase-2).
+[preguntas y respuestas · fase 2](preguntas-y-respuestas.md#fase-2).

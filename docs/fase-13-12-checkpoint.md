@@ -1,4 +1,4 @@
-# Checkpoint 12→13 · Repaso para la entrevista y plan de incorporación de GCP
+# Checkpoint 12→13 · Repaso de lo aprendido y plan de incorporación de GCP
 
 **Objetivo:** consolidar lo aprendido en las fases 0–12 (glosario, inventario de librerías y
 arquitectura por niveles) y dejar **atado y documentado** el plan para añadir **Google Cloud (GCP)**
@@ -84,14 +84,14 @@ La columna GCP es lo que se construye en la pasada. **Local** = verificable sin 
 
 Cada subfase termina con verificación (los mismos comandos que la CI), doc de la fase actualizado
 (columna GCP en las comparativas y sección "GCP"), pendientes de GCP en `pendientes-cloud.md`,
-pregunta de GCP en `preguntas-entrevista.md` y "revisado" de Sergio antes del commit.
+pregunta de GCP en `preguntas-y-respuestas.md` y "revisado" de Sergio antes del commit.
 
 **0.G · Cimientos multinube** (incluye la fase 1, solo documental)
 
 - 0.G1: dependencias de GCP en el lock (`websockets` 15, `authlib`, `beartype`) con la suite completa y la CI en verde; `GcpSettings` (proyecto, región, `location` de los modelos) y `LLMProvider.GCP` sin implementación.
 - 0.G2: `infra/terraform/gcp` (APIs con `google_project_service`, presupuesto con alertas, cuenta de servicio de desarrollo sin claves) y `gcp` en la matriz `terraform` de la CI.
 - 0.G3: perfil `pubsub` en `docker-compose.yml` (imagen `google-cloud-cli:emulators`) y arranque en la CI con `docker run`.
-- 0.G4: chuleta de `preguntas-entrevista.md` a tres columnas (Azure → AWS → GCP), comparativas de las fases 0 y 1, glosario con términos de GCP y `CLOUDSDK_CONFIG` aislado en `AGENTS.md` (sin claves de cuentas de servicio: ADC de usuario e *impersonation*).
+- 0.G4: chuleta de `preguntas-y-respuestas.md` a tres columnas (Azure → AWS → GCP), comparativas de las fases 0 y 1, glosario con términos de GCP y `CLOUDSDK_CONFIG` aislado en `AGENTS.md` (sin claves de cuentas de servicio: ADC de usuario e *impersonation*).
 
 **2.G · Modelos y gateway**
 
@@ -197,7 +197,7 @@ Plan original (antes del cambio):
 - 11.G1: `infra/otel/collector-gcp.yaml` (trazas y logs por la Telemetry API, métricas por Managed Prometheus) validado en la CI, `scripts/check_collector_gcp.py` (nombres de las métricas contra un Cloud Monitoring falso) y `observability.tf` (roles del collector, retención y exclusiones de logs, canal de guardia).
 - 11.G2: alertas de Cloud Monitoring generadas desde `domain/slo.py` (una política PromQL por alerta, con los SLI expandidos), más las heredadas de la 10.G (backlog con `pubsub_backlog_promql()` y latido como métricas del catálogo) y aviso de ingesta de logs. Mismos tests de `promtool` sobre las alertas expandidas.
 - 11.G3: logs JSON con los campos de correlación de Cloud Logging (`TELEMETRY__LOG_FORMAT=gcp`), contenido apagado en los spans de ADK y borrado en el collector (atributos `gcp.vertex.agent.*` y eventos), una traza por el emulador de Pub/Sub de punta a punta, y el `fix:` de Strands.
-- 11.G4: doc de la fase 11 a tres nubes, preguntas de entrevista, pendientes y cierre.
+- 11.G4: doc de la fase 11 a tres nubes, preguntas y respuestas, pendientes y cierre.
 - **Hecha (22-11-2026)**: las cuatro, más el `fix:` `812f1f3` (Strands emitía el contenido del turno en eventos del span desde la fase 11). **Heredado para la 12.G:** las reglas de drift ya se generan también como políticas de Cloud Monitoring (`DistributionDrift`, 11.G2): la 12.G2 solo tiene que documentarlas, no portarlas; y si la 12.G añade alertas en `build_rules()`, llegan solas a GCP con su test de `promtool`.
 
 **12.G · Evals de agentes y LLMOps**
@@ -255,11 +255,13 @@ añadido el 21-11-2026) y después la fase 13 (AWS), la 14 (Azure) y la 15 (GCP)
 ## 4. Cierre
 
 - Hecho: glosario e inventario, arquitectura por niveles y plan de GCP con verificación previa.
-- Pendiente para el repaso de entrevista (no planificado aún): historias STAR, temas no cubiertos
-  (OWASP LLM Top 10, EU AI Act, fine-tuning frente a RAG, multimodal, FinOps) y un simulacro.
+- Pendiente para el repaso final (no planificado aún): casos reales contados con el método STAR
+  (situación, tarea, acción, resultado), temas no cubiertos (OWASP LLM Top 10, EU AI Act,
+  fine-tuning frente a RAG, multimodal, FinOps) y un ejercicio práctico de presentación de la
+  arquitectura.
 - Pendientes con coste: sin cambios ([pendientes-cloud.md](pendientes-cloud.md)); los de GCP se
   añaden en cada subfase de la pasada.
 
-## Checkpoint de entrevista
+## Preguntas y respuestas
 
-[Preguntas del checkpoint 12→13](preguntas-entrevista.md#checkpoint-12-13).
+[Preguntas del checkpoint 12→13](preguntas-y-respuestas.md#checkpoint-12-13).

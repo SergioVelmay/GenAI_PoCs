@@ -565,7 +565,7 @@ Hallazgos y decisiones (21-11-2026, con Sergio):
    sandbox), más cerca de un asistente interno de operaciones que del agente de clientes. Para el
    agente de reservas, ADK en Agent Runtime da el mismo control que AgentCore.
 
-## 11. Checkpoint de entrevista
+## 11. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 7](preguntas-entrevista.md#fase-7).
+[preguntas y respuestas · fase 7](preguntas-y-respuestas.md#fase-7).

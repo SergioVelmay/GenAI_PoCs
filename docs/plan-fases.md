@@ -17,7 +17,7 @@ en el mismo commit que el cambio.
    Azure ↔ AWS ↔ GCP ↔ framework.
 2. **Implementación** pequeña, incremental y ejecutable en local (`docker compose`).
 3. **Revisión de Sergio** antes de cada commit.
-4. **Checkpoint de entrevista**: preguntas técnicas y de negocio en `preguntas-entrevista.md`.
+4. **Preguntas y respuestas**: preguntas técnicas y de negocio en `preguntas-y-respuestas.md`.
 
 Los carriles (A gestionado, B SDK nativo, C framework) se aplican solo donde tienen sentido. AWS es
 la nube de "producción" de Genaipocs; Azure y GCP son espejos.
@@ -261,8 +261,9 @@ dobles en local y coste 0.
   mencionó al principio; sin referencia concreta). Encajaría en el routing (fase 2) o como guardrail
   (fase 8). Alternativas conocidas: modelos de política como Llama Guard o gpt-oss-safeguard, y
   los [modelos de decisión](conectores-candidatos.md#modelos-de-decision) (28-11-2026).
-- **Repaso de entrevista** (del checkpoint 12→13): historias STAR, OWASP LLM Top 10, EU AI Act,
-  fine-tuning frente a RAG, multimodal, FinOps y un simulacro.
+- **Repaso final** (del checkpoint 12→13): casos contados con el método STAR, OWASP LLM Top 10,
+  EU AI Act, fine-tuning frente a RAG, multimodal, FinOps y un ejercicio práctico de presentación
+  de la arquitectura.
 - **Sabor `managedagents`** (de la 7.G5): la Managed Agents API (Antigravity) como décimo sabor,
   con el bucle `requires_action` → `function_result` como `foundry`, si la prueba de *custom
   functions* en Agent Platform sale bien ([pendientes](pendientes-cloud.md#fase-7-gcp)) y deja de

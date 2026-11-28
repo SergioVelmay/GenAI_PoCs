@@ -16,7 +16,7 @@ Misma estructura en todas las fases:
 5. Comparativa **Azure ↔ AWS ↔ GCP ↔ framework** (carriles A/B/C). En la pasada GCP, además, una sección "GCP (pasada N.G)" con lo construido, sus comandos y sus hallazgos.
 6. Decisiones y límites (para defenderlas).
 7. Pendiente con coste (enlazando a `docs/pendientes-cloud.md`).
-8. **Checkpoint de entrevista**: solo un enlace a la sección de la fase en `docs/preguntas-entrevista.md` (`preguntas-entrevista.md#fase-N`). Las preguntas viven **únicamente** en ese fichero.
+8. **Preguntas y respuestas**: solo un enlace a la sección de la fase en `docs/preguntas-y-respuestas.md` (`preguntas-y-respuestas.md#fase-N`). Las preguntas viven **únicamente** en ese fichero.
 
 ## Otros docs
 
@@ -24,13 +24,14 @@ Misma estructura en todas las fases:
 - `docs/plan-fases.md`: plan de todas las fases (fuente de verdad). Un cambio de alcance se apunta ahí en el mismo commit.
 - Al renombrar un título enlazado desde otro doc, conservar el ancla con `<a id="..."></a>` y comprobar los enlaces internos con ancla (slugs de GitHub).
 
-## Recopilatorio de preguntas (`docs/preguntas-entrevista.md`)
+## Recopilatorio de preguntas (`docs/preguntas-y-respuestas.md`)
 
-- Fichero único para preparar la entrevista de AI Technical Lead (50 % técnico, 50 % negocio y stakeholders). Una sección por fase con ancla `<a id="fase-N"></a>`, título `## Fase N · Tema ([doc](fase-N-...md))` y dos subsecciones: `### Técnicas` (4–5) y `### Negocio y stakeholders` (2–3).
+- Fichero único de preguntas y respuestas (Q&A) para aprender y repasar lo construido, desde la perspectiva del AI Technical Lead (50 % técnico, 50 % negocio y stakeholders). Una sección por fase con ancla `<a id="fase-N"></a>`, título `## Fase N · Tema ([doc](fase-N-...md))` y dos subsecciones: `### Técnicas` (4–5) y `### Negocio y stakeholders` (2–3).
 - Respuestas modelo de 2–4 frases, ancladas en lo construido (rutas, números medidos, hallazgos), sin depender de leer el doc de la fase.
 - Negocio: valor para Genaipocs y KPI, coste y ROI, riesgos y mitigación, cómo contarlo a operaciones, Legal o dirección, priorización.
 - Nube: responder primero en AWS y dar el equivalente de Azure (y el de GCP si aporta). Si aparece un servicio nuevo, añadirlo a la chuleta Azure → AWS → GCP.
-- Pasada GCP: lo de GCP de cada fase va en una subsección `### GCP (pasada N.G)` dentro de la sección de su fase, con preguntas técnicas y de negocio.
+- **Sin subsecciones por nube** (decidido el 28-11-2026): en una pasada (GCP, paridad), las preguntas nuevas se suman a `### Técnicas` o `### Negocio y stakeholders` de su fase. Las generales no nombran nube; las de Azure, AWS, GCP o de un framework abierto lo dicen en la propia pregunta (si no, se añade "(GCP)", "(AWS)"... al final de la pregunta) o en la respuesta.
+- **Enfoque didáctico** (decidido el 28-11-2026): el material se presenta como aprendizaje, repaso e investigación, o como test para probar; nunca como preparación de un proceso de selección.
 - Preguntas generales de liderazgo que surjan van a la sección "Transversales".
 
 ## Estilo

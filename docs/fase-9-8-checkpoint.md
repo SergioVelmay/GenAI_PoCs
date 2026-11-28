@@ -2,7 +2,7 @@
 
 **Objetivo:** dejar el repo, la forma de trabajar con IA y la nube preparados antes de la fase 9:
 CI al día, documentación completa de todas las fases, instrucciones para agentes según las buenas
-prácticas de Anthropic, material de entrevista recopilado y la conexión real con Azure para
+prácticas de Anthropic, preguntas y respuestas recopiladas y la conexión real con Azure para
 abordar los pendientes con coste.
 
 > Estado: ✅ Hecho (20-10-2026). Coste total en Azure: **3,76 €** ([detalle](#6-coste-real-cost-management-1720-de-octubre)).
@@ -15,7 +15,7 @@ abordar los pendientes con coste.
 |---|---|
 | `f15404f` | CI: acciones fijadas por SHA, runner `ubuntu-26.04`, Dependabot; docs de las fases 0–2 |
 | `dc19ca0` | `README.md`, `AGENTS.md`, instrucciones por área, skills, pendientes y hook de términos prohibidos |
-| `c13d26a` | Recopilatorio de preguntas de entrevista (técnicas y de negocio) por fase |
+| `c13d26a` | Recopilatorio de preguntas y respuestas (técnicas y de negocio) por fase |
 | `f0d8f75` | Foundry en Terraform, AI Search efímero, presupuesto con alertas y despliegue en Azure |
 | `04e635c` | Nombres de Azure con la convención CAF (sin sufijo aleatorio) |
 | `a3545c9` | Documento del checkpoint; reglas de nombres ocupados y sufijos sin vocales |
@@ -45,8 +45,8 @@ abordar los pendientes con coste.
 - Docs de las fases que faltaban: [fase 0](fase-0-cimientos.md), [fase 1](fase-1-sql.md) (con el
   benchmark real de índices en escala `large`) y [fase 2](fase-2-modelos.md).
 - [README.md](../README.md) en la raíz: visión general, diagrama, carriles, arranque rápido e índice.
-- [preguntas-entrevista.md](preguntas-entrevista.md): **fichero único** de preparación de la
-  entrevista (rol de AI Technical Lead: 50 % técnico, 50 % negocio y stakeholders). Chuleta
+- [preguntas-y-respuestas.md](preguntas-y-respuestas.md): **fichero único** de preguntas y
+  respuestas (perspectiva de AI Technical Lead: 50 % técnico, 50 % negocio y stakeholders). Chuleta
   Azure → AWS, 11 preguntas transversales de liderazgo y, por fase, preguntas técnicas y de negocio
   con respuesta modelo. Los docs de fase solo enlazan a su sección.
 - [pendientes-cloud.md](pendientes-cloud.md) y [lecciones-aprendidas.md](lecciones-aprendidas.md):
@@ -293,4 +293,4 @@ Aplazado, con su fase:
 | APIM, MCP en HTTPS y Entra ID + OBO (App Registrations como código) | Fase 14 | Despliegue en Azure; sin objetos a mano en el tenant corporativo |
 | Todo lo de AWS (Bedrock, Bedrock KB, Guardrails, Cognito, AgentCore) | Cuando haya cuenta | Sin acceso a AWS todavía |
 
-Preguntas de entrevista del checkpoint: [preguntas-entrevista.md](preguntas-entrevista.md#checkpoint-8-9).
+Preguntas y respuestas del checkpoint: [preguntas-y-respuestas.md](preguntas-y-respuestas.md#checkpoint-8-9).

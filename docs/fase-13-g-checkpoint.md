@@ -12,7 +12,7 @@ reducir lo que queda en [pendientes-cloud.md](pendientes-cloud.md). Plan en
 | G→13.3 | `e926280` | Terraform de AWS aplicado contra el emulador (`terraform test` con estado en memoria) e ingesta de la KB de punta a punta |
 | G→13.4 | `bd0bf6d` | Azure: Azurite para la subida incremental de blobs y emulador de Service Bus fijado en `2.0.1` |
 | G→13.5 | `864391e`, `52526fc` | CI: job `aws-emulator` (tests + Terraform) y Azurite en `integration`; ElasticMQ se queda para ejecutar el sistema en local |
-| Cierre | (este commit) | Preguntas de entrevista, estado y repaso de toda la documentación (9 sabores, 3 nubes y diagramas) |
+| Cierre | (este commit) | Preguntas y respuestas, estado y repaso de toda la documentación (9 sabores, 3 nubes y diagramas) |
 
 ## 1. Concepto
 
@@ -348,7 +348,7 @@ de AgentCore Control (501) y S3 Control inalcanzable por el prefijo de cuenta en
 (documentado por AWS). No se reportan en su repositorio (decisión de Sergio, 22-11-2026): al subir
 de versión, se mira en sus notas de release si ya están resueltos.
 
-## Checkpoint de entrevista
+## Preguntas y respuestas
 
 Preguntas técnicas y de negocio en
-[preguntas-entrevista.md](preguntas-entrevista.md#checkpoint-g-13).
+[preguntas-y-respuestas.md](preguntas-y-respuestas.md#checkpoint-g-13).

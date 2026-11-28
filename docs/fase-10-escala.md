@@ -612,6 +612,6 @@ La cuota de tokens se queda en el gateway de la aplicación: es el único sitio 
 el coste estimado y la alternativa (degradar). Las políticas gestionadas sirven de red de
 seguridad a nivel de proyecto, como la *floor setting* de Model Armor en la 8.G.
 
-## 8. Checkpoint de entrevista
+## 8. Preguntas y respuestas
 
-Preguntas técnicas y de negocio: [preguntas-entrevista.md](preguntas-entrevista.md#fase-10).
+Preguntas técnicas y de negocio: [preguntas-y-respuestas.md](preguntas-y-respuestas.md#fase-10).

@@ -10,7 +10,7 @@ Un diagrama único de todo el sistema es ilegible. Aquí va por **niveles de zoo
 - **Nivel 2**: el recorrido de un caso real de punta a punta, para contarlo en una pizarra.
 
 Las tres nubes (Azure, AWS y GCP) aparecen en cada nivel: el código es el mismo y solo cambian los
-adaptadores y el Terraform. Siglas y términos: [glosario](glosario.md). Preguntas y respuestas: [preguntas-entrevista.md](preguntas-entrevista.md).
+adaptadores y el Terraform. Siglas y términos: [glosario](glosario.md). Preguntas y respuestas: [preguntas-y-respuestas.md](preguntas-y-respuestas.md).
 
 ## Índice
 
@@ -410,7 +410,7 @@ flowchart LR
 - Las piezas ya tienen su Terraform en `infra/terraform/{aws,azure,gcp}`, con lo que tiene coste
   apagado por defecto. El módulo de AWS ya se aplica entero contra el AWS Emulator en cada PR (job
   `aws-emulator`), salvo el autoescalado de ECS y los targets del MCP gateway. Las fases 13 (AWS), 14 (Azure) y 15 (GCP) lo
-  componen en un despliegue completo. Equivalencias completas en la [chuleta Azure → AWS → GCP](preguntas-entrevista.md#chuleta).
+  componen en un despliegue completo. Equivalencias completas en la [chuleta Azure → AWS → GCP](preguntas-y-respuestas.md#chuleta).
 
 ---
 

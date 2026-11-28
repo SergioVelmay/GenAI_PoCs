@@ -9,7 +9,7 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 
 - PoCs didácticas del stack completo de **sistemas agénticos GenAI** (RAG, tool calling, MCP, multi-agente, harness/guardrails, evals, observabilidad, seguridad, DevOps/LLMOps) en **Azure, AWS y GCP** (la pasada GCP por las fases 0–12 se cerró en la 12.G6; falta validarla en la nube: `docs/pendientes-cloud.md`; plan en `docs/fase-13-12-checkpoint.md#plan-gcp`).
 - **Plan completo de fases** (objetivo, entregables, compromisos heredados e ideas aparcadas): `docs/plan-fases.md`. Es la fuente de verdad: no hace falta que Sergio pegue el plan de una fase.
-- Usuario: **Sergio**. Objetivo: preparar entrevistas para **AI Technical Lead** de proyectos GenAI y agénticos en Genaipocs, y saber explicar y defender cada decisión.
+- Usuario: **Sergio**. Objetivo: aprender, investigar y practicar el rol de **AI Technical Lead** de proyectos GenAI y agénticos en Genaipocs, y saber explicar y defender cada decisión.
 - El rol es **50 % liderazgo técnico** (arquitectura, decisiones y trade-offs, calidad, equipo) y **50 % negocio y stakeholders** (impacto, coste/ROI, riesgos, priorización, comunicar a perfiles no técnicos).
 - Perfil: 7+ años en IA solo sobre Azure (AI Foundry, AI Search, Container Apps, AKS, Functions, Bicep, Azure DevOps), Microsoft Agent Framework y FastMCP. **El rol pide AWS** (producción de Genaipocs): cada concepto se ancla en lo que conoce de Azure y se traslada a AWS. Aprendiendo también LlamaIndex, LangChain/LangGraph, Strands y Terraform.
 - Cliente hipotético: **Genaipocs**, marketplace global de experiencias y eventos (~300 M de usuarios, producción en AWS), con usuarios internos (operaciones, soporte, partners) y una parte pública de alta escala.
@@ -26,9 +26,10 @@ skills de `.claude/skills/*/SKILL.md` (las leen los dos). Visión general para p
 
 ## Forma de trabajar
 
-- Responder en **español** y con enfoque **didáctico**. Para cada fase: concepto → equivalencia con lo que Sergio conoce y comparativa **Azure ↔ AWS ↔ GCP ↔ framework** → implementación incremental y verificable → **parar para revisión** → **checkpoint de entrevista** con preguntas técnicas **y** de negocio/stakeholders (qué problema de Genaipocs resuelve, KPI, coste, riesgos, cómo explicarlo a un no técnico, qué priorizarías y qué dejarías fuera).
+- Responder en **español** y con enfoque **didáctico**. Para cada fase: concepto → equivalencia con lo que Sergio conoce y comparativa **Azure ↔ AWS ↔ GCP ↔ framework** → implementación incremental y verificable → **parar para revisión** → **preguntas y respuestas (Q&A)** técnicas **y** de negocio/stakeholders (qué problema de Genaipocs resuelve, KPI, coste, riesgos, cómo explicarlo a un no técnico, qué priorizarías y qué dejarías fuera).
 - **Tres carriles** cuando tenga sentido, con el mismo dataset y las mismas evals: **A. Gestionado** (Foundry Agent Service, Bedrock KB, AgentCore, RAG Engine, Agent Runtime...), **B. SDK nativo** (`azure-*`, `boto3`, `google-genai`/`google-cloud-*`), **C. Framework** (LlamaIndex, LangGraph, MAF, Strands, ADK).
 - Ritmo: subfases pequeñas; tras cada una, verificar, commit + push + CI (skill `cerrar-subfase`), informar y esperar el "dale" para la siguiente. Skills: `iniciar-fase`, `retomar-fase`, `cerrar-subfase`, `cerrar-fase`, `explicar-concepto`.
+- **Enfoque didáctico** (28-11-2026): docs, código y chat presentan el material como aprendizaje, repaso e investigación, o como test para probar; nunca como preparación de un proceso de selección.
 - **Vocabulario de Sergio:** "dale" = empieza la subfase que acabas de proponer; "revisado" = visto bueno a lo informado (sigue valiendo, pero ya no hace falta para el commit). La revisión final la hace Sergio en la PR, lista para revisión, antes de fusionarla.
 - **Ficheros temporales** (Claude Code, Git Bash): mensajes de commit con heredoc directo (`git commit -F - <<'EOF'`); cuerpo de la PR y scripts auxiliares en `.tmp/` dentro del repo (ignorado por Git), creados con la tool de edición. Nunca `$LOCALAPPDATA`, `$TEMP` ni rutas fuera del repo. Copilot (PowerShell 5.1, sin heredocs) usa también `.tmp/` (`.tmp/commit-msg.txt`).
 - **Preguntas:** pocas, solo las que bloquean el paso actual, con la opción recomendada primero; decir explícitamente si una propuesta **cambia el plan** original; aparcar las dudas que no bloquean.
@@ -81,7 +82,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 
 - Commits: Conventional Commits en español (`feat: fase 8.2 - ...`), mensaje desde fichero (`git commit -F <fichero>`), con el trailer **del agente que ha hecho el trabajo**: Copilot → `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`; Claude Code → `Co-authored-by: Claude <noreply@anthropic.com>`.
 - Tests deterministas, sin red ni coste (adaptadores en memoria) y sin depender de variables del shell de quien los ejecuta. Lo que tiene coste exige `--budget-usd` o dry-run por defecto (`--apply`).
-- Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas de entrevista viven solo en `docs/preguntas-entrevista.md` (una sección por fase; el doc enlaza a ella).
+- Docs de fase en `docs/fase-N-*.md` con la misma estructura. Las preguntas y respuestas viven solo en `docs/preguntas-y-respuestas.md` (una sección por fase; el doc enlaza a ella).
 - `✅ Hecha*` = implementación cerrada, falta validación en cloud (desde el checkpoint 8→9, en las fases 2–8 falta AWS; y GCP en todas). No escribir "asterisco".
 - Pasada GCP: subfases `N.G1`, `N.G2`... por fase (`feat: fase 3.G1 - ...`), con paridad total con Azure y AWS; cada una actualiza el doc de su fase y la columna GCP de la tabla de estado.
 - Pasada de paridad: subfases `N.P1`, `N.P2`... por fase (`feat: fase 8.P1 - ...`, rama `fase/<N>-p`), con el alcance de `docs/conectores-candidatos.md#pasada-p`; cada una añade una sección "Paridad (pasada N.P)" al doc de su fase.
@@ -132,4 +133,4 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 En la columna GCP, el código de la subfase de la pasada; pasa a `✅` (o `✅*`) al cerrarla.
 
 Pendientes con coste de cada fase: `docs/pendientes-cloud.md` (recordárselos a Sergio cuando toque).
-Requisitos de las ofertas a cubrir: multi-agente con grafos, tool calling avanzado, harness y guardrails, RAG híbrido, context engineering + prompt caching + model routing, evals con métricas, Clean Architecture/DDD, asíncrono y colas, SQL avanzado, CI/CD + observabilidad y equivalencias Azure ↔ AWS ↔ GCP.
+Capacidades del rol a cubrir: multi-agente con grafos, tool calling avanzado, harness y guardrails, RAG híbrido, context engineering + prompt caching + model routing, evals con métricas, Clean Architecture/DDD, asíncrono y colas, SQL avanzado, CI/CD + observabilidad y equivalencias Azure ↔ AWS ↔ GCP.

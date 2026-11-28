@@ -417,7 +417,7 @@ mezclarlos rompería la asimetría `RETRIEVAL_DOCUMENT`/`RETRIEVAL_QUERY` sin ni
 - GCP: Pub/Sub real, embeddings de Gemini, Agent Retrieval y RAG Engine, todos efímeros
   ([pendientes de la 3.G](pendientes-cloud.md#fase-3-gcp)).
 
-## 9. Checkpoint de entrevista
+## 9. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 3](preguntas-entrevista.md#fase-3).
+[preguntas y respuestas · fase 3](preguntas-y-respuestas.md#fase-3).

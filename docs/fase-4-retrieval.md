@@ -822,7 +822,7 @@ con el corpus de evals: 114 documentos públicos y 2 internos). La validación r
 - GCP: Agent Retrieval con la Ranking API, RAG Engine y Agent Search, todos efímeros
   ([pendientes de la 4.G](pendientes-cloud.md#fase-4-gcp)).
 
-## Checkpoint de entrevista
+## Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
-[preguntas de entrevista · fase 4](preguntas-entrevista.md#fase-4).
+[preguntas y respuestas · fase 4](preguntas-y-respuestas.md#fase-4).
