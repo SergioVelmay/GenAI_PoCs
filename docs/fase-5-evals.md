@@ -3,8 +3,8 @@
 Cómo sabemos si el RAG de Genaipocs funciona y cómo evitamos que empeore sin que nadie se dé cuenta.
 Todo se mide con el mismo corpus congelado, el mismo golden dataset y las mismas métricas en los
 carriles B (SDK nativo) y C (LlamaIndex). El carril A (evaluación gestionada) está medido en Azure
-(Foundry Evaluation) e implementado en GCP (Gen AI Evaluation Service, [pasada 5.G](#8-gcp-pasada-5g));
-el de AWS (Bedrock Evaluations) está por implementar.
+(Foundry Evaluation) e implementado en GCP (Gen AI Evaluation Service, [pasada 5.G](#8-gcp-pasada-5g))
+y en AWS (Bedrock Evaluations, [pasada 5.P](#10-paridad-pasada-5p)).
 
 > Estado: todo lo local está completo y en CI (coste 0). Las ejecuciones con LLM (generación,
 > jueces y carril A) están hechas en Azure (18-10-2026) y **pendientes de validación con coste**
@@ -301,8 +301,8 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 |---|---|---|---|---|
 | Dataset de evaluación | Dataset en Foundry (JSONL) | Dataset en S3 (JSONL) | `EvaluationDataset` (casos en memoria, o en Cloud Storage / BigQuery) | `golden-v2.jsonl` versionado en Git |
 | Métricas de retrieval | Evaluadores de Foundry (document retrieval) | Bedrock Evaluations (retrieve only) | Sin evaluador propio de retrieval: métricas en código | `domain/evals.py` |
-| LLM-as-a-judge para RAG (carril A) | Groundedness, Relevance... en Foundry Evaluation | Bedrock Evaluations (retrieve and generate) | Gen AI Evaluation Service: `grounding_v2` y `LLMMetric` propia | Juez nativo (B), RAGAS y DeepEval (C) |
-| Juez fijo fuera del router | `gpt-4.1` | Claude Sonnet 4.5 | `gemini-4-argon` | `build_judge_llm` (rechaza un juez que sea del router) |
+| LLM-as-a-judge para RAG (carril A) | Groundedness, Relevance... en Foundry Evaluation | Bedrock Evaluations: job asíncrono de RAG evaluation con respuestas propias, `Builtin.Faithfulness` y métrica propia | Gen AI Evaluation Service: `grounding_v2` y `LLMMetric` propia | Juez nativo (B), RAGAS y DeepEval (C) |
+| Juez fijo fuera del router | `gpt-4.1` | Claude Sonnet 4.5 (en Bedrock Evaluations, Sonnet 4.6: el 4.5 no es evaluador admitido) | `gemini-4-argon` | `build_judge_llm` (rechaza un juez que sea del router) |
 | Fidelidad del RAG gestionado | `managed_eval --engine foundry_iq` | `--engine bedrock_kb` | `--engine rag_engine` y `--engine agent_search` | Juez nativo calibrado |
 | Gate en el pipeline | Evaluación en Azure DevOps / GitHub Actions | Job de evaluación + umbral en CodePipeline / GitHub Actions | Job de evaluación en Cloud Build / GitHub Actions | `rag_evals.gate` |
 | Control de coste | Presupuestos de suscripción | AWS Budgets | Presupuestos de Cloud Billing | `CostMeter` por ejecución |
@@ -333,7 +333,8 @@ Subir el baseline es deliberado (`--update-baseline`) y se revisa en la PR como 
 3. ~~Juez con un modelo distinto del generador y embeddings reales para RAGAS~~ (hecho: `gpt-4.1`
    y `text-embedding-3-small`).
 4. Carril A: ~~Azure AI Foundry Evaluation~~ (hecho, kappa 0,82) y Amazon Bedrock Evaluations
-   con el mismo conjunto.
+   con el mismo conjunto (implementado en la 5.P;
+   [pendientes de la 5.P](pendientes-cloud.md#fase-5-paridad)).
 5. Retrieval con embeddings reales y reranker de nube: ~~Azure~~ (hecho, con Semantic Ranker; el
    baseline de la CI sigue siendo el local); falta en AWS y en GCP
    ([pendientes de la 4.G](pendientes-cloud.md#fase-4-gcp)).
@@ -480,7 +481,121 @@ recuperaría y no habría respuesta redactada que juzgar.
   `JudgeVerdict`, si `grounding_v2` está en `europe-west4`, el coste real del servicio (no
   devuelve tokens) y si `--dest` hace visible la ejecución en la consola.
 
-## 10. Preguntas y respuestas
+<a id="10-paridad-pasada-5p"></a>
+
+## 10. Paridad (pasada 5.P)
+
+**Objetivo:** cerrar el último hueco del carril A de evals: juzgar en AWS, con **Amazon Bedrock
+Evaluations**, el mismo conjunto de calibración que ya juzgan Foundry Evaluation y el Evaluation
+Service, para compararlo con las mismas etiquetas humanas y el mismo kappa. Estaba asignado a la
+fase 13 y se adelantó en el checkpoint G→13 B. Coste 0: todo con dobles; lo real va a
+[pendientes](pendientes-cloud.md#fase-5-paridad).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 5.P1 | `f725746` | `rag_evals.bedrock_eval`: dataset con respuestas propias, job asíncrono, lectura de S3 y parser |
+| 5.P2 | `0272fb8` | Terraform `bedrock_evals.tf`: bucket y rol de servicio, probado en el AWS Emulator |
+| 5.P3 | (cierre) | Este apartado, preguntas, pendientes y estado |
+
+```mermaid
+flowchart LR
+  C["calibration-v1"] -->|"dataset (JSONL)"| S3[("Bucket de evals")]
+  E["bedrock_eval"] -->|"crea el job"| J["Job de RAG evaluation"]
+  J -->|"asume el rol"| S3
+  J -->|"juzga"| M["Evaluador"]
+  J -->|"resultados (JSONL)"| S3
+  S3 -->|"lee y puntúa"| E
+  E --> A["calibration agreement"]
+```
+
+| Pieza | Dónde |
+|---|---|
+| Dataset, petición del job, espera, lectura y parser | [`rag_evals/bedrock_eval.py`](../evals/src/rag_evals/bedrock_eval.py) |
+| Métrica propia de relevancia (escala 0-3) | [`prompts/bedrock-eval-relevance.md`](../evals/src/rag_evals/prompts/bedrock-eval-relevance.md), en el candado |
+| Configuración | `BedrockEvalSettings` (`BEDROCK_EVAL__*`) en `genaipocs_core/config.py` |
+| Bucket y rol de servicio | [`infra/terraform/aws/bedrock_evals.tf`](../infra/terraform/aws/bedrock_evals.tf) (`bedrock_evals_enabled`) |
+| Tests | [`test_bedrock_eval.py`](../evals/tests/test_bedrock_eval.py) (Stubber) y `run "bedrock_evals"` en `tests-emulator/` |
+
+### 10.1 Verificación previa (28-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Estado y región | RAG evaluation GA desde el 20-03-2025, en Irlanda (`eu-west-1`). Sin tarifa propia: se pagan los tokens del evaluador | Sin cambio de región |
+| API instalada (boto3 1.43.108) | `CreateEvaluationJob` con `applicationType=RagEvaluation`, respuestas propias (`precomputedRagSourceConfig`) y métricas propias (`customMetricConfig`) | Sin dependencias nuevas ni el extra `evals` |
+| **Evaluadores admitidos** | **Claude Sonnet 4.5, el juez fijo de AWS, no está en la lista** (ni para métricas predefinidas ni para propias). Sí Sonnet 4.6, Sonnet 4.0, Opus 4.5 y Haiku 4.5 | Sonnet 4.6 solo en Bedrock Evaluations (`BEDROCK_EVAL__EVALUATOR_MODEL_ID`; decisión de Sergio); el juez nativo no cambia |
+| Métricas de *retrieve and generate* | Faithfulness, Correctness, Completeness, Helpfulness, Citation*, Refusal... **Ninguna de relevancia de la respuesta** | Métrica propia con prompt versionado, como en la 5.G2 |
+| Reglas de las métricas propias | Hasta 10 por job y 5000 caracteres; `{{prediction}}` obligatoria y las variables al final; la escala va en `ratingScale` (definiciones de 5 palabras como máximo), no en el prompt | Un test comprueba cada regla sobre el prompt |
+| `taskType` | Obligatorio, pero **ignorado** en las RAG evaluations. Los ejemplos de la documentación usan `"General"`, que no está en el enum de la API | `QuestionAndAnswer` (valor del enum) |
+| Formato de la salida | JSONL en S3 con `automatedEvaluationResult.scores` e `inputRecord`; el detalle por registro de RAG no está bien documentado | Parser estricto y fallo claro si es otro; capturar una salida real (pendiente) |
+| Rol de servicio | Confianza en `bedrock.amazonaws.com`, `InvokeModel` y lotes sobre el evaluador, S3 sobre el bucket; sin CORS | `bedrock_evals.tf` |
+| AWS Emulator | No simula `CreateEvaluationJob` | Tests con `Stubber`, que valida peticiones y respuestas contra el modelo de la API |
+
+### 10.2 Qué se construye
+
+```powershell
+uv run pytest evals/tests/test_bedrock_eval.py
+uv run python -m rag_evals.bedrock_eval                    # dry-run: valida la petición (sin red)
+terraform -chdir=infra/terraform/aws test -test-directory=tests-emulator   # con --profile aws
+# Con coste (pendientes-cloud.md), perfil de AWS y bedrock_evals_enabled = true:
+uv run python -m rag_evals.bedrock_eval --apply             # → evals/reports/aws/
+uv run python -m rag_evals.calibration agreement --cloud aws
+uv run python -m rag_evals.bedrock_eval --job-arn <arn>     # recalibrar el umbral sin coste
+```
+
+- **Un job asíncrono, no una llamada.** El dataset (las 20 muestras como respuestas propias: pregunta,
+  respuesta, contextos y referencia) se sube a S3. El job asume el rol, juzga y deja los resultados
+  en S3. `bedrock_eval` espera (sondeo cada 30 s, 90 min como máximo) y, si se agota la espera, el
+  job sigue en AWS y se recoge después con `--job-arn`.
+- **Fidelidad con umbral calibrable.** `Builtin.Faithfulness` da 0-1. Fiel si llega a
+  `BEDROCK_EVAL__FAITHFULNESS_PASS` (1,0 hasta calibrarlo). Es la lección de Foundry (exigir la nota
+  máxima le dio kappa 0), con una ventaja: el resultado queda en S3, así que probar otro umbral es
+  releer con `--job-arn`, sin pagar otra vez al juez.
+- **Relevancia propia** `genaipocs_relevance`, con el criterio de las etiquetas adjudicadas y la
+  escala 0-3 del juez nativo, como en GCP.
+- **Dry-run por defecto**: valida la petición contra el modelo de la API instalada de botocore,
+  sin red ni credenciales. Solo `--apply` gasta.
+- **Fail-closed por muestra**: un error del servicio, una métrica ausente o fuera de escala cuentan
+  como error del juez. Una relevancia con decimales (p. ej., normalizada a 0-1) se rechaza en vez
+  de leerse como 0-3. Un resultado que no es del dataset o con otro formato aborta: no se podría
+  saber a qué muestra pertenece.
+- **Muestras reconocidas por su contenido**: el servicio devuelve el registro de entrada, no un id.
+  Se usa el par pregunta y respuesta, único en `calibration-v1`, aunque hay preguntas repetidas.
+- **Terraform** (`bedrock_evals_enabled = false`, sin coste en reposo): bucket con caducidad a 30
+  días, cifrado y bloqueo público; rol con confianza solo para `evaluation-job/*` de la cuenta y
+  la región (diputado confundido), y permisos solo sobre el evaluador (perfil EU y modelo base) y
+  el bucket. Probado con `apply` y `destroy` reales en el AWS Emulator.
+
+### 10.3 Comparativa del carril A en las tres nubes
+
+| | Foundry Evaluation (Azure) | Evaluation Service (GCP) | Bedrock Evaluations (AWS) |
+|---|---|---|---|
+| Ejecución | `evaluate()` en el proceso | `client.evals.evaluate`, síncrono | **Job asíncrono**: S3 → job → S3 |
+| Infraestructura | Ninguna | Ninguna (`roles/aiplatform.user`) | **Bucket y rol de servicio** |
+| Fidelidad | `GroundednessEvaluator` 1-5, fiel ≥ 3 (calibrado) | `grounding_v2` 0-1, sin umbral | `Builtin.Faithfulness` 0-1, umbral por calibrar |
+| Relevancia | `RelevanceEvaluator` 1-5 | Métrica propia 0-3 | Métrica propia 0-3 |
+| Evaluador | `gpt-4.1` (el juez nativo) | Gemini del servicio (fidelidad) y `gemini-4-argon` (relevancia) | Sonnet 4.6 (el juez nativo, Sonnet 4.5, no está admitido) |
+| Portal | `--log-to-foundry` | `--dest gs://...` (por comprobar) | Consola de Bedrock (Evaluations), siempre |
+| Estado | GA | **Preview** | GA |
+| Coste (20 muestras) | 0,17 $ medido | Por medir (sin tokens en la respuesta) | Por medir (~0,3–0,6 $ estimado, sin tokens en la respuesta) |
+| Kappa frente a las etiquetas | 0,82 / 0,86 | Pendiente | Pendiente |
+
+### 10.4 Decisiones y límites de la pasada
+
+- **Mismo instrumento de medida en las tres nubes**: mismo conjunto, mismas etiquetas, mismo kappa.
+  Ningún carril A entra en el camino crítico: la CI y el gate siguen con el juez nativo.
+- **El evaluador no es el juez nativo** (Sonnet 4.6 frente a Sonnet 4.5): pasa lo mismo que en GCP,
+  donde la fidelidad la juzga el modelo que elige la versión de la métrica. Por eso cada carril A
+  se calibra por su cuenta contra las etiquetas humanas.
+- **Fuera de alcance** (decisión de Sergio): evaluar la Knowledge Base invocada por el propio
+  servicio (`knowledgeBaseConfig`, con las métricas de retrieval `ContextRelevance` y
+  `ContextCoverage`). Azure y GCP no lo tienen en el carril A, y la fidelidad de la KB ya la mide
+  `managed_eval --engine bedrock_kb`. Queda como idea para la 12.P o la fase 13.
+- **Límites conocidos**, con su comprobación en [pendientes](pendientes-cloud.md#fase-5-paridad):
+  que el perfil `eu.anthropic.claude-sonnet-4-6` existe en `eu-west-1`, el formato real de la salida
+  de una RAG evaluation, si la métrica propia devuelve el valor de la escala (0-3) o una nota
+  normalizada, el umbral de fidelidad y el coste real.
+
+## 11. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas y respuestas · fase 5](preguntas-y-respuestas.md#fase-5).

@@ -138,6 +138,10 @@ dobles en local y coste 0.
   nube" sale de la pasada y pasa a [extras](#fase-16--extras): primero se quiere medir cómo cambia
   el comportamiento con el proveedor de cada nube (OpenAI en Azure, Anthropic y Amazon en AWS,
   Gemini en GCP).
+- **5.P (✅ Hecha\*, 28-11-2026, PR #21):** Bedrock Evaluations como carril A de evals en AWS (job
+  asíncrono de RAG evaluation con respuestas propias, bucket y rol en Terraform). El evaluador es
+  Sonnet 4.6 (Sonnet 4.5, el juez nativo, no está admitido). Evaluar la Knowledge Base invocada
+  por el servicio queda fuera: idea para la 12.P o la fase 13.
 - **Detalle**, comprobación contra el repo y lo que se queda en los despliegues:
   [conectores-candidatos.md](conectores-candidatos.md).
 - **Cubre:** equivalencia de nubes (Azure → AWS → GCP) con código, no solo con chuletas.
@@ -187,8 +191,10 @@ dobles en local y coste 0.
     en `X-Forwarded-For` desde 127.0.0.1; ver `services/edge_api/src/edge_api/identity.py`).
   - Workflow de CI para los jueces LLM (manual o programado, con OIDC y `--budget-usd`).
   - Carril A de evals en AWS (**Bedrock Evaluations**): asignado a la 13 en el checkpoint G→13,
-    **se adelanta a la 5.P** de la [pasada de paridad](#pasada-p) (checkpoint G→13 B). Aquí solo
-    se ejecuta en la nube.
+    **se adelanta a la 5.P** de la [pasada de paridad](#pasada-p) (checkpoint G→13 B; hecha el
+    28-11-2026). Aquí solo se ejecuta en la nube
+    ([pendientes](pendientes-cloud.md#fase-5-paridad)), y se puede sumar la evaluación de la
+    Knowledge Base invocada por el servicio (`knowledgeBaseConfig`), que la 5.P dejó fuera.
   - Los servicios de AWS que son configuración del despliegue (*usage plans*, AgentCore
     Observability, KEDA en EKS, CDK, SAM local): [conectores-candidatos.md](conectores-candidatos.md#23-se-quedan-en-las-fases-de-despliegue).
 

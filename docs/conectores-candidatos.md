@@ -41,7 +41,7 @@ Una nube lo tiene implementado y las otras no.
 
 | Pasada | Ya implementado | Falta | Puerto | Esfuerzo |
 |---|---|---|---|---|
-| 5.P | Carril A de evals en Azure (Foundry Evaluation) y GCP (Gen AI Evaluation Service) | **Bedrock Evaluations** (AWS). Antes asignado a la fase 13: se adelanta aquí | Juez y evals de `rag_evals` | M |
+| 5.P | Carril A de evals en Azure (Foundry Evaluation) y GCP (Gen AI Evaluation Service) | **Bedrock Evaluations** (AWS). Antes asignado a la fase 13: se adelanta aquí (**hecho** en la 5.P, 28-11-2026: [fase 5 · 10](fase-5-evals.md#10-paridad-pasada-5p)) | Juez y evals de `rag_evals` | M |
 | 6.P | Registro de servidores MCP en GCP (Agent Registry, 6.G) | **API Center** (Azure); el equivalente de AWS se comprueba al iniciar la 6.P | Terraform | S |
 | 7.P | Memoria gestionada en AWS (AgentCore Memory) y GCP (Memory Bank) | **Memoria de Foundry** (Azure, preview) | Memoria del agente (`adapters/agentcore_memory.py`, `adapters/memory_bank.py`) | S–M |
 | 8.P | PII gestionado en GCP (Sensitive Data Protection) | **Azure AI Language (PII)** y **Amazon Comprehend (PII)** en `GUARDRAILS__PII` | Detector de PII (`harness/pii.py`) | S c/u |

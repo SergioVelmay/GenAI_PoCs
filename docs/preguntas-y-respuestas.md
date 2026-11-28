@@ -598,6 +598,22 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    abstención correcta, fugas de ACL y latencia; los rechazos del guardarraíl de citas y los
    bloqueos de contenido son estados, no errores. El informe va a la carpeta de la nube del
    servicio evaluado, no a la del juez.
+11. **¿En qué se diferencia Bedrock Evaluations de Foundry Evaluation y del Evaluation Service?
+   (AWS)** En AWS la evaluación es un **job asíncrono**: subes el dataset a S3 (con tus propias
+   respuestas, sin que invoque ninguna Knowledge Base), el servicio asume un rol, juzga y deja el
+   resultado en S3. Eso pide infraestructura que en Azure y GCP no existe (bucket y rol con
+   confianza limitada a `evaluation-job/*`), pero tiene una ventaja: el resultado queda guardado,
+   así que recalibrar el umbral de fidelidad es releerlo (`--job-arn`), sin pagar otra vez al
+   juez. Y dos sorpresas de la verificación previa: el juez fijo de AWS (Sonnet 4.5) no está entre
+   los evaluadores admitidos, así que el carril A juzga con Sonnet 4.6 y se calibra aparte, y no
+   hay métrica de relevancia de la respuesta, así que va una propia, como en GCP.
+12. **¿Cómo pruebas sin coste un servicio que el emulador no simula? (AWS)** Con el `Stubber` de
+   botocore, que valida cada petición y cada respuesta contra el modelo de la API instalada: el
+   doble no puede inventarse campos. El dry-run hace la misma validación sin red. La
+   infraestructura (bucket y rol) sí se aplica y se destruye de verdad en el AWS Emulator. Lo que
+   no cubre ninguno de los dos (el formato real de la salida y si la métrica propia devuelve la
+   escala o una nota normalizada) lo protege el parser: rechaza lo que no entiende en vez de
+   puntuar mal, y la primera ejecución real captura una salida para sustituir los dobles.
 
 ### Negocio y stakeholders
 
@@ -634,6 +650,15 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    negocio. Y dos cautelas que explico a quien decide: está en Preview, así que no va en el
    camino crítico (la CI usa nuestro juez), y en la fidelidad el modelo juez lo elige Google con
    la versión de la métrica, no nosotros.
+8. **Producción está en AWS. ¿Por qué no basta con el evaluador de Bedrock y te ahorras el juez
+   propio?** Porque cumplen papeles distintos. El juez propio va en la CI: es barato, determinista
+   en su forma, está calibrado (kappa 0,82 / 1,0) y no depende de un job que tarda minutos. Bedrock
+   Evaluations aporta lo que pide negocio: un informe en la consola de AWS, con su historial, que
+   operaciones puede revisar sin tocar el repo. Y no se adopta a ciegas: pasa el mismo conjunto
+   de calibración que los otros dos carriles A, con un evaluador que no es nuestro juez (Sonnet
+   4.6), así que hasta que no mida su kappa frente a las etiquetas humanas no lo uso para decidir
+   nada. El coste es bajo (céntimos por revisión, sin tarifa propia) y la infraestructura no cuesta
+   en reposo.
 
 <a id="fase-6"></a>
 
