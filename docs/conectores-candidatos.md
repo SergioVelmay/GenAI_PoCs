@@ -56,8 +56,7 @@ equivalente en las otras dos nubes (o la constatación de que no existe).
 
 | Pasada | Candidato | Por qué | Puerto | Esfuerzo |
 |---|---|---|---|---|
-| 2.P | **Bedrock Intelligent Prompt Routing** y su equivalente en Azure y GCP | Router gestionado frente al routing propio del gateway | `LLMPort` / gateway | M |
-| 2.P | **Mismo modelo por otra nube**: Claude en Agent Platform (Model Garden), Mistral en Bedrock | Fallback "mismo modelo, otra nube" en vez de "otro modelo" | `LLMPort` (nuevos IDs) | S |
+| 2.P | **Bedrock Intelligent Prompt Routing** y su equivalente en Azure y GCP (**aceptado** el 28-11-2026) | Router gestionado frente al routing propio del gateway | `LLMPort` / gateway | M |
 | 3.P | **Parsing gestionado**: Document Intelligence / Content Understanding, Textract / Bedrock Data Automation, Document AI / Layout Parser de RAG Engine | PDF, Office y tablas antes del troceo | Indexador | M |
 | 3.P | **Event Grid · EventBridge · Eventarc** para "documento publicado" | Eventos sin cola propia frente al contrato de brokers | Indexador / brokers | M |
 | 3.P | **Event Hubs** (tiene emulador oficial, inventariado en el G→13) | Log tipo Kafka en vez de cola | Contrato de brokers | M |
@@ -110,3 +109,88 @@ No entra en la pasada. Sirve para elegir contrastes cuando una fase lo pida.
 
 Las afirmaciones sobre terceros (licencias, compras de empresas, fechas de GA) no se han verificado
 en este checkpoint: se comprueban con fuentes oficiales al elegir un candidato.
+
+<a id="mismo-modelo"></a>
+
+## 4. Mismo modelo por otra nube (extra, sacado de la 2.P)
+
+Estaba en las ampliaciones de la 2.P ("Claude en Agent Platform, Mistral en Bedrock"). El
+28-11-2026 Sergio lo saca de la pasada: primero se quiere medir cómo cambia el comportamiento
+**con** el cambio de proveedor de cada nube (OpenAI en Azure; Anthropic y Amazon Nova en AWS; Gemini
+en GCP), que es lo que ya hace el gateway. Pasa a la [fase 16+](plan-fases.md#fase-16--extras).
+
+**Idea:** hoy el fallback cambia de modelo (gpt-4.1-mini → Claude Haiku → Gemini) y con él el
+comportamiento (prompts y evals calibrados para otro modelo). Con el mismo modelo en otra nube, la
+caída de una región no cambia la conducta del asistente.
+
+Verificación del 28-11-2026 (para retomarlo, comprobarla de nuevo):
+
+| Opción | Disponibilidad | Consecuencia |
+|---|---|---|
+| **Claude Haiku 5.5** en las tres | Bedrock con perfil `eu.`; Agent Platform con `eu` (+10 %) o `global`; Foundry solo Global Standard o Data Zone de EE. UU. (**sin zona UE**) | La mejor candidata. Un fallback a Azure sacaría datos de la UE: cadena `aws → gcp` y Azure opcional |
+| Claude Haiku 4.5 | *Legacy* para Anthropic; Agent Platform lo retira el 28-02-2027 | Descartada |
+| Mistral Large 3 | Bedrock (región UE dudosa) y Foundry; en Agent Platform no está claro | Solo documental |
+| gpt-oss-120b | Las tres, pero en la UE solo Bedrock | Alternativa abierta |
+
+Implicaría un adaptador `AnthropicLLM` (SDK `anthropic`, hoy no instalado: Claude en Foundry va por
+la Messages API y en Agent Platform no lo sirve `google-genai`) y una cadena de fallback por familia.
+
+<a id="modelos-de-decision"></a>
+
+## 5. Modelos de decisión (*System One*) · extra en observación
+
+Investigado el 28-11-2026 a petición de Sergio. Categoría nueva (septiembre–noviembre de 2026),
+todavía inmadura: se documenta para decidir dónde encajaría y se retoma en la
+[fase 16+](plan-fases.md#fase-16--extras).
+
+### 5.1 Qué son
+
+Modelos **discriminativos**, no generativos (el "Sistema 1", rápido e intuitivo, de Kahneman; un LLM
+que razona token a token sería el "Sistema 2"). Reciben un `state` (texto o JSON) y un mapa de
+preguntas cerradas, y devuelven **probabilidades calibradas** en una sola pasada, sin texto:
+
+| Tipo | Pregunta | Devuelve |
+|---|---|---|
+| `noul` | Sí/no | Probabilidad de "sí" |
+| `choice` | Una de N opciones (hasta 255) | La elegida y la probabilidad de cada una |
+| `score` | Nivel en una escala ordenada (rúbrica) | Nivel ponderado y probabilidad por nivel |
+
+"Calibrada" significa que un 0,8 acierta ~80 % de las veces: permite poner **umbrales** (actuar,
+abstenerse o escalar a una persona). La salida no se cobra (solo la entrada, ~0,04–0,10 $/M) y la
+latencia anunciada es de 100–500 ms. No puede devolver nada fuera del esquema, pero **sí puede
+equivocarse**, y un texto inyectado en el `state` puede torcer la respuesta.
+
+### 5.2 Estado por proveedor (28-11-2026)
+
+| Proveedor | Modelo | Estado | ¿Cumple la regla 4 (solo modelos de las tres nubes)? |
+|---|---|---|---|
+| Azure | **Microsoft-Decision-1.1** (Foundry) | GA desde el 17-11-2026 (la 1, en preview desde el 09-10-2026); 0,042 $/M de entrada | Sí |
+| GCP | **Gemini Decision 1** (Decisions API) | 11-11-2026, solo en la Gemini Developer API (`v1beta`); en Agent Platform, "pronto", sin fecha | No, hasta que llegue a Agent Platform (regiones, residencia, IAM) |
+| AWS | **Sin modelo propio** | AWS documenta (04-11-2026) Jev o **Strands Decider** (abierto, 2B, desplegado en AgentCore Runtime) como filtro barato de AgentCore Evaluations | Solo con Strands Decider desplegado en AgentCore Runtime |
+| Terceros | **Jev** (pionero, 09-2026) y **Decisions API** de OpenAI (GA el 22-10-2026) | SaaS fuera de las tres nubes | No |
+
+**Por qué no está maduro:** dos meses de vida; las cifras son del propio fabricante y se
+contradicen (Microsoft anuncia 85 ms y un benchmark independiente midió 459 ms y lo puso detrás de
+Jev); Gemini Decision está en `v1beta` y fuera de Agent Platform; AWS no tiene modelo propio.
+**Condición para retomarlo:** Gemini Decision en Agent Platform y una opción gestionada (o Strands
+Decider medido) en AWS, para hacerlo con paridad.
+
+### 5.3 Dónde encajaría en Genaipocs
+
+Detrás de un puerto nuevo, **`DecisionPort`** (preguntas tipadas → probabilidades), con adaptadores
+por nube y uno simulado para los tests. Los **umbrales los fija el dominio**: un "modelo de
+decisión" no toma decisiones de negocio (regla 6); clasifica con una probabilidad y el código
+determinista decide qué hacer con ella.
+
+| Dónde (fase) | Qué haría | Justificación | Prioridad |
+|---|---|---|---|
+| Routing del gateway (2) | `DecisionClassifier`: "¿necesita el modelo potente?" (`noul` + umbral), junto a `HeuristicClassifier` y `LLMClassifier` | En Azure el router LLM duplicaba llamadas (+42 % de coste) sin enrutar mejor ([fase 2](fase-2-modelos.md#resultados-en-azure-18-10-2026)); uno de decisión cuesta una fracción y da una probabilidad con la que ajustar el umbral. Tercera vía frente a los routers gestionados de la 2.P | Alta |
+| Triaje (2 y 9) | Intención (`choice`) y urgencia (`score`) en `support_triage` y en el agente de Triaje | Hoy, *structured outputs* con reintentos; con probabilidad baja, a revisión humana (`CaseReviewService`) | Alta |
+| Evals (5 y 12) | Juez barato de primer filtro; lo dudoso, al juez LLM | Patrón que propone AWS; abarata la evaluación online por muestreo y la calibración se mide contra las etiquetas humanas de la 12.G | Media |
+| Guardrails (8) | Clasificador de entrada (fuera de tema, intento de *jailbreak*) | Es el "clasificador de seguridad" aparcado; riesgo: lo atacado es el propio `state` | Media |
+| Retrieval y contexto (4 y 7) | ¿Es relevante este fragmento? (`noul`); qué tool usar (`choice`) | Contraste con el reranker y con el *grading* tipo CRAG | Baja |
+| Escala (10) | ¿Vale la respuesta cacheada para esta pregunta? (`noul`) | Valida los aciertos de la caché semántica sin un LLM | Baja |
+
+Buenas prácticas que publican los fabricantes: una pregunta por concepto (nada de "¿es urgente y de
+cliente?"; dos `noul` combinados en código), el `score` sirve para ordenar y poner umbrales, no como
+medida exacta, y los umbrales se fijan con ejemplos etiquetados del tráfico propio.
