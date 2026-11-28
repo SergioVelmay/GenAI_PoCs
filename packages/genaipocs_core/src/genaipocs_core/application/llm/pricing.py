@@ -63,6 +63,28 @@ DEFAULT_PRICES: Mapping[str, ModelPrice] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class RouterPrice:
+    """Tarifa de un router gestionado (2.P), que se suma a la del modelo que elige.
+
+    Azure cobra por millón de tokens de entrada; Bedrock, por petición. Así, con turnos cortos,
+    la tarifa de Bedrock puede costar más que el propio modelo barato.
+    """
+
+    per_million_input: Decimal = Decimal(0)
+    per_request: Decimal = Decimal(0)
+
+
+# Verificado el 28-11-2026. Azure: `model-router` 2025-11-18 en Data Zone Standard (0,14 en Global
+# Standard). Bedrock: Intelligent Prompt Routing, 1 $ por 1000 peticiones (página de precios).
+# GCP (Model Optimizer, experimental) no publica tarifa propia: solo el modelo elegido.
+DEFAULT_ROUTER_PRICES: Mapping[str, RouterPrice] = {
+    "azure-model-router": RouterPrice(per_million_input=Decimal("0.154")),
+    "bedrock-prompt-router": RouterPrice(per_request=Decimal("0.001")),
+    "gemini-model-optimizer": RouterPrice(),
+}
+
+
 def normalize_model_name(model: str) -> str:
     """`bedrock/converse/eu.amazon.nova-lite-v1:0` -> `amazon.nova-lite-v1:0`."""
     name = model.lower().rsplit("/", 1)[-1]
@@ -71,8 +93,13 @@ def normalize_model_name(model: str) -> str:
 
 
 class PriceTable:
-    def __init__(self, prices: Mapping[str, ModelPrice] = DEFAULT_PRICES) -> None:
+    def __init__(
+        self,
+        prices: Mapping[str, ModelPrice] = DEFAULT_PRICES,
+        router_prices: Mapping[str, RouterPrice] = DEFAULT_ROUTER_PRICES,
+    ) -> None:
         self._prices = dict(prices)
+        self._router_prices = dict(router_prices)
 
     def lookup(self, model: str) -> ModelPrice | None:
         """Coincidencia por prefijo más largo: `gpt-4.1-mini-2025-04-14` -> `gpt-4.1-mini`."""
@@ -93,6 +120,16 @@ class PriceTable:
             + usage.output_tokens * price.output
         )
         return total / _PER_MILLION
+
+    def routed_cost(self, router: str, model: str, usage: TokenUsage) -> Decimal | None:
+        """Coste de una petición servida por un router gestionado: el del modelo elegido más la
+        tarifa del router. None si no se conoce el precio de alguno de los dos."""
+        model_cost = self.cost(model, usage)
+        fee = self._router_prices.get(router)
+        if model_cost is None or fee is None:
+            return None
+        routing = fee.per_request + usage.input_tokens * fee.per_million_input / _PER_MILLION
+        return model_cost + routing
 
     def storage_cost(self, model: str, tokens: int, seconds: float) -> Decimal | None:
         """Almacenamiento de una caché explícita: no depende de las peticiones, sino del tiempo

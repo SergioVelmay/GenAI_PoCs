@@ -10,7 +10,7 @@ import asyncio
 import json
 import threading
 import time
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 import boto3
@@ -141,6 +141,15 @@ def _tool_configuration(config: ToolConfig) -> ToolConfigurationTypeDef:
     }
 
 
+def _invoked_model(response: Mapping[str, object], requested: str) -> str:
+    """El modelo que respondió. Con un prompt router (2.P), `modelId` es el ARN del router y el
+    elegido llega en `trace.promptRouter.invokedModelId` (ARN del perfil de inferencia, cuyo
+    último segmento, p. ej. `eu.amazon.nova-pro-v1:0`, es lo que entiende `PriceTable`)."""
+    trace = cast("dict[str, Any]", response.get("trace") or {})
+    invoked = (trace.get("promptRouter") or {}).get("invokedModelId")
+    return str(invoked) if invoked else requested
+
+
 class BedrockConverseLLM:
     def __init__(
         self,
@@ -264,7 +273,7 @@ class BedrockConverseLLM:
             content, tool_calls = _extract_content(response), ()
         return LLMResponse(
             content=content,
-            model=self._model_id,
+            model=_invoked_model(response, self._model_id),
             usage=_extract_usage(response),
             provider="aws",
             latency_ms=latency_ms,
@@ -300,6 +309,7 @@ class BedrockConverseLLM:
 
         started = time.perf_counter()
         reader = loop.run_in_executor(None, produce)
+        model = self._model_id
         parts: list[str] = []
         usage: dict[str, int] = {}
         stop_reason: str | None = None
@@ -319,6 +329,7 @@ class BedrockConverseLLM:
                     stop_reason = event["messageStop"].get("stopReason")
                 elif "metadata" in event:
                     usage = event["metadata"].get("usage", {})
+                    model = _invoked_model(event["metadata"], model)
         finally:
             stop.set()
             reader.cancel()
@@ -326,7 +337,7 @@ class BedrockConverseLLM:
         write = usage.get("cacheWriteInputTokens", 0)
         yield LLMResponse(
             content="".join(parts),
-            model=self._model_id,
+            model=model,
             usage=TokenUsage(
                 input_tokens=usage.get("inputTokens", 0) + read + write,
                 output_tokens=usage.get("outputTokens", 0),

@@ -73,6 +73,40 @@ def test_mcp_gateway_is_local_by_default_and_gcp_overrides_its_inbound_idp(
         Settings(_env_file=None)
 
 
+def test_managed_router_is_off_by_default_and_set_per_cloud(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "LLM_GATEWAY__ROUTER",
+        "AZURE_OPENAI__ROUTER_DEPLOYMENT",
+        "BEDROCK__PROMPT_ROUTER_ARN",
+        "GEMINI__ROUTER_MODEL",
+        "GEMINI__ROUTER_PREFERENCE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    defaults = Settings(_env_file=None)
+    assert defaults.llm_gateway.router == "heuristic"
+    assert defaults.azure_openai.router_deployment == "model-router"
+    assert defaults.bedrock.prompt_router_arn == ""
+    assert defaults.gemini.router_preference == "BALANCED"
+
+    monkeypatch.setenv("LLM_GATEWAY__ROUTER", "managed")
+    monkeypatch.setenv(
+        "BEDROCK__PROMPT_ROUTER_ARN",
+        "arn:aws:bedrock:eu-west-1:1:default-prompt-router/amazon.nova:1",
+    )
+    monkeypatch.setenv("GEMINI__ROUTER_PREFERENCE", "PRIORITIZE_COST")
+
+    settings = Settings(_env_file=None)
+    assert settings.llm_gateway.router == "managed"
+    assert settings.bedrock.prompt_router_arn.endswith("default-prompt-router/amazon.nova:1")
+    assert settings.gemini.router_preference == "PRIORITIZE_COST"
+
+    monkeypatch.setenv("GEMINI__ROUTER_PREFERENCE", "CHEAPEST")
+    with pytest.raises(ValueError, match="router_preference"):
+        Settings(_env_file=None)
+
+
 def test_gateway_resilience_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     defaults = Settings(_env_file=None).llm_gateway
     assert defaults.max_queue_seconds == 10.0

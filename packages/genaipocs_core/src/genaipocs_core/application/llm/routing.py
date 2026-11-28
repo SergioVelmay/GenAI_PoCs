@@ -166,3 +166,47 @@ class RoutingLLM:
             self._routes[tier], messages, temperature=temperature, max_tokens=max_tokens
         ):
             yield event
+
+
+class ManagedRoutingLLM:
+    """Router gestionado de la nube (2.P) en lugar del clasificador propio.
+
+    Foundry model router, Bedrock Intelligent Prompt Routing o Gemini Model Optimizer eligen el
+    modelo de cada petición con un clasificador entrenado por el proveedor. La regla de dominio
+    va por delante y no se delega: un turno con tools de escritura va siempre al modelo potente
+    propio (`requires_strong`). El router no la conoce y podría elegir un modelo pequeño.
+    """
+
+    def __init__(self, managed: LLMPort, strong: LLMPort) -> None:
+        self._managed = managed
+        self._strong = strong
+
+    async def complete(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        response_schema: ResponseSchema | None = None,
+        tools: ToolConfig | None = None,
+    ) -> LLMResponse:
+        target = self._strong if requires_strong(tools) else self._managed
+        return await target.complete(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_schema=response_schema,
+            tools=tools,
+        )
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[LLMStreamEvent, None]:
+        async for event in stream_from(
+            self._managed, messages, temperature=temperature, max_tokens=max_tokens
+        ):
+            yield event

@@ -11,8 +11,10 @@ from genaipocs_core.application.llm.gateway import (
 )
 from genaipocs_core.application.llm.pricing import (
     DEFAULT_PRICES,
+    DEFAULT_ROUTER_PRICES,
     ModelPrice,
     PriceTable,
+    RouterPrice,
     normalize_model_name,
 )
 from genaipocs_core.application.llm.resilience import (
@@ -27,6 +29,7 @@ from genaipocs_core.application.llm.routing import (
     ComplexityClassifier,
     HeuristicClassifier,
     LLMClassifier,
+    ManagedRoutingLLM,
     ModelTier,
     RoutingLLM,
     RoutingVerdict,
@@ -41,6 +44,7 @@ from genaipocs_core.application.llm.structured import (
 
 __all__ = [
     "DEFAULT_PRICES",
+    "DEFAULT_ROUTER_PRICES",
     "CircuitBreakerLLM",
     "CircuitState",
     "ComplexityClassifier",
@@ -49,12 +53,14 @@ __all__ = [
     "FallbackLLM",
     "HeuristicClassifier",
     "LLMClassifier",
+    "ManagedRoutingLLM",
     "ModelPrice",
     "ModelTier",
     "NullTracer",
     "ObservedLLM",
     "PriceTable",
     "RateLimitedLLM",
+    "RouterPrice",
     "RoutingLLM",
     "RoutingVerdict",
     "SharedQuotaLLM",

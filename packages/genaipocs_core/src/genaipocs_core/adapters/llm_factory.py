@@ -8,6 +8,7 @@ from genaipocs_core.application.llm import (
     FallbackLLM,
     HeuristicClassifier,
     LLMClassifier,
+    ManagedRoutingLLM,
     ModelTier,
     NullTracer,
     ObservedLLM,
@@ -56,6 +57,46 @@ def build_provider_llm(settings: Settings, provider: LLMProvider, tier: ModelTie
     return BedrockConverseLLM.from_settings(bedrock, model_id=model_id)
 
 
+# Tarifa de cada router gestionado en `PriceTable` (se suma a la del modelo elegido).
+_ROUTER_PRICES = {
+    LLMProvider.AZURE: "azure-model-router",
+    LLMProvider.AWS: "bedrock-prompt-router",
+    LLMProvider.GCP: "gemini-model-optimizer",
+}
+
+
+def build_managed_router_llm(settings: Settings, provider: LLMProvider) -> LLMPort:
+    """El router gestionado de un proveedor (2.P, carril A), sin capas.
+
+    Desde el gateway es un "modelo" más: la diferencia es que la respuesta dice qué modelo
+    eligió (`LLMResponse.model`), y con eso se calcula el coste.
+    """
+    if provider is LLMProvider.SIMULATED:
+        from genaipocs_core.adapters.simulated_llm import SimulatedLLM
+
+        return SimulatedLLM(settings.simulated_llm, quota=shared_limiter(settings), key="router")
+    if provider is LLMProvider.AZURE:
+        from genaipocs_core.adapters.azure_openai import AzureOpenAILLM
+
+        azure = settings.azure_openai
+        return AzureOpenAILLM.from_settings(azure, deployment=azure.router_deployment)
+    if provider is LLMProvider.GCP:
+        from genaipocs_core.adapters.gemini import GeminiLLM
+
+        return GeminiLLM.router_from_settings(settings.gcp, settings.gemini)
+    if provider is not LLMProvider.AWS:
+        raise LLMError(f"El proveedor '{provider}' no tiene router gestionado.")
+    arn = settings.bedrock.prompt_router_arn
+    if not arn:
+        raise LLMError(
+            "Falta BEDROCK__PROMPT_ROUTER_ARN (`aws bedrock list-prompt-routers`) para "
+            "LLM_GATEWAY__ROUTER=managed con AWS."
+        )
+    from genaipocs_core.adapters.bedrock import BedrockConverseLLM
+
+    return BedrockConverseLLM.from_settings(settings.bedrock, model_id=arn)
+
+
 def build_tracer(settings: Settings) -> LLMTracer:
     """OpenTelemetry si está activo (fase 11); si no, el SDK de Langfuse si hay claves; si no,
     no se traza.
@@ -81,6 +122,7 @@ def _resilient(
     name: str,
     metadata: dict[str, str],
     limiter: RateLimiterPort | None,
+    router: str | None = None,
 ) -> LLMPort:
     """Un despliegue con su pila de resiliencia (fase 10.1).
 
@@ -114,6 +156,7 @@ def _resilient(
                 prices=prices,
                 name=name,
                 metadata=metadata,
+                router=router,
             ),
             max_concurrency=gateway.max_concurrency,
             max_wait=gateway.max_queue_seconds,
@@ -152,6 +195,32 @@ def _native_tier(
                 name=f"{provider}:{tier}",
                 metadata={"engine": "native", "provider": provider, "tier": tier},
                 limiter=limiter,
+            )
+            for provider in settings.provider_chain()
+        ],
+    )
+
+
+def _managed_route(
+    settings: Settings,
+    tracer: LLMTracer,
+    prices: PriceTable,
+    limiter: RateLimiterPort | None,
+) -> LLMPort:
+    """El router gestionado de cada nube de la cadena, con su pila de resiliencia: si el de una
+    nube falla, el fallback salta al de la siguiente, igual que con los modelos."""
+    return _fallback(
+        settings,
+        [
+            _resilient(
+                settings,
+                build_managed_router_llm(settings, provider),
+                tracer=tracer,
+                prices=prices,
+                name=f"{provider}:router",
+                metadata={"engine": "native", "provider": provider, "tier": "router"},
+                limiter=limiter,
+                router=_ROUTER_PRICES.get(provider),
             )
             for provider in settings.provider_chain()
         ],
@@ -275,9 +344,22 @@ def build_gateway(
     limiter: RateLimiterPort | None = None,
 ) -> LLMPort:
     """Gateway completo: routing barato/potente + fallback + breaker + bulkhead + rate limit +
-    trazas y coste. Con `litellm`, los cooldowns y el rate limit son los del Router de LiteLLM."""
+    trazas y coste. Con `litellm`, los cooldowns y el rate limit son los del Router de LiteLLM.
+    Con `router=managed` (2.P), el router gestionado de cada nube sustituye al clasificador y
+    al modelo barato; el potente propio sigue atendiendo los turnos con tools de escritura."""
     tracer = tracer or build_tracer(settings)
     prices = PriceTable()
+    if settings.llm_gateway.router == "managed":
+        if settings.llm_gateway.engine == "litellm":
+            raise LLMError(
+                "LLM_GATEWAY__ROUTER=managed solo con LLM_GATEWAY__ENGINE=native: el router "
+                "gestionado es el carril A y LiteLLM, el C."
+            )
+        shared = shared_limiter(settings, limiter)
+        return ManagedRoutingLLM(
+            _managed_route(settings, tracer, prices, shared),
+            _native_tier(settings, ModelTier.STRONG, tracer, prices, shared),
+        )
     routes: dict[ModelTier, LLMPort]
     if settings.llm_gateway.engine == "litellm":
         routes = _litellm_routes(settings, tracer, prices)
