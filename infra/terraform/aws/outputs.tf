@@ -28,6 +28,16 @@ output "mcp_gateway_url" {
   value       = one(aws_bedrockagentcore_gateway.mcp[*].gateway_url)
 }
 
+output "bedrock_evals_bucket" {
+  description = "Valor para BEDROCK_EVAL__BUCKET (vacío si Bedrock Evaluations está desactivado)."
+  value       = one(aws_s3_bucket.evals[*].bucket)
+}
+
+output "bedrock_evals_role_arn" {
+  description = "Valor para BEDROCK_EVAL__ROLE_ARN: rol que asume el job de evaluación."
+  value       = one(aws_iam_role.bedrock_evals[*].arn)
+}
+
 output "agentcore_memory_id" {
   description = "Valor para AGENTCORE__MEMORY_ID (vacío si AgentCore está desactivado)."
   value       = one(aws_bedrockagentcore_memory.booking[*].id)

@@ -213,7 +213,7 @@ Ranking API (~1 $ por 1000 consultas según fuentes de terceros; confirmar el pr
 - [x] Calibrar los jueces (18-10-2026, ~0,96 $): conjunto `evals/calibration/calibration-v1`, etiquetas a ciegas y adjudicadas; juez nativo kappa 0,82 (fidelidad) y 1,0 (relevancia). Informe en `evals/reports/azure/calibration.md`.
 - [x] Juez con modelo distinto del generador (`gpt-4.1`, despliegue `judge` en Terraform) y embeddings reales (`text-embedding-3-small`) para `AnswerRelevancy` de RAGAS.
 - [x] Carril A en Azure: Foundry Evaluation (`rag_evals.foundry_eval`, 18-10-2026, 0,17 $) sobre el conjunto de calibración; kappa 0,82 en fidelidad con su umbral de aprobado. Ejecución registrada en el proyecto de Foundry.
-- [ ] Carril A en AWS: Amazon Bedrock Evaluations con el mismo conjunto.
+- [ ] Carril A en AWS: Amazon Bedrock Evaluations con el mismo conjunto (implementado en la 5.P: ver [Paridad (pasada 5.P)](#fase-5-paridad)).
 - [x] Evals de retrieval con embeddings reales y Semantic Ranker en Azure (`--engine azure --engine azure-semantic`, 18-10-2026): informe en `evals/reports/azure/`. El baseline de la CI sigue siendo el local (coste 0); el de nube se compara a mano.
 - [x] Juez de fidelidad sobre el `answer` de Foundry IQ (18-10-2026, `rag_evals.managed_eval`): 19/21 fieles; detecta la sobre-respuesta y una respuesta que añade condiciones no citadas. Informe en `evals/reports/azure/managed-foundry_iq.md`.
 - [x] Job `evals` de la CI en `--mode enforce` (18-10-2026), tras 15 ejecuciones seguidas con 0 regresiones.
@@ -231,6 +231,21 @@ estimado: ~1 $ en total (Azure, con el mismo conjunto: nativo 0,06 $, RAGAS 0,31
 - [ ] **Evaluation Service** (5.G2): `uv run --no-sync python -m rag_evals.gcp_eval` sobre `calibration-v1` y `calibration agreement --cloud gcp`; comparar con [Foundry Evaluation](fase-5-evals.md#carril-a-azure-ai-foundry-evaluation-18-10-2026) (kappa 0,82 en fidelidad, 0,86 en relevancia, 0,17 $). Comprobar: que `grounding_v2` está en `europe-west4` (si no, `GCP_EVAL__GROUNDING_VERSION=v1` o `GCP_EVAL__LOCATION`), que `gemini-4-argon` se acepta como `judge_model` de la métrica propia, que el servicio entiende la plantilla en español y devuelve puntuaciones 0-3, el coste real en la facturación (el SDK no devuelve tokens) y si con `--dest` la ejecución se ve en la consola. Capturar una respuesta real para los dobles de `test_gcp_eval.py`.
 - [ ] **Generación con juez Gemini** (5.G1): `generation_eval --mode llm --judge native --limit 20 --budget-usd 0.50` con generador Gemini enrutado (`gemini-4-hydrogen` / `gemini-3.5-flash-lite`) y juez `gemini-4-argon`; comparar con los [resultados en Azure](fase-5-evals.md#resultados-en-azure-18-10-2026).
 - [ ] **Fidelidad de RAG Engine y Agent Search** (5.G3): en la misma sesión que los [pendientes de la 4.G](#fase-4-gcp) (corpus y data store vivos; Spanner por horas), `managed_eval --engine rag_engine --budget-usd 0.30` (con `GCP_RAG_ENGINE__GENERATION_MODEL`) y `--engine agent_search --budget-usd 0.30`. Comparar con [Foundry IQ](fase-5-evals.md#fidelidad-de-las-respuestas-de-foundry-iq-18-10-2026) (19/21 fieles, 9/10 abstenciones correctas, 0 fugas): fieles, sobre-respuestas, rechazos del guardarraíl de citas (`rejected`) y bloqueos (`blocked`), y si el juez detecta añadidos no citados como en Azure. Informes en `evals/reports/gcp/managed-*.md`.
+
+<a id="fase-5-paridad"></a>
+
+### Paridad (pasada 5.P)
+
+Bedrock Evaluations ([doc](fase-5-evals.md#10-paridad-pasada-5p)), en `eu-west-1`, con el perfil de
+AWS (`BEDROCK__PROFILE`). Coste estimado: ~0,3–0,6 $ por ejecución (20 muestras × 2 métricas con
+Sonnet 4.6); el bucket y el rol no cuestan en reposo. Puede ir en cualquier sesión de AWS: no
+depende de la Knowledge Base.
+
+- [ ] **Evaluador disponible**: `aws bedrock list-inference-profiles --region eu-west-1` y comprobar que existe `eu.anthropic.claude-sonnet-4-6` (si no, ajustar `BEDROCK_EVAL__EVALUATOR_MODEL_ID` y `bedrock_evals_evaluator_model_id`) y que la cuenta tiene acceso al modelo.
+- [ ] **Infraestructura**: `bedrock_evals_enabled = true`, `terraform -chdir=infra/terraform/aws plan` (solo debe añadir el bucket, su configuración, el rol y su política) y `apply`; llevar `bedrock_evals_bucket` y `bedrock_evals_role_arn` a `BEDROCK_EVAL__BUCKET` y `BEDROCK_EVAL__ROLE_ARN`. Quien lanza el job necesita `bedrock:CreateEvaluationJob` e `iam:PassRole` sobre ese rol.
+- [ ] **Job real**: `uv run python -m rag_evals.bedrock_eval` (dry-run) y después `--apply`; anotar la duración del job. Comprobar: el **formato real** de los JSONL de salida (ruta, `inputRecord`, `scores`, explicaciones y errores) y capturar uno para sustituir los dobles de `test_bedrock_eval.py`, si `genaipocs_relevance` devuelve el valor de la escala (0-3) o una nota normalizada (el parser rechaza los decimales), y que la ejecución se ve en la consola de Bedrock (Evaluations).
+- [ ] **Calibración**: `uv run python -m rag_evals.calibration agreement --cloud aws` y comparar con [Foundry Evaluation](fase-5-evals.md#carril-a-azure-ai-foundry-evaluation-18-10-2026) (kappa 0,82 / 0,86, 0,17 $). Si el kappa de fidelidad es bajo, probar otros umbrales sin coste: `BEDROCK_EVAL__FAITHFULNESS_PASS=0.75` (o el que separe las correctas de las estropeadas) y `--job-arn <arn>`. Anotar el umbral elegido en el doc y en `.env.example`.
+- [ ] **Coste real** en Cost Explorer (los datos tardan 8–24 h): el servicio no devuelve tokens. Al terminar, `bedrock_evals_enabled = false` si no se va a repetir (los datos caducan solos a los 30 días).
 
 ## Fase 6 · Tools y MCP ([doc](fase-6-tools-mcp.md))
 

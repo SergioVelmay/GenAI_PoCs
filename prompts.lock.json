@@ -18,6 +18,12 @@
       "sha256": "c024ab196c45fd99039f0ea3ee1beaecb609f64fa937e337ce0c16e003a050ab",
       "fragment": false
     },
+    "bedrock-eval-relevance": {
+      "package": "rag_evals",
+      "version": 1,
+      "sha256": "1d807cdc1f3f255faf2fcfaf78e09aa1d4b7487a3cef157b70ddc2c356f3a79d",
+      "fragment": false
+    },
     "booking-agent": {
       "package": "booking_agent",
       "version": 2,

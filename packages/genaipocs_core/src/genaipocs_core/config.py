@@ -401,6 +401,29 @@ class GcpEvalSettings(BaseModel):
     allow_cross_region_model: bool = False
 
 
+class BedrockEvalSettings(BaseModel):
+    """Carril A de las evals en AWS: Bedrock Evaluations (5.P), como Foundry Evaluation.
+
+    Job asíncrono de RAG evaluation con respuestas propias (BYOI): el dataset y el resultado
+    viven en S3 y el servicio asume un rol (`bedrock_evals.tf`). Se paga por los tokens del
+    evaluador; el bucket y el rol no tienen coste en reposo."""
+
+    # Vacía = BEDROCK__REGION (credenciales con BEDROCK__PROFILE).
+    region: str = ""
+    # Sonnet 4.5 (BEDROCK__JUDGE_MODEL_ID, el juez nativo) no está entre los evaluadores admitidos:
+    # Sonnet 4.6, mismo nivel y distinto del generador. Juzga la fidelidad y la relevancia.
+    evaluator_model_id: str = "eu.anthropic.claude-sonnet-4-6"
+    # Salidas de Terraform (`bedrock_evals_bucket`, `bedrock_evals_role_arn`).
+    bucket: str = ""
+    prefix: str = "evals"
+    role_arn: str = ""
+    # Fiel si `Builtin.Faithfulness` >= este valor (0-1). Se calibra contra las etiquetas humanas
+    # como el aprobado de Foundry; recalibrar no cuesta: `--job-arn` relee el resultado de S3.
+    faithfulness_pass: float = Field(default=1.0, ge=0.0, le=1.0)
+    poll_seconds: int = Field(default=30, ge=5)
+    timeout_minutes: int = Field(default=90, ge=1)
+
+
 class GcpAgentPlatformSettings(BaseModel):
     """Carril A del agente en GCP (7.G3): Agent Runtime + Sessions + Memory Bank.
 
@@ -639,6 +662,7 @@ class Settings(BaseSettings):
     gcp_rag_engine: GcpRagEngineSettings = GcpRagEngineSettings()
     gcp_agent_search: GcpAgentSearchSettings = GcpAgentSearchSettings()
     gcp_eval: GcpEvalSettings = GcpEvalSettings()
+    bedrock_eval: BedrockEvalSettings = BedrockEvalSettings()
     gcp_agent_platform: GcpAgentPlatformSettings = GcpAgentPlatformSettings()
     azure_managed: AzureManagedIngestionSettings = AzureManagedIngestionSettings()
     bedrock_kb: BedrockKnowledgeBaseSettings = BedrockKnowledgeBaseSettings()

@@ -355,6 +355,21 @@ def test_gcp_agent_search_defaults_match_terraform() -> None:
     assert (search.bucket, search.prefix, search.answer_model) == ("", "agent-search", "stable")
 
 
+def test_bedrock_eval_needs_terraform_outputs_and_rejects_a_bad_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """5.P: sin bucket ni rol no hay job; el evaluador no es el juez nativo (no lo admite)."""
+    evals = Settings(_env_file=None).bedrock_eval
+    assert (evals.region, evals.bucket, evals.role_arn, evals.prefix) == ("", "", "", "evals")
+    assert evals.evaluator_model_id == "eu.anthropic.claude-sonnet-4-6"
+    assert evals.evaluator_model_id != Settings(_env_file=None).bedrock.judge_model_id
+    assert evals.faithfulness_pass == 1.0
+
+    monkeypatch.setenv("BEDROCK_EVAL__FAITHFULNESS_PASS", "1.5")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_gcp_agent_platform_is_local_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     """7.G3: sin motores, memoria en el proceso y el sabor `agentplatform` con su emulador."""
     platform = Settings(_env_file=None).gcp_agent_platform
