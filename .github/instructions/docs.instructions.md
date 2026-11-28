@@ -1,5 +1,5 @@
 ---
-applyTo: "docs/**,README.md,AGENTS.md"
+applyTo: "docs/**,README.md,README.en.md,AGENTS.md"
 description: "Estructura y estilo de la documentación de fases."
 ---
 
@@ -34,11 +34,16 @@ Misma estructura en todas las fases:
 - **Enfoque didáctico** (decidido el 28-11-2026): el material se presenta como aprendizaje, repaso e investigación, o como test para probar; nunca como preparación de un proceso de selección.
 - Preguntas generales de liderazgo que surjan van a la sección "Transversales".
 
+## README en dos idiomas
+
+- `README.md` (español) es el principal y `README.en.md` su traducción al inglés (decidido el 28-11-2026: la convención `README.<idioma>.md` con un selector en la primera línea de cada uno; GitHub no tiene README multilingüe). Solo el README se traduce: los docs, el plan y las preguntas y respuestas siguen en español.
+- Todo cambio en `README.md` se refleja en `README.en.md` en el mismo commit (misma estructura, tablas y enlaces). El enfoque didáctico también vale en inglés.
+
 ## Estilo
 
 - Español, didáctico y concreto: rutas, comandos y números, no generalidades. Explicar el porqué de cada decisión.
 - Nunca el nombre real del cliente ni marcas comerciales de terceros (tampoco en ejemplos): "Genaipocs", "un partner de streaming", la categoría `candlelit`.
 - `✅ Hecha*` = implementación cerrada; falta la validación en cloud. No escribir la palabra "asterisco".
 - Enlaces relativos entre docs (`[fase 2](fase-2-modelos.md)`).
-- Al cerrar una fase: crear o actualizar su doc, la tabla de estado de `AGENTS.md` y el índice de `README.md`, y mover lo aplazado a `docs/pendientes-cloud.md`.
+- Al cerrar una fase: crear o actualizar su doc, la tabla de estado de `AGENTS.md` y el índice de `README.md` y de `README.en.md`, y mover lo aplazado a `docs/pendientes-cloud.md`.
 - Un error que se repite o una corrección que debe sobrevivir a la sesión va a `docs/lecciones-aprendidas.md`.
