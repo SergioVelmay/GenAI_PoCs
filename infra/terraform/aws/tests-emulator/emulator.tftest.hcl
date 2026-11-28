@@ -73,6 +73,42 @@ run "base" {
   }
 }
 
+# Antes que AgentCore: el run que sigue a Memory necesitaría `refresh = false` (ListTagsForResource
+# de AgentCore Control devuelve 501 en el emulador).
+run "bedrock_evals" {
+  variables {
+    bedrock_evals_enabled = true
+  }
+
+  assert {
+    condition     = output.bedrock_evals_bucket == "genaipocs-dev-evals-000000000000"
+    error_message = "El bucket de evaluaciones lleva el id de cuenta (los nombres de S3 son globales)."
+  }
+
+  assert {
+    condition     = output.bedrock_evals_role_arn == aws_iam_role.bedrock_evals[0].arn
+    error_message = "El rol de servicio del job se publica para BEDROCK_EVAL__ROLE_ARN."
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_role.bedrock_evals[0].assume_role_policy, "evaluation-job/*")
+    error_message = "La confianza se limita a jobs de evaluación de esta cuenta (diputado confundido)."
+  }
+
+  assert {
+    condition = (
+      strcontains(aws_iam_role_policy.bedrock_evals[0].policy, "inference-profile/eu.anthropic.claude-sonnet-4-6")
+      && strcontains(aws_iam_role_policy.bedrock_evals[0].policy, "foundation-model/anthropic.claude-sonnet-4-6")
+    )
+    error_message = "El rol solo invoca el evaluador: su perfil entre regiones y el modelo base."
+  }
+
+  assert {
+    condition     = aws_s3_bucket_lifecycle_configuration.evals[0].rule[0].expiration[0].days == 30
+    error_message = "Datasets y resultados caducan."
+  }
+}
+
 run "agents_guardrail_observability" {
   variables {
     agentcore_enabled         = true

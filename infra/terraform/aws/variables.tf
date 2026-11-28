@@ -165,3 +165,28 @@ variable "llm_daily_budget_usd" {
   type        = number
   default     = 20
 }
+
+# ---------- Pasada 5.P: Bedrock Evaluations (bedrock_evals.tf) ----------
+
+variable "bedrock_evals_enabled" {
+  description = "Crea el bucket y el rol de servicio de Bedrock Evaluations (sin coste en reposo)."
+  type        = bool
+  default     = false
+}
+
+variable "bedrock_evals_evaluator_model_id" {
+  description = "Evaluador (BEDROCK_EVAL__EVALUATOR_MODEL_ID): perfil entre regiones o modelo base."
+  type        = string
+  default     = "eu.anthropic.claude-sonnet-4-6"
+}
+
+variable "bedrock_evals_retention_days" {
+  description = "Días que se guardan datasets y resultados de las evaluaciones."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.bedrock_evals_retention_days >= 1
+    error_message = "Al menos un día: el job tiene que poder leer el dataset y escribir el resultado."
+  }
+}
