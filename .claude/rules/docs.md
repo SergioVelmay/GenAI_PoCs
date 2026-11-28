@@ -2,6 +2,7 @@
 paths:
   - "docs/**"
   - "README.md"
+  - "README.en.md"
   - "AGENTS.md"
 ---
 

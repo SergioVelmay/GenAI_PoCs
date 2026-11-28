@@ -1,5 +1,7 @@
 # GenAI_PoCs · Sistemas agénticos GenAI en Azure, AWS y GCP
 
+**Español** · [English](README.en.md)
+
 Pruebas de concepto didácticas que recorren el stack completo de un sistema agéntico de producción:
 SQL transaccional, capa de modelos con gateway, indexación event-driven, RAG híbrido, evals, tool
 calling y MCP, agentes en varios frameworks y harness de guardrails. Todo en **Azure, AWS y GCP**, y cada pieza en hasta **tres carriles
