@@ -47,6 +47,7 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
 | Almacenamiento de objetos (documentos del carril A) | Blob Storage (Azurite en local) | S3 (AWS Emulator en local) | Cloud Storage (sin emulador oficial: dobles en memoria) |
 | RAG gestionado | AI Search (indexer + skillset), Foundry IQ | Bedrock Knowledge Bases (S3 → S3 Vectors / OpenSearch) | RAG Engine (Cloud Storage → corpus en `RagManagedDb`; filtro por metadatos en preview), Agent Search (antes Vertex AI Search; respuestas citadas) |
 | Vector store | AI Search, PostgreSQL + pgvector | S3 Vectors, OpenSearch, Aurora PostgreSQL + pgvector | Agent Retrieval (antes Vector Search 2.0: *collections* de objetos JSON), Cloud SQL / AlloyDB + pgvector |
+| Router de modelos gestionado (2.P) | Foundry model router (`model-router`: modo y subconjunto, 0,14–0,154 $/M de entrada) | Bedrock Intelligent Prompt Routing (dos modelos de una familia: Nova o Llama, sin Claude; 1 $ por 1000 peticiones) | Model Optimizer (experimental; preferencia calidad / equilibrio / coste) |
 | Reranking | Semantic Ranker | Bedrock Rerank (Cohere, Amazon) | Ranking API (suelta) o VertexRanker integrado en Agent Retrieval |
 | Agentes gestionados | Foundry Agent Service | Bedrock AgentCore (Runtime, Memory, Gateway, Identity) / Bedrock Agents | Agent Runtime (Sessions, Memory Bank) + ADK; Managed Agents API (Antigravity, Pre-GA) |
 | Identidad del agente desplegado | Identidad gestionada | Rol de IAM del AgentCore Runtime | Agent Identity (principal SPIFFE por agente) + política de acceso de IAM v3 por tool |
@@ -291,6 +292,18 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    escribir el adaptador: el plan, de hace una semana, todavía nombraba modelos que ya eran
    *legacy*. Lo que se controla es `thinking_level`, por tier, porque el razonamiento se factura
    como salida: Hydrogen piensa en `high` por defecto y eso multiplica coste y latencia.
+11. **¿Usarías el router gestionado de la nube en lugar de tu routing?** Lo trataría como un
+   modelo más detrás del gateway (`LLM_GATEWAY__ROUTER=managed`), con dos condiciones: la regla de
+   dominio va delante (un turno con tools de escritura va siempre al potente propio, porque ningún
+   router sabe que `request_refund` tiene efectos) y su tarifa entra en el coste por petición. En
+   AWS, Bedrock Intelligent Prompt Routing solo enruta entre dos modelos de una familia (Nova Lite
+   y Pro en la UE; sin Claude); en Azure, el Foundry model router elige entre hasta 45 modelos con
+   modo y subconjunto; en GCP, Model Optimizer sigue experimental.
+12. **¿Cómo sabes qué modelo eligió el router y cuánto costó?** Cada nube lo dice en la respuesta:
+   Azure en `model`, Bedrock en `trace.promptRouter.invokedModelId` (el ARN del perfil de
+   inferencia) y Gemini en `model_version`. El adaptador lo pone en `LLMResponse.model`, así que
+   `PriceTable` aplica el precio del modelo real y `routed_cost` suma la tarifa: por token de
+   entrada en Azure (0,154 $/M en Data Zone) y por petición en AWS (0,001 $).
 
 ### Negocio y stakeholders
 
@@ -323,6 +336,16 @@ confirmadas en la pasada (fases 0–12, cerrada en la 12.G6), salvo lo que falta
    siguientes. En una nube el descuento es automático pero no garantizado; en otra lo garantizas
    pagando un pequeño "alquiler" por hora. Decidimos con el benchmark, por volumen: con tráfico
    continuo, el descuento automático basta.
+7. **Un proveedor ofrece un router que "ahorra hasta un 30 %". ¿Lo activamos?** Primero hago
+   la cuenta con nuestro tráfico. En AWS, el router cobra 1 $ por cada 1000 peticiones: en un
+   triaje corto eso es 18 veces lo que cuesta Nova Lite, y solo compensa frente a "siempre el modelo
+   grande" con prompts de más de ~950 tokens. Nuestro routing ya manda el 90 % al modelo barato
+   gratis, así que el router solo aportaría si acierta donde la heurística falla. Lo decide la demo
+   con los mismos 20 emails (`--router heuristic managed`), no la nota de prensa.
+8. **¿Cómo le explicas a dirección el router gestionado?** Como una centralita que decide qué
+   especialista atiende cada llamada: cómoda, pero cobra por cada llamada que pasa y solo conoce a
+   los especialistas de su casa. Nos interesa si el catálogo crece tanto que no queremos mantener
+   las reglas a mano; mientras sean dos modelos, nuestras reglas son gratis y auditables.
 
 <a id="fase-3"></a>
 

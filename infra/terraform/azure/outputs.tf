@@ -62,3 +62,8 @@ output "foundry_deployments" {
   description = "Nombres para AZURE_OPENAI__CHAT_DEPLOYMENT, __CHEAP_CHAT_DEPLOYMENT y __EMBEDDING_DEPLOYMENT."
   value       = { for k, m in var.foundry_models : k => m.name }
 }
+
+output "model_router_deployment" {
+  description = "AZURE_OPENAI__ROUTER_DEPLOYMENT (pasada 2.P); null si el router no está desplegado."
+  value       = var.foundry_enabled && var.model_router_enabled ? var.model_router.name : null
+}

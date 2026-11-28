@@ -7,6 +7,8 @@ calcula el coste de cada llamada. Los agentes de las fases 6–8 heredan todo es
 Commits: `be68163 feat: fase 2 - capa de modelos, LLM gateway, model routing y prompt caching` y
 `1f87a99 docs: cierre de la fase 2 con validación en cloud pendiente`. Pasada GCP (Gemini como
 tercer proveedor): `7b000cd`, `2beec92` y `ea14f4e`, detalle en la [sección 10](#10-gcp-pasada-2g).
+Pasada de paridad (router gestionado de las tres nubes): `a24a671`, `e6acf17` y el cierre,
+detalle en la [sección 11](#11-paridad-pasada-2p).
 
 ## 1. Arquitectura: capas de cebolla
 
@@ -361,7 +363,115 @@ mismo prefijo, o cuando el acierto de la implícita sea bajo (Google no lo garan
 continuo, como el del asistente de Genaipocs, la implícita suele bastar y no cuesta nada. Las
 cifras reales saldrán del benchmark en la nube.
 
-## 11. Decisiones (para defenderlas)
+## 11. Paridad (pasada 2.P)
+
+**Objetivo:** comparar el routing propio (sección 4) con el **router gestionado** de cada nube, un
+clasificador entrenado por el proveedor que elige el modelo de cada petición, detrás del mismo
+`LLMPort`. Coste 0: todo con dobles; lo real va a [pendientes](pendientes-cloud.md#fase-2-paridad).
+
+| Subfase | Commit | Qué |
+|---|---|---|
+| 2.P1 | `a24a671` | Alcance: router gestionado sí; "mismo modelo por otra nube" y modelos de decisión, a [extras](conectores-candidatos.md#mismo-modelo) |
+| 2.P2 | `e6acf17` | `LLM_GATEWAY__ROUTER=managed`: `ManagedRoutingLLM`, router por nube, modelo elegido y tarifa en el coste |
+| 2.P3 | (cierre) | Terraform del `model-router` (azapi), demo `--router`, este apartado, preguntas y pendientes |
+
+```mermaid
+flowchart LR
+  T["Turno"] --> D{"¿Tools de escritura?"}
+  D -->|"sí (regla de dominio)"| S["Modelo potente propio"]
+  D -->|"no"| R["Router gestionado de la nube"]
+  R -->|"elige"| M["Modelo de la familia"]
+  R -.->|"si falla"| R2["Router de la siguiente nube"]
+```
+
+| Pieza | Dónde |
+|---|---|
+| `ManagedRoutingLLM` (regla de dominio delante del router) | `application/llm/routing.py` |
+| Router por nube, sin capas | `adapters/llm_factory.build_managed_router_llm` |
+| Modelo elegido en Bedrock (`trace.promptRouter.invokedModelId`) | `adapters/bedrock.py` (`_invoked_model`) |
+| Model Optimizer (`model_selection_config`) | `adapters/gemini.py` (`GeminiLLM.router_from_settings`) |
+| Tarifa del router en el coste | `application/llm/pricing.py` (`RouterPrice`, `PriceTable.routed_cost`) y `ObservedLLM(router=...)` |
+| Despliegue `model-router` (modo y subconjunto) | `infra/terraform/azure/foundry.tf` (`model_router_enabled`), test en `tests/model_router.tftest.hcl` |
+| Demo comparativa | `scripts/llm_gateway_demo.py --router heuristic managed` |
+
+### 11.1 Verificación previa (28-11-2026)
+
+| Comprobado | Resultado | Consecuencia |
+|---|---|---|
+| Bedrock Intelligent Prompt Routing | GA. Solo **dos modelos de la misma familia**: Nova Lite/Pro (en la UE, perfiles en `eu-west-1`, `eu-central-1` y `eu-west-3`) o Llama (solo EE. UU.). **Sin Claude** 4.x/5.x. Optimizado solo para inglés. No está en `eu-north-1` | En AWS se compara con Nova (decisión de Sergio) y se documenta como hallazgo. Afecta a la región de la fase 13 |
+| Tarifa de Bedrock | **1 $ por 1000 peticiones** (página de precios), además del modelo | `RouterPrice(per_request=0.001)` |
+| Terraform `aws` 6.67 | Sin recurso de prompt router (`CreatePromptRouter` sí está en botocore) | Router por defecto por ARN (`BEDROCK__PROMPT_ROUTER_ARN`), sin IaC |
+| Foundry model router | `model-router` `2025-11-18` GA (retirada el 20-05-2027), 45 modelos, modos `balanced`/`quality`/`cost` y subconjunto. El campo `model` de la respuesta dice qué modelo contestó. Con Data Zone nunca enruta a Claude | Despliegue DataZoneStandard con el subconjunto `gpt-4.1-nano` + `gpt-4.1-mini` (los del routing propio) |
+| Tarifa de Azure | 0,14 $/M de entrada en Global y **0,154 $/M en Data Zone**, además del modelo | `RouterPrice(per_million_input=0.154)` |
+| `azurerm` 4.x | `azurerm_cognitive_deployment` no modela `properties.routing` | `azapi_resource` con la API `2025-10-01-preview` |
+| Model Optimizer (GCP) | `model-optimizer-exp-04-09`, **experimental**; el ejemplo oficial no cambia desde el 06-11-2025. `google-genai` 2.34 trae `model_selection_config` y también `routing_config.auto_mode` (solo Enterprise) | Se implementa con `model_selection_config` (el del ejemplo oficial); cuál responde se valida en la nube |
+
+### 11.2 Qué se construye (2.P2–2.P3)
+
+- **`LLM_GATEWAY__ROUTER=managed`** (solo con `engine=native`; LiteLLM es el carril C y el router
+  gestionado, el A). `ManagedRoutingLLM` mantiene la regla de la sección 4: un turno con tools de
+  escritura va al `strong` propio. El router no la conoce y podría elegir el modelo pequeño para un
+  reembolso. El resto va al router de cada nube de la cadena, con su pila de resiliencia: si el de
+  una nube falla, el fallback salta al de la siguiente.
+- **El modelo elegido es el de la respuesta.** Azure lo devuelve en `model`; Bedrock, en
+  `trace.promptRouter.invokedModelId` (también en streaming); Gemini, en `model_version`. Con eso
+  `PriceTable` encuentra el precio del modelo real, y `routed_cost` le suma la tarifa del router.
+- **Gemini:** el router decide el razonamiento, así que con Model Optimizer no se envía
+  `thinking_level` ni se usa la caché explícita (va ligada a un modelo concreto).
+- **Terraform:** `model_router_enabled` (desactivado) despliega `model-router` con el SKU de Foundry,
+  modo `balanced` y el subconjunto de los modelos propios, para comparar decisiones con los mismos
+  candidatos. `terraform test` lo planifica con proveedores simulados.
+
+```powershell
+uv run pytest packages/genaipocs_core/tests/test_llm_managed_router.py
+terraform -chdir=infra/terraform/azure test
+# Con coste (pedir confirmación): los mismos emails por los dos modos
+uv run python scripts/llm_gateway_demo.py --limit 20 --router heuristic managed
+```
+
+### 11.3 Comparativa: routing propio frente a router gestionado
+
+| | Propio (heurístico, sección 4) | Azure · Foundry model router | AWS · Bedrock prompt router | GCP · Model Optimizer |
+|---|---|---|---|---|
+| Quién decide | Nuestro código (longitud y palabras clave) | Clasificador de Microsoft | Predicción de calidad de AWS | Clasificador de Google |
+| Candidatos | Los dos tiers de la nube | Hasta 45 modelos (subconjunto configurable) | **Dos de la misma familia** (Nova Lite/Pro) | Modelos de Gemini |
+| Ajuste | Código y tests | Modo `balanced`/`quality`/`cost` + subconjunto | Modelo de respaldo + diferencia de calidad | Preferencia calidad / equilibrio / coste |
+| Tarifa | 0 | 0,154 $/M de entrada (Data Zone) | 1 $ por 1000 peticiones | Sin tarifa publicada |
+| Regla de dominio | Dentro (`requires_strong`) | No la conoce: va delante | No la conoce: va delante | No la conoce: va delante |
+| Estado | Medido en Azure (20/20) | GA | GA (solo inglés) | Experimental |
+
+**Comportamiento por proveedor** (se rellena al ejecutar la demo en la nube; ver
+[pendientes](pendientes-cloud.md#fase-2-paridad)): OpenAI en Azure, Nova (Amazon) en AWS y Gemini en
+GCP, con los mismos 20 emails de triaje.
+
+| Nube y modelos | Modo | Acierto | Reparto de modelos | Coste | p50 |
+|---|---|---|---|---|---|
+| Azure (`gpt-4.1-nano` / `mini`) | heurístico | 20/20 | 18 / 2 | 0,00152 $ | — |
+| Azure (`gpt-4.1-nano` / `mini`) | gestionado | pendiente | pendiente | pendiente | pendiente |
+| AWS (Nova Lite / Pro) | gestionado | pendiente | pendiente | pendiente | pendiente |
+| GCP (Gemini) | gestionado | pendiente | pendiente | pendiente | pendiente |
+
+### 11.4 Hallazgos
+
+- **La tarifa de Bedrock cambia la cuenta.** Un turno corto de triaje (500 tokens de entrada y 100
+  de salida) cuesta 0,000054 $ en Nova Lite; el router añade 0,001 $, unas **18 veces** el modelo.
+  Frente a "siempre Nova Pro", desviar una petición a Lite ahorra 0,74 $/M de entrada y 2,96 $/M de
+  salida: con 100 tokens de salida, solo compensa por encima de **~950 tokens de entrada**, y eso
+  si todas se desviaran. Frente a nuestra heurística, que ya manda casi todo al barato gratis, no
+  puede ganar en coste: su valor estaría en acertar donde la heurística falla.
+- **En Azure la tarifa es por token**, y en Data Zone (0,154 $/M) supera al precio de entrada de
+  `gpt-4.1-nano` (0,10 $/M): con tráfico que casi siempre va al modelo barato, el router más que
+  duplica el coste de entrada. Compensa con un catálogo grande (45 modelos) que no queremos
+  mantener a mano, o en modo `quality` para tareas críticas.
+- **El *lock-in* no es simétrico.** El router de Azure mezcla proveedores (OpenAI, Anthropic,
+  Meta...); el de AWS solo una familia y sin Claude, que es el modelo potente de Genaipocs en AWS;
+  el de GCP solo Gemini y en experimental. Cada nube vende su router para su catálogo.
+- **El router no sustituye a la regla de dominio.** Ningún router sabe que `request_refund` tiene
+  efectos: la decisión de "esto va al modelo potente" sigue siendo nuestra.
+- **Idioma:** el de Bedrock está optimizado para inglés, y Genaipocs atiende en varios idiomas. Hay
+  que medirlo con los emails en español antes de fiarse.
+
+## 12. Decisiones (para defenderlas)
 
 - **Gateway como decoradores del puerto**: cada responsabilidad se prueba aislada y el orden es
   explícito (el rate limit va por proveedor, debajo del fallback; las trazas registran cada intento).
@@ -380,8 +490,13 @@ cifras reales saldrán del benchmark en la nube.
   se sigue con la implícita y se avisa en el log.
 - **Verificar modelos y API al empezar, no al planificar**: el plan de GCP tenía cinco días y los
   modelos que nombraba ya no eran válidos.
+- **El router gestionado va detrás de la regla de dominio** (2.P): delega la elección del modelo,
+  nunca la de "esto tiene efectos". Y su tarifa entra en el coste por petición, porque sin ella la
+  comparación con el routing propio sería engañosa.
+- **Subconjunto igual al routing propio** (2.P): para comparar decisiones, el router gestionado
+  elige entre los mismos modelos; ampliar el catálogo es otro experimento.
 
-## 12. Pendiente con coste (validación en cloud)
+## 13. Pendiente con coste (validación en cloud)
 
 - [x] Azure: Foundry con `gpt-4.1-mini` y `gpt-4.1-nano`, benchmark de caché, demo del gateway con
   los dos motores y trazas en Langfuse (resultados arriba).
@@ -395,8 +510,10 @@ cifras reales saldrán del benchmark en la nube.
   pendientes de la fase 11 ([pendientes-cloud.md](pendientes-cloud.md)).
 - [ ] GCP: prueba de humo de los dos modelos de Gemini y respuestas reales capturadas para
   sustituir los dobles ([pendientes](pendientes-cloud.md#fase-2-gcp)).
+- [ ] Paridad (2.P): los routers gestionados de las tres nubes con la demo comparativa
+  ([pendientes](pendientes-cloud.md#fase-2-paridad)).
 
-## 13. Preguntas y respuestas
+## 14. Preguntas y respuestas
 
 Las preguntas técnicas y de negocio/stakeholders de esta fase, con sus respuestas modelo, están en
 [preguntas y respuestas · fase 2](preguntas-y-respuestas.md#fase-2).

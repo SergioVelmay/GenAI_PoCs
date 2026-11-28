@@ -116,6 +116,39 @@ variable "foundry_models" {
   }
 }
 
+variable "model_router_enabled" {
+  description = "Despliega el router gestionado `model-router` (pasada 2.P). Requiere foundry_enabled."
+  type        = bool
+  default     = false
+}
+
+variable "model_router" {
+  # Versión GA 2025-11-18 (retirada el 20-05-2027). Modo: balanced | quality | cost. El subconjunto
+  # usa los valores exactos de la tabla de modelos del router; al menos dos, para que haya failover.
+  description = "Despliegue del router. `name` debe coincidir con AZURE_OPENAI__ROUTER_DEPLOYMENT."
+  type = object({
+    name           = string
+    version        = string
+    mode           = string
+    capacity_k_tpm = number
+    models         = list(object({ name = string, version = string }))
+  })
+  default = {
+    name           = "model-router"
+    version        = "2025-11-18"
+    mode           = "balanced"
+    capacity_k_tpm = 50
+    models = [
+      { name = "gpt-4.1-nano", version = "2025-04-14" },
+      { name = "gpt-4.1-mini", version = "2025-04-14" },
+    ]
+  }
+  validation {
+    condition     = contains(["balanced", "quality", "cost"], var.model_router.mode) && length(var.model_router.models) >= 2
+    error_message = "model_router.mode debe ser balanced, quality o cost, con al menos dos modelos."
+  }
+}
+
 variable "budget_limit_eur" {
   description = "Presupuesto mensual del grupo de recursos (solo avisa, no corta el gasto)."
   type        = number

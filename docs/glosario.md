@@ -55,6 +55,7 @@ Cómo usarlo: leer la columna "Qué es" en voz alta como si se lo explicaras a a
 | **Gateway** (genérico) | Punto de entrada único que centraliza lo transversal (auth, cuotas, logs) delante de varios servicios. | Hay tres: LLM gateway, MCP gateway y el edge (`edge_api`). |
 | **LLM gateway** | Capa entre el código y los proveedores de modelos: routing, fallback, cuotas, coste, trazas. | `adapters/llm_factory.build_gateway`; propio o LiteLLM tras el mismo puerto (fase 2). |
 | **Model routing** | Elegir el modelo más barato capaz para cada petición. | Triaje: 18/20 emails al modelo barato con 100 % de acierto; las escrituras siempre al potente. |
+| **Router gestionado** | Servicio de la nube que elige el modelo de cada petición con un clasificador propio del proveedor. | 2.P: Foundry model router, Bedrock prompt router y Model Optimizer detrás de `LLM_GATEWAY__ROUTER=managed`, con la regla de dominio delante. |
 | **Fallback** | Si un modelo/proveedor falla, pasar a otro configurado. | Configuración del gateway; en los agentes, fallback determinista al agotar iteraciones. |
 | **Prompt caching** | El proveedor reutiliza el prefijo estable del prompt: menos coste y latencia. | Azure: automático ≥ 1.024 tokens (98 % cacheado, −58 % coste). Bedrock: explícito con `cachePoint`. |
 | **TPM / RPM** | *Tokens/Requests Per Minute*: la cuota de un despliegue de modelo. | Un 429 con 50 K TPM y prompts de 10 K; la cuota es el techo del autoescalado (fase 10). |

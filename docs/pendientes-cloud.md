@@ -132,6 +132,30 @@ terraform -chdir=infra/terraform/gcp plan     # solo debe añadir roles/aiplatfo
 - [ ] **Caché implícita frente a explícita** (2.G3): `llm_cache_benchmark.py --provider gcp --tier cheap` con `--gemini-cache implicit` y `explicit` (5 llamadas por modo), y `--tier strong` para ver que Hydrogen degrada a la implícita. Anotar el acierto real de la implícita, el coste de escritura y almacenamiento de la explícita y confirmar en `gcloud`/consola que la caché se borra al terminar. Comprobar el mínimo de tokens real de Flash-Lite y si `global` admite cachés explícitas.
 - [ ] **LiteLLM con firmas reales**: un bucle de tools con `LLM_GATEWAY__ENGINE=litellm` y Gemini, para confirmar que la firma separada del id (`provider_specific_fields`) es la que LiteLLM devuelve a Gemini, y el aviso de temperatura en el log.
 
+<a id="fase-2-paridad"></a>
+
+### Paridad (pasada 2.P)
+
+Coste: céntimos por demo (tarifa del router + modelos). Lo de AWS espera a la región de la
+[fase 13](plan-fases.md#fase-13--despliegue-en-aws-producción-principal): el router de Bedrock no
+está en `eu-north-1`.
+
+- [ ] **Azure**: `model_router_enabled = true` y `terraform -chdir=infra/terraform/azure plan`/`apply`
+  (solo debe añadir `azapi_resource.model_router`); después
+  `llm_gateway_demo.py --limit 20 --router heuristic managed` con `LLM_PROVIDER=azure`. Anotar
+  acierto, reparto de modelos (¿elige `gpt-4.1-nano` donde la heurística lo hacía?), coste con la
+  tarifa del router y latencia (el router añade un salto). Confirmar que `api_version` 2024-10-21
+  sirve el despliegue `model-router` y que `model` devuelve el modelo elegido.
+- [ ] **AWS**: `aws bedrock list-prompt-routers` en la región elegida, copiar el ARN del router por
+  defecto de Nova a `BEDROCK__PROMPT_ROUTER_ARN` y repetir la demo con `LLM_PROVIDER=aws`.
+  Confirmar `trace.promptRouter.invokedModelId` en `converse` y en `converse_stream`, si el router
+  admite el *tool use* forzado de los *structured outputs* y cómo enruta los emails en español.
+- [ ] **GCP**: la demo con `LLM_PROVIDER=gcp`. Confirmar si `model-optimizer-exp-04-09` sigue
+  respondiendo con `model_selection_config` (si no, probar `routing_config.auto_mode`), qué modelos
+  elige (`model_version`) y si cobra algo aparte del modelo.
+- [ ] Rellenar la tabla "Comportamiento por proveedor" de
+  [fase 2 · 11.3](fase-2-modelos.md#113-comparativa-routing-propio-frente-a-router-gestionado).
+
 ## Fase 3 · Indexación ([doc](fase-3-comparativa.md))
 
 - [x] Azure (18-10-2026): Terraform aplicado (AI Search Basic en `francecentral`), outputs en el `.env`, corpus clasificado con ACL (`scripts/classify_corpus.py`), carril B con Service Bus + Foundry + AI Search y carril A con indexer + skillset (vectorizador verificado). Medidas y hallazgos en [fase 3](fase-3-comparativa.md#6-resultados-en-azure-18-10-2026).

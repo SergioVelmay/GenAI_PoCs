@@ -5,6 +5,11 @@ trazas en Langfuse y coste por petición. Compara la intención predicha con la 
 
     uv run python scripts/llm_gateway_demo.py --limit 20
     $env:LLM_GATEWAY__ENGINE="litellm"; uv run python scripts/llm_gateway_demo.py --limit 20
+    uv run python scripts/llm_gateway_demo.py --limit 20 --router heuristic managed   # 2.P
+
+Con varios `--router`, los mismos emails pasan por cada uno y se comparan acierto, modelos
+elegidos y coste (con `managed`, incluida la tarifa del router gestionado). Tiene coste: pedir
+confirmación antes de ejecutarlo contra la nube.
 """
 
 from __future__ import annotations
@@ -14,7 +19,7 @@ import asyncio
 import json
 import random
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -23,7 +28,7 @@ from genaipocs_core.adapters.llm_factory import build_gateway, build_tracer
 from genaipocs_core.adapters.memory import RecordingTracer
 from genaipocs_core.application import SupportTriageService
 from genaipocs_core.application.llm import CompositeTracer
-from genaipocs_core.config import get_settings
+from genaipocs_core.config import Settings, get_settings
 from genaipocs_core.domain import SupportEmail, SupportIntent
 from genaipocs_core.ports import LLMError
 
@@ -55,22 +60,47 @@ def load_emails(path: Path, limit: int, seed: int) -> list[tuple[SupportEmail, S
     ]
 
 
+def with_router(settings: Settings, router: str) -> Settings:
+    """Los mismos settings con otro modo de routing (heuristic, llm o managed)."""
+    gateway = settings.llm_gateway.model_copy(update={"router": router})
+    return settings.model_copy(update={"llm_gateway": gateway})
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Demo del LLM Gateway con triaje de soporte")
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--emails", type=Path, default=ROOT / "data/synthetic/support_emails.jsonl")
+    parser.add_argument(
+        "--router",
+        nargs="+",
+        choices=["heuristic", "llm", "managed"],
+        help="Uno o varios modos de routing a comparar (por defecto, LLM_GATEWAY__ROUTER).",
+    )
     args = parser.parse_args()
 
-    settings = get_settings()
+    base = get_settings()
+    emails = load_emails(args.emails, args.limit, args.seed)
+    summary: list[tuple[str, int, int, Decimal, str]] = []
+    for router in args.router or [base.llm_gateway.router]:
+        summary.append(await run(with_router(base, router), emails, args.concurrency))
+    if len(summary) > 1:
+        print("\nComparativa (mismos emails):")
+        for router, ok, answered, cost, models in summary:
+            print(f"  {router:<10} acierto={ok}/{answered}  coste=${cost:.6f}  {models}")
+
+
+async def run(
+    settings: Settings, emails: list[tuple[SupportEmail, SupportIntent]], concurrency: int
+) -> tuple[str, int, int, Decimal, str]:
+    """Un pase del triaje con un modo de routing: acierto, coste y reparto de modelos."""
     ledger = RecordingTracer()
     tracer = build_tracer(settings)
     service = SupportTriageService(
         build_gateway(settings, tracer=CompositeTracer([tracer, ledger]))
     )
-    emails = load_emails(args.emails, args.limit, args.seed)
-    semaphore = asyncio.Semaphore(args.concurrency)
+    semaphore = asyncio.Semaphore(concurrency)
 
     async def triage(email: SupportEmail, expected: SupportIntent) -> bool | None:
         async with semaphore:
@@ -127,6 +157,9 @@ async def main() -> None:
     flush = getattr(tracer, "flush", None)
     if callable(flush):
         flush()
+    models = Counter(r.response.model for r in ledger.records if r.response is not None)
+    spread = ", ".join(f"{model} x{n}" for model, n in models.most_common())
+    return settings.llm_gateway.router, sum(answered), len(answered), total, spread
 
 
 if __name__ == "__main__":
