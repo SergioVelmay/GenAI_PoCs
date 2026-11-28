@@ -124,7 +124,7 @@ Con un extra instalado (`uv sync --all-packages --extra pii`...), `uv run --no-s
 | G | **Pasada GCP** por las fases 0–12 (hechas todas, de la 0.G a la 12.G) | ✅ Hecha* | | `docs/fase-13-12-checkpoint.md#plan-gcp` |
 | G→13 | Checkpoint: emuladores oficiales (AWS Emulator con el Terraform de AWS aplicado en la CI, Azurite, Service Bus 2.0.1) | ✅ Hecha | — | `docs/fase-13-g-checkpoint.md` |
 | G→13 B | Checkpoint B: índice del README por pasada GCP, conectores contrastados con el repo, pasada de paridad y cuentas revisadas (`docs/preparar-cuentas-cloud.md`) | ✅ Hecha | — | `docs/fase-13-g-checkpoint-b.md` |
-| P | **Pasada de paridad**: Azure, AWS y GCP iguales antes de desplegar (subfases `N.P1`...); en curso: **2.P** (router gestionado; rama `fase/2-p`), después 5.P | | — | `docs/conectores-candidatos.md#pasada-p` |
+| P | **Pasada de paridad**: Azure, AWS y GCP iguales antes de desplegar (subfases `N.P1`...); 2.P ✅ Hecha* (router gestionado, PR #19); siguiente: **5.P** (Bedrock Evaluations) | | — | `docs/conectores-candidatos.md#pasada-p` |
 | 13 | Despliegue en AWS con Terraform (ECS/EKS, Lambda, Bedrock, SQS, Aurora, OIDC) | | | `docs/plan-fases.md` |
 | 14 | Despliegue espejo en Azure (ACA/AKS, Functions, Foundry, Service Bus, AI Search) | | | `docs/plan-fases.md` |
 | 15 | Despliegue espejo en GCP (Cloud Run/GKE, Agent Runtime, Pub/Sub, Cloud SQL/AlloyDB, Vector Search) | | | `docs/plan-fases.md` |

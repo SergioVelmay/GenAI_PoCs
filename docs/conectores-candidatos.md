@@ -56,7 +56,7 @@ equivalente en las otras dos nubes (o la constatación de que no existe).
 
 | Pasada | Candidato | Por qué | Puerto | Esfuerzo |
 |---|---|---|---|---|
-| 2.P | **Bedrock Intelligent Prompt Routing** y su equivalente en Azure y GCP (**aceptado** el 28-11-2026) | Router gestionado frente al routing propio del gateway | `LLMPort` / gateway | M |
+| 2.P | **Bedrock Intelligent Prompt Routing** y su equivalente en Azure y GCP (**hecho** en la 2.P, 28-11-2026: [fase 2 · 11](fase-2-modelos.md#11-paridad-pasada-2p)) | Router gestionado frente al routing propio del gateway | `LLMPort` / gateway | M |
 | 3.P | **Parsing gestionado**: Document Intelligence / Content Understanding, Textract / Bedrock Data Automation, Document AI / Layout Parser de RAG Engine | PDF, Office y tablas antes del troceo | Indexador | M |
 | 3.P | **Event Grid · EventBridge · Eventarc** para "documento publicado" | Eventos sin cola propia frente al contrato de brokers | Indexador / brokers | M |
 | 3.P | **Event Hubs** (tiene emulador oficial, inventariado en el G→13) | Log tipo Kafka en vez de cola | Contrato de brokers | M |

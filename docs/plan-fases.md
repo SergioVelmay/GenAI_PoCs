@@ -133,7 +133,7 @@ dobles en local y coste 0.
   gestionado, eventos gestionados, Event Hubs, Cosmos DB con vectores, DiskANN y ScaNN, GraphRAG,
   AgentCore Policy e Identity saliente, Bedrock Agents, AgentCore Evaluations y AI Red Teaming
   Agent, con sus equivalentes en las otras nubes.
-- **2.P (decidido el 28-11-2026):** entra el router gestionado de las tres nubes (en AWS, con Nova:
+- **2.P (✅ Hecha\*, 28-11-2026, PR #19):** entra el router gestionado de las tres nubes (en AWS, con Nova:
   el router de Bedrock no admite Claude, y se documenta como hallazgo). "Mismo modelo por otra
   nube" sale de la pasada y pasa a [extras](#fase-16--extras): primero se quiere medir cómo cambia
   el comportamiento con el proveedor de cada nube (OpenAI en Azure, Anthropic y Amazon en AWS,
